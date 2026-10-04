@@ -167,18 +167,21 @@ it; the rest follow as they are redrawn.
   for the wider face rather than fitting labels to Ubuntu Sans exactly.
 - **Three marks, three meanings.** Teal is what the figure explains:
   `#00806a` light, `#3ecfb0` dark. A teal cell is a 2px teal outline with a
-  soft ring round it (the same teal at 28%, 3px wide, 3 units out) and a teal
-  skeleton bar; the ring is what keeps it apart from a Customer cell, whose
-  lane line is a green. Amber is a cell that no longer holds: a solid
-  1.25px `#b45309` outline (dark `#fbbf6a`), no fill, and the cell keeps its
-  skeleton bar, drawn in the same amber at 55%, because it is content that is wrong
-  rather than content that is missing. The amber bar is what tells it from a
-  Support cell, whose lane line is an amber too. Dashed means not yet,
-  missing or proposed. Everything else stays ink, muted ink or a lane line,
-  so the eye lands on the teal first.
+  faint teal halo round it (the same teal at 28%, 3px wide, 3 units out), no
+  fill, and a teal skeleton bar: the app's selection ring, drawn small. The
+  halo is what keeps it apart from a Customer cell, because teal against the
+  Customer line's green is about 1.1:1 and the outline alone does not read.
+  A stale cell — one that no longer holds — is the only filled cell: a faint
+  amber wash, `#fff4e0` (dark `#33260f`), under a solid 1.25px amber outline,
+  `#b45309` (dark `#fbbf6a`), and it keeps its skeleton bar, drawn in the
+  same amber at 55%, because it is content that is wrong rather than content
+  that is missing. The wash is what carries it: an amber outline alone
+  measures about 1.0:1 against the Support and Backstage lane lines. Dashed
+  means not yet, missing or proposed. Everything else stays ink, muted ink
+  or a lane line, so the eye lands on the teal first.
 - **Ink.** Text `oklch(.21 .008 175)` (`#151a18`), muted `oklch(.47 .008 175)`
   (`#565c5a`). Dark: `#ebf0ee` and `#a6acaa`.
-- **A cell is an outline, never a fill.** `fill: none`, a 1.25px stroke in
+- **A cell is an outline, not a fill.** `fill: none`, a 1.25px stroke in
   its lane's line colour, radius 8, and one translucent-ink skeleton bar
   inside. The row's swatch is a 10px square in the same colour. The line
   colours are the board's own: each lane is its role's family at step 11,
@@ -195,8 +198,9 @@ it; the rest follow as they are redrawn.
 
   A lane the table leaves out takes its role's step-11 colour the same way
   (`colors.css`, `--color-{family}-1100`), measured before it ships.
-  `blueprint-anatomy` is drawn to this recipe; figures still filled with the
-  earlier lane pastels move to it as they are redrawn.
+  `blueprint-anatomy` is drawn to this recipe. Figures still carrying lane
+  pastel fills move to it as they are redrawn; their stale cells already
+  match it.
 
 - **Borders are translucent ink** on everything that is not a cell — cards,
   wells, chips: about 9% at rest, 17% for emphasis.

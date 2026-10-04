@@ -1,6 +1,6 @@
 {
   "name": "create-uno-blueprint",
-  "version": "2.6.3",
+  "version": "2.6.4",
   "description": "Start an Uno Blueprint workspace with one command.",
   "type": "module",
   "bin": {

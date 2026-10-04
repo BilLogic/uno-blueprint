@@ -13053,7 +13053,7 @@ $featured_image$;
 -- nothing; on an empty replay it is the second write of the same string.
 --
 -- The text is stated once, in the block below, so the write and its proof
--- cannot disagree.
+-- cannot disagree. It must match `21000124000000`'s text word for word.
 --
 -- The whole migration is portable core: a comment on a plain column.
 

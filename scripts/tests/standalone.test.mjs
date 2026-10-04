@@ -88,7 +88,7 @@ test('the template goes by one name', () => {
 test('the name patterns are bounded, so the package name and other words pass', () => {
   assert.deepEqual(labels("import { App } from 'uno-blueprint'"), [])
   assert.deepEqual(labels('github:BilLogic/uno-blueprint#v1.0.0'), [])
-  assert.deepEqual(labels("raise exception 'proof' using errcode = 'UB001';"), [])
+  assert.deepEqual(labels("raise exception 'proof' using errcode = 'ASB02';"), [])
   assert.deepEqual(labels('the Asbestos report, lowercase asb'), [])
   assert.deepEqual(labels('a usb: device and a dsb: flag'), [])
   assert.deepEqual(labels('the ub-marketplace, and ub:map'), [])

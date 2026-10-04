@@ -1,0 +1,5 @@
+---
+'uno-blueprint': minor
+---
+
+Cover figures draw a cell as a coloured outline rather than a filled box. The cover-page art direction states the recipe: a cell is `fill: none` with a 1.25px stroke in its lane's line colour, which is the board's own lane family at step 11 (the step the board draws a cell's ring in), measured at 4.72:1 or better against the plate and card in light and 5.79:1 or better in dark. The lane stroke table replaces the lane pastel table. Teal emphasis is a 2px teal outline with a faint teal halo, the app's selection ring, because teal against the Customer line's green is about 1.1:1 without it. A cell that no longer holds is the one filled cell: a faint amber wash under an amber outline, with its amber skeleton bar, because an amber outline alone is about 1.0:1 against the Support and Backstage lines. A dashed outline (`3 3`) means not yet, missing or proposed. Cards and wells keep their translucent-ink borders. `blueprint-anatomy` is redrawn to it, light and dark, with its layout and panel-label markers unchanged; the other figures keep their pastel fills until they are redrawn.

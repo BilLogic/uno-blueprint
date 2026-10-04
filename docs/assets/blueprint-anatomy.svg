@@ -21,17 +21,18 @@
     .zoom { stroke: #00806a; stroke-width: 1; stroke-opacity: 0.55; fill: none; }
     .skel { fill: #151a18; fill-opacity: 0.16; }
     .skel-teal { fill: #00806a; }
-    .cell { stroke: #151a18; stroke-opacity: 0.09; }
-    .cell-focus { stroke: #00806a; stroke-opacity: 1; stroke-width: 1.5; }
+    .cell, .cell-focus { fill: none; stroke-width: 1.25; }
     .hit { fill: #00806a; }
     .tick { fill: #565c5a; }
     .miss { fill: #151a18; fill-opacity: 0.16; }
     .badge { fill: #00806a; stroke: #ffffff; stroke-width: 2; }
     .faded { opacity: 0.4; }
-    .lane-c { fill: #e8f3ed; } .sq-c { fill: #cfe6d9; }
-    .lane-f { fill: #fdf1e3; } .sq-f { fill: #f6e0bd; }
-    .lane-b { fill: #fbe9f0; } .sq-b { fill: #f2cfdf; }
-    .lane-s { fill: #ecebf5; } .sq-s { fill: #d9d6ec; }
+    .lane-c { stroke: #18794e; } .sq-c { fill: #18794e; }
+    .lane-f { stroke: #cd1d8d; } .sq-f { fill: #cd1d8d; }
+    .lane-b { stroke: #bd4b00; } .sq-b { fill: #bd4b00; }
+    .lane-s { stroke: #ad5700; } .sq-s { fill: #ad5700; }
+    .cell-focus { stroke: #00806a; stroke-width: 2; }
+    .halo { fill: none; stroke: #00806a; stroke-opacity: 0.28; stroke-width: 3; }
   </style>
   <defs>
     <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -60,7 +61,7 @@
   <rect class="lane-c cell" x="496.5" y="96.5" width="92" height="36" rx="8"/><rect class="skel" x="508.5" y="112" width="58" height="5" rx="2.5"/>
   <rect class="sq-f" x="48" y="169" width="10" height="10" rx="3"/>
   <text class="strong" x="66" y="179">Frontstage</text>
-  <rect class="lane-f cell-focus" x="288.5" y="156.5" width="92" height="36" rx="8"/><rect class="skel-teal" x="300.5" y="172" width="45" height="5" rx="2.5"/>
+  <rect class="halo" x="285.5" y="153.5" width="98" height="42" rx="11"/><rect class="lane-f cell-focus" x="288.5" y="156.5" width="92" height="36" rx="8"/><rect class="skel-teal" x="300.5" y="172" width="45" height="5" rx="2.5"/>
   <rect class="lane-f cell" x="392.5" y="156.5" width="92" height="36" rx="8"/><rect class="skel" x="404.5" y="172" width="37" height="5" rx="2.5"/>
   <rect class="sq-b" x="48" y="229" width="10" height="10" rx="3"/>
   <text class="strong" x="66" y="239">Backstage</text>
@@ -80,7 +81,7 @@
   <path class="trace" d="M334,193 V209" marker-end="url(#headTeal)"/>
   <path class="flow" d="M381,234 H385" marker-end="url(#headMuted)"/>
   <path class="flow" d="M438,253 V269" marker-end="url(#headMuted)"/>
-  <rect class="lane-f cell-focus" x="48.5" y="340.5" width="32" height="22" rx="8"/><rect class="skel-teal" x="56.5" y="349.5" width="14" height="4" rx="2"/>
+  <rect class="halo" x="45.5" y="337.5" width="38" height="28" rx="11"/><rect class="lane-f cell-focus" x="48.5" y="340.5" width="32" height="22" rx="8"/><rect class="skel-teal" x="56.5" y="349.5" width="14" height="4" rx="2"/>
   <text class="label" x="92" y="356">A cell: one lane at one step</text>
   <path class="trace" d="M372,351 H404" marker-end="url(#headTeal)"/>
   <text class="label" x="420" y="356">Leads to: one cell starts the next</text>

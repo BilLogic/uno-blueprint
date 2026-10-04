@@ -1,5 +1,5 @@
 ---
-summary: The nine assembled surfaces, why they are cut by name rather than by source folder, the declared claim mapping the build enforces, and which side of the package seam owns each claim.
+summary: The nine assembled surfaces, why they are cut by name rather than by source folder, the declared claim mapping the build enforces, which side of the package seam owns each claim, and the shape, edge, elevation and dashed-versus-solid rules every surface shares.
 ---
 
 # Composition
@@ -41,7 +41,103 @@ appeared.
   command group heading does — the wrapper that renders it restates the rule.
 
 `src/components/sentenceCaseLabels.test.ts` holds this across the authored
-components, the dev pages and the stylesheets, and fails naming the line.
+components, the dev pages, `lib/`, `contexts/`, the app root and the
+stylesheets, and fails naming the line.
+
+## Shape, edge and elevation
+
+Four rules every surface shares, so they live here rather than in any one
+surface's document. They follow the marketing site, and each is carried by a
+token rather than by a value typed at the call site.
+
+### Radius ladder
+
+Multiplicative on `--radius` (8px in the template), declared in
+`src/styles/theme.css`:
+
+| Rung | Value | Job |
+|---|---|---|
+| `rounded-sm` | 4px | a corner nested one padding step inside a control |
+| `rounded-md` | 6px | controls: buttons, inputs, menu items, badges |
+| `rounded-lg` | 8px | canvas cells, popovers, small tiles, canvas corner chrome, boxes inline in a surface |
+| `rounded-xl` | 16px | surfaces: cards, panels, dialogs, sheets, cover figure frames |
+
+In short: cells 8, controls 6, surfaces 16, and a nested corner is the outer
+radius minus the padding between them. A segment inside a `p-1` `rounded-lg`
+track is `rounded-sm`. When the padding is not a rung, spell it from the
+outer rung, for example `rounded-[calc(var(--radius-lg)-5px)]`, rather than
+picking the nearest rung by eye.
+
+Controls stay at 6px rather than following the site's buttons up to 8. The
+vendored menus, selects, command lists and tabs wrap md items in a `p-1`
+`rounded-lg` box, and an 8px item would meet that box's corner square-on.
+
+`xl` is for surfaces, not small tiles. A 40px toolbar, a load-progress tile
+or a zoom button at 16px reads as fully rounded, so those stay on `lg`. The canvas's
+bottom-right corner stack (zoom cluster, panel error card, inspector) shares
+one shape, and because the zoom cluster is small buttons that shape is `lg`
+([canvas](canvas.md)).
+
+### Border steps
+
+A neutral edge is ink laid translucently over whatever it sits on, in three
+steps. Each step is a per-theme dial in the theme files (`--border-alpha-*`),
+stated at `--contrast: 0.5`, and `semantic.css` scales it with the contrast
+knob along the same ramp as the other neutral rungs. At the shipped contrast
+the steps render at:
+
+| Token | Utility | Light | Dark | Job |
+|---|---|---|---|---|
+| `--border` | `border-border`, bare `border` | 9% | 8% | resting: the edge every surface and cell sits behind |
+| `--border-strong` | `border-strong` | 17% | 15% | hover, and any mark drawn on the canvas ground itself |
+| `--border-stronger` | `border-stronger` | 42% | 45% | hot: the thing being acted on, a checked toggle |
+
+The ladder stays in order at every contrast from 0 to 1:
+`border-muted` < `border` < `input` and `border-overlay` < `border-strong` <
+`border-stronger`. `src/styles/tokens.test.ts` sweeps the knob and holds it.
+
+The softer `border-muted` divider, the `border-overlay` edge of a floating
+plane and the `border-input` / `border-control-hover` pair on form controls
+keep their own rungs. Selection is not a border step: it takes the primary
+or role ring.
+
+### Elevation
+
+A resting surface separates from its ground by its border, not by a shadow.
+Cards, panels, sticky headers, toolbars that sit in the layout, and the
+buttons this application styles itself carry no shadow.
+
+There are two named exceptions:
+
+- **Outline buttons** keep the vendored hairline `shadow-sm` (and its
+  `hover:shadow`). `src/components/ui/` stays pristine, so the primitive's own
+  treatment stands.
+- **The segmented control's pressed segment** keeps its `shadow-sm`. It is a
+  raised selection inside its track, a state cue rather than elevation.
+
+A shadow means *this floats*. It goes on popovers, menus, tooltips, sheets,
+dialogs, the floating agent dock and cell panel, chrome pinned over the canvas,
+and anything mid-drag. Use `shadow-md` (also `shadow-floating`) for chrome and
+popovers and `shadow-lg` for sheets and dialogs. Dark mode restates both with a
+one-pixel inset highlight along the top edge, which is how a floating plane
+catches the light on a dark ground. Keep that inset when overriding a shadow.
+
+### Dashed versus solid
+
+Dashed means *not yet, missing, or off the happy path*. Solid means *it
+exists*. The canvas already speaks this vocabulary, and new chrome must too:
+
+- an unbuilt cell is dashed, and so
+  is its status badge (`BlueprintCellButton`, `StatusBadge`);
+- a touchpoint placement the registry lacks is dashed (`TouchpointCellFace`);
+- a path's section frame is solid for the happy path and dashed for every
+  other path (`pathColorTheme`, `pathKindTheme`);
+- an empty slot, an add target or a drop zone is dashed, because the thing it
+  stands for does not exist yet.
+
+So a deprecated cell stays solid, because it still exists and is only fading.
+Do not use a dashed edge for decoration, and do not draw something that
+exists with one.
 
 ## Why not one doc per source folder
 

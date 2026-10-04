@@ -538,46 +538,84 @@ export function winningDeclaration(
  * name resolves to nothing, which is what the browser does. `medium` selects
  * which cascade is being asked about — the screen one by default, the printed
  * one on request — and `scope` which subtree, the root by default.
+ *
+ * A fallback arm is itself resolved, so a nested one —
+ * `var(--a, var(--b, 12px))` — chases `--b` when `--a` is unset, as the
+ * browser does. `defined` names declarations this tree does not make, the way
+ * an embedding app's own `:root` would: each one wins over the cascade, which
+ * is how an override seam is asked what it does when someone fills it.
  */
 export function resolveValue(
   name: string,
   theme: Theme,
   medium: Medium = 'screen',
   scope: Scope = [],
+  defined: Readonly<Record<string, string>> = {},
 ): string | undefined {
-  return resolveIn(name, theme, medium, scope, new Set())
+  return resolveIn(name, { theme, medium, scope, defined }, new Set())
+}
+
+type Resolution = {
+  theme: Theme
+  medium: Medium
+  scope: Scope
+  defined: Readonly<Record<string, string>>
 }
 
 function resolveIn(
   name: string,
-  theme: Theme,
-  medium: Medium,
-  scope: Scope,
+  at: Resolution,
   seen: Set<string>,
 ): string | undefined {
   if (seen.has(name)) return undefined
   seen.add(name)
-  const declaration = winningDeclaration(name, theme, medium, scope)
-  if (!declaration) return undefined
-  return substitute(declaration.value, theme, medium, scope, seen)
+  const value = Object.hasOwn(at.defined, name)
+    ? at.defined[name]
+    : winningDeclaration(name, at.theme, at.medium, at.scope)?.value
+  if (value === undefined) return undefined
+  return substitute(value, at, seen)
 }
 
-function substitute(
-  value: string,
-  theme: Theme,
-  medium: Medium,
-  scope: Scope,
-  seen: Set<string>,
-): string {
-  return value.replace(
-    /var\(\s*(--[a-zA-Z0-9-]+)\s*(?:,\s*([^()]*))?\)/g,
-    (whole, referenced: string, fallback: string | undefined) => {
-      const resolved = resolveIn(referenced, theme, medium, scope, new Set(seen))
-      if (resolved !== undefined) return resolved
-      if (fallback !== undefined) return fallback.trim()
-      return whole
-    },
-  )
+/**
+ * Every `var()` in `value` replaced by what it resolves to. Parsed with a
+ * paren depth rather than a pattern, so a fallback that holds its own
+ * parentheses — a nested `var()`, a `calc()` — is read whole. A reference
+ * that resolves to nothing and has no fallback is left as written.
+ */
+function substitute(value: string, at: Resolution, seen: Set<string>): string {
+  let out = ''
+  let cursor = 0
+  const opener = /\bvar\(/g
+  for (let match = opener.exec(value); match; match = opener.exec(value)) {
+    const open = match.index + match[0].length
+    let depth = 0
+    let comma = -1
+    let close = -1
+    for (let index = open; index < value.length; index += 1) {
+      const char = value[index]
+      if (char === '(') depth += 1
+      else if (char === ')') {
+        if (depth === 0) {
+          close = index
+          break
+        }
+        depth -= 1
+      } else if (char === ',' && depth === 0 && comma === -1) comma = index
+    }
+    if (close === -1) break
+    const referenced = value.slice(open, comma === -1 ? close : comma).trim()
+    const resolved = resolveIn(referenced, at, new Set(seen))
+    const replacement =
+      resolved !== undefined
+        ? resolved
+        : comma !== -1
+          ? substitute(value.slice(comma + 1, close).trim(), at, seen)
+          : value.slice(match.index, close + 1)
+    out += value.slice(cursor, match.index) + replacement
+    cursor = close + 1
+    opener.lastIndex = cursor
+  }
+  return out + value.slice(cursor)
 }
 
 // ---------------------------------------------------------------------------

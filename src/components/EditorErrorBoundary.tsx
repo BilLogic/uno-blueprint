@@ -113,7 +113,7 @@ export class EditorErrorBoundary extends Component<Props, State> {
     const leads = scope === 'app' ? 'reload' : 'retry'
     return (
       <div className="flex h-full min-h-0 w-full items-center justify-center bg-background p-8">
-        <div className="flex max-w-md flex-col items-start gap-3 rounded-lg border border-border bg-card p-6 shadow-sm">
+        <div className="flex max-w-md flex-col items-start gap-3 rounded-xl border border-border bg-card p-6">
           <h1 className="text-base font-semibold text-foreground">
             Something went wrong
           </h1>

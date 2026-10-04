@@ -7,17 +7,11 @@
     @apply border-border outline-ring;
   }
   /*
-   * The mono seam, filled. Supabase's `--font-mono` reads
-   * `var(--font-source-code-pro, …)` and their app injects the loaded face
-   * here; this is that injection, pointing at the @fontsource family name.
-   *
-   * `--font-sans` has no matching line on purpose: its default in theme.css is
-   * already Ubuntu Sans, so the seam stays open for an embedding app to
-   * override rather than being spent on our own default.
+   * Neither font seam is filled here. `--font-sans` and `--font-mono` in
+   * theme.css already default to Ubuntu Sans and Ubuntu Sans Mono, so
+   * `--app-font-sans` and `--app-font-mono` stay open for an embedding app to
+   * override rather than being spent on our own defaults.
    */
-  :root {
-    --font-source-code-pro: 'Source Code Pro Variable', 'Source Code Pro';
-  }
   /*
    * A real height chain from the viewport down. The shells size with
    * viewport units (svh/dvh), but embedded webviews and preview panes have

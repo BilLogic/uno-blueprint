@@ -52,7 +52,7 @@ function AgentDockChrome({
         // ONE edge treatment: the token border carries it, the shadow does
         // the lift. A ring on top of the border read as a second outline
         // (and `ring-black/…` was a raw colour literal besides).
-        floating && 'rounded-lg border border-border bg-popover shadow-lg',
+        floating && 'rounded-xl border border-border bg-popover shadow-lg',
         dropTarget && 'ring-2 ring-primary/50',
       )}
     >

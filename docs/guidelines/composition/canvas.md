@@ -201,7 +201,10 @@ the theme.
 
 Three pieces float over the canvas in the bottom-right corner: the zoom
 cluster, the panel error card, and the inspector drawer. They share one
-shape (`rounded-lg`) and one shadow (`shadow-md`). The error card sits one
+shape (`rounded-lg`) and one shadow (`shadow-md`). The shape is `lg` and
+not the 16px surface rung, even though the inspector is a panel: the zoom
+cluster is a row of small buttons, and `xl` on a small tile reads as fully rounded
+(the radius ladder in [overview](overview.md)). The error card sits one
 gutter above the zoom cluster (`bottom-16` vs `bottom-4`) so the two never
 overlap — a spatial rule, not a z-index fight with the drawer primitive.
 The inspector already clears the same band via `CELL_DETAIL_PANEL_BOTTOM_GAP_PX`.

@@ -50,7 +50,7 @@ export function EntityTitleAffordance({
       data-open={open ? '' : undefined}
       className={cn(
         'group/entity-title relative flex min-w-0 items-center gap-2 rounded-md px-2 py-1',
-        'transition-colors duration-(--motion-micro)',
+        'transition-colors ease-arrive motion-reduce:transition-none duration-(--motion-micro)',
         'hover:bg-sidebar-accent data-open:bg-sidebar-accent',
         'has-[button:focus-visible]:ring-2 has-[button:focus-visible]:ring-ring/50',
         className,

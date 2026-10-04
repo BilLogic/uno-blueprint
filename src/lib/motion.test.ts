@@ -7,6 +7,11 @@ import {
   CANVAS_REVEAL_DONE,
 } from '@/contexts/canvasRevealContext'
 import {
+  EASE_POINTS,
+  MOTION_EASE,
+  MOTION_SPRING_LINEAR,
+  cubicBezierEase,
+  easeMove,
   MOTION_CAMERA_EASE,
   MOTION_CAMERA_MS,
   MOTION_FADE_MS,
@@ -39,19 +44,86 @@ test('motion durations match between motion.ts and animations.css', () => {
   assert.equal(cssToken('--motion-micro'), `${MOTION_MICRO_MS}ms`)
 })
 
-test('structural ease matches between motion.ts and the @theme key', () => {
-  // Whitespace-insensitive: Prettier formats the cubic-bezier args in CSS.
-  assert.equal(
-    cssToken('--ease-structural').replace(/\s+/g, ' '),
-    MOTION_STRUCTURAL_EASE.replace(/\s+/g, ' '),
-  )
+/** Whitespace-insensitive: Prettier formats the cubic-bezier args in CSS. */
+const squash = (value: string) => value.replace(/\s+/g, ' ')
+
+const ROLES = ['arrive', 'leave', 'move', 'spring'] as const
+
+test('the four role curves match between motion.ts and the @theme keys', () => {
+  for (const role of ROLES) {
+    assert.equal(
+      squash(cssToken(`--ease-${role}`)),
+      squash(MOTION_EASE[role]),
+      `--ease-${role}`,
+    )
+    assert.equal(
+      MOTION_EASE[role],
+      `cubic-bezier(${EASE_POINTS[role].join(', ')})`,
+      `MOTION_EASE.${role} is written from its control points`,
+    )
+  }
 })
 
-test('camera ease matches between motion.ts and the @theme key', () => {
-  assert.equal(
-    cssToken('--ease-camera').replace(/\s+/g, ' '),
-    MOTION_CAMERA_EASE.replace(/\s+/g, ' '),
+test("the site's four curves, by role", () => {
+  assert.deepEqual(EASE_POINTS, {
+    arrive: [0.22, 1, 0.36, 1],
+    leave: [0.6, 0, 0.85, 0.25],
+    move: [0.65, 0, 0.35, 1],
+    spring: [0.34, 1.45, 0.5, 1],
+  })
+})
+
+test('structural is arrive and camera is move, in both files', () => {
+  assert.equal(MOTION_STRUCTURAL_EASE, MOTION_EASE.arrive)
+  assert.equal(MOTION_CAMERA_EASE, MOTION_EASE.move)
+  assert.equal(cssToken('--ease-structural'), 'var(--ease-arrive)')
+  assert.equal(cssToken('--ease-camera'), 'var(--ease-move)')
+})
+
+test('the spring upgrades to linear() only where the browser has it', () => {
+  const block = css.match(
+    /@supports\s*\(transition-timing-function:\s*linear\(0,\s*1\)\)\s*\{([\s\S]*?)\n\}/,
   )
+  assert.ok(block, 'animations.css gates the linear() spring behind @supports')
+  const declared = block![1].match(/--ease-spring:\s*([^;]+);/)
+  assert.ok(declared, 'the @supports block redeclares --ease-spring')
+  assert.equal(squash(declared![1].trim()), squash(MOTION_SPRING_LINEAR))
+  // A spring overshoots past 1 and settles on it.
+  assert.match(MOTION_SPRING_LINEAR, /^linear\(0,[\s\S]*\b1\)$/)
+  assert.match(MOTION_SPRING_LINEAR, /\b1\.0\d/)
+})
+
+test('cubicBezierEase lands on its endpoints and follows the curve', () => {
+  for (const role of ROLES) {
+    const ease = cubicBezierEase(EASE_POINTS[role])
+    assert.equal(ease(0), 0, `${role}(0)`)
+    assert.equal(ease(1), 1, `${role}(1)`)
+    assert.equal(ease(-1), 0, `${role} clamps below`)
+    assert.equal(ease(2), 1, `${role} clamps above`)
+  }
+  // move is symmetric about its midpoint.
+  assert.ok(Math.abs(easeMove(0.5) - 0.5) < 1e-6)
+  assert.ok(Math.abs(easeMove(0.2) + easeMove(0.8) - 1) < 1e-6)
+  // arrive is front-loaded, leave is back-loaded.
+  assert.ok(cubicBezierEase(EASE_POINTS.arrive)(0.25) > 0.6)
+  assert.ok(cubicBezierEase(EASE_POINTS.leave)(0.5) < 0.2)
+  // The spring overshoots.
+  const spring = cubicBezierEase(EASE_POINTS.spring)
+  const peak = Math.max(
+    ...Array.from({ length: 101 }, (_, i) => spring(i / 100)),
+  )
+  assert.ok(peak > 1.05, 'spring overshoots past 1')
+  // A straight-line curve is the identity.
+  assert.ok(Math.abs(cubicBezierEase([0.25, 0.25, 0.75, 0.75])(0.3) - 0.3) < 1e-6)
+})
+
+test('move is monotonic, so a camera riding it never backtracks', () => {
+  let last = 0
+  for (let i = 1; i <= 200; i += 1) {
+    const value = easeMove(i / 200)
+    assert.ok(value >= last, `easeMove dips at ${i / 200}`)
+    last = value
+  }
 })
 
 /**

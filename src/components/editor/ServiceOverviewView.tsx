@@ -1341,7 +1341,7 @@ function ServiceOverviewViewImpl({
                 }
                 className={cn(
                   'pointer-events-none absolute inset-0 z-20 flex items-center justify-center',
-                  'transition-opacity duration-(--motion-fade) ease-out',
+                  'transition-opacity motion-reduce:transition-none duration-(--motion-fade) ease-arrive',
                   barDissolving && 'opacity-0',
                 )}
                 // The bar finishing its dissolve is what opens stage 1 —

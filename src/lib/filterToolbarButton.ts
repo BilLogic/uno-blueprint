@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils'
  */
 export function filterToolbarButtonClass(checked: boolean, className?: string) {
   return cn(
-    'inline-flex h-8 items-center gap-2 rounded-lg border border-muted px-3 text-sm font-medium transition-all duration-200',
+    'inline-flex h-8 items-center gap-2 rounded-lg border border-muted px-3 text-sm font-medium transition-all ease-arrive motion-reduce:transition-none duration-(--motion-fade)',
     checked
       ? 'bg-card text-foreground shadow-sm ring-1 ring-black/[0.04]'
       : 'bg-muted/40 text-foreground hover:bg-muted/80',

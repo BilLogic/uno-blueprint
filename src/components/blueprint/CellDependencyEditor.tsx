@@ -272,7 +272,7 @@ export function DependencyEditRow({
           live — nothing about this row's save makes the next one untrue. */}
       <div
         className={cn(
-          'flex flex-col gap-2 transition-opacity',
+          'flex flex-col gap-2 transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
           busy ? 'opacity-60' : undefined,
         )}
       >

@@ -1,5 +1,5 @@
 ---
-summary: The board and the chrome around it — click grammar, canvas modes, panel-as-selection, camera behaviour, the phase-row height contract and the touch contract.
+summary: The board and the chrome around it — click grammar, canvas modes, panel-as-selection, the motion vocabulary, camera behaviour, the phase-row height contract and the touch contract.
 claims:
   - src/components/blueprint/BlueprintArrowMarkerDefs.tsx
   - src/components/blueprint/BlueprintCellButton.tsx
@@ -219,6 +219,44 @@ through with back and forward.
   the ones that do resolve. Never an error page, never a blank one.
 
 `BoardAddressSync` is the seam and `lib/boardAddress.ts` is the vocabulary.
+
+## Motion
+
+The product layer has one motion vocabulary: four curves named by what the
+motion is for, and a short ladder of durations. Pick the role first; the
+curve follows from it.
+
+| Role | Curve | Use it when |
+| --- | --- | --- |
+| **arrive** (`ease-arrive`) | `cubic-bezier(.22,1,.36,1)` | Something enters or is revealed — a panel opening, a popover, a fade-up, hover and focus feedback. Fast off the mark, long settle. |
+| **leave** (`ease-leave`) | `cubic-bezier(.6,0,.85,.25)` | Something exits — a panel closing, a dialog's backdrop on its way out. Pair it with a shorter rung than the entry: arriving is an event, leaving is not. |
+| **move** (`ease-move`) | `cubic-bezier(.65,0,.35,1)` | Something already on screen goes from A to B — a tab indicator sliding, a chevron rotating, a height or width changing, the camera. |
+| **spring** (`ease-spring`) | `cubic-bezier(.34,1.45,.5,1)`, a `linear()` spring where supported | A small thing pops — a swatch on hover, a button press. Never on anything panel-sized. |
+
+Durations come from the ladder, never a number: `--motion-micro` (150 ms,
+hover and small state changes), `--motion-fade` (200 ms, crossfades and
+entries), `--motion-fade-stagger` (75 ms, the gap between an out and its in),
+`--motion-structural` (320 ms, a whole surface changing size) and
+`--motion-camera` (420 ms, camera-adjacent CSS). In a class string that is
+`duration-(--motion-micro) ease-arrive motion-reduce:transition-none` — every
+product transition names its rung, its role and its reduced-motion answer in
+the same string.
+
+- `--ease-structural` and `--ease-camera` remain as aliases of arrive and
+  move for stylesheets that already read them; product classes use the role
+  names.
+- The vendored `ui/` primitives keep their upstream timings. A product surface
+  that needs a different feel sets it on its own wrapper's classes.
+- The canvas reveal ladder keeps the plain `ease-out` it documents in
+  `blueprint.css`: its beats run serially, and a long-tailed arrive curve
+  makes each handoff land late. It is a separate clock from the shell's.
+- JS that animates on frames reads the same curves from `lib/motion.ts`
+  (`EASE_POINTS`, `cubicBezierEase`, `easeMove`) instead of writing its own.
+
+`lib/motion.ts` and `styles/animations.css` hold the two halves; a drift
+test pins them together, and `components/motionVocabulary.test.ts` fails on a
+stock `duration-*`, `delay-*` or `ease-*` class, or on a product transition
+missing its rung, role or reduced-motion path.
 
 ## Camera
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { MOTION_FADE_MS, prefersReducedMotion } from '@/lib/motion'
+import { MOTION_EASE, MOTION_FADE_MS, prefersReducedMotion } from '@/lib/motion'
 
 type MobileScenarioTransitionProps = {
   scenarioId: string | null
@@ -56,7 +56,7 @@ export function MobileScenarioTransition({
       data-mobile-scenario-swap={phase}
       style={{
         opacity: phase === 'idle' ? 1 : 0,
-        transition: `opacity ${MOTION_FADE_MS}ms ease-out`,
+        transition: `opacity ${MOTION_FADE_MS}ms ${MOTION_EASE.arrive}`,
       }}
     >
       {children(displayedScenarioId, revealIncoming)}

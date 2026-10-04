@@ -231,7 +231,7 @@ export function StoryboardWalkthroughModal() {
                     aria-selected={index === stepIndex}
                     aria-label={`Go to step ${index + 1}`}
                     className={cn(
-                      'h-1.5 rounded-full bg-muted-foreground/25 transition-all',
+                      'h-1.5 rounded-full bg-muted-foreground/25 transition-all duration-(--motion-micro) ease-move motion-reduce:transition-none',
                       index === stepIndex ? 'w-5 bg-foreground/70' : 'w-1.5',
                     )}
                     onClick={() => api?.scrollTo(index)}

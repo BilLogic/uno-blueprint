@@ -452,7 +452,7 @@ function SlideCellsList({
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger className="rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent">
+      <PopoverTrigger className="rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:bg-accent">
         {count === 1 ? '1 cell' : `${count} cells`}
       </PopoverTrigger>
       <PopoverContent
@@ -480,7 +480,7 @@ function SlideCellsList({
                   }}
                   aria-label={`Open ${snippet} in the slice`}
                   title="Open in slice focus view"
-                  className="w-full rounded-md px-2 py-2 text-left text-sm text-foreground transition-colors hover:bg-accent"
+                  className="w-full rounded-md px-2 py-2 text-left text-sm text-foreground transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:bg-accent"
                 >
                   {snippet}
                 </button>
@@ -634,7 +634,7 @@ function PresentationMiniMap({
   return (
     <div
       aria-hidden
-      className="absolute right-3 bottom-2 z-10 rounded-md border border-border bg-card/80 p-2 opacity-40 transition-opacity duration-(--motion-micro) hover:opacity-100"
+      className="absolute right-3 bottom-2 z-10 rounded-md border border-border bg-card/80 p-2 opacity-40 transition-opacity ease-arrive motion-reduce:transition-none duration-(--motion-micro) hover:opacity-100"
     >
       <div className="flex flex-col gap-px">
         {lanes.map((lane) => (

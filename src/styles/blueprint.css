@@ -355,7 +355,7 @@
      crossing it now costs one 150 ms opacity animation, not a relayout. */
   [data-slice-sequence-badge],
   [data-slice-pick-badge] {
-    transition: opacity var(--motion-micro) ease-out;
+    transition: opacity var(--motion-micro) var(--ease-arrive);
   }
 
   [data-canvas-zoom-far] [data-slice-sequence-badge] {

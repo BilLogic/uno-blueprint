@@ -30,11 +30,11 @@ export function TranscriptStepsBlock({
   const count = end - start + 1
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="group/steps flex w-full items-center gap-2 rounded-md py-1 text-left text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <CollapsibleTrigger className="group/steps flex w-full items-center gap-2 rounded-md py-1 text-left text-xs text-muted-foreground transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <ChevronRight
           aria-hidden
           className={cn(
-            'size-3.5 transition-transform duration-(--motion-fade) motion-reduce:transition-none',
+            'size-3.5 transition-transform ease-move duration-(--motion-fade) motion-reduce:transition-none',
             open && 'rotate-90',
           )}
         />

@@ -63,7 +63,7 @@ export function SegmentedControlItem({
   return (
     <ToggleGroupItem
       className={cn(
-        'h-6 min-w-0 gap-2 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors',
+        'h-6 min-w-0 gap-2 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
         'hover:bg-transparent hover:text-foreground',
         'aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm aria-pressed:hover:bg-background aria-pressed:hover:text-foreground',
         className,

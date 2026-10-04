@@ -114,6 +114,9 @@ export const CONSUMER_IMPORTS = [
   'render-walk/mobile-cover.spec.ts',
   'render-walk/mobile-agent-jump.spec.ts',
   'render-walk/served-from-a-path.spec.ts',
+  // The route every spec takes its `test` from, and the case that watches it.
+  'render-walk/remote-images.ts',
+  'render-walk/remote-images.spec.ts',
 
   // The composition documents. Not imported either — READ, out of this
   // package's installed tree, by the deployment's own copy of

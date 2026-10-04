@@ -90,7 +90,7 @@ The app is where people read, compare, and present. The in-app agent drafts chan
   <img src="./docs/assets/blueprint-anatomy.svg" alt="Inside one path — lanes as rows, steps as columns, a cell where they cross, leads-to arrows between cells, and the three lines falling between the lanes">
 </picture>
 
-*Lanes are rows — one actor each, colored by semantic `lane_role` (labels are free-form, any language). Steps are columns — time runs left to right. A **cell** is what one actor does at one moment; **dependencies** are "this cell sets off that one" arrows between cells. The lines of **interaction**, **visibility** and **internal interaction** are derived from roles, so each falls between the lanes it separates (touchpoint lanes render their cells as touchpoints in the app).*
+*Lanes are rows — one actor each, colored by semantic `lane_role` (labels are free-form, any language). Steps are columns — time runs left to right. A **cell** is what one actor does at one moment; **dependencies** are "this cell starts that one" arrows between cells. The lines of **interaction**, **visibility** and **internal interaction** are derived from roles, so each falls between the lanes it separates (touchpoint lanes render their cells as touchpoints in the app).*
 
 *Two levels down — what a single cell holds, and how a slice is taken out of the blueprint — are in [guide/01 — The blueprint model](./docs/guide/01-the-blueprint-model.md).*
 

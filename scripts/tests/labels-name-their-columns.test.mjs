@@ -407,3 +407,39 @@ test('the parity check goes red on a table that has drifted', () => {
     { label: 'Resources', names: ['cells.content'], because: '' },
   ])
 })
+
+/* ------------------------------------------------ the figures that draw them */
+
+/*
+ * A figure that draws the cell panel draws its labels, and a repository that
+ * reads the figures out of the installed package sweeps those labels by one
+ * marker: `<text class="uiLabel">`, the class alone. A redraw that styles them
+ * as plain `.label` leaves that sweep with nothing to read and a retired label
+ * free to reach the cover, so the marker is held here, where the figures are
+ * drawn: every marked label is one the map names, and the cell figure marks
+ * the same labels in both of its files.
+ */
+const UI_LABEL = /<text\b[^>]*class="uiLabel"[^>]*>([\s\S]*?)<\/text>/g
+
+function figureUiLabels(name) {
+  const code = readFileSync(resolve(ROOT, 'docs/assets', name), 'utf8')
+  return [...code.matchAll(UI_LABEL)].map((match) =>
+    match[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
+  )
+}
+
+test('the cell figure marks the panel labels it draws, in both themes', () => {
+  const light = figureUiLabels('cell-anatomy.svg')
+  assert.ok(
+    light.length >= 5,
+    `docs/assets/cell-anatomy.svg marks ${light.length} labels with class="uiLabel"; ` +
+      'mark each panel label it draws (docs/guidelines/composition/cover-page.md § Art direction)',
+  )
+  assert.deepEqual(figureUiLabels('cell-anatomy.dark.svg'), light)
+  const named = new Set(documentedRows().map((row) => row.label))
+  assert.deepEqual(
+    light.filter((label) => !named.has(label)),
+    [],
+    'a label the cell figure marks is one references/interface-schema-map.md does not name',
+  )
+})

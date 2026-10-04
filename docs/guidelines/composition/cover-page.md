@@ -152,6 +152,12 @@ it; the rest follow as they are redrawn.
 - **Minimal text, sentence case.** A short title and a short line where a label
   is needed; no in-figure headline when the section already has one. No ALL
   CAPS. Use the words `CONTEXT.md` fixes: lane, step, cell, slice, path.
+- **A label the app shows is marked.** Where a figure draws a field label the
+  cell panel shows (Owner, Leads to, Enabled by), its `<text>` carries
+  `class="uiLabel"` and nothing else in the class, styled like `.label`. That
+  marker is how a sweep tells a panel label from a caption, here and in any
+  repository that reads the figures out of the installed package, and a label
+  it cannot find is a label nobody checks.
 - **Never under 11px at the rendered width.** Beside the sidebar the cover
   shows an 880-wide figure at about 688px, so author text at 14.5px or more and titles at 15px. Measure each title in
   the system fallbacks (SF, Segoe UI, Arial) and leave it at least 15 units of

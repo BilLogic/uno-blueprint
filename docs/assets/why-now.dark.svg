@@ -15,7 +15,7 @@
     .skel { fill: #ebf0ee; fill-opacity: 0.22; }
     .skel-teal { fill: #3ecfb0; }
     .cell { stroke: #ebf0ee; stroke-opacity: 0.09; }
-    .cell-dash { fill: none; stroke: #ebf0ee; stroke-opacity: 0.34; stroke-dasharray: 3 3; }
+    .cell-dash { fill: none; stroke: #ebf0ee; stroke-opacity: 0.17; stroke-dasharray: 3 3; }
     .cell-focus { stroke: #3ecfb0; stroke-opacity: 1; stroke-width: 1.5; }
     .cell-focus-dash { stroke: #3ecfb0; stroke-opacity: 1; stroke-width: 1.5; stroke-dasharray: 3 3; }
     .strong { font-size: 14.5px; font-weight: 600; fill: #ebf0ee; }

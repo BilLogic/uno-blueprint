@@ -7,7 +7,13 @@ summary: The identity fill derives from the resolved action fill through three o
 **Status** Accepted — 2026-09-16. Supersedes the brand-dial mechanism of
 [ADR 0008](./0008-a-primitive-is-a-hue-and-a-semantic-token-is-a-job.md) —
 marked in place there, and named passage by passage under "What falls in 0008"
-below. That record's division of the two words by job stands.
+below. That record's division of the two words by job stands. Amended
+2026-10-03 (#1032): the template no longer ships neutral. Its default accent
+is now teal, and the mechanism below stands unchanged — brand still resolves
+to exactly primary until a deployment sets a dial. Where this record reasons
+from "a template that ships neutral", read it as a deployment that sets
+`--primary-chroma: 0` to stay neutral; the recipe is
+[`references/customization.md`](../../references/customization.md).
 **Context** `src/styles/semantic.css`, `src/styles/themes/light.css`,
 `src/styles/themes/dark.css`, `src/lib/palette.test.ts`,
 [ADR 0008](./0008-a-primitive-is-a-hue-and-a-semantic-token-is-a-job.md)

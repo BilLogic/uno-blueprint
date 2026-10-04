@@ -1,11 +1,12 @@
 import { existsSync } from 'node:fs'
-import { basename, join } from 'node:path'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { PATTERNS } from '../../scripts/check-standalone.mjs'
 import {
   COVER_ASSET_MANIFEST,
   darkVariantName,
+  figureFileName,
 } from '../../scripts/sync-cover-assets.mjs'
 import {
   coverFigures,
@@ -107,7 +108,7 @@ describe('coverContent', () => {
 
   it('resolves each of the package’s figures to a file it authored', () => {
     for (const figure of Object.values(packageCoverFigures)) {
-      const name = basename(figure.src.split('?')[0])
+      const name = figureFileName(figure.src)
       expect(existsSync(join(ASSETS_DIR, name)), `missing ${name}`).toBe(true)
     }
   })
@@ -115,14 +116,14 @@ describe('coverContent', () => {
   it('pairs each dark file with its own light file, and carries every one drawn', () => {
     const figures = Object.values(packageCoverFigures) as CoverFigure[]
     for (const figure of figures) {
-      const light = basename(figure.src.split('?')[0])
+      const light = figureFileName(figure.src)
       const onDisk = existsSync(join(ASSETS_DIR, darkVariantName(light)))
       if (!figure.srcDark) {
         // A dark file nobody imports would never be shown.
         expect(onDisk, `${light} has a dark file the cover does not use`).toBe(false)
         continue
       }
-      expect(basename(figure.srcDark.split('?')[0])).toBe(darkVariantName(light))
+      expect(figureFileName(figure.srcDark)).toBe(darkVariantName(light))
       expect(onDisk).toBe(true)
     }
   })
@@ -133,7 +134,7 @@ describe('coverContent', () => {
     // the manifest is for. One home, two consumers, and this is what keeps
     // them naming the same drawings.
     const authored = Object.values(packageCoverFigures)
-      .map((figure) => basename(figure.src.split('?')[0]))
+      .map((figure) => figureFileName(figure.src))
       .sort()
     expect(authored).toEqual([...COVER_ASSET_MANIFEST].sort())
     for (const name of COVER_ASSET_MANIFEST) {

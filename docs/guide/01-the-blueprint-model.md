@@ -53,9 +53,11 @@ and a blueprint in Chinese renders exactly like one in English.
 | `storyboard` | imagery for each step |
 
 The role set is closed; `null` renders as a generic swimlane. The **line of
-interaction** and **line of visibility** are derived from these roles
-rather than drawn by hand, so they cannot drift out of agreement with the
-lanes they separate.
+interaction**, **line of visibility** and **line of internal interaction**
+are derived from these roles rather than drawn by hand, so they cannot drift
+out of agreement with the lanes they separate. The last draws after a
+`backstage_actions` lane only when a `support_actions` lane follows it
+([`references/lane-roles.md`](../../references/lane-roles.md)).
 
 ## 3. Cells
 
@@ -81,7 +83,7 @@ A cell is what one actor does at one step. Beyond its content it carries:
   tab itself (they land in Storage, and the row carries the file's URL). Their
   rows and ownership live in the
   [data model](../../references/data-model.md#tables-in-brief).
-- **Slices.** Which slices quote this cell.
+- **Slices.** Which slices cite this cell.
 
 ## 4. Slices
 
@@ -91,7 +93,7 @@ A cell is what one actor does at one step. Beyond its content it carries:
 </picture>
 
 A slice is a lens on the blueprint, not a copy of it. Its slides point at
-live cells, so updating a cell updates every slice that quotes it, and a
+live cells, so updating a cell updates every slice that cites it, and a
 re-import leaves slices intact because they refer to cells by key rather
 than by position.
 

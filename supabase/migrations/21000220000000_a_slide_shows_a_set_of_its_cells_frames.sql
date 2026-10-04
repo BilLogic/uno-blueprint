@@ -139,9 +139,9 @@ begin
         'a signed-in author could not insert a slide_images member (row_count=%)',
         n;
     end if;
-    raise exception 'slide-images rls' using errcode = 'ASB01';
+    raise exception 'slide-images rls' using errcode = 'UB001';
   exception
-    when sqlstate 'ASB01' then null;
+    when sqlstate 'UB001' then null;
   end;
 
   delete from public.services where id = svc;

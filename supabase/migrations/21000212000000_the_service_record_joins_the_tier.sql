@@ -156,12 +156,12 @@ begin
        where name = 'services tier proof';
       get diagnostics changed = row_count;
       wrote := wrote || jsonb_build_object(probe.who, changed);
-      raise exception 'services tier proof' using errcode = 'ASB01';
+      raise exception 'services tier proof' using errcode = 'UB001';
     exception
       -- Ours, and the only one caught: it is how the row, the claim and the
       -- role are given back. Anything else — a grant this file assumed and the
       -- database does not have — propagates and fails the migration.
-      when sqlstate 'ASB01' then null;
+      when sqlstate 'UB001' then null;
     end;
   end loop;
 

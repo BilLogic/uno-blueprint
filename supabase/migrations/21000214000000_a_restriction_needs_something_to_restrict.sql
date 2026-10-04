@@ -364,12 +364,12 @@ begin
           null;
       end;
       attempted := attempted + 1;
-      raise exception 'restriction proof' using errcode = 'ASB01';
+      raise exception 'restriction proof' using errcode = 'UB001';
     exception
       -- Ours, and the only one caught here: it is how the claim and the role
       -- are given back. Anything else — including the two raises above —
       -- propagates and fails the migration.
-      when sqlstate 'ASB01' then null;
+      when sqlstate 'UB001' then null;
     end;
 
     if granted and removed.verb <> 'insert' then

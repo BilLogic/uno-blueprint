@@ -136,6 +136,29 @@ the set is a deliberate multi-file act, listed in `references/lane-roles.md`
   `brand.accent` alone repaints nothing while the chroma dials are 0 — a hue
   multiplied by zero chroma is still grey — so it is the dials in the theme
   blocks that make an accent visible.
+
+  **Edge weight is three dials.** The neutral borders come in three steps
+  of translucent ink, and each step is a per-theme dial in both theme files:
+
+  | Dial | Token | Light | Dark | Job |
+  | --- | --- | --- | --- | --- |
+  | `--border-alpha-resting` | `--border` | 8.3% | 8% | the edge every surface and cell sits behind |
+  | `--border-alpha-hover` | `--border-strong` | 15.8% | 15% | the edge under a pointer, and marks drawn on the canvas ground |
+  | `--border-alpha-hot` | `--border-stronger` | 39% | 45% | the edge of the thing being acted on |
+
+  Each dial is stated at `--contrast: 0.5`. `--contrast` then scales the
+  step's distance above a fixed floor along the same ramp as the other
+  neutral rungs, so light's 0.53 renders the three at about 9%, 17% and
+  42%. Turning `--contrast` moves all three together and keeps the ladder in
+  order: `border-muted` below `--border`, `--input` and `--border-overlay`
+  between `--border` and `--border-strong`, and `--border-stronger` on top.
+  `src/styles/tokens.test.ts` sweeps the knob from 0 to 1 and fails on a
+  crossing. Set the dials, not `--border` itself: an override of the token
+  leaves the other two steps behind. All three dials are on the dial
+  rosters: `DIALS` in `src/styles/tokens.test.ts` and `AUTHORED_PER_THEME`
+  in `src/lib/themeDials.test.ts`. The print block in
+  `src/styles/print.css` restates light's values, so a retune of light's
+  dials has to be copied there.
 - Touchpoint cells use a neutral palette by default; a `cell_touchpoints` row
   carries the copy, screenshots and design link for one touchpoint at one moment.
 

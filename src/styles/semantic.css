@@ -363,9 +363,55 @@
    */
 
   /* --- Borders & controls ---------------------------------------------- */
+  /*
+   * The three edge steps — resting, hover, hot — as translucent ink.
+   *
+   * A neutral edge is the ink laid over whatever it sits on, so it reads the
+   * same weight on canvas, card and popover without a solid per ground.
+   * Upstream's names: `--border` is their `border-default`, the other two
+   * their `border-strong` and `border-stronger`.
+   *
+   *   --border           resting  the edge every surface and cell sits behind
+   *   --border-strong    hover    the edge under a pointer, and the mark for
+   *                               anything drawn on the canvas ground itself
+   *   --border-stronger  hot      the edge of the thing being acted on
+   *
+   * Each step is a per-theme dial (`--border-alpha-*` in the theme files),
+   * stated at the `--contrast: 0.5` baseline, and the contrast preference
+   * scales it from there along the same squared ramp as every other neutral
+   * rung: a floor that never moves, plus the dial's distance above that floor
+   * times `--border-step-scale`. The floors and the ramp are what keep the
+   * ladder in order across the whole knob — muted < border < input and
+   * overlay < strong < stronger at every contrast from 0 to 1, because each
+   * rung's floor and slope both sit between its neighbours'. Light's dials
+   * are chosen so that at light's 0.53 they land on the marketing site's 9%,
+   * 17% and 42%; dark's 0.5 is the baseline, so its dials are its numbers.
+   * `tokens.test.ts` sweeps the knob and holds the order.
+   *
+   * Resting separation is this edge's job, not a shadow's — the elevation
+   * rule in the composition overview.
+   */
+  --border-step-scale: calc(
+    var(--contrast-border) /
+      (
+        (var(--contrast-border-floor) + (1 - var(--contrast-border-floor)) * 0.5) *
+          (var(--contrast-border-floor) + (1 - var(--contrast-border-floor)) * 0.5)
+      )
+  );
   --border: oklch(
     from var(--foreground) l calc(c * 0.54) h /
-      calc(2% + 20% * var(--contrast-border))
+      calc(2% + (var(--border-alpha-resting) - 2%) * var(--border-step-scale))
+  );
+  --border-strong: oklch(
+    from var(--foreground) l calc(c * 0.54) h /
+      calc(5% + (var(--border-alpha-hover) - 5%) * var(--border-step-scale))
+  );
+  --border-stronger: oklch(
+    from var(--foreground) l calc(c * 0.54) h /
+      min(
+        100%,
+        calc(12% + (var(--border-alpha-hot) - 12%) * var(--border-step-scale))
+      )
   );
   --input: oklch(
     from var(--foreground) l calc(c * 0.5) h /

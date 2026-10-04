@@ -436,15 +436,17 @@
   /*
    * Font stacks, in Supabase's shape: an injection seam variable first, the
    * full fallback chain after it, generic always last. An embedding app
-   * declares `--app-font-sans` (or `--font-source-code-pro`) at `:root` to
-   * swap the face; unset, the defaults apply.
+   * declares `--app-font-sans` (or `--app-font-mono`) at `:root` to swap
+   * the face; unset, the defaults apply.
    *
    * The default is the one thing that differs from theirs, and it has to:
    * their default is Circular, which is a licensed face we cannot ship.
-   * Ubuntu Sans is the default here, loaded from
-   * `@fontsource-variable/ubuntu-sans` in the entry — variable, so the whole
-   * weight axis comes in one file. A fork that wants a different face swaps
-   * the import and this default together.
+   * Ubuntu Sans is the default here, and Ubuntu Sans Mono its mono partner,
+   * loaded from `@fontsource-variable/ubuntu-sans` and
+   * `@fontsource-variable/ubuntu-sans-mono` in the entry — variable, so each
+   * weight axis comes in one file. One family on both sides keeps mono copy
+   * reading as the same voice as the prose around it. A fork that wants a
+   * different face swaps the import and this default together.
    *
    * No heading font, no type-scale overrides. Weight has a two-scope
    * `--font-weight-normal` knob on the ladder block below — the decision that a rung owns size and leading.
@@ -456,8 +458,7 @@
    * discarded, and a face that fails to load renders as the browser default
    * serif. Outside, var() substitutes into a comma list and the system
    * faces + generic always survive. (Found live: `font-mono` computed to
-   * just "Source Code Pro Variable","Source Code Pro" — Times on any load
-   * failure.)
+   * just its two named faces — Times on any load failure.)
    */
   /*
    * The seam is `--app-font-sans`, NOT `--font-sans` itself. A self-referential
@@ -466,15 +467,15 @@
    * what puts every hue step above into the artifact — so it would land at
    * `:root, :host` as a custom-property cycle, invalid at computed-value time,
    * and it would silently discard an embedder's own `--font-sans` whenever
-   * this sheet sorts later in the cascade. A distinctly named seam (mirroring
-   * `--font-source-code-pro` on the mono side) cannot cycle.
+   * this sheet sorts later in the cascade. A distinctly named seam
+   * (`--app-font-mono` on the mono side) cannot cycle.
    */
   --font-sans:
     var(--app-font-sans, 'Ubuntu Sans Variable'), 'Ubuntu Sans', Ubuntu,
     'Helvetica Neue', Helvetica, Arial, sans-serif;
   --font-mono:
-    var(--font-source-code-pro, 'Source Code Pro Variable'), 'Source Code Pro',
-    'Office Code Pro', Menlo, monospace;
+    var(--app-font-mono, 'Ubuntu Sans Mono Variable'), 'Ubuntu Sans Mono',
+    'Ubuntu Mono', Menlo, monospace;
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -552,8 +553,8 @@
   /*
    * Recorded under the decision that a rung owns size and leading. The reference sets sans `--font-weight-normal` to 450 because
    * Inter reads light at 400, and leaves the mono scope at 400 because
-   * Source Code Pro does not need the bump. Ubuntu Sans holds its colour
-   * at 400 down to 12px, so both scopes stay at 400. The two-scope
+   * its mono face does not need the bump. Ubuntu Sans and Ubuntu Sans Mono
+   * hold their colour at 400 down to 12px, so both scopes stay at 400. The two-scope
    * mechanism is taken so the knob exists; the 450 is not.
    */
   --font-weight-normal: 400;

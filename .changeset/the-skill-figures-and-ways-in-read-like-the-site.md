@@ -6,7 +6,7 @@ The four skill figures and the ways-in figure are redrawn to the cover's art dir
 
 - `ub-map`: what it finds in your documents lands in cells, held as a draft until you sign it off.
 - `ub-slice`: one cut of the blueprint (here a lane) becomes slides in order, each citing the cell it shows.
-- `ub-audit`: findings — a step with no cell, two cells competing for one channel, two owners who disagree — point at cells and wait for your triage; the blueprint is left as it was.
+- `ub-audit`: findings — a step with no cell, two cells competing for one channel, a recorded owner and a perceived owner that differ — point at cells and wait for your triage; the blueprint is left as it was.
 - `ub-whatif`: a change is traced on a copy, and reaches the blueprint only after you accept it, through `ub:map`.
 - `four-ways-in`: the app, the in-app agent and agentic tools read and write one shared context; a Slack bot you build only reads it.
 

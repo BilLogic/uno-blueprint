@@ -179,6 +179,7 @@ it; the rest follow as they are redrawn.
 
 - **Borders are translucent ink**: about 9% at rest, 17% for emphasis.
 - **Radii**: 16 for the plate and cards, 8 for cells, 6 for small chips.
+- **A skill's name** sits in a dark terminal chip in mint mono, echoing the site: fill `#101417`, text `#7fe3cc` (dark: fill `#232a28` with a 17% ink edge, same text).
 - **The plate** is a full-bleed rect with a dot grid on it: 1.6px dots (`r=0.8`) on a
   20px pitch at about 17% ink, masked to fade towards the edges. Cards sit on it in
   the card colour (`#ffffff` light, `#181d1b` dark; plate `#f6f8f7` and

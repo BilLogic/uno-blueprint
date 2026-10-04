@@ -78,6 +78,6 @@
   <path class="rule" d="M500,201.5 H832"/>
     <rect class="lane-s cell" x="500.5" y="220" width="34" height="23" rx="8"/><rect class="skel" x="507" y="229.5" width="15" height="4" rx="2"/>
     <circle class="flag" cx="534.5" cy="220" r="5"/>
-  <text class="strong" x="552.5" y="228.5">Two owners disagree</text>
+  <text class="strong" x="552.5" y="228.5">Owner and perceived owner differ</text>
   <text class="label" x="552.5" y="248.5">Dismissed</text>
 </svg>

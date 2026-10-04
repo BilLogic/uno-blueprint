@@ -97,7 +97,7 @@ export const packageCoverFigures = {
   ubAudit: {
     src: ubAudit,
     srcDark: ubAuditDark,
-    alt: 'ub:audit flags cells without changing the blueprint — a step with no cell, two cells competing for one channel, two owners who disagree — and records each as a finding for you to triage',
+    alt: 'ub:audit flags cells without changing the blueprint — a step with no cell, two cells competing for one channel, a recorded owner and a perceived owner that differ — and records each as a finding for you to triage',
     width: 880,
     height: 300,
   },

@@ -92,7 +92,7 @@ describe('canvas stacking contract', () => {
     expect(zoom).toMatch(/rounded-lg/)
     expect(zoom).toMatch(/shadow-md/)
     expect(source('components/blueprint/panelShell.tsx')).toMatch(
-      /rounded-lg border border-border bg-popover shadow-md/,
+      /rounded-xl border border-border bg-popover shadow-md/,
     )
   })
 })

@@ -36,7 +36,7 @@ export function SlideArtboard({
     isActive
       ? 'border-primary ring-2 ring-primary/25'
       : 'border-border',
-    onSelect && 'hover:border-muted-foreground/40',
+    onSelect && 'hover:border-strong',
     className,
   )
 

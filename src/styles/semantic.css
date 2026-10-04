@@ -363,9 +363,34 @@
    */
 
   /* --- Borders & controls ---------------------------------------------- */
+  /*
+   * The three edge steps — resting, hover, hot — as translucent ink.
+   *
+   * A neutral edge is the ink laid over whatever it sits on, so it reads the
+   * same weight on canvas, card and popover without a solid per ground. The
+   * three strengths are per-theme dials (`--border-alpha-*` in the theme
+   * files) rather than a ramp off `--contrast`: they are the numbers the
+   * marketing site draws its edges at, and a step that moved with the
+   * contrast knob would drift off the site the first time anyone turned it.
+   * Upstream's names: `--border` is their `border-default`, the other two
+   * their `border-strong` and `border-stronger`.
+   *
+   *   --border           resting  the edge every surface and cell sits behind
+   *   --border-strong    hover    the edge under a pointer, and the mark for
+   *                               anything drawn on the canvas ground itself
+   *   --border-stronger  hot      the edge of the thing being acted on
+   *
+   * Resting separation is this edge's job, not a shadow's — the elevation
+   * rule in the composition overview.
+   */
   --border: oklch(
-    from var(--foreground) l calc(c * 0.54) h /
-      calc(2% + 20% * var(--contrast-border))
+    from var(--foreground) l calc(c * 0.54) h / var(--border-alpha-resting)
+  );
+  --border-strong: oklch(
+    from var(--foreground) l calc(c * 0.54) h / var(--border-alpha-hover)
+  );
+  --border-stronger: oklch(
+    from var(--foreground) l calc(c * 0.54) h / var(--border-alpha-hot)
   );
   --input: oklch(
     from var(--foreground) l calc(c * 0.5) h /

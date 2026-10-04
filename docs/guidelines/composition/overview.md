@@ -1,5 +1,5 @@
 ---
-summary: The nine assembled surfaces, why they are cut by name rather than by source folder, the declared claim mapping the build enforces, and which side of the package seam owns each claim.
+summary: The nine assembled surfaces, why they are cut by name rather than by source folder, the declared claim mapping the build enforces, which side of the package seam owns each claim, and the shape, edge, elevation and dashed-versus-solid rules every surface shares.
 ---
 
 # Composition
@@ -19,6 +19,81 @@ a person can name**, one document each:
 | [slice-view](slice-view.md) | the view, presentation, screen composer, frame editor, storyboard, slide mode |
 | [cover-page](cover-page.md) | the shell's landing view and its content model |
 | [mobile-shell](mobile-shell.md) | the mobile shell and its chrome — the one forked surface |
+
+## Shape, edge and elevation
+
+Four rules every surface shares, so they live here rather than in any one
+surface's document. They follow the marketing site, and each is carried by a
+token rather than by a value typed at the call site.
+
+### Radius ladder
+
+Multiplicative on `--radius` (8px in the template), declared in
+`src/styles/theme.css`:
+
+| Rung | Value | Job |
+|---|---|---|
+| `rounded-sm` | 4px | a corner nested one padding step inside a control |
+| `rounded-md` | 8px | controls: buttons, inputs, menu items, badges |
+| `rounded-lg` | 8px | canvas cells, and boxes that sit inline in a surface |
+| `rounded-xl` | 16px | surfaces: cards, panels, dialogs, sheets, cover figure frames |
+
+`md` and `lg` share a length and keep separate names because they do separate
+jobs. A control may round further without moving the board, and a cell stays
+at 6–8px whatever the controls do.
+
+A nested corner is the outer radius minus the padding between them. An 8px
+item in a 16px panel wants 8px of inset, and a segment inside a `p-1`
+`rounded-lg` track is `rounded-sm`. When the padding is not a rung, spell it
+from the outer rung, for example `rounded-[calc(var(--radius-lg)-5px)]`, rather
+than picking the nearest rung by eye.
+
+### Border steps
+
+A neutral edge is ink laid translucently over whatever it sits on, in three
+steps. The alphas are dials in the theme files (`--border-alpha-*`), and
+`semantic.css` derives the tokens from them:
+
+| Token | Utility | Light | Dark | Job |
+|---|---|---|---|---|
+| `--border` | `border-border`, bare `border` | 9% | 8% | resting: the edge every surface and cell sits behind |
+| `--border-strong` | `border-strong` | 17% | 15% | hover, and any mark drawn on the canvas ground itself |
+| `--border-stronger` | `border-stronger` | 42% | 45% | hot: the thing being acted on, a checked toggle |
+
+The softer `border-muted` divider, the `border-overlay` edge of a floating
+plane and the `border-input` / `border-control-hover` pair on form controls
+keep their own rungs. Selection is not a border step: it takes the primary
+or role ring.
+
+### Elevation
+
+A resting surface separates from its ground by its border, not by a shadow.
+Cards, panels, sticky headers, toolbars that sit in the layout, and buttons
+carry no shadow.
+
+A shadow means *this floats*. It goes on popovers, menus, tooltips, sheets,
+dialogs, the floating agent dock and cell panel, chrome pinned over the canvas,
+and anything mid-drag. Use `shadow-md` (also `shadow-floating`) for chrome and
+popovers and `shadow-lg` for sheets and dialogs. Dark mode restates both with a
+one-pixel inset highlight along the top edge, which is how a floating plane
+catches the light on a dark ground. Keep that inset when overriding a shadow.
+
+### Dashed versus solid
+
+Dashed means *not yet, missing, or off the happy path*. Solid means *it
+exists*. The canvas already speaks this vocabulary, and new chrome must too:
+
+- an unbuilt cell is dashed, and so
+  is its status badge (`BlueprintCellButton`, `StatusBadge`);
+- a touchpoint placement the registry lacks is dashed (`TouchpointCellFace`);
+- a path's section frame is solid for the happy path and dashed for every
+  other path (`pathColorTheme`, `pathKindTheme`);
+- an empty slot, an add target or a drop zone is dashed, because the thing it
+  stands for does not exist yet.
+
+So a deprecated cell stays solid, because it still exists and is only fading.
+Do not use a dashed edge for decoration, and do not draw something that
+exists with one.
 
 ## Why not one doc per source folder
 

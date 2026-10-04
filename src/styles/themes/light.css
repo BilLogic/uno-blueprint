@@ -103,4 +103,11 @@
    * a fraction of is.
    */
   --role-edge-step: 0.08;
+
+  /* The three neutral edge steps semantic.css derives `--border`,
+     `--border-strong` and `--border-stronger` from: ink at this alpha over
+     whatever the edge sits on. These are the marketing site's numbers. */
+  --border-alpha-resting: 9%;
+  --border-alpha-hover: 17%;
+  --border-alpha-hot: 42%;
 }

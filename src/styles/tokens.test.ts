@@ -616,9 +616,9 @@ describe('theme dials and semantic layer', () => {
         .map((entry) => [entry.name, entry.value]),
     )
     expect(rungs['--radius-sm']).toBe('calc(var(--radius) * 0.5)')
-    expect(rungs['--radius-md']).toBe('calc(var(--radius) * 0.75)')
+    expect(rungs['--radius-md']).toBe('var(--radius)')
     expect(rungs['--radius-lg']).toBe('var(--radius)')
-    expect(rungs['--radius-xl']).toBe('calc(var(--radius) * 1.5)')
+    expect(rungs['--radius-xl']).toBe('calc(var(--radius) * 2)')
     expect(rungs['--radius-2xl']).toBeUndefined()
     expect(rungs['--radius-3xl']).toBeUndefined()
     expect(rungs['--radius-4xl']).toBeUndefined()

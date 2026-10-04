@@ -337,11 +337,6 @@ const ABSOLUTE_EXEMPT_FILES: ReadonlyArray<{ file: string; because: string }> = 
     because:
       'upstream shadcn overlay scrim (components.json — the CLI owns this file)',
   },
-  {
-    file: 'lib/filterToolbarButton.ts',
-    because:
-      'a 4% black hairline on a raised plate, which is a shadow written as a ring rather than an edge colour — the neutral semantics invert and a shadow must not, so it darkens in light and disappears in dark, which is what a shadow does',
-  },
 ]
 
 const VAR_PRIMITIVE_EXEMPT_FILES: ReadonlyArray<{
@@ -706,9 +701,11 @@ test('layout-token pixel exports sit on the 4px grid', async () => {
 })
 
 /**
- * Radius by kind. Controls sit on md; containment (cells, cards, popovers,
- * canvas corner chrome) on lg; dialogs, modal sheets and plates on xl;
- * rounded-full stays; sm is for kbd, inline code and marks under 12px.
+ * Radius by kind. Controls sit on md; containment (cells, popovers, canvas
+ * corner chrome, boxes inline in a surface) on lg; surfaces — cards, panels,
+ * dialogs, sheets and plates — on xl; rounded-full stays; sm is for kbd,
+ * inline code, marks under 12px and a corner nested one padding step inside
+ * a control. The composition overview carries the ladder.
  * A file listed here may not pick up another rung. The list covers every
  * primitive, editor and blueprint file that carries more than one rung or
  * sits on a rung the kind table reserves.
@@ -744,11 +741,11 @@ const RADIUS_KIND_ALLOWLIST: Record<string, readonly string[]> = {
   'components/editor/CanvasEmptyState.tsx': ['xl'],
   'components/editor/SlideStickyHeader.tsx': ['xl', 'md'],
   'components/editor/EditorLoadingSkeletons.tsx': ['xl', 'lg', 'md', 'full'],
-  // Blueprint surfaces. Modal sheets, walkthrough and plates on xl; the
-  // canvas inspector and other corner chrome on lg (same family as the
-  // zoom cluster and the panel error card); cells and cards on lg;
-  // controls and badges on md; rounded-full stays.
-  'components/blueprint/panelShell.tsx': ['lg', 'md'],
+  // Blueprint surfaces. Modal sheets, walkthrough, plates and the floating
+  // canvas inspector on xl — the inspector is a panel, not corner chrome;
+  // the panel error card stays on lg with the zoom cluster it sits above;
+  // cells on lg; controls and badges on md; rounded-full stays.
+  'components/blueprint/panelShell.tsx': ['xl', 'lg', 'md'],
   'components/blueprint/ResizableComparePanel.tsx': ['xl', 'md'],
   'components/blueprint/StoryboardWalkthroughModal.tsx': ['xl', 'full'],
   'components/blueprint/ZoomableImage.tsx': ['xl', 'full'],

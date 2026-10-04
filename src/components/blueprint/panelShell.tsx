@@ -241,7 +241,7 @@ export function PanelDrawerShell({
             : cn(
                 CELL_DETAIL_PANEL_TOP_CLASS,
                 CELL_DETAIL_PANEL_BOTTOM_CLASS,
-                '!right-4 !left-auto !m-0 !h-auto !max-h-none rounded-lg border border-border bg-popover shadow-md after:hidden [--drawer-inset:1rem] md:!right-8 md:[--drawer-inset:2rem]',
+                '!right-4 !left-auto !m-0 !h-auto !max-h-none rounded-xl border border-border bg-popover shadow-md after:hidden [--drawer-inset:1rem] md:!right-8 md:[--drawer-inset:2rem]',
                 expanded
                   ? 'w-(--width-cell-panel-expanded)'
                   : 'w-(--width-cell-panel)',

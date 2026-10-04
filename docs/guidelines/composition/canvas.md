@@ -1,5 +1,5 @@
 ---
-summary: The board and the chrome around it — click grammar, canvas modes, panel-as-selection, camera behaviour, the phase-row height contract and the touch contract.
+summary: The board and the chrome around it — click grammar, canvas modes, panel-as-selection, the motion vocabulary, camera behaviour, the phase-row height contract and the touch contract.
 claims:
   - src/components/blueprint/BlueprintArrowMarkerDefs.tsx
   - src/components/blueprint/BlueprintCellButton.tsx
@@ -17,6 +17,7 @@ claims:
   - src/components/blueprint/EntityHeader.tsx
   - src/components/blueprint/IntegratedDependencyArrows.tsx
   - src/components/blueprint/LaneCollapseToggle.tsx
+  - src/components/blueprint/MiniBlueprintIllustration.tsx
   - src/components/blueprint/PathKindBadge.tsx
   - src/components/blueprint/PathKindColorKey.tsx
   - src/components/blueprint/PathLabelBadge.tsx
@@ -110,6 +111,22 @@ query per scenario and an unopened palette should cost nothing; Escape empties
 the field before it closes the dialog; and ⌘K is ignored while a text field has
 focus, so the chord never eats a character.
 
+## Labels on the board
+
+Every small label on the board follows the sentence-case rule in
+[overview](overview.md#small-labels-are-sentence-case). Two are worth naming:
+
+- **The phase badge** reads `01 · Discover` — the zero-padded ordinal from
+  `ordinalLabel`, then the phase's name as written. It is sans at letter-spacing
+  0, not mono capitals. It stays legible at overview zoom because
+  `[data-phase-title-badge]` is counter-scaled by the camera (the semantic
+  label boost), not because it is set in capitals.
+- **The divider captions** — `Line of interaction`, `Line of visibility`,
+  `Line of internal interaction` — are sentence case in their source strings.
+
+The **Jump to…** dialog's group headings (Scenarios, Cells, Actions) restate the
+rule over the vendored command group, which ships them in mono capitals.
+
 ## The click grammar
 
 One grammar for cells, everywhere (the authoritative comment lives in
@@ -185,10 +202,42 @@ the theme.
 
 Three pieces float over the canvas in the bottom-right corner: the zoom
 cluster, the panel error card, and the inspector drawer. They share one
-shape (`rounded-lg`) and one shadow (`shadow-md`). The error card sits one
+shape (`rounded-lg`) and one shadow (`shadow-md`). The shape is `lg` and
+not the 16px surface rung, even though the inspector is a panel: the zoom
+cluster is a row of small buttons, and `xl` on a small tile reads as fully rounded
+(the radius ladder in [overview](overview.md)). The error card sits one
 gutter above the zoom cluster (`bottom-16` vs `bottom-4`) so the two never
 overlap — a spatial rule, not a z-index fight with the drawer primitive.
 The inspector already clears the same band via `CELL_DETAIL_PANEL_BOTTOM_GAP_PX`.
+
+## Empty states
+
+The canvas's empty states (`CanvasEmptyState`, in all three variants) and the
+cell drawer's nothing-selected surface (`CellDetailEmptySurface`) carry the
+mini-blueprint (`MiniBlueprintIllustration`):
+three lane rows, each a lane-colour square and a label bar, then cells holding
+one skeleton bar, with some cells dashed. It is the cover figures' shorthand
+for a blueprint, but drawn from tokens rather than printed: the squares and
+cells take `--background-blueprint-cell` and its pressed step from real
+lane roles (`blueprintLaneAttrs`), the label bars and gap edges take
+`--border-strong`, and the corners come off the radius ladder. So it follows
+the theme and the contrast dial, and a deployment's lane palette reaches it.
+
+- **The gaps are dashed because dashed means not yet** (the dashed-versus-solid
+  rule in [overview](overview.md)). A gap holds no skeleton bar, since there is
+  nothing in it to label.
+- **Size follows the frame.** The open canvas (`CanvasEmptyState`'s `canvas`
+  variant) draws it `lg`, with 24px cells; the `panel` and `phase` variants and
+  the cell drawer's nothing-selected surface draw it `sm`, because the frame
+  around them is already most of the picture.
+- **Only for an empty board.** A read that failed ("The phases could not be
+  loaded") turns it off with `showIllustration={false}`: nobody knows the
+  board is empty, so a picture of an empty one would say more than the copy.
+- **It is decoration.** `aria-hidden`, and still: no pulse, no arrival. The
+  copy beside it carries the meaning and stays an invitation to act, naming
+  where the next move is, and only where that control exists: the paths menu
+  in the header for a focused scenario, the sidebar on a phase canvas (which
+  has no paths menu), the `+` on a phase row, a cell on the board.
 
 ## Panel as selection
 
@@ -197,6 +246,27 @@ owner**: the ✕, Escape, a toggling click, and the agent all go through the
 same `closePanel`; nothing else holds an "is it open" fact. Any new
 affordance that opens or closes the panel calls the owner — a second source
 of truth here is the bug class this rule killed.
+
+## The selected phase
+
+A phase the reader has opened is **selected**, and its frame says so: a
+brand edge and a soft brand ring (`0 0 0 3px` of `--brand` at 16%), the
+site's selected state, keyed on `data-phase-selected`. The click lands
+before the camera has moved anywhere, so the frame answers it at once.
+
+- **The editor's selection is the only source.** The phase is selected while
+  it is the active slide itself; a scenario focused inside it is the
+  selection instead. Escape, Home, the breadcrumb and another phase clear or
+  move it the way they clear every other canvas selection — there is no
+  second "selected phase" fact to fall out of step.
+- **Focus is not selection.** Keyboard focus keeps the `--ring` token on the
+  section; selection is brand on the frame. The two can sit on different
+  phases at once and never read as one state.
+- **The ring arrives, it does not leave.** The transition is on the
+  selected rule only (`--ease-structural`, `--motion-micro`), so it eases in
+  and clears instantly; under reduced motion it appears instantly too. It is
+  drawn on the frame's `::after`, because the camera flight writes an inline
+  `transition: none` on the frame itself while it fades it.
 
 ## The board's address
 
@@ -219,6 +289,49 @@ through with back and forward.
   the ones that do resolve. Never an error page, never a blank one.
 
 `BoardAddressSync` is the seam and `lib/boardAddress.ts` is the vocabulary.
+
+## Motion
+
+The product layer has one motion vocabulary: four curves named by what the
+motion is for, and a short ladder of durations. Pick the role first; the
+curve follows from it.
+
+| Role | Curve | Use it when |
+| --- | --- | --- |
+| **arrive** (`ease-arrive`) | `cubic-bezier(.22,1,.36,1)` | Something enters or is revealed — a panel opening, a popover, a fade-up, hover and focus feedback. Fast off the mark, long settle. |
+| **leave** (`ease-leave`) | `cubic-bezier(.6,0,.85,.25)` | Something exits — a panel closing, a dialog's backdrop on its way out. Pair it with a shorter rung than the entry: arriving is an event, leaving is not. |
+| **move** (`ease-move`) | `cubic-bezier(.65,0,.35,1)` | Something already on screen goes from A to B — a tab indicator sliding, a chevron rotating, a height or width changing, a progress bar filling. |
+| **spring** (`ease-spring`) | `cubic-bezier(.34,1.45,.5,1)`, a `linear()` spring where supported | A small thing pops — a swatch on hover, a button press. Never on anything panel-sized. |
+
+Durations come from the ladder, never a number: `--motion-micro` (150 ms,
+hover and small state changes), `--motion-fade` (200 ms, crossfades and
+entries), `--motion-fade-stagger` (75 ms, the gap between an out and its in),
+`--motion-structural` (320 ms, a whole surface changing size) and
+`--motion-camera` (420 ms, camera-adjacent CSS). In a class string that is
+`duration-(--motion-micro) ease-arrive motion-reduce:transition-none` — every
+product transition names its rung, its role and its reduced-motion answer in
+the same string.
+
+- `--ease-structural` remains as an alias of arrive for stylesheets that
+  already read it; product classes use the role names.
+- `--ease-camera` (`ease-camera`) is `var(--ease-move)`: the camera is a
+  move. The name stays for CSS that rides a camera flight (focus dimming, the
+  compare fade), so those surfaces say what they follow and stay in step with
+  the JS flight.
+- The vendored `ui/` primitives keep their upstream timings. A product surface
+  that needs a different feel sets it on its own wrapper's classes.
+- The canvas reveal ladder keeps the plain `ease-out` it documents in
+  `blueprint.css`: its beats run serially, and a long-tailed arrive curve
+  makes each handoff land late. It is a separate clock from the shell's.
+- `lib/motion.ts` carries the curves for JS that animates on frames
+  (`EASE_POINTS`, `cubicBezierEase`, `easeMove`), and the launched form the
+  camera flies on: `easeMoveFrom(slope)` is move with its departure handle
+  turned to a starting slope, readable as a value and as a slope. The camera
+  flight in `lib/cameraTransition.ts` rides it and keeps no curve of its own.
+
+`lib/motion.ts` and `styles/animations.css` hold the two halves, and a drift
+test compares their token values. What the product layer may not write is
+enforced, and listed, by `components/motionVocabulary.test.ts`.
 
 ## Camera
 
@@ -243,14 +356,24 @@ contract in short:
   retargets while live — is the camera's own contract, and
   `src/lib/canvasCameraPolicy.ts` and `src/lib/cameraTransition.ts` are where
   it is written down.
-  Automatic travel follows a bounded distance-aware camera flight: zoom is
-  geometric, screen-space travel is monotonic, and compatible velocity carries
-  across superseding destinations. A zoom-in from the blocks tier keeps that
+  Automatic travel follows a bounded distance-aware camera flight on the
+  move curve: zoom is geometric, screen-space travel is monotonic, and
+  compatible velocity carries across superseding destinations. A flight that
+  takes over a moving camera starts on move launched at the speed the camera
+  already has, clamped to a starting slope between 0.55 and 3: a slower
+  handoff (or a flight from rest, since move from a dead stop spends the
+  first beat of a large zoom-in almost still) steps up to the floor, and a
+  faster one is cut to the cap. Arrival is always move's settle. A zoom-in from the blocks tier keeps that
   encoding and reveals only the named destination, so overview → scenario
   does not paint the whole board on takeoff. Focus emphasis reads the same
   flight's
   progress. Manual wheel, pinch, drag, and keyboard input remains immediate
-  and cancels the automatic flight.
+  and cancels the automatic flight from the frame it last drew — the input
+  starts there, never from the target, so the hand-off has no snap. One
+  animation frame loop drives a flight. Each frame writes the board's
+  transform, the ground's transform (plus its inset and tile size when the
+  zoom changes), and the focus opacity of the cards whose emphasis is moving;
+  nothing else is laid out.
 - Wheel and trackpad zoom preserve the world point beneath the cursor. A
   two-finger pinch maps its previous midpoint directly to its current midpoint,
   combining scale and finger drift in one transform instead of applying drift
@@ -275,6 +398,52 @@ contract in short:
 - Focus mode dims non-selected phase/scenario cards to 30%, then lifts them to
   70% on hover or keyboard focus. They remain navigation targets so a reader
   can switch focus directly; cell-level actions inside them remain inactive.
+
+## The canvas ground
+
+The board sits on a dot grid: the site's motif, one pixel-wide dot on a 20px
+pitch at zoom 1, drawn in `--border-strong`, the edge step reserved for marks
+on the canvas ground. It flips with the theme and follows the contrast
+preference like every other edge, and introduces no colour of its own.
+
+- **One CSS background on one layer, no element per dot.** The grid is a
+  `radial-gradient` on `[data-zoom-pan-ground]`, a `will-change: transform`
+  layer under the board that hangs at least one pitch past the viewport on
+  every side (`blueprint.css`). The camera's transform writer moves it in the
+  same call that moves the board, so the grid pans and zooms with the board
+  and the ground reads as the surface the board sits on.
+- **A pan is compositor-only.** A pan writes only the layer's `translate`,
+  which is always inside one pitch, so the layer is never repainted, the same
+  as the flat ground. A zoom changes the tile size and repaints, and a zoom
+  repaints the board anyway. Moving a `background-position` instead repainted
+  the whole viewport on every pan frame. The dot alpha is a custom property
+  registered `inherits: false`, so writing it restyles the layer alone.
+- **The dots stay on the board at any zoom.** No value is rounded to device
+  pixels, because the board's own transform is not rounded. Two engine
+  roundings are taken back. Blink floors a background tile to 1/64px, so the
+  tile is drawn on that unit and the layer's scale (at most 1.0016) restores
+  the exact pitch. Without that, the grid ran up to 1.2px off the board at
+  the far edge. The layer's overhang is a whole pixel, because a fractional
+  layer origin is snapped when the background paints.
+- **The grid appears with the first fit.** It is laid out from the first
+  frame but hidden until the viewport has framed the board once, so it never
+  snaps from the unfitted camera to the fitted one. The first fit is a jump,
+  so the grid appears already in place, together with the board.
+- **The pitch steps when you zoom out far.** Below the zoom where the
+  on-screen pitch would drop under 10px, the world pitch doubles (20, 40,
+  80…). Every other dot stays where it was, and the on-screen pitch stays
+  between 10px and 20px down to the minimum zoom, so the grid never collapses
+  into shimmer or moiré. As the pitch narrows, the dot alpha falls with the
+  square of the on-screen pitch. That holds the ground's average tone constant
+  under zoom 1 and across each step: a step changes the grain, not the shade.
+  The overview keeps its grid. A fade-out would have removed the grid at the
+  zoom where the ground shows most. The rule and its tests are in
+  `src/lib/canvasDotGrid.ts`.
+- **The dots stay the same size on screen.** Zooming in spreads them apart and
+  never enlarges them.
+- **Print is plain.** `print.css` drops the layer. Forced-colors mode drops
+  it too.
+- The loading skeleton keeps the flat ground. It has no camera to follow.
 
 ## The phase-row height contract
 

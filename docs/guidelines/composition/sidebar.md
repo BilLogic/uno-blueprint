@@ -46,7 +46,7 @@ under a spacer so keys are reachable from any surface.
 
 ## One disclosure vocabulary
 
-`SidebarNav` is the sidebar's single twisty vocabulary, used by the PHASES
+`SidebarNav` is the sidebar's single twisty vocabulary, used by the Phases
 section header, the phase rows inside it, and the slice type groups —
 so every disclosure in the sidebar looks and behaves the same. Three rules,
 taken from Figma's layer tree:
@@ -78,6 +78,12 @@ fill of its own** — a second surface inside a row is the box-in-a-box the
 composer taught us to stop drawing — so emphasis comes from the glyph, which
 brightens to the rail-bar colour on hover, the only saturated ink in the
 sidebar. Its target is deliberately bigger than its mark.
+
+Section headers (`Phases`, `Sessions`, the slice type groups `Journey`, `Step`,
+`Lane`, `Cell`, `Custom`) are `Eyebrow`s and follow the sentence-case rule in
+[overview](overview.md#small-labels-are-sentence-case): the title is passed in
+sentence case and rendered as written. A slice kind is stored lowercase, so the
+group heading maps it to its title rather than leaning on CSS to capitalise it.
 
 An `ancestor` prop survives in the type but is **no longer drawn**: the
 highlighted scenario one line below already says it, and two markers for one fact

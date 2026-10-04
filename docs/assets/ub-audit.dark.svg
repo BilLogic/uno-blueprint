@@ -1,0 +1,83 @@
+<svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" font-family="'Ubuntu Sans', system-ui, sans-serif">
+  <style>
+    .plate { fill: #0f1412; }
+    .dot { fill: #ebf0ee; fill-opacity: 0.17; }
+    .card { fill: #181d1b; stroke: #ebf0ee; stroke-opacity: 0.09; }
+    .card-dash { fill: #181d1b; stroke: #ebf0ee; stroke-opacity: 0.34; stroke-dasharray: 4 4; }
+    .card-focus { fill: #181d1b; stroke: #3ecfb0; stroke-width: 1.5; }
+    .title { font-size: 15px; font-weight: 600; fill: #ebf0ee; }
+    .label { font-size: 14.5px; fill: #a6acaa; }
+    .label-teal { font-size: 14.5px; font-weight: 600; fill: #3ecfb0; }
+    .strong { font-size: 14.5px; font-weight: 600; fill: #ebf0ee; }
+    .flow { stroke: #a6acaa; stroke-width: 1.5; fill: none; }
+    .flow-head { fill: #a6acaa; }
+    .trace { stroke: #3ecfb0; stroke-width: 1.5; fill: none; }
+    .trace-dash { stroke: #3ecfb0; stroke-width: 1.5; fill: none; stroke-dasharray: 4 4; }
+    .trace-head { fill: #3ecfb0; }
+    .skel { fill: #ebf0ee; fill-opacity: 0.22; }
+    .skel-teal { fill: #3ecfb0; }
+    .cell { stroke: #ebf0ee; stroke-opacity: 0.09; }
+    .cell-dash { fill: none; stroke: #ebf0ee; stroke-opacity: 0.34; stroke-dasharray: 3 3; }
+    .cell-focus { stroke: #3ecfb0; stroke-opacity: 1; stroke-width: 1.5; }
+    .cell-focus-dash { stroke: #3ecfb0; stroke-opacity: 1; stroke-width: 1.5; stroke-dasharray: 3 3; }
+    .cell-stale { fill: #33260f; stroke: #fbbf6a; stroke-width: 1.25; }
+    .skel-stale { fill: #fbbf6a; fill-opacity: 0.55; }
+    .flag { fill: #3ecfb0; stroke: #181d1b; stroke-width: 2; }
+    .faded { opacity: 0.4; }
+    .rule { stroke: #ebf0ee; stroke-opacity: 0.09; }
+    .tile { fill: #0f1412; stroke: #ebf0ee; stroke-opacity: 0.09; }
+    .glyph { fill: none; stroke: #a6acaa; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    .raised { fill: #181d1b; stroke: #ebf0ee; stroke-opacity: 0.17; }
+    .term { fill: #232a28; stroke: #ebf0ee; stroke-opacity: 0.17; }
+    .term-key { font-family: 'Ubuntu Sans Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; font-weight: 500; fill: #7fe3cc; }
+    .lane-c { fill: #16302a; } .sq-c { fill: #235043; }
+    .lane-f { fill: #35290f; } .sq-f { fill: #5a451c; }
+    .lane-b { fill: #371b27; } .sq-b { fill: #5a2d40; }
+    .lane-s { fill: #24223d; } .sq-s { fill: #3b3866; }
+  </style>
+  <defs>
+    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle class="dot" cx="10" cy="10" r="0.8"/>
+    </pattern>
+    <radialGradient id="fade" cx="50%" cy="50%" r="70%">
+      <stop offset="0.35" stop-color="#fff"/>
+      <stop offset="1" stop-color="#000"/>
+    </radialGradient>
+    <mask id="fadeMask"><rect width="880" height="300" fill="url(#fade)"/></mask>
+    <marker id="headMuted" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="flow-head" d="M0,0.5 L7,4 L0,7.5 Z"/></marker>
+    <marker id="headTeal" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path class="trace-head" d="M0,0.5 L7,4 L0,7.5 Z"/></marker>
+  </defs>
+  <rect class="plate" width="880" height="300" rx="16"/>
+  <rect width="880" height="300" rx="16" fill="url(#grid)" mask="url(#fadeMask)"/>
+  <text class="label" x="24" y="50">Your blueprint</text>
+  <rect class="card" x="24.5" y="68.5" width="250" height="206" rx="16"/>
+    <rect class="sq-c" x="52" y="105.5" width="10" height="10" rx="3"/><rect class="skel" x="68" y="107.5" width="18" height="6" rx="3"/><rect class="lane-c cell" x="92.5" y="99" width="34" height="23" rx="8"/><rect class="skel" x="99" y="108.5" width="17" height="4" rx="2"/><rect class="lane-c cell" x="132.5" y="99" width="34" height="23" rx="8"/><rect class="skel" x="139" y="108.5" width="14" height="4" rx="2"/><rect class="cell-dash" x="172.5" y="99" width="34" height="23" rx="8"/><rect class="lane-c cell" x="212.5" y="99" width="34" height="23" rx="8"/><rect class="skel" x="219" y="108.5" width="21" height="4" rx="2"/>
+    <rect class="sq-f" x="52" y="133.5" width="10" height="10" rx="3"/><rect class="skel" x="68" y="135.5" width="18" height="6" rx="3"/><rect class="lane-f cell" x="92.5" y="127" width="34" height="23" rx="8"/><rect class="skel" x="99" y="136.5" width="18" height="4" rx="2"/><rect class="lane-f cell" x="132.5" y="127" width="34" height="23" rx="8"/><rect class="skel" x="139" y="136.5" width="17" height="4" rx="2"/><rect class="lane-f cell" x="172.5" y="127" width="34" height="23" rx="8"/><rect class="skel" x="179" y="136.5" width="14" height="4" rx="2"/><rect class="lane-f cell" x="212.5" y="127" width="34" height="23" rx="8"/><rect class="skel" x="219" y="136.5" width="12" height="4" rx="2"/>
+    <rect class="sq-b" x="52" y="161.5" width="10" height="10" rx="3"/><rect class="skel" x="68" y="163.5" width="18" height="6" rx="3"/><rect class="lane-b cell" x="92.5" y="155" width="34" height="23" rx="8"/><rect class="skel" x="99" y="164.5" width="16" height="4" rx="2"/><rect class="lane-b cell" x="132.5" y="155" width="34" height="23" rx="8"/><rect class="skel" x="139" y="164.5" width="18" height="4" rx="2"/><rect class="lane-b cell" x="172.5" y="155" width="34" height="23" rx="8"/><rect class="skel" x="179" y="164.5" width="17" height="4" rx="2"/><rect class="lane-b cell" x="212.5" y="155" width="34" height="23" rx="8"/><rect class="skel" x="219" y="164.5" width="14" height="4" rx="2"/>
+    <rect class="sq-s" x="52" y="189.5" width="10" height="10" rx="3"/><rect class="skel" x="68" y="191.5" width="18" height="6" rx="3"/><rect class="lane-s cell" x="92.5" y="183" width="34" height="23" rx="8"/><rect class="skel" x="99" y="192.5" width="13" height="4" rx="2"/><rect class="lane-s cell" x="132.5" y="183" width="34" height="23" rx="8"/><rect class="skel" x="139" y="192.5" width="16" height="4" rx="2"/><rect class="lane-s cell" x="172.5" y="183" width="34" height="23" rx="8"/><rect class="skel" x="179" y="192.5" width="18" height="4" rx="2"/><rect class="lane-s cell" x="212.5" y="183" width="34" height="23" rx="8"/><rect class="skel" x="219" y="192.5" width="17" height="4" rx="2"/>
+    <circle class="flag" cx="206.5" cy="99" r="5"/>
+    <circle class="flag" cx="166.5" cy="127" r="5"/>
+    <circle class="flag" cx="166.5" cy="155" r="5"/>
+    <circle class="flag" cx="246.5" cy="183" r="5"/>
+  <text class="label" x="52" y="250.5">Left exactly as it was</text>
+  <path class="flow" d="M284.5,171.5 H312" marker-end="url(#headMuted)"/>
+  <rect class="term" x="320.5" y="153" width="110" height="37" rx="8"/>
+  <text class="term-key" x="375.5" y="176.5" text-anchor="middle">ub:audit</text>
+  <path class="flow" d="M439,171.5 H466.5" marker-end="url(#headMuted)"/>
+  <text class="label" x="476" y="50">Findings for you to triage</text>
+  <rect class="card" x="476.5" y="68.5" width="379" height="206" rx="16"/>
+    <rect class="cell-dash" x="500.5" y="100" width="34" height="23" rx="8"/>
+    <circle class="flag" cx="534.5" cy="100" r="5"/>
+  <text class="strong" x="552.5" y="108.5">No cell at this step</text>
+  <text class="label" x="552.5" y="128.5">Open</text>
+  <path class="rule" d="M500,141.5 H832"/>
+    <rect class="lane-f cell" x="500.5" y="159.5" width="34" height="11" rx="4"/><rect class="skel" x="507" y="163" width="16" height="4" rx="2"/><rect class="lane-b cell" x="500.5" y="172.5" width="34" height="11" rx="4"/><rect class="skel" x="507" y="176" width="13" height="4" rx="2"/>
+    <circle class="flag" cx="534.5" cy="160" r="5"/>
+  <text class="strong" x="552.5" y="168.5">Two cells compete for one channel</text>
+  <text class="label" x="552.5" y="188.5">Open</text>
+  <path class="rule" d="M500,201.5 H832"/>
+    <rect class="lane-s cell" x="500.5" y="220" width="34" height="23" rx="8"/><rect class="skel" x="507" y="229.5" width="15" height="4" rx="2"/>
+    <circle class="flag" cx="534.5" cy="220" r="5"/>
+  <text class="strong" x="552.5" y="228.5">Owner and perceived owner differ</text>
+  <text class="label" x="552.5" y="248.5">Dismissed</text>
+</svg>

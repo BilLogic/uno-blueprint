@@ -26,7 +26,7 @@ assumptions it would break, on a copy. Nothing moves until you accept it.
 **Bringing a stakeholder up to speed.** A team needs the part of the
 service that concerns them, not all of it. `ub:slice` takes that view —
 one lane, one step, one journey — as a document that still points back at
-the cells it quotes, so it cannot quietly drift from the blueprint.
+the cells it cites, so it cannot quietly drift from the blueprint.
 
 **Comparing designed against actual.** Two paths in one scenario, side by
 side, column by column. This is the service-design move of comparing the
@@ -35,7 +35,10 @@ two documents that were true on different days.
 
 ## 2. Ways in
 
-![Ways into the blueprint](../assets/four-ways-in.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/four-ways-in.dark.svg">
+  <img src="../assets/four-ways-in.svg" alt="Four ways into one shared context — the app, the in-app agent and agentic tools read and write it; a Slack bot you build, dashed because the template does not ship it, only reads">
+</picture>
 
 | Way in | Who it is for | What it can do |
 | --- | --- | --- |

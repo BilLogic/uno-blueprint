@@ -181,7 +181,7 @@ export function OwnerTagSelect({
                   <button
                     type="button"
                     aria-label={`Rename ${tag}`}
-                    className="mr-1 shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity group-hover/tag:opacity-100 focus-visible:opacity-100 hover:text-foreground"
+                    className="mr-1 shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none group-hover/tag:opacity-100 focus-visible:opacity-100 hover:text-foreground"
                     onClick={() => {
                       setRenaming(tag)
                       setRenameText(tag)

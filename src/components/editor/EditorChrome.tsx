@@ -41,7 +41,7 @@ export function SidebarCollapseButton({
       >
         <PanelLeft
           className={cn(
-            'size-3.5 transition-transform duration-(--motion-structural) ease-structural',
+            'size-3.5 transition-transform motion-reduce:transition-none duration-(--motion-structural) ease-arrive',
             !collapsed && 'rotate-180',
           )}
         />

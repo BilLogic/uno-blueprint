@@ -29,13 +29,12 @@ export type Brand = {
  * The template's own brand: no accent, deliberately.
  *
  * Omitting the field is a real value here rather than a hole waiting to be
- * filled. `styles/themes/light.css` and `dark.css` ship `--chroma: 0` and
- * `--primary-chroma: 0`, and the identity fill derives from the filled control,
- * so every chroma in the semantic layer is zero and this template has no
- * brand colour for an accent to be the hue of — the `--hue: 159` those files
- * declare is pinned to `--brand-hue-reference` to keep the status hues on
- * their anchors, not because anything is painted at 159. Naming a hex here
- * would assert a brand the stylesheet cannot show.
+ * filled. The template's teal lives in `styles/themes/light.css` and
+ * `dark.css` — `--hue: 175` with the primary dials beside it — and an accent
+ * written here would be read for its hue and written onto the root inline,
+ * where it outranks every stylesheet selector, a deployment's theme file
+ * included. Leaving it unset keeps the stylesheet the one place the brand is
+ * said.
  *
  * A deployment built on this template writes its own hex into this constant
  * and layers a theme file whose chroma dials are raised at that hue; the two

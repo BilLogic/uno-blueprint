@@ -425,7 +425,7 @@ export function TabStrip({
                 // ARIA tabs pattern, and close stays reachable via the row's
                 // context menu (and pointer).
                 tabIndex={-1}
-                className="mr-1 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="mr-1 rounded-md p-1 text-muted-foreground transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:bg-muted hover:text-foreground"
               >
                 <X className="size-3" />
               </button>

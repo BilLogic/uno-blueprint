@@ -19,24 +19,31 @@
   /* -------------------------------------------------------------------------
    * BRAND SEAM — the block an adopter edits to rebrand the app chrome.
    *
-   * The template ships hue-neutral: every chroma dial below is 0, so the
-   * whole semantic layer renders greyscale and `--hue` is visually moot. It
-   * is pinned to 159 — the `--brand-hue-reference` in semantic.css — so the
-   * status-hue harmony pull is exactly zero and warning / destructive /
-   * info / success sit on their category anchors.
+   * The template ships teal: the filled control, and the identity fill that
+   * derives from it, are the Uno Blueprint site's teal, named beside the
+   * primary pair below and in the dark file. `--hue` is written once at 175
+   * because the dial is mode-invariant. The surfaces stay neutral —
+   * `--chroma` is 0, so the canvas, text and borders are exact greys
+   * whatever the hue says.
    *
-   * To rebrand: set `--hue` to your brand's OKLCH hue and raise the two
-   * chroma dials — `--chroma` for surfaces, `--primary-chroma` for the filled
-   * control — turning the lightness beside each if that fill wants to sit
-   * higher or lower. Every role in the semantic layer follows, the identity
-   * fill included: `--brand` derives from `--primary`, so an app with one
-   * accent has nothing more to set here. Giving the identity a colour of its
-   * own is one dial per channel, added to this block and to the dark one —
-   * `references/customization.md` is the recipe. There is no ramp to re-type
+   * The status hues lean a fraction of the way toward this hue (the harmony
+   * pull in semantic.css, measured from `--brand-hue-reference: 159`), so at
+   * 175 warning, destructive and info each sit 2.4 degrees off their anchors.
+   * That is the pull doing its job, and nowhere near a clamp bound.
+   *
+   * To rebrand: set `--hue` to your brand's OKLCH hue and move the primary
+   * pair below to your fill, here and in the dark file; raise `--chroma` too
+   * if the surfaces should carry a tint; going neutral instead is in
+   * `references/customization.md`. Every role in the semantic layer
+   * follows, the identity fill included: `--brand` derives from `--primary`,
+   * so an app with one accent has nothing more to set here. Giving the
+   * identity a colour of its own is one dial per channel, added to this
+   * block and to the dark one — `references/customization.md` is the
+   * recipe. There is no ramp to re-type
    * here: a stepped family is named for its hue and lives in colors.css, and
    * the app chrome derives from these dials rather than from steps.
    * ---------------------------------------------------------------------- */
-  --hue: 159;
+  --hue: 175;
   /* Warm grey canvas, decoupled from the brand hue — running the neutral ramp
      off a hue of its own is the point of splitting `--surface-hue` from
      `--hue`. Declared in themes/dark.css too, at this same value: the two are
@@ -59,10 +66,12 @@
   --tertiary-foreground-level: 0.5;
 
   /*
-   * The filled control (BRAND SEAM). Neutral brand: near-black fill,
-   * chroma 0. A branded fork raises `--primary-chroma` and usually
-   * `--primary-lightness`; the derivations in semantic.css (border, the
-   * foreground flip, the ring) follow on their own.
+   * The filled control (BRAND SEAM). `#00806a`, the site's light teal:
+   * OKLCH 0.536 / 0.101 at the hue above, in gamut. Light enough to read as
+   * the brand, dark enough that the ink flip in semantic.css lands on
+   * near-white and holds 4.69:1 on it — AA for body text. A fork moves these
+   * two to rebrand; the derivations in semantic.css (border, the foreground
+   * flip, the ring) follow on their own.
    *
    * These two are the identity's dials as well, and that is the seam rather
    * than an omission: `--brand` derives from this fill, so the template has
@@ -74,8 +83,8 @@
    * those three names declared in a stylesheet or written from TypeScript,
    * which is what makes adding one a decision rather than a drift.
    */
-  --primary-lightness: 0.205;
-  --primary-chroma: 0;
+  --primary-lightness: 0.536;
+  --primary-chroma: 0.101;
   /*
    * Focus ring / selection chrome lightness. 0.58, not the mid-grey 0.708 a
    * neutral palette reaches for first: at 0.708 the ring measures 2.56:1 on
@@ -103,4 +112,13 @@
    * a fraction of is.
    */
   --role-edge-step: 0.08;
+
+  /* The three neutral edge steps semantic.css derives `--border`,
+     `--border-strong` and `--border-stronger` from: ink at this alpha over
+     whatever the edge sits on, stated at the `--contrast: 0.5` baseline.
+     Light runs at 0.53, which scales each step's distance above its floor
+     by about 1.11, so these land on the marketing site's 9%, 17% and 42%. */
+  --border-alpha-resting: 8.3%;
+  --border-alpha-hover: 15.8%;
+  --border-alpha-hot: 39%;
 }

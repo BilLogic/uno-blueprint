@@ -185,7 +185,7 @@ function StakeholderRow({
       onClick={onSelect}
       className={cn(
         'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs',
-        'transition-colors duration-(--motion-micro) hover:bg-accent',
+        'transition-colors ease-arrive motion-reduce:transition-none duration-(--motion-micro) hover:bg-accent',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
       )}
     >

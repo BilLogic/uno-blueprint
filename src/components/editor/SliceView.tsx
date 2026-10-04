@@ -339,7 +339,7 @@ function SliceRefocusButton({ onRefocus }: { onRefocus: () => void }) {
         onClick={onRefocus}
         className={cn(
           'pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2',
-          'text-xs font-medium text-muted-foreground shadow-md transition-colors',
+          'text-xs font-medium text-muted-foreground shadow-md transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
           'hover:bg-accent hover:text-foreground',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
         )}

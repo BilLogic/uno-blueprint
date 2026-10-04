@@ -134,7 +134,7 @@ export function StoryboardWalkthroughModal() {
       {session ? (
         <DialogContent
           data-storyboard-walkthrough-modal=""
-          className="flex h-[min(85vh,36rem)] flex-col gap-0 overflow-hidden rounded-xl border-border p-0 shadow-sm sm:max-w-5xl"
+          className="flex h-[min(85vh,36rem)] flex-col gap-0 overflow-hidden rounded-xl border-border p-0 sm:max-w-5xl"
           aria-label="Storyboard walkthrough"
         >
           <DialogHeader className="shrink-0 flex-row items-center gap-2 border-b border-muted px-5 py-4 pr-14 text-left">
@@ -231,7 +231,7 @@ export function StoryboardWalkthroughModal() {
                     aria-selected={index === stepIndex}
                     aria-label={`Go to step ${index + 1}`}
                     className={cn(
-                      'h-1.5 rounded-full bg-muted-foreground/25 transition-all',
+                      'h-1.5 rounded-full bg-muted-foreground/25 transition-all duration-(--motion-micro) ease-move motion-reduce:transition-none',
                       index === stepIndex ? 'w-5 bg-foreground/70' : 'w-1.5',
                     )}
                     onClick={() => api?.scrollTo(index)}

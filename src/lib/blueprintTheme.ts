@@ -61,7 +61,7 @@ export const BLUEPRINT_THEME = {
   /*
    * The divider caption's ink, and it is a TEXT step for that reason —
    * `blueprint.css` declares the name and carries the measurement that forced
-   * it there. Step 900 and step 1100 both miss AA on an uppercase caption at
+   * it there. Step 900 and step 1100 both miss AA on a 12px caption at
    * the bottom of the type scale, and `palette.test.ts` measures the pair
    * rather than trusting the step number.
    *

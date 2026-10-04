@@ -15,7 +15,10 @@ board, trace a change through it, then cut the view an audience asked for.
 
 ### `ub:map`
 
-![How to use ub:map](../assets/ub-map.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/ub-map.dark.svg">
+  <img src="../assets/ub-map.svg" alt="ub:map reads what you already have — interview notes, support tickets, a journey map — and places what it finds into cells, held as a draft until you sign it off">
+</picture>
 
 Fires when you ask for a blueprint to be created, imported, translated or
 resumed. It routes by what already exists: nothing at all becomes
@@ -29,7 +32,10 @@ to a content hash.
 
 ### `ub:audit`
 
-![How to use ub:audit](../assets/ub-audit.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/ub-audit.dark.svg">
+  <img src="../assets/ub-audit.svg" alt="ub:audit flags cells without changing the blueprint — a step with no cell, two cells competing for one channel, a recorded owner and a perceived owner that differ — and records each as a finding for you to triage">
+</picture>
 
 Runs the check roster. Each check is dispatched to its own agent that sees
 only that check's doc and the export, so no check can be influenced by
@@ -38,7 +44,10 @@ edits the blueprint.
 
 ### `ub:whatif`
 
-![How to use ub:whatif](../assets/ub-whatif.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/ub-whatif.dark.svg">
+  <img src="../assets/ub-whatif.svg" alt="ub:whatif traces a proposed change on a copy, to the cells it reaches and an assumption it breaks; the blueprint changes only after you accept, through ub:map">
+</picture>
 
 Takes a proposed change and traces it on a copy: which cells it reaches,
 which assumptions stop holding, where displaced demand lands. Exits with
@@ -46,7 +55,10 @@ options, not edits. Accepting one promotes it through `ub:map`.
 
 ### `ub:slice`
 
-![How to use ub:slice](../assets/ub-slice.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/ub-slice.dark.svg">
+  <img src="../assets/ub-slice.svg" alt="ub:slice takes one cut of the blueprint — a journey, step, lane, cell or custom set; here one lane — and orders it into slides that each cite the cell they show">
+</picture>
 
 Takes one stakeholder view out of the blueprint as a document. Five types,
 each with a template. Exits when the slice validates and every claim in it
@@ -54,7 +66,10 @@ traces to a cited cell.
 
 ## 2. The skills and the agents
 
-![The skill set and agent fleet](../assets/skill-architecture.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/skill-architecture.dark.svg">
+  <img src="../assets/skill-architecture.svg" alt="The skill set and agent fleet — four skills against the shared references each links and the fresh-context agents each hands its reading to">
+</picture>
 
 Each skill carries its own `references/` and, where it needs them,
 `scripts/`. It links only the shared references its task needs rather than

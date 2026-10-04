@@ -163,6 +163,8 @@ type ServicePhaseSectionProps = {
   dimmed?: boolean
   focusedScenarioId?: string | null
   focusActive?: boolean
+  /** The phase itself is the selection, not a scenario inside it. */
+  selected?: boolean
   /** Slice-tab scope: mount only this scenario's artboard within the phase. */
   onlyScenarioId?: string | null
   /** OPTIONAL: mobile passes nothing — the drawer owns navigation there. */
@@ -189,6 +191,7 @@ function ServicePhaseSection({
   dimmed = false,
   focusedScenarioId = null,
   focusActive = false,
+  selected = false,
   onlyScenarioId = null,
 }: ServicePhaseSectionProps) {
   const label = getSlideDisplayLabel(phase, slides)
@@ -208,6 +211,7 @@ function ServicePhaseSection({
       isLoopArrowTo={isLoopArrowTo}
       dimmed={dimmed}
       focusActive={focusActive}
+      selected={selected}
       onNavigate={onOpenPhase ? () => onOpenPhase(phase.id) : undefined}
     >
       <PhaseScenarioOverview
@@ -1258,6 +1262,14 @@ function ServiceOverviewViewImpl({
                     {phases.map((phase, index) => {
                       const phaseIsFocused = focusedPhaseId === phase.id
                       const dimPhase = isDetail && !phaseIsFocused
+                      // The phase is the selection only while it is the
+                      // active slide itself; inside it, a focused scenario
+                      // is what is selected. Derived from the editor's
+                      // selection, so Escape, Home, the breadcrumb and
+                      // another phase clear or move it the way they do
+                      // every other.
+                      const phaseIsSelected =
+                        isDetail && activeSlide?.id === phase.id
 
                       return (
                         <Fragment key={phase.id}>
@@ -1285,6 +1297,7 @@ function ServiceOverviewViewImpl({
                             }
                             dimmed={dimPhase}
                             focusActive={phaseIsFocused}
+                            selected={phaseIsSelected}
                             focusedScenarioId={
                               phaseIsFocused ? focusedScenarioId : null
                             }

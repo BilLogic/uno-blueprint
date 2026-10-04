@@ -16,7 +16,8 @@ README's [Get set up](./README.md#get-set-up) is the shorter road.
 
 ## From an empty folder to your own content
 
-Five steps, in order. Each one is a command and a thing you should see. If a
+Five steps, in order. Step 1 is either the one-line create command or a clone
+of the repository. Each one is a command and a thing you should see. If a
 step does not show you its result, stop on that step — every later step will
 look like it worked anyway, because this app renders bundled content whenever
 it cannot reach a database. That is the one trap on this path, and it is why
@@ -45,10 +46,11 @@ has to be empty or new. `--no-install` writes the files and skips the install
 [the initialiser's README](./packages/create-uno-blueprint/README.md).
 
 Yarn 2 and later are refused, because they skip the `pre` scripts that `dev`
-and `build` rely on: the files are written and nothing is installed. Only npm
-reads the release's `package-lock.json`; pnpm and Yarn resolve the dependency
-ranges afresh, so a workspace they install is not the release's exact
-dependency set.
+and `build` rely on: the files are written and nothing is installed. The
+release's exact dependency set is in its `package-lock.json`. npm installs from
+it, and Bun converts it into a lock file of its own on the first install. pnpm
+and Yarn read no `package-lock.json` and resolve the dependency ranges afresh,
+so a workspace they install can differ from the release's set.
 
 **Success:** the command ends with `Next steps:` and the line that starts the
 canvas.
@@ -69,7 +71,7 @@ is `pnpm run <script>`, `yarn run <script>` or `bun run <script>`.
 ### 2. Run it with no database at all
 
 ```bash
-npm run dev                 # or: pnpm dev · yarn dev · bun dev
+npm run dev
 ```
 
 **Success:** <http://localhost:5173> shows a blueprint — a grid of lanes and

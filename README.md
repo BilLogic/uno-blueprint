@@ -127,7 +127,7 @@ npm run dev                 # or: pnpm dev · yarn dev · bun dev
 
 No database needed — this renders the bundled sample blueprint so you can see the frontend working before wiring anything up.
 
-It runs under npm, pnpm, Yarn 1 and Bun, on Node 22 or later. Yarn 2 and later are refused, because they skip the `pre` scripts that `dev` and `build` rely on: the files are written and nothing is installed. Only npm reads the release's `package-lock.json`; pnpm and Yarn resolve the dependency ranges afresh, so a workspace they install is not the release's exact dependency set. Add a folder name after the command to write somewhere other than `uno-blueprint`, and `--no-install` to skip the install (with npm, after a `--`). Every option is in [the initialiser's README](./packages/create-uno-blueprint/README.md).
+It needs Node 22 or later. Which package managers work, what each installs, and the command's options are in [SETUP.md § 1](./SETUP.md#1-start-a-workspace).
 
 To work on the template itself, clone it instead:
 

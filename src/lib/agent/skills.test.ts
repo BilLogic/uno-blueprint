@@ -109,17 +109,18 @@ describe('the skill lookup a draft carries', () => {
   })
 
   it('keeps a mid-sentence space rather than doubling it', () => {
-    // The near-miss offer's span, which is the only one that does not reach
-    // the end of the draft: a second space here is a hole in the sentence.
+    // A span with prose behind it — the near-miss offer's, or a pick made
+    // mid-sentence: a second space here is a hole in the sentence.
     const audit = AGENT_SKILL_COMMANDS.find((entry) => entry.id === 'ub:audit')!
     const draft = 'then /audit the intake'
     expect(completeSkillToken(draft, { start: 5, end: 11 }, audit)).toEqual({
       text: 'then /ub:audit the intake',
-      // And the caret comes back pointing at the far side of the name that
-      // was written, not at the end of the sentence it sits in. This is the
-      // only span with prose behind it, so it is the only one where those
-      // two are different offsets — 14 against 25.
-      caret: 'then /ub:audit'.length,
+      // And the caret comes back past the name that was written and the
+      // space the prose already had, not at the end of the sentence it sits
+      // in — 15 against 25. Past the space, because a caret left at the end
+      // of the name is a caret at the end of a token, and the lookup would
+      // reopen on it.
+      caret: 'then /ub:audit '.length,
     })
   })
 
@@ -128,6 +129,72 @@ describe('the skill lookup a draft carries', () => {
     const draft = 'Hey can u /ub:aud'
     const completed = completeSkillToken(draft, findSkillLookup(draft)!, audit)
     expect(findSkillLookup(completed.text)).toBeNull()
+  })
+})
+
+describe('the skill lookup under the caret', () => {
+  // The lookup reads the token the caret sits at the END of, wherever in the
+  // draft that is. `at` marks the caret in each case; the draft is the string
+  // with the mark taken out.
+  const at = (marked: string) => {
+    const caret = marked.indexOf('|')
+    return { draft: marked.slice(0, caret) + marked.slice(caret + 1), caret }
+  }
+  const cases: [string, string | null][] = [
+    ['Can you /| this part', ''],
+    ['Can you /au| this part', 'au'],
+    ['/au| this part', 'au'],
+    ['Can you /ub:aud|, please', 'ub:aud'],
+    ['check this、/aud| now', 'aud'],
+    // The caret inside a token, not at its end: the reader is editing a word,
+    // and the menu would complete half of it.
+    ['Can you /a|u this part', null],
+    ['Can you /|au this part', null],
+    // The caret away from any slash at all.
+    ['Can you /au this| part', null],
+    ['Can you| /au this part', null],
+    // What the tail rule refused, it still refuses with the caret beside it.
+    ['look at src/lib| today', null],
+    ['look at src/| today', null],
+    ['see http://example.test| now', null],
+    ['do this and/or| that', null],
+    ['do this and/| that', null],
+    ['on 2026/09/17| at noon', null],
+    ['check /ub:audit|/notes.md', null],
+    ['check /ub:audit/notes.md| now', null],
+  ]
+  for (const [marked, query] of cases) {
+    it(`${query === null ? 'ignores' : `reads "${query}" from`} ${JSON.stringify(marked)}`, () => {
+      const { draft, caret } = at(marked)
+      expect(findSkillLookup(draft, caret)?.query ?? null).toBe(query)
+    })
+  }
+
+  it('spans the token before the caret and nothing after it', () => {
+    const { draft, caret } = at('Can you /au| this part')
+    expect(findSkillLookup(draft, caret)).toEqual({
+      query: 'au',
+      start: 'Can you '.length,
+      end: 'Can you /au'.length,
+    })
+  })
+
+  it('reads the tail exactly as before when the caret is at the end', () => {
+    for (const draft of ['Hey can u /ub:aud', '/', 'check /ub:audit/notes.md', 'x /a ']) {
+      expect(findSkillLookup(draft, draft.length)).toEqual(findSkillLookup(draft))
+    }
+  })
+
+  it('completes a mid-sentence token in place and puts the caret past its gap', () => {
+    const audit = AGENT_SKILL_COMMANDS.find((entry) => entry.id === 'ub:audit')!
+    const { draft, caret } = at('Can you /au| this part')
+    const completed = completeSkillToken(draft, findSkillLookup(draft, caret)!, audit)
+    expect(completed).toEqual({
+      text: 'Can you /ub:audit this part',
+      caret: 'Can you /ub:audit '.length,
+    })
+    // And the menu does not reopen on the name it just wrote.
+    expect(findSkillLookup(completed.text, completed.caret)).toBeNull()
   })
 })
 

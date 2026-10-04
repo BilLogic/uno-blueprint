@@ -81,6 +81,7 @@ describe('focusAgentComposer', () => {
         onDraftChange: () => {},
         caret: null,
         onCaretPlaced: () => {},
+        onSelectionChange: () => {},
         placeholder: 'Message the agent…',
       }),
     )

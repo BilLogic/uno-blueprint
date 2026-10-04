@@ -92,8 +92,9 @@ describe('accepting one offer re-checks the draft it produced', () => {
     expect(next.draft).toBe('check /ub:audit then /map this')
     expect(next.misses.map((miss) => miss.token)).toEqual(['map'])
     // And where the reader is standing in it: just past the name they
-    // accepted, not at the end of a sentence they were half-way through.
-    expect(next.caret).toBe('check /ub:audit'.length)
+    // accepted and its space, not at the end of a sentence they were
+    // half-way through.
+    expect(next.caret).toBe('check /ub:audit '.length)
   })
 
   it('moves no caret when the question is about a draft it did not touch', () => {

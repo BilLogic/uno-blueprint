@@ -98,17 +98,26 @@ export type SkillLookup = { query: string; start: number; end: number }
  * typing Japanese gets no space before the slash). Everything else a slash
  * appears in is text: a reference path, a URL, `and/or`, a date.
  *
- * TAIL-ONLY, not caret-aware: the token must run to the end of the draft.
- * The tool this composer mirrors tracks the caret and looks up the token
- * under it; doing that here would mean holding `selectionStart` in state and
- * keeping it honest through every programmatic write to the field. This stays
- * derived from the text alone — the cost is that editing back into an earlier
- * token does not reopen the menu, which is the rarer half of the gesture.
+ * THE LOOKUP FOLLOWS THE CARET. It is the token the caret sits at the end of,
+ * wherever that is in the draft, so a reader who moves back into a sentence
+ * and types `/au` between two words gets the same menu as one typing at the
+ * tail. The tail is the default and the commonest case: with the caret at the
+ * end of the draft this reads exactly what a tail-only rule did. It used to
+ * be tail-only, to keep the lookup derived from the text alone, and the cost
+ * was that the gesture of editing back into a sentence offered nothing.
+ *
+ * At the END of the token, not merely inside it: the text before the caret
+ * has to finish on the slash and its token characters, and the character at
+ * the caret has to be one the token cannot continue with — the end of the
+ * draft, whitespace, punctuation outside the grammar. A caret in the middle
+ * of `/audit` is a reader editing a word, and a menu there would complete
+ * half of it. A second slash at the caret counts as a continuation for the
+ * same reason the token walk below refuses one: `/ub:audit/notes.md` is a
+ * path, wherever the caret stands in it.
  *
  * A space after the token closes it, because the space is not in the token's
- * character class and the token has to reach the end. So does a second slash:
- * `/ub:audit/notes.md` is a path, and the token has to be the last thing in
- * the draft for it to be a lookup at all.
+ * character class and the token has to reach the caret. That is also why a
+ * completion writes one and puts the caret past it.
  *
  * A DRAFT THAT OPENS WITH A RESOLVED SKILL still gets a lookup on its later
  * tokens. A guard used to refuse one — a head command owns its arguments in
@@ -127,24 +136,29 @@ export type SkillLookup = { query: string; start: number; end: number }
 // The trailing `-` stays last: anywhere else in a class it is a range.
 const SKILL_TOKEN_INNER = 'a-zA-Z0-9._:-'
 const SKILL_TOKEN_CHARS = `[${SKILL_TOKEN_INNER}]`
-const LOOKUP_AT_HEAD = new RegExp(`^/(${SKILL_TOKEN_CHARS}*)$`)
-const LOOKUP_AFTER_SPACE = new RegExp(
-  `[\\s。、？！]/(${SKILL_TOKEN_CHARS}*)$`,
+/**
+ * A token stops where neither a token character nor a slash follows. Shared
+ * by the lookup, which asks it of the character at the caret, and by the
+ * walk over the whole draft further down.
+ */
+const TOKEN_ENDS_HERE = `(?![/${SKILL_TOKEN_INNER}])`
+const LOOKUP_BEFORE_CARET = new RegExp(
+  `(?:^|[\\s。、？！])/(${SKILL_TOKEN_CHARS}*)$`,
 )
+const TOKEN_ENDS_AT_CARET = new RegExp(`^${TOKEN_ENDS_HERE}`)
 
-export function findSkillLookup(draft: string): SkillLookup | null {
-  const atHead = LOOKUP_AT_HEAD.exec(draft)
-  if (atHead)
-    return { query: atHead[1].toLowerCase(), start: 0, end: draft.length }
-  const afterSpace = LOOKUP_AFTER_SPACE.exec(draft)
-  if (!afterSpace) return null
-  return {
-    query: afterSpace[1].toLowerCase(),
-    // The match opens on the whitespace that qualified the slash; the span
-    // starts at the slash, so the space the reader typed survives the pick.
-    start: afterSpace.index + 1,
-    end: draft.length,
-  }
+export function findSkillLookup(
+  draft: string,
+  caret: number = draft.length,
+): SkillLookup | null {
+  const at = Math.max(0, Math.min(caret, draft.length))
+  if (!TOKEN_ENDS_AT_CARET.test(draft.slice(at))) return null
+  const match = LOOKUP_BEFORE_CARET.exec(draft.slice(0, at))
+  if (!match) return null
+  const token = match[1]
+  // The span starts at the slash rather than at the whitespace that
+  // qualified it, so the space the reader typed survives the pick.
+  return { query: token.toLowerCase(), start: at - token.length - 1, end: at }
 }
 
 /**
@@ -160,30 +174,31 @@ export function findSkillLookup(draft: string): SkillLookup | null {
  * sentence and takes a colour instead.
  *
  * The trailing space earns its place twice: it closes the lookup, because a
- * token has to run to the end of the draft to be one and a space is outside
- * the token grammar, and it leaves the reader mid-sentence rather than
- * mid-word. Without it the menu reopens on the completed token and the next
- * Enter picks the same skill again instead of sending.
+ * token has to end at the caret to be one and a space is outside the token
+ * grammar, and it leaves the reader mid-sentence rather than mid-word.
+ * Without it the menu reopens on the completed token and the next Enter
+ * picks the same skill again instead of sending.
  *
  * A span the prose continues after keeps the space it already has rather than
- * gaining a second: the near-miss offer rewrites a token in mid-sentence
- * through here, and "then /audit the intake" would otherwise come back as
- * "then /ub:audit  the intake" — a visible hole in the reader's own sentence,
- * from the one caller whose span does not reach the end of the draft.
+ * gaining a second: a pick made mid-sentence and the near-miss offer both
+ * rewrite a token with prose behind it, and "then /audit the intake" would
+ * otherwise come back as "then /ub:audit  the intake" — a visible hole in the
+ * reader's own sentence.
  *
- * THE CARET COMES BACK WITH THE TEXT, at the far side of what was just
- * written — the completed name and the space that closes it. It is returned
- * rather than left to the field because assigning a textarea's `value` puts
- * the caret at the end of the new text, and "the end" is the right answer
- * only while the span reaches it. For the tail-anchored callers it does, and
- * the two offsets coincide; for the near-miss rewrite, which is the one span
- * with prose behind it, they differ, and the reader who accepted an offer
- * about a word in the middle of their sentence was thrown to the end of it.
+ * THE CARET COMES BACK WITH THE TEXT, past the completed name and its gap —
+ * the space this wrote, or the one the prose already had. Past the gap and
+ * not before it, because the lookup follows the caret: a caret left between
+ * the name and the space sits at the end of a token, and the menu would
+ * reopen on the name just written. It is returned rather than left to the
+ * field because assigning a textarea's `value` puts the caret at the end of
+ * the new text, and "the end" is the right answer only while the span
+ * reaches it; for a span with prose behind it the reader who accepted would
+ * be thrown to the end of their sentence.
  *
  * One return value rather than a caret function beside this one: the offset
- * is `span.start` plus what this wrote, gap included, and a second function
- * deriving it would have to spell the gap rule again and could come to
- * disagree with the string it is describing.
+ * is `span.start` plus the name and the gap, and a second function deriving
+ * it would have to spell the gap rule again and could come to disagree with
+ * the string it is describing.
  */
 export function completeSkillToken(
   draft: string,
@@ -194,7 +209,9 @@ export function completeSkillToken(
   const gap = /^\s/.test(after) ? '' : ' '
   return {
     text: `${draft.slice(0, span.start)}${command.label}${gap}${after}`,
-    caret: span.start + command.label.length + gap.length,
+    // One past the name either way: over the space written here, or over the
+    // one the prose already had.
+    caret: span.start + command.label.length + 1,
   }
 }
 
@@ -207,12 +224,11 @@ export type SkillTokenSpan = {
 }
 
 /**
- * Every word-start slash token in the draft, wherever it sits. The lookup
- * above gets its path safety free from the `$` anchor — a token that has to be
- * the last thing in the draft cannot have `/notes.md` behind it — and this
- * walk, which reads the whole draft, has to say so itself: without the
- * lookahead, "check /ub:audit/notes.md" stops the token at the slash,
- * resolves it, and colours a path segment as a skill that will run.
+ * Every word-start slash token in the draft, wherever it sits. Like the
+ * lookup above, which asks the same of the character at the caret, this walk
+ * has to say where a token stops: without the lookahead, "check
+ * /ub:audit/notes.md" stops the token at the slash, resolves it, and colours a
+ * path segment as a skill that will run.
  *
  * The lookahead forbids a token character as well as a slash, and that is
  * load-bearing rather than belt-and-braces: forbidding only the slash lets
@@ -223,7 +239,6 @@ export type SkillTokenSpan = {
  * run, and the near-miss offer at the foot of this file — so a token grammar
  * one of them accepts is a token grammar the other accepts too.
  */
-const TOKEN_ENDS_HERE = `(?![/${SKILL_TOKEN_INNER}])`
 const SKILL_TOKEN_ANYWHERE = new RegExp(
   `(?:^|[\\s。、？！])/(${SKILL_TOKEN_CHARS}+)${TOKEN_ENDS_HERE}`,
   'g',

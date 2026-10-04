@@ -143,16 +143,27 @@ type ComposerInkedFieldOwnProps = {
   caret: number | null
   /** Called once the request above has been carried out. */
   onCaretPlaced: () => void
+  /**
+   * Where the reader's selection is, with the text it was read from — on
+   * every keystroke and every caret move, arrow key or click alike. The text
+   * travels with the offsets because an offset means nothing against any
+   * other string: a caller holding one across a draft written from elsewhere
+   * can see it no longer belongs.
+   */
+  onSelectionChange: (selection: FieldSelection) => void
 }
+
+/** The field's selection, and the text it is an offset into. */
+export type FieldSelection = { text: string; start: number; end: number }
 
 /**
  * The textarea props this module SPENDS rather than passes on. Every one of
  * them is a rung of the illusion, so leaving it reachable is leaving a way to
- * break it from outside: `value`/`onChange` are the draft seam above,
- * `className` carries the metrics both copies wear, `ref`/`onScroll` and the
- * composition pair are the scroll sync and the IME stand-down, `rows` is the
- * one-line floor the growth starts from, and `aria-label` is the name the
- * focus seam and every reader find the field by. Omitted from the passthrough
+ * break it from outside: `value`/`onChange`/`onSelect` are the draft and
+ * selection seam above, `className` carries the metrics both copies wear,
+ * `ref`/`onScroll` and the composition pair are the scroll sync and the IME
+ * stand-down, `rows` is the one-line floor the growth starts from, and
+ * `aria-label` is the name the focus seam and every reader find the field by. Omitted from the passthrough
  * so overriding one is a compile error rather than a comment nobody reads.
  */
 type ComposerFieldOwnedProps =
@@ -163,6 +174,7 @@ type ComposerFieldOwnedProps =
   | 'onCompositionEnd'
   | 'onCompositionStart'
   | 'onScroll'
+  | 'onSelect'
   | 'ref'
   | 'rows'
   | 'value'
@@ -216,6 +228,7 @@ export function ComposerInkedField({
   onDraftChange,
   caret,
   onCaretPlaced,
+  onSelectionChange,
   ...passthrough
 }: Omit<
   ComponentPropsWithoutRef<typeof InputGroupTextarea>,
@@ -266,6 +279,12 @@ export function ComposerInkedField({
     field.setSelectionRange(caret, caret)
     onCaretPlaced()
   })
+  const reportSelection = (field: HTMLTextAreaElement) =>
+    onSelectionChange({
+      text: field.value,
+      start: field.selectionStart,
+      end: field.selectionEnd,
+    })
   // Composition text lives in the field, and the field's own text is
   // transparent while the mirror behind it is doing the drawing — so an IME
   // preedit string would be invisible for as long as it is being composed.
@@ -301,7 +320,11 @@ export function ComposerInkedField({
           onScroll={syncMirrorScroll}
           onCompositionStart={() => setComposing(true)}
           onCompositionEnd={() => setComposing(false)}
-          onChange={(event) => onDraftChange(event.target.value)}
+          onChange={(event) => {
+            reportSelection(event.target)
+            onDraftChange(event.target.value)
+          }}
+          onSelect={(event) => reportSelection(event.currentTarget)}
           aria-label="Message the agent"
         />
       </div>

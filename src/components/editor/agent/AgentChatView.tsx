@@ -41,7 +41,10 @@ import {
   AttachmentTitle,
 } from '@/components/ui/attachment'
 import { AgentTrialBanner } from '@/components/editor/AgentTrialBanner'
-import { ComposerInkedField } from '@/components/editor/agent/ComposerInkedField'
+import {
+  ComposerInkedField,
+  type FieldSelection,
+} from '@/components/editor/agent/ComposerInkedField'
 import { ChangeCount } from '@/components/editor/agent/ChangeCount'
 import { RenameSessionDialog } from '@/components/editor/agent/SessionDialogs'
 import { blockTranscript } from '@/components/editor/agent/transcriptBlocks'
@@ -153,6 +156,14 @@ export function AgentChatView({
   // mid-sentence, would not, and its reader was thrown to the end of a
   // sentence they were standing in the middle of.
   const [caret, setCaret] = useState<number | null>(null)
+  // Where the reader's selection IS, with the text it was read from — the
+  // other half of the caret. The request above is where a write puts the
+  // caret; this is where the caret stands, which is what the skill lookup
+  // reads. The text rides along because an offset belongs to one string: a
+  // draft written from somewhere this panel did not report (a send clearing
+  // the field, a restored session) leaves it describing text that is gone,
+  // and the lookup falls back to the end of the draft rather than trust it.
+  const [selection, setSelection] = useState<FieldSelection | null>(null)
   // The slash menu is a portalled popover; this is what it anchors to (and
   // what --anchor-width measures).
   const composerRowRef = useRef<HTMLDivElement>(null)
@@ -192,7 +203,18 @@ export function AgentChatView({
   // it sits — the rule and the spans it reports live in skills.ts, because
   // the strings it must NOT fire on (a reference path, a URL, `and/or`, a
   // date) are worth a table of tests and not a condition in a render body.
-  const slashLookup = findSkillLookup(draft)
+  //
+  // At the CARET: the lookup is the token the caret sits at the end of, so a
+  // slash typed back into a sentence opens the menu where it was typed. A
+  // selected range is not a caret, and opens nothing.
+  const lookupCaret =
+    selection?.text === draft
+      ? selection.start === selection.end
+        ? selection.start
+        : null
+      : draft.length
+  const slashLookup =
+    lookupCaret === null ? null : findSkillLookup(draft, lookupCaret)
   const slashMatches = slashLookup
     ? AGENT_SKILL_COMMANDS.filter((command) =>
         skillMatchesQuery(command, slashLookup.query),
@@ -201,8 +223,8 @@ export function AgentChatView({
   // Dismissal is the one fact about the menu the draft cannot carry: the
   // reader wants the token they typed to stay typed AND the menu gone, and
   // the draft that opened the menu is still the draft. It is cleared by the
-  // next keystroke, so the menu is never shut for a token the reader has not
-  // seen it open on.
+  // next keystroke or the next caret move, so the menu is never shut for a
+  // token the reader has not seen it open on.
   const [slashDismissed, setSlashDismissed] = useState(false)
   const slashOpen = slashMatches.length > 0 && !slashDismissed
   // Arrow keys and hover move one highlight through the *pickable* matches
@@ -231,6 +253,13 @@ export function AgentChatView({
     setSlashHighlight(next.id)
   }
 
+  // A write from here — a pick, an accepted offer — puts the caret itself, so
+  // the selection it leaves is recorded here too rather than waited for: the
+  // lookup reads it on the very next render, and a stale one would reopen the
+  // menu on the token just written.
+  const placeSelection = (text: string, at: number) =>
+    setSelection({ text, start: at, end: at })
+
   // Accepting a match COMPLETES the token in place — `/ub:aud` becomes
   // `/ub:audit `, exactly where the reader typed it, the way a shell
   // completion behaves. It neither clears the field nor removes the token: the
@@ -243,6 +272,7 @@ export function AgentChatView({
     const completed = completeSkillToken(draft, slashLookup, command)
     setDraft(completed.text)
     setCaret(completed.caret)
+    placeSelection(completed.text, completed.caret)
   }
 
   /**
@@ -285,7 +315,10 @@ export function AgentChatView({
       // The accepted token is mid-sentence by construction — it has the rest
       // of the draft behind it — so the caret the rewrite reports is the one
       // thing the field cannot work out for itself.
-      if (decision.caret !== null) setCaret(decision.caret)
+      if (decision.caret !== null) {
+        setCaret(decision.caret)
+        placeSelection(decision.draft, decision.caret)
+      }
       setMisses(decision.misses)
       return
     }
@@ -656,6 +689,16 @@ export function AgentChatView({
             draft={draft}
             caret={caret}
             onCaretPlaced={() => setCaret(null)}
+            onSelectionChange={(next) => {
+              // A caret moved is a new question about whatever token it now
+              // sits at, so a dismissal of the last one does not carry over.
+              if (
+                slashDismissed &&
+                (next.start !== selection?.start || next.end !== selection?.end)
+              )
+                setSlashDismissed(false)
+              setSelection(next)
+            }}
             onDraftChange={(value) => {
               // The question was about the draft as it stood; editing it is
               // an answer to neither choice, so it goes away.

@@ -387,7 +387,7 @@ export function ResizableComparePanel({
         className={cn(
           'relative flex shrink-0 flex-col overflow-hidden rounded-xl border',
           navigable &&
-            'cursor-pointer transition-[box-shadow,border-color] duration-(--motion-micro) ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0',
+            'cursor-pointer transition-[border-color] duration-(--motion-micro) ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0',
         )}
         /*
           Fill and border come from `[data-phase-scenario-panel]` below,

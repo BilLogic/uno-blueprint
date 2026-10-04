@@ -335,7 +335,8 @@ spelling of a term the badge, the panel and the board all write in sentence
 case. Weight, not ink, separates the term from its sentence — a muted term
 would sit quieter than the prose defining it. The section eyebrows elsewhere —
 the sidebar, the path selector, the compare columns, the annotation bar — are
-untouched: those are labels on regions, which is what `Eyebrow` is for.
+labels on regions, which is what `Eyebrow` is for; they are sentence case too,
+under the rule in [overview](overview.md#small-labels-are-sentence-case).
 
 ## A definition never repeats its term
 

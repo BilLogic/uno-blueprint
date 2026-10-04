@@ -66,17 +66,17 @@ export const coverContent: CoverContent = {
                 'Someone new reads the whole service — every lane, every phase — before they own any part of it.',
             },
             {
-              term: 'Stakeholder Alignment',
+              term: 'Stakeholder alignment',
               definition:
                 'Each audience is given the one view that concerns them, cut from the same source, so no two rooms are reading different versions.',
             },
             {
-              term: 'Decision Evaluation',
+              term: 'Decision evaluation',
               definition:
                 'A proposed change is traced through the dependency graph first, so what it would break is known before anyone commits to it.',
             },
             {
-              term: 'Context Management',
+              term: 'Context management',
               definition:
                 'The audit roster names what has stopped holding since the service last moved, so the map is corrected rather than abandoned by degrees.',
             },

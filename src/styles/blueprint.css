@@ -142,7 +142,7 @@
      * The divider band's caption, and the plate it sits on.
      *
      * The caption is a TEXT step for a reason. It was step 900 — Radix's
-     * low-contrast *solid* step — on an uppercase caption at the bottom of the
+     * low-contrast *solid* step — on a 12px caption at the bottom of the
      * type scale, measuring 2.64:1 in light and 2.74:1 in dark against the
      * 4.5:1 type this size requires. Step 1100 does not clear it either
      * (4.11:1 in light). Step 1200 is the smallest rung that clears AA in both
@@ -183,6 +183,49 @@
   [data-canvas-phase-interactive] [data-phase-frame] {
     background-color: var(--background-blueprint-phase-frame);
     border-color: var(--border-blueprint-phase-frame);
+  }
+
+  /*
+   * The selected phase: a brand edge and a soft brand ring, the site's
+   * selected state. A click selects the phase before the camera has moved,
+   * so the frame has to answer it at once.
+   *
+   * Brand, never `--ring`: keyboard focus keeps the ring token on the section
+   * itself, so a focused phase and a selected one never read as one state.
+   *
+   * The ring is the frame's `::after`, not the frame. The camera flight
+   * writes an inline `transition: none` on the frame while it fades the
+   * frame's opacity, and an inline style beats this rule, so on the frame
+   * itself the ring would snap in under every phase click. The flight never
+   * touches the pseudo-element, which still fades with the frame because it
+   * is painted inside it. The plate exists at rest, transparent, so there is
+   * something to transition from; the transition lives on the selected rule
+   * only, so the ring arrives on the structural curve and leaves the instant
+   * the selection clears.
+   */
+  [data-canvas-phase-section] > [data-phase-frame]::after {
+    position: absolute;
+    inset: -1px;
+    border: 1px solid transparent;
+    border-radius: inherit;
+    content: '';
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  [data-canvas-phase-section][data-phase-selected] > [data-phase-frame]::after {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 16%, transparent);
+    opacity: 1;
+    transition-property: opacity;
+    transition-duration: var(--motion-micro);
+    transition-timing-function: var(--ease-structural);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-canvas-phase-section][data-phase-selected] > [data-phase-frame]::after {
+      transition: none;
+    }
   }
 
   /*

@@ -73,7 +73,7 @@ import { resolve } from 'node:path'
 import { scannedSweep } from '../check-standalone.mjs'
 import { sweep } from '../sweep.mjs'
 import { RETIRED_COPY_WORDS } from '../retired-vocabulary.mjs'
-import { COVER_ASSET_MANIFEST } from '../sync-cover-assets.mjs'
+import { coverAssetFiles } from '../sync-cover-assets.mjs'
 
 const REPO_ROOT = resolve(new URL('../..', import.meta.url).pathname)
 /**
@@ -667,7 +667,7 @@ test('every authored figure is covered, and there are some', () => {
   // A reader that found no files would pass the assertion above in silence,
   // which is the failure mode this whole file is written against.
   const files = figureFiles()
-  assert.equal(files.length, COVER_ASSET_MANIFEST.length)
+  assert.equal(files.length, coverAssetFiles().length)
   assert.ok(figureStrings(files).length > 100, 'the figures parsed to almost no text')
 })
 

@@ -156,8 +156,8 @@ describe('brand fill', () => {
      * the TEMPLATE rather than the mechanism … a fork updates this expectation
      * deliberately". An assertion a fork must edit is an assertion that does
      * not travel, and what the template ships is already stated where it
-     * belongs — in `themes/light.css`, beside the dials themselves, which is
-     * where the teal and the route back to neutral are both written.
+     * belongs: the teal in the theme files, beside the dials themselves, and
+     * the route back to neutral in `references/customization.md`.
      *
      * What replaces it is the claim the number was standing in for. A brand
      * that changes saturation when the lights go out is two brands, exactly as

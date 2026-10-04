@@ -34,6 +34,7 @@ describe('a slide shows a set of images', () => {
     expect(field).toContain('joinUpload(publicUrl)')
     expect(field).toContain('illustrationPath(sliceId, itemId, file.type)')
     expect(field).toContain('upsert: false')
+    expect(field).toMatch(/cacheControl:\s*UPLOAD_CACHE_CONTROL/)
     expect(field).toContain('isRenderableImageSrc(publicUrl)')
   })
 

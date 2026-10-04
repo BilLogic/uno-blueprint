@@ -1,11 +1,13 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   invalidateCellBoard,
   invalidateQueries,
   invalidateStructure,
   queryClient,
+  resetStructureInvalidation,
+  STRUCTURE_DEBOUNCE_MS,
 } from '@/lib/queryClient'
-import { queryKeys } from '@/lib/queryKeys'
+import { STRUCTURE_KEYS, queryKeys } from '@/lib/queryKeys'
 
 /**
  * The invalidation contract: keys are single-element strings matched by
@@ -53,12 +55,41 @@ describe('invalidateQueries (prefix predicate)', () => {
 })
 
 describe('invalidateStructure', () => {
-  it('sweeps every structural prefix', () => {
+  afterEach(() => {
+    resetStructureInvalidation()
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('sweeps every structural prefix at once for a lone call', () => {
+    vi.useFakeTimers()
     seed(queryKeys.servicePhases.of('first'))
     seed(queryKeys.canvasBlueprints.of('a'))
     invalidateStructure()
     expect(isStale(queryKeys.servicePhases.of('first'))).toBe(true)
     expect(isStale(queryKeys.canvasBlueprints.of('a'))).toBe(true)
+  })
+
+  it('collapses a burst into one immediate and one trailing sweep', () => {
+    vi.useFakeTimers()
+    const spy = vi.spyOn(queryClient, 'invalidateQueries')
+    for (let i = 0; i < 5; i++) {
+      invalidateStructure()
+      vi.advanceTimersByTime(STRUCTURE_DEBOUNCE_MS / 2)
+    }
+    expect(spy).toHaveBeenCalledTimes(STRUCTURE_KEYS.length)
+    vi.advanceTimersByTime(STRUCTURE_DEBOUNCE_MS)
+    expect(spy).toHaveBeenCalledTimes(2 * STRUCTURE_KEYS.length)
+  })
+
+  it('sweeps at once again after the window closes', () => {
+    vi.useFakeTimers()
+    const spy = vi.spyOn(queryClient, 'invalidateQueries')
+    invalidateStructure()
+    vi.advanceTimersByTime(STRUCTURE_DEBOUNCE_MS)
+    expect(spy).toHaveBeenCalledTimes(STRUCTURE_KEYS.length)
+    invalidateStructure()
+    expect(spy).toHaveBeenCalledTimes(2 * STRUCTURE_KEYS.length)
   })
 })
 

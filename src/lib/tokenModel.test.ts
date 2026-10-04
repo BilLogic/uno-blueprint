@@ -141,8 +141,8 @@ describe('the cascade', () => {
   it('chases var() through to a value', () => {
     // `--primary` is three dials deep and every colour assertion rests on the
     // resolved triple rather than on the text of the declaration.
-    expect(resolveValue('--primary', 'light')).toBe('oklch( 0.205 0 159 )')
-    expect(resolveValue('--primary', 'dark')).toBe('oklch( 0.922 0 159 )')
+    expect(resolveValue('--primary', 'light')).toBe('oklch( 0.536 0.101 175 )')
+    expect(resolveValue('--primary', 'dark')).toBe('oklch( 0.771 0.129 175 )')
   })
 })
 

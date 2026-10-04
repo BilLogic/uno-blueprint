@@ -43,11 +43,13 @@ the set is a deliberate multi-file act, listed in `references/lane-roles.md`
   radii, fonts, light/dark), split across a file per concern. The blocks an
   adopter edits are marked **BRAND SEAM**, and there are two of them:
   `src/styles/themes/light.css` and `src/styles/themes/dark.css`. The
-  template ships hue-neutral — every chroma dial is 0, so the whole semantic
-  layer renders greyscale. **To rebrand:** set `--hue` to your brand's OKLCH
-  hue, then raise `--chroma` (surfaces) and `--primary-chroma` (the filled
-  control), moving `--primary-lightness` beside it if the fill wants to sit
-  higher or lower. Everything else derives — the border, the foreground flip
+  template ships a teal accent — `#00806a` in light and `#3ecfb0` in dark,
+  at `--hue: 175` — on neutral surfaces (`--chroma: 0`). **To rebrand:** set
+  `--hue` to your brand's OKLCH hue and `--primary-lightness` and
+  `--primary-chroma` (the filled control) to your fill, in both theme
+  blocks; raise `--chroma` too if the surfaces should carry a tint. To keep
+  the app neutral instead, set `--primary-chroma: 0` in both blocks, with
+  `--primary-lightness` at 0.205 in light and 0.922 in dark. Everything else derives — the border, the foreground flip
   and the focus ring follow from `src/styles/semantic.css` on their own.
   Restyle by editing tokens, not components; the shadcn components read the
   tokens.
@@ -76,10 +78,10 @@ the set is a deliberate multi-file act, listed in `references/lane-roles.md`
   **Chroma has a ceiling, and it is lower than it looks.** The most chroma
   sRGB can hold depends on the lightness it sits at, so a brand chroma
   declared once for both modes has to clear the ceiling at *both* lightnesses
-  the identity inherits. At the pair this template ships — L 0.205 in light
-  and L 0.922 in dark — that is about **0.047** at hue 159 (the ceilings are
-  0.047 and 0.125, and the lower one governs), and about **0.038** if you also
-  rotate to hue 280. Declare more than that and the browser chroma-reduces it
+  the identity inherits. At the pair this template ships — L 0.536 in light
+  and L 0.771 in dark — that is about **0.101** at hue 175 (the ceilings are
+  0.101 and 0.145, and the lower one governs; the light fill already sits on
+  it), and about **0.119** if you also rotate to hue 280. Declare more than that and the browser chroma-reduces it
   silently, which makes the number in your theme file a lie and freezes the
   next retune. A strong tint therefore needs `--brand-lightness` as well,
   moving the fill to a lightness that can carry the chroma you want.

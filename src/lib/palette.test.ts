@@ -75,12 +75,11 @@ describe('brand fill', () => {
    * the per-theme dials — NOT off the HSL ramps — so this block resolves the
    * declarations on disk and measures what they compute to.
    *
-   * The template ships the seam neutral (`--primary-chroma: 0`), so most of
-   * what is asserted here is the DERIVATION rather than a particular colour:
-   * a fork raises the chroma dial and these same assertions become the guard
-   * that its brand fill is still legible. The gamut-headroom one is written to
-   * hold at chroma 0 and to bite the moment a fork turns the dials up, which
-   * is exactly when it matters.
+   * Most of what is asserted here is the DERIVATION rather than a particular
+   * colour: a fork moves the dials off the template's teal and these same
+   * assertions become the guard that its brand fill is still legible. The
+   * gamut-headroom one holds at chroma 0 as well, for a fork that turns the
+   * accent off.
    */
   const semantic = stylesheet('semantic.css').text
 
@@ -167,19 +166,26 @@ describe('brand fill', () => {
      *
      * The brand half is now asked of the RESOLVED colour, because brand has no
      * dials of its own to compare: it reads whatever `--primary` computed to,
-     * through three fallbacks. Same claim, one level down — a saturation or a
-     * hue that moves when the lights go out is two brands either way, and a
-     * fork that sets `--brand-chroma` in one theme file and forgets the other
-     * lands here. LIGHTNESS is deliberately absent from this pair: a neutral
-     * accent has to invert between modes, the identity inherits that by
-     * following it, and the assertion above holds the inversion.
+     * through three fallbacks. Same claim, one level down — a hue that moves
+     * when the lights go out is two brands either way, and a fork that sets
+     * `--brand-hue` in one theme file and forgets the other lands here.
+     * LIGHTNESS is deliberately absent from this pair: a fill has to sit where
+     * its canvas lets it read, and the two canvases are a long way apart.
+     *
+     * CHROMA is held as presence rather than equality. The template's teal is
+     * the site's pair, `#00806a` and `#3ecfb0`, and the dark one is the more
+     * saturated of the two — a lighter fill on a charcoal canvas carries more
+     * chroma before it reads as louder, and sRGB has more room for it there.
+     * Equality would force one of the two off the site's colour. What is
+     * still two brands is a mode that drops to grey while the other wears a
+     * colour, and that is what this holds.
      */
-    expect(THEME_DIALS.dark.C).toBe(THEME_DIALS.light.C)
+    expect(THEME_DIALS.dark.C === 0).toBe(THEME_DIALS.light.C === 0)
     const brand = {
       light: resolveColorValue('--brand', 'light'),
       dark: resolveColorValue('--brand', 'dark'),
     }
-    expect(brand.dark.c).toBeCloseTo(brand.light.c, 6)
+    expect(brand.dark.c === 0).toBe(brand.light.c === 0)
     expect(brand.dark.h).toBeCloseTo(brand.light.h, 6)
   })
 
@@ -262,10 +268,11 @@ describe('brand fill', () => {
     expect(declared).toEqual([])
   })
 
-  it('inverts the fill between themes, since a neutral one has to', () => {
-    // A mode-invariant fill only works when chroma separates it from the
-    // canvas. At chroma 0 the fill has to flip with the theme or it vanishes
-    // into the surface it sits on.
+  it('puts the fill on the far side of the canvas in each theme', () => {
+    // Darker than the light canvas and lighter than the dark one. At chroma 0
+    // that is the only thing separating fill from canvas, so a neutral fork
+    // has to flip with the theme or the fill vanishes; the teal does it too,
+    // which is what keeps it reading as a fill rather than a tint.
     expect(THEME_DIALS.light.L).toBeLessThan(THEME_DIALS.light.surface)
     expect(THEME_DIALS.dark.L).toBeGreaterThan(THEME_DIALS.dark.surface)
   })
@@ -345,11 +352,11 @@ describe('brand fill', () => {
         Math.min(C * 1.25, chromaCeiling(borderL, HUE)),
         HUE,
       )
-      // 1.1, not the 1.4 a mid-lightness brand fill can hold: a NEUTRAL fill
-      // sits near the end of the lightness range (0.205 light / 0.922 dark),
-      // where a −0.12 step has little room left and no chroma to help. The
-      // floor is here to catch the edge disappearing entirely, not to demand
-      // a separation the neutral seam cannot physically produce.
+      // 1.1, not the 1.4 a mid-lightness brand fill can hold: a NEUTRAL
+      // fork's fill sits near the end of the lightness range (0.205 light /
+      // 0.922 dark), where a −0.12 step has little room left and no chroma to
+      // help. The floor is here to catch the edge disappearing entirely, not
+      // to demand a separation a neutral fill cannot physically produce.
       expect(contrast(border, fill)).toBeGreaterThan(1.1)
     })
   })
@@ -1302,20 +1309,19 @@ describe.each(['light', 'dark'] as const)('brand fill: %s', (theme) => {
    * floor a fill near L 0.6 can physically hold, a concession to the grey
    * this ticket deleted, and a floor that would now pass on any fill at all.
    * The third had not: `--primary` carried its ink at AAA, asserted beside the
-   * primary dials. It is the `floor: 7` row here now, because two floors for
+   * primary dials. It is the `--primary` row here now, because two floors for
    * one pair in one file is a rule and a decoration — the weaker can never
    * fail while the stronger passes, and a reader cannot tell which is meant.
    * Folding it also retires the TypeScript re-derivation of the flip that
    * test carried, which is the second-copy shape the token model exists to
    * end.
    *
-   * The floors differ per pair and the reason is stated per pair rather than
-   * defaulted. `--primary` holds 7:1 because it demonstrably does in both
-   * themes and a filled control is the app's loudest text; `--brand` holds
-   * 4.5:1, the floor for the size of label it carries — the default button's
-   * and the cover CTA's are both `text-sm` — and not 7:1, because a fork that
-   * dials an identity of its own is entitled to the small-text floor rather
-   * than to this template's headroom. The brand-coloured switch is UI-only and
+   * Both pairs hold 4.5:1, the AA floor for the size of label they carry —
+   * the default button's and the cover CTA's are both `text-sm`. `--primary`
+   * held 7:1 while the template shipped a near-black fill, because that fill
+   * demonstrably did; the site's teal on light measures 4.69:1 under its
+   * near-white ink, and holding 7:1 would mean darkening it to about L 0.45,
+   * off the site's colour. The brand-coloured switch is UI-only and
    * would sit at 3:1, but it shares the token with the CTA and a token holds
    * the strictest ground it is painted on, so nothing here is asserted at 3:1.
    * Nothing measured either pair before, which is how a 3.89:1 identity fill
@@ -1327,7 +1333,7 @@ describe.each(['light', 'dark'] as const)('brand fill: %s', (theme) => {
    */
   const INK_PAIRS = [
     { fill: '--brand', ink: '--brand-foreground', floor: 4.5 },
-    { fill: '--primary', ink: '--primary-foreground', floor: 7 },
+    { fill: '--primary', ink: '--primary-foreground', floor: 4.5 },
   ] as const
 
   it.each(INK_PAIRS)(

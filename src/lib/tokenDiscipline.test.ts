@@ -701,9 +701,9 @@ test('layout-token pixel exports sit on the 4px grid', async () => {
 })
 
 /**
- * Radius by kind. Controls sit on md; containment (cells, popovers, canvas
- * corner chrome, boxes inline in a surface) on lg; surfaces — cards, panels,
- * dialogs, sheets and plates — on xl; rounded-full stays; sm is for kbd,
+ * Radius by kind. Controls sit on md; containment (cells, popovers, small
+ * tiles, canvas corner chrome, boxes inline in a surface) on lg; surfaces —
+ * cards, panels, dialogs, sheets and plates — on xl, never a small tile; rounded-full stays; sm is for kbd,
  * inline code, marks under 12px and a corner nested one padding step inside
  * a control. The composition overview carries the ladder.
  * A file listed here may not pick up another rung. The list covers every
@@ -729,8 +729,8 @@ const RADIUS_KIND_ALLOWLIST: Record<string, readonly string[]> = {
   'components/ui/switch.tsx': ['full'],
   // The menu arrow is an 8px rotated square, the kind of mark sm is for.
   'components/ui/navigation-menu.tsx': ['lg', 'md', 'sm'],
-  'components/editor/CanvasAnnotationToolbar.tsx': ['xl', 'md', 'full'],
-  'components/editor/CanvasAnnotationBarChrome.tsx': ['xl', 'md'],
+  'components/editor/CanvasAnnotationToolbar.tsx': ['lg', 'md', 'full'],
+  'components/editor/CanvasAnnotationBarChrome.tsx': ['lg', 'md'],
   'components/editor/EditorZoomIndicator.tsx': ['lg', 'md'],
   'components/editor/JumpToSearch.tsx': ['md'],
   // The path selector is a plain control on md — trigger, skeleton and
@@ -739,13 +739,14 @@ const RADIUS_KIND_ALLOWLIST: Record<string, readonly string[]> = {
   // the control itself cannot drift back onto it.
   'components/editor/PathSelectorMenu.tsx': ['md', 'full'],
   'components/editor/CanvasEmptyState.tsx': ['xl'],
+  'components/editor/CanvasLoadProgress.tsx': ['lg', 'full'],
   'components/editor/SlideStickyHeader.tsx': ['xl', 'md'],
   'components/editor/EditorLoadingSkeletons.tsx': ['xl', 'lg', 'md', 'full'],
-  // Blueprint surfaces. Modal sheets, walkthrough, plates and the floating
-  // canvas inspector on xl — the inspector is a panel, not corner chrome;
-  // the panel error card stays on lg with the zoom cluster it sits above;
+  // Blueprint surfaces. Modal sheets, walkthrough and plates on xl; the
+  // canvas inspector and other corner chrome on lg (same family as the
+  // zoom cluster and the panel error card — one shape for the corner stack);
   // cells on lg; controls and badges on md; rounded-full stays.
-  'components/blueprint/panelShell.tsx': ['xl', 'lg', 'md'],
+  'components/blueprint/panelShell.tsx': ['lg', 'md'],
   'components/blueprint/ResizableComparePanel.tsx': ['xl', 'md'],
   'components/blueprint/StoryboardWalkthroughModal.tsx': ['xl', 'full'],
   'components/blueprint/ZoomableImage.tsx': ['xl', 'full'],

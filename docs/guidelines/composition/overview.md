@@ -34,31 +34,43 @@ Multiplicative on `--radius` (8px in the template), declared in
 | Rung | Value | Job |
 |---|---|---|
 | `rounded-sm` | 4px | a corner nested one padding step inside a control |
-| `rounded-md` | 8px | controls: buttons, inputs, menu items, badges |
-| `rounded-lg` | 8px | canvas cells, and boxes that sit inline in a surface |
+| `rounded-md` | 6px | controls: buttons, inputs, menu items, badges |
+| `rounded-lg` | 8px | canvas cells, popovers, small tiles, canvas corner chrome, boxes inline in a surface |
 | `rounded-xl` | 16px | surfaces: cards, panels, dialogs, sheets, cover figure frames |
 
-`md` and `lg` share a length and keep separate names because they do separate
-jobs. A control may round further without moving the board, and a cell stays
-at 6–8px whatever the controls do.
+In short: cells 8, controls 6, surfaces 16, and a nested corner is the outer
+radius minus the padding between them. A segment inside a `p-1` `rounded-lg`
+track is `rounded-sm`. When the padding is not a rung, spell it from the
+outer rung, for example `rounded-[calc(var(--radius-lg)-5px)]`, rather than
+picking the nearest rung by eye.
 
-A nested corner is the outer radius minus the padding between them. An 8px
-item in a 16px panel wants 8px of inset, and a segment inside a `p-1`
-`rounded-lg` track is `rounded-sm`. When the padding is not a rung, spell it
-from the outer rung, for example `rounded-[calc(var(--radius-lg)-5px)]`, rather
-than picking the nearest rung by eye.
+Controls stay at 6px rather than following the site's buttons up to 8. The
+vendored menus, selects, command lists and tabs wrap md items in a `p-1`
+`rounded-lg` box, and an 8px item would meet that box's corner square-on.
+
+`xl` is for surfaces, not small tiles. A 40px toolbar, a load-progress tile
+or a zoom button at 16px reads as fully rounded, so those stay on `lg`. The canvas's
+bottom-right corner stack (zoom cluster, panel error card, inspector) shares
+one shape, and because the zoom cluster is small buttons that shape is `lg`
+([canvas](canvas.md)).
 
 ### Border steps
 
 A neutral edge is ink laid translucently over whatever it sits on, in three
-steps. The alphas are dials in the theme files (`--border-alpha-*`), and
-`semantic.css` derives the tokens from them:
+steps. Each step is a per-theme dial in the theme files (`--border-alpha-*`),
+stated at `--contrast: 0.5`, and `semantic.css` scales it with the contrast
+knob along the same ramp as the other neutral rungs. At the shipped contrast
+the steps render at:
 
 | Token | Utility | Light | Dark | Job |
 |---|---|---|---|---|
 | `--border` | `border-border`, bare `border` | 9% | 8% | resting: the edge every surface and cell sits behind |
 | `--border-strong` | `border-strong` | 17% | 15% | hover, and any mark drawn on the canvas ground itself |
 | `--border-stronger` | `border-stronger` | 42% | 45% | hot: the thing being acted on, a checked toggle |
+
+The ladder stays in order at every contrast from 0 to 1:
+`border-muted` < `border` < `input` and `border-overlay` < `border-strong` <
+`border-stronger`. `src/styles/tokens.test.ts` sweeps the knob and holds it.
 
 The softer `border-muted` divider, the `border-overlay` edge of a floating
 plane and the `border-input` / `border-control-hover` pair on form controls
@@ -68,8 +80,16 @@ or role ring.
 ### Elevation
 
 A resting surface separates from its ground by its border, not by a shadow.
-Cards, panels, sticky headers, toolbars that sit in the layout, and buttons
-carry no shadow.
+Cards, panels, sticky headers, toolbars that sit in the layout, and the
+buttons this application styles itself carry no shadow.
+
+There are two named exceptions:
+
+- **Outline buttons** keep the vendored hairline `shadow-sm` (and its
+  `hover:shadow`). `src/components/ui/` stays pristine, so the primitive's own
+  treatment stands.
+- **The segmented control's pressed segment** keeps its `shadow-sm`. It is a
+  raised selection inside its track, a state cue rather than elevation.
 
 A shadow means *this floats*. It goes on popovers, menus, tooltips, sheets,
 dialogs, the floating agent dock and cell panel, chrome pinned over the canvas,

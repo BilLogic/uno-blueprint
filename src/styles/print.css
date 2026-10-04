@@ -79,9 +79,9 @@
 
     /* The neutral edge steps, at light's alphas: dark's run lighter at rest
        and heavier when hot, and on paper either reads as the wrong weight. */
-    --border-alpha-resting: 9%;
-    --border-alpha-hover: 17%;
-    --border-alpha-hot: 42%;
+    --border-alpha-resting: 8.3%;
+    --border-alpha-hover: 15.8%;
+    --border-alpha-hot: 39%;
 
     /* Elevation. Dark raises the alpha and adds an inset highlight; paper
        takes the light pair so a print from dark is not a slab of night. */

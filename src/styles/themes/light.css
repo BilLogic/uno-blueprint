@@ -106,8 +106,10 @@
 
   /* The three neutral edge steps semantic.css derives `--border`,
      `--border-strong` and `--border-stronger` from: ink at this alpha over
-     whatever the edge sits on. These are the marketing site's numbers. */
-  --border-alpha-resting: 9%;
-  --border-alpha-hover: 17%;
-  --border-alpha-hot: 42%;
+     whatever the edge sits on, stated at the `--contrast: 0.5` baseline.
+     Light runs at 0.53, which scales each step's distance above its floor
+     by about 1.11, so these land on the marketing site's 9%, 17% and 42%. */
+  --border-alpha-resting: 8.3%;
+  --border-alpha-hover: 15.8%;
+  --border-alpha-hot: 39%;
 }

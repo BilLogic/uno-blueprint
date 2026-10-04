@@ -36,22 +36,24 @@
    * deployment that turns the base keeps the proportions. At the template's
    * 8px base:
    *
-   *   sm  ×0.5  4px   a corner nested one padding step inside a control
-   *   md  ×1    8px   controls — buttons, inputs, menu items, badges
-   *   lg  ×1    8px   cells and the boxes that sit inline in a surface
-   *   xl  ×2   16px   surfaces — cards, panels, dialogs, sheets, cover figures
+   *   sm  ×0.5   4px   a corner nested one padding step inside a control
+   *   md  ×0.75  6px   controls — buttons, inputs, menu items, badges
+   *   lg  ×1     8px   cells, popovers, small tiles and canvas corner chrome
+   *   xl  ×2    16px   surfaces — cards, panels, dialogs, sheets, cover figures
    *
-   * md and lg share a length on purpose and keep separate names because they
-   * do separate jobs: a control is free to round further than a cell without
-   * moving the board. A nested corner is the outer radius minus the padding
-   * between them, so an 8px item in a 16px panel wants 8px of inset. 2xl, 3xl,
-   * 4xl and the standalone panel radius are retired: xl is the surface rung,
-   * and a rung nobody uses is a rung a deployment reaches for by accident.
-   * All four live in this inline block so a utility compiles to the calc, not
-   * a second name. The composition overview carries the rule.
+   * A nested corner is the outer radius minus the padding between them. The
+   * vendored menus, selects, command lists and tabs are an 8px `p-1` box
+   * around md items, and an 8px item would meet its box's corner square-on —
+   * which is why controls stay at 6px rather than following the site's
+   * buttons up to 8. xl is for surfaces and not for small tiles: a 40px
+   * toolbar or tile at 16px reads as fully rounded. 2xl, 3xl, 4xl and the
+   * standalone panel radius are retired: a rung nobody uses is a rung a
+   * deployment reaches for by accident. All four live in this inline block
+   * so a utility compiles to the calc, not a second name. The composition
+   * overview carries the rule.
    */
   --radius-sm: calc(var(--radius) * 0.5);
-  --radius-md: var(--radius);
+  --radius-md: calc(var(--radius) * 0.75);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 2);
   --color-background: var(--background);

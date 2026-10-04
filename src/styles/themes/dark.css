@@ -77,7 +77,9 @@
 
   /* The same three edge steps as light. Translucent ink reads louder on a
      dark ground, so resting and hover sit a point or two lower; the hot step
-     sits higher, because it has to carry a state across the shorter span. */
+     sits higher, because it has to carry a state across the shorter span.
+     Dark runs at the 0.5 baseline these are stated at, so they render as
+     written. */
   --border-alpha-resting: 8%;
   --border-alpha-hover: 15%;
   --border-alpha-hot: 45%;

@@ -114,7 +114,7 @@ export function CanvasLoadProgress({
         className,
       )}
     >
-      <div className="flex size-10 items-center justify-center rounded-xl border border-muted bg-card/80">
+      <div className="flex size-10 items-center justify-center rounded-lg border border-muted bg-card/80">
         <Diamond className="size-4 text-muted-foreground" />
       </div>
       <div className="h-0.5 w-40 overflow-hidden rounded-full bg-border">

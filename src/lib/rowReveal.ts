@@ -22,4 +22,4 @@
  * the next row control is the one this exists to keep honest.
  */
 export const ROW_REVEAL_CLASS =
-  'opacity-0 transition-opacity duration-(--motion-micro) group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none [@media(pointer:coarse)]:opacity-100'
+  'opacity-0 transition-opacity ease-arrive duration-(--motion-micro) group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none [@media(pointer:coarse)]:opacity-100'

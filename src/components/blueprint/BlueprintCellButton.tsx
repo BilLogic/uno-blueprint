@@ -284,7 +284,7 @@ export function BlueprintCellButton({
       // per-frame filtered re-raster on all ~660 unpicked cells for the whole
       // 200 ms of a slice pick. Same rule blueprint.css states for the slice
       // dim and CanvasPhaseSection now follows; saturation lands on frame one.
-      dimUnpicked && 'opacity-60 saturate-[.6] transition-opacity',
+      dimUnpicked && 'opacity-60 saturate-[.6] transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
       // Dashed, drained and slightly transparent: three cheap signals that
       // agree, so the cell still reads as unbuilt at the zoom where a canvas
       // is usually seen and the dashes have collapsed into a grey line.

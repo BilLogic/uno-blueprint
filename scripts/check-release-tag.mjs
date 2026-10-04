@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * The fourth place this repo states its version: the git tag.
+ * The last place this repo states its version: the git tag.
  *
- * `check-version-agreement.mjs` holds the three files together. None of them
- * is what a consumer actually pins — `github:BilLogic/uno-blueprint#v0.4.0`
- * resolves a TAG, and a lockfile integrity hash exists only because a tag
- * names one immutable tree. A release with no tag states a version that
- * nothing downstream can ask for.
+ * `check-version-agreement.mjs` holds the files that state it together — the
+ * manifest, the plugin manifest, the changelog, the lockfile and the
+ * initialiser's manifest. None of them is what a consumer actually pins —
+ * `github:BilLogic/uno-blueprint#v0.4.0` resolves a TAG, and a lockfile
+ * integrity hash exists only because a tag names one immutable tree. A
+ * release with no tag states a version that nothing downstream can ask for.
  *
  *   node scripts/check-release-tag.mjs             # tags that exist must be honest
  *   node scripts/check-release-tag.mjs --require   # ...and this version must have one
@@ -39,6 +40,12 @@ const REPO_ROOT = process.cwd()
 /** `v0.4.0` for `0.4.0`. One shape, so nothing has to guess. */
 export const tagFor = (version) => `v${version}`
 
+/** The version a release tag names, or null when its name is not one. */
+export const versionNamedBy = (tag) => /^v(\d+\.\d+\.\d+)$/.exec(tag)?.[1] ?? null
+
+/** What is wrong with a tag `versionNamedBy` reads no version out of. */
+export const misnamedTag = (tag) => `tag ${tag} is not v<major>.<minor>.<patch>`
+
 /** Every version the CHANGELOG records under a release heading. */
 export function releasedVersions(source) {
   return [...source.matchAll(/^##\s+(\d+\.\d+\.\d+)\b/gm)].map(([, version]) => version)
@@ -61,12 +68,12 @@ export function tagFaults({ tags, released, version, taggedTree, require = false
   const faults = []
 
   for (const tag of tags) {
-    const named = /^v(\d+\.\d+\.\d+)$/.exec(tag)
-    if (!named) {
-      faults.push(`tag ${tag} is not v<major>.<minor>.<patch>`)
+    const named = versionNamedBy(tag)
+    if (named === null) {
+      faults.push(misnamedTag(tag))
       continue
     }
-    if (!released.includes(named[1])) {
+    if (!released.includes(named)) {
       faults.push(`tag ${tag} names a version the CHANGELOG never released`)
     }
   }

@@ -29,7 +29,7 @@ export function AnnotationStyleBarFrame({
     <div
       data-annotation-editable=""
       data-annotation-chrome=""
-      className="pointer-events-auto absolute z-50 flex h-10 items-center gap-1 rounded-xl bg-annotation-chrome px-2 shadow-floating"
+      className="pointer-events-auto absolute z-50 flex h-10 items-center gap-1 rounded-lg bg-annotation-chrome px-2 shadow-floating"
       style={chromeAnchorStyle(x, y, width, zoom)}
       onPointerDown={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.preventDefault()}

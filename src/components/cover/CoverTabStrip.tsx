@@ -150,7 +150,7 @@ export function CoverTabStrip({
             value={tab.value}
             className={cn(
               'h-auto flex-none rounded-none px-0 pb-3 pt-0 text-sm font-medium',
-              'text-muted-foreground transition-colors duration-(--motion-structural) ease-structural',
+              'text-muted-foreground transition-colors motion-reduce:transition-none duration-(--motion-structural) ease-arrive',
               'hover:text-foreground data-active:text-foreground',
               // Hide the default after-underline; we animate a shared indicator instead.
               'after:hidden',
@@ -172,7 +172,7 @@ export function CoverTabStrip({
         aria-hidden
         className={cn(
           'pointer-events-none absolute bottom-[-1px] h-0.5 bg-foreground',
-          'transition-[left,width,opacity] duration-(--motion-structural) ease-structural motion-reduce:transition-none',
+          'transition-[left,width,opacity] duration-(--motion-structural) ease-move motion-reduce:transition-none',
           indicator.ready ? 'opacity-100' : 'opacity-0',
         )}
         style={{ left: indicator.left, width: indicator.width }}

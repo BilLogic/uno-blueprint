@@ -142,7 +142,7 @@
      * The divider band's caption, and the plate it sits on.
      *
      * The caption is a TEXT step for a reason. It was step 900 — Radix's
-     * low-contrast *solid* step — on an uppercase caption at the bottom of the
+     * low-contrast *solid* step — on a 12px caption at the bottom of the
      * type scale, measuring 2.64:1 in light and 2.74:1 in dark against the
      * 4.5:1 type this size requires. Step 1100 does not clear it either
      * (4.11:1 in light). Step 1200 is the smallest rung that clears AA in both
@@ -183,6 +183,49 @@
   [data-canvas-phase-interactive] [data-phase-frame] {
     background-color: var(--background-blueprint-phase-frame);
     border-color: var(--border-blueprint-phase-frame);
+  }
+
+  /*
+   * The selected phase: a brand edge and a soft brand ring, the site's
+   * selected state. A click selects the phase before the camera has moved,
+   * so the frame has to answer it at once.
+   *
+   * Brand, never `--ring`: keyboard focus keeps the ring token on the section
+   * itself, so a focused phase and a selected one never read as one state.
+   *
+   * The ring is the frame's `::after`, not the frame. The camera flight
+   * writes an inline `transition: none` on the frame while it fades the
+   * frame's opacity, and an inline style beats this rule, so on the frame
+   * itself the ring would snap in under every phase click. The flight never
+   * touches the pseudo-element, which still fades with the frame because it
+   * is painted inside it. The plate exists at rest, transparent, so there is
+   * something to transition from; the transition lives on the selected rule
+   * only, so the ring arrives on the structural curve and leaves the instant
+   * the selection clears.
+   */
+  [data-canvas-phase-section] > [data-phase-frame]::after {
+    position: absolute;
+    inset: -1px;
+    border: 1px solid transparent;
+    border-radius: inherit;
+    content: '';
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  [data-canvas-phase-section][data-phase-selected] > [data-phase-frame]::after {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 16%, transparent);
+    opacity: 1;
+    transition-property: opacity;
+    transition-duration: var(--motion-micro);
+    transition-timing-function: var(--ease-arrive);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-canvas-phase-section][data-phase-selected] > [data-phase-frame]::after {
+      transition: none;
+    }
   }
 
   /*
@@ -282,6 +325,15 @@
   [data-blueprint-cell-anchor] {
     transition-property: box-shadow, transform, opacity, background-color;
     transition-duration: var(--motion-micro);
+    transition-timing-function: var(--ease-arrive);
+  }
+
+  /* Reduced motion: hover, press and dim land at once. The reveal chain is
+     skipped in JS under reduced motion, so nothing waits on these ending. */
+  @media (prefers-reduced-motion: reduce) {
+    [data-blueprint-cell-anchor] {
+      transition-property: none;
+    }
   }
 
   /*
@@ -355,7 +407,14 @@
      crossing it now costs one 150 ms opacity animation, not a relayout. */
   [data-slice-sequence-badge],
   [data-slice-pick-badge] {
-    transition: opacity var(--motion-micro) ease-out;
+    transition: opacity var(--motion-micro) var(--ease-arrive);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-slice-sequence-badge],
+    [data-slice-pick-badge] {
+      transition: none;
+    }
   }
 
   [data-canvas-zoom-far] [data-slice-sequence-badge] {
@@ -649,7 +708,7 @@
    * motion keeps a static ring for the same window instead of animating.
    */
   [data-blueprint-cell-pulse] {
-    animation: blueprint-cell-pulse calc(var(--motion-camera) * 3) ease-out both;
+    animation: blueprint-cell-pulse calc(var(--motion-camera) * 3) var(--ease-arrive) both;
   }
 
   @keyframes blueprint-cell-pulse {
@@ -1103,7 +1162,7 @@
 
   [data-canvas-reveal-chrome]
     :is([data-annotation-toolbar], [data-zoom-indicator], [data-canvas-nav]) {
-    transition: opacity var(--motion-fade) ease-out;
+    transition: opacity var(--motion-fade) var(--ease-arrive);
   }
 
   [data-canvas-reveal='0']
@@ -1126,5 +1185,71 @@
     ),
   [data-canvas-reveal='3'] [data-blueprint-arrows] {
     opacity: 0;
+  }
+}
+
+/*
+ * THE CANVAS GROUND'S DOT GRID — the site's motif under the board: a dot on
+ * a 20px pitch at zoom 1, in `--border-strong`, the step named as the mark
+ * for anything drawn on the canvas ground. It flips with the theme the way
+ * that step does, and the contrast preference scales it with every other
+ * edge.
+ *
+ * One background on one layer, `[data-zoom-pan-ground]`, under the board —
+ * no element per dot. The transform writer (`applyGroundToElement` in
+ * `useZoomPanViewport`) writes a translate on every camera frame, and the
+ * tile size and the overhang only when the pitch changes, so the dots pan
+ * and zoom with the board, and a pan moves a composited layer without
+ * repainting it. The layer stays hidden
+ * until the first fit has framed the board, so it never snaps from the
+ * unfitted camera to the fitted one. Far out, the pitch steps and the alpha
+ * below carries the tone across the step — `src/lib/canvasDotGrid.ts` has
+ * the rule and why.
+ *
+ * The dot is a constant on-screen size, never scaled with the board: a
+ * pixel-wide disc with a half-pixel soft edge, centred in its tile.
+ *
+ * `--canvas-dot-alpha` is registered `inherits: false` so a write restyles
+ * the layer alone. The layer is a leaf today, but an inheriting property is
+ * exactly the trap the label boost fell into once already.
+ *
+ * Print drops the layer (`print.css`).
+ */
+@property --canvas-dot-alpha {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 1;
+}
+
+@layer utilities {
+  [data-zoom-pan-ground] {
+    position: absolute;
+    /* One pitch past the viewport on every side; the writer keeps it so. */
+    inset: -20px;
+    pointer-events: none;
+    will-change: transform;
+    /* The writer's scale corrects the tile from its corner, where tiling starts. */
+    transform-origin: 0 0;
+    background-image: radial-gradient(
+      circle at center,
+      oklch(
+          from var(--border-strong) l c h /
+            calc(alpha * var(--canvas-dot-alpha))
+        )
+        0.5px,
+      transparent 1px
+    );
+    background-size: 20px 20px;
+  }
+
+  [data-zoom-pan-ground]:not([data-ground-ready]) {
+    visibility: hidden;
+  }
+
+  /* High Contrast keeps a flat system ground; a pattern there is noise. */
+  @media (forced-colors: active) {
+    [data-zoom-pan-ground] {
+      display: none;
+    }
   }
 }

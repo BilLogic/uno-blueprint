@@ -175,11 +175,11 @@ export function BlueprintColumnHandles({
                     lands, full height, before anything is written. */}
                 <span
                   aria-hidden
-                  className="absolute inset-y-0 w-px bg-primary opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-visible/insert:opacity-100"
+                  className="absolute inset-y-0 w-px bg-primary opacity-0 transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none group-hover/insert:opacity-100 group-focus-visible/insert:opacity-100"
                 />
                 <span
                   aria-hidden
-                  className="absolute top-0 grid size-4 place-items-center rounded-full bg-primary text-primary-foreground opacity-0 shadow-sm transition-opacity group-hover/insert:opacity-100 group-focus-visible/insert:opacity-100"
+                  className="absolute top-0 grid size-4 place-items-center rounded-full bg-primary text-primary-foreground opacity-0 shadow-sm transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none group-hover/insert:opacity-100 group-focus-visible/insert:opacity-100"
                 >
                   <Plus className="size-2.5" />
                 </span>
@@ -214,7 +214,7 @@ export function BlueprintColumnHandles({
               event.stopPropagation()
               pick.pickMany(cells, event.shiftKey ? 'toggle' : 'add')
             }}
-            className="pointer-events-auto absolute truncate rounded-md border border-dashed border-muted bg-card/90 px-2 py-1 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:border-primary hover:text-foreground"
+            className="pointer-events-auto absolute truncate rounded-md border border-dashed border-muted bg-card/90 px-2 py-1 text-xs font-medium text-muted-foreground shadow-sm transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:border-primary hover:text-foreground"
             style={{ left: column.left, width: column.width, top: -32 }}
           >
             {steps[stepIndex]?.name ?? `Step ${stepIndex + 1}`}

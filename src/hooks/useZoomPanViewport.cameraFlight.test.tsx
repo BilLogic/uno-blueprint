@@ -125,6 +125,12 @@ function Harness({
         camera.containerRef(node)
       }}
     >
+      <div
+        data-zoom-pan-ground=""
+        ref={(node) => {
+          camera.groundRef.current = node
+        }}
+      />
       {mountBoard ? (
         <div
           data-zoom-pan-content=""
@@ -258,6 +264,66 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+})
+
+describe('the canvas ground under the camera', () => {
+  const ground = () =>
+    document.querySelector<HTMLElement>('[data-zoom-pan-ground]')!
+
+  it('keeps the dot grid hidden until the first fit has framed the board', () => {
+    render(
+      <Harness
+        resetKey="initial"
+        target={{ left: 0, top: 0, width: 500, height: 300 }}
+      />,
+    )
+    // Laid out at the unfitted camera, but not shown there.
+    expect(ground().style.transform).toContain('translate3d(')
+    expect(ground().dataset.groundReady).toBeUndefined()
+
+    act(() => {
+      flushFrame(0)
+      flushFrame(16)
+    })
+    expect(cameraState().zoom).not.toBe(1)
+    expect(ground().dataset.groundReady).toBe('')
+  })
+
+  it('starts a fresh mount hidden again, whatever the last one showed', () => {
+    const target = { left: 0, top: 0, width: 1000, height: 600 }
+    const first = render(<Harness resetKey="initial" target={target} />)
+    act(() => {
+      flushFrame(0)
+      flushFrame(16)
+    })
+    expect(ground().dataset.groundReady).toBe('')
+    first.unmount()
+
+    render(<Harness resetKey="initial" target={target} />)
+    expect(ground().dataset.groundReady).toBeUndefined()
+  })
+
+  it('moves the grid in the same write that moves the board', () => {
+    render(
+      <Harness
+        resetKey="initial"
+        target={{ left: 0, top: 0, width: 1000, height: 600 }}
+      />,
+    )
+    act(() => {
+      flushFrame(0)
+      flushFrame(16)
+    })
+    const before = ground().style.transform
+    act(() => panCamera(7, -3))
+    const after = ground().style.transform
+    expect(after).not.toBe(before)
+    expect(after).toMatch(/^translate3d\([\d.]+px, [\d.]+px, 0\) scale\([\d.]+\)$/)
+    // A pan leaves the tile size alone: only a zoom repaints the layer.
+    const size = ground().style.backgroundSize
+    act(() => panCamera(11, 5))
+    expect(ground().style.backgroundSize).toBe(size)
+  })
 })
 
 describe('viewport camera flights', () => {
@@ -650,6 +716,52 @@ describe('viewport camera flights', () => {
     })
     expect(cameraState().moving).toBe(false)
     expect(cameraState().pan.x).toBeCloseTo(-400)
+  })
+
+  it('yields to a wheel mid-flight from the interpolated position, with no snap', () => {
+    const target = { left: 0, top: 0, width: 1000, height: 600 }
+    const view = render(<Harness resetKey="initial" target={target} />)
+    act(() => {
+      flushFrame(0)
+      flushFrame(16)
+    })
+
+    target.left = 800
+    view.rerender(<Harness resetKey="far" target={target} />)
+    act(() => {
+      flushFrame(32)
+      flushFrame(48)
+      flushFrame(64)
+      flushFrame(164)
+    })
+    const midFlight = cameraState()
+    expect(midFlight.moving).toBe(true)
+    expect(midFlight.pan.x).toBeLessThan(0)
+    expect(midFlight.pan.x).toBeGreaterThan(-800)
+
+    const content = view.container.querySelector('[data-zoom-pan-content]')!
+    act(() => {
+      content.dispatchEvent(
+        new WheelEvent('wheel', {
+          deltaX: 12,
+          deltaY: 0,
+          bubbles: true,
+          cancelable: true,
+        }),
+      )
+    })
+    // The wheel lands on the frame the flight last drew, not on the target.
+    expect(cameraState().pan.x).toBeCloseTo(midFlight.pan.x - 12)
+    expect(cameraState().pan.y).toBeCloseTo(midFlight.pan.y)
+    expect(cameraState().moving).toBe(false)
+
+    // And the flight does not come back for it.
+    const afterWheel = cameraState().pan.x
+    act(() => {
+      flushFrame(300)
+      flushFrame(900)
+    })
+    expect(cameraState().pan.x).toBe(afterWheel)
   })
 
   it('keeps advancing while the live target moves on consecutive frames', () => {

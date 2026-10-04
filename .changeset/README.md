@@ -11,7 +11,9 @@ npx changeset
 `package.json`, and writes the CHANGELOG entry. Run `npm run version` instead
 of calling it directly — that also copies the new number into
 `.claude-plugin/plugin.json`, which is the version a consumer's plugin install
-actually reads.
+actually reads, into both statements in `package-lock.json`, and into the
+initialiser's manifest under `packages/create-uno-blueprint/`, which downloads
+the release whose tag is its own version.
 
 **Semver here is scoped to the plugin contract**, the identifier lane in
 `identifiers.json`: skill names, reference filenames, schema filenames, agent

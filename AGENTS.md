@@ -57,8 +57,9 @@ because they bind before any pointer could fire. Three checks hold that shape:
 ## The repo around the skills
 
 - **Editing** anything under `skills/` or `references/` means running
-  `scripts/sync-canvas-skills.mjs` afterwards: `src/lib/agent/skill/` is a
-  vendored copy the app bundles, and `npm test` fails on its drift guard.
+  `npm run sync:skills` afterwards: it refreshes `src/lib/agent/skill/`, the
+  vendored copy the app bundles, and `.agents/skills/`, the `SKILL.md` mirror
+  other coding agents discover; `npm test` fails on drift in either.
 - **Workspaces** scaffolded from here carry their own `skills/`, `references/`,
   `agents/` and `scripts/`, and the routing above resolves against the
   workspace root. Workspace version = template version; the upgrade recipe is

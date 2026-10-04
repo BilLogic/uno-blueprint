@@ -12,7 +12,8 @@ interrogation, each executed by a fresh-context auditor — and lands the
 results as `audit_findings` rows a human can triage. The audit never fixes
 anything: it points, with severities, at cells by key.
 
-All paths are relative to the plugin root (`${CLAUDE_PLUGIN_ROOT}`): this
+All paths are relative to the plugin root — Claude Code's
+`${CLAUDE_PLUGIN_ROOT}`; anywhere else, the repository or workspace root: this
 skill's own materials (the check docs, `audit_tools.py`) live under
 `skills/audit/`, the shared core under `references/`, `scripts/`, and
 `agents/`; a scaffolded workspace carries the same files

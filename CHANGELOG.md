@@ -1,5 +1,176 @@
 # Changelog
 
+## 2.5.0
+
+**The template reads like its site.** The brand is teal, the mono face is
+Ubuntu Sans Mono, and small labels are sentence case. The canvas sits on a dot
+grid, a selected phase shows a brand ring, and empty states draw a small
+blueprint. Surfaces round to 16px, neutral edges come in three translucent
+steps, and only what floats keeps a shadow. Motion has one vocabulary of four
+role curves (arrive, leave, move, spring), and camera flights ride the move
+curve without stalling when retargeted mid-air. All thirteen cover figures are
+redrawn to one art direction, each with a dark file that follows the theme in
+the app and on GitHub. Separately, `BASE_PATH` alone now serves a build from a
+path.
+
+### Upgrading a deployment
+
+- **Bump the pin, and take the template's `vite.config.ts`.** It now writes
+  the prefixed hosting rules into `dist/_redirects` and `dist/_headers` under
+  `BASE_PATH`, and it is held byte-identical, so the reconciled-files gate is
+  red until the copy matches. A root build is unchanged. A deployment with its
+  own `public/_redirects` should read the `BASE_PATH` entry below for the
+  three lines a prefixed build now treats differently.
+- **The brand turns teal unless the deployment states its own.** A
+  deployment that declares `--hue`, `--primary-lightness` and
+  `--primary-chroma` in both theme blocks is unaffected. One that declares
+  none turns teal; the teal entry below has the block that keeps it neutral,
+  print included. One that sets `brand.accent` without dials gets its hue at
+  the teal's lightness and chroma, and one that declares only some of the
+  three inherits the rest, `--primary-chroma` included.
+- **`--border` stops being the only edge.** The three neutral steps are set
+  by `--border-alpha-*` dials and still scale with `--contrast`. A stylesheet
+  that overrode `--border` directly keeps working, but `--border-strong` and
+  `--border-stronger` will not follow it; set the dials instead. `xl` corners
+  are now `--radius` ×2, so check dialogs and sheets if the base was tuned for
+  them.
+- **Rewrite figure alt overrides.** Every one of the thirteen cover figures
+  is redrawn. A deployment that spreads one from `packageCoverFigures` and
+  overrides `alt` is describing the old drawing: rewrite it, or drop the
+  override to take the package's. A spread figure carries its new `srcDark`,
+  `width` and `height` with it; drop any hand-restated `height`.
+- **The mono seam is `--app-font-mono`.** The old `--font-source-code-pro`
+  still swaps the face, and the new name wins when both are set.
+- **Labels passed to `Eyebrow` should be written in sentence case.** The
+  component no longer capitalises.
+- **Camera and focus-dimming timing reads `--ease-move`.** `--ease-camera`
+  is now an alias of it and `MOTION_CAMERA_EASE` is `MOTION_EASE.move`. Code
+  that imported `easeCameraTransition` from `lib/cameraTransition.ts` reads
+  `easeMove` or `easeMoveFrom` from `lib/motion.ts` instead.
+- **Re-seeding moves four sample cells.** The audit scenario's step is
+  renamed, so a database re-seeded from `supabase/seed.sql` treats its four
+  cells as new rows.
+- **Nothing else needs a change.** The dot-grid ground, the phase ring, the
+  empty-state picture and the motion tokens read theme tokens a deployment
+  already sets. To keep a flat canvas ground, hide
+  `[data-zoom-pan-ground]` in the deployment's stylesheet.
+
+### Minor Changes
+
+- 7a7c076: Camera flights ease on the shared move curve. Jumping to a cell, zooming to a phase and double-clicking into a frame now ride `cubic-bezier(.65, 0, .35, 1)` from `lib/motion.ts` instead of the camera's own smoothstep, with the same distance-scaled duration (240–650 ms). A flight retargeted mid-air starts on move launched at the camera's current speed (clamped to a starting slope of 0.55–3), so it neither stalls nor jumps, and a wheel, pinch or drag mid-flight takes over from the frame the flight last drew. Focus dimming and the compare panel's fade move with it: `--ease-camera` is now `var(--ease-move)`, and `MOTION_CAMERA_EASE` is `MOTION_EASE.move`. `easeCameraTransition` is removed from `lib/cameraTransition.ts`; read `easeMove` or `easeMoveFrom` from `lib/motion.ts` instead.
+- f187a04: Cover figures follow the theme. A figure can now ship a dark file beside its light one (`name.dark.svg`), carried as `srcDark` on its cover figure. The cover shows it in the dark theme and swaps it live with the toggle, and the README embeds it through `<picture>` so GitHub follows its own theme. Figures without a dark file keep their light file in both themes.
+
+  The cover-page guideline gains an art direction for the figures, and `why-now` and `when-to-use` are redrawn to it, light and dark. The Overview's four uses are now sentence case ("Stakeholder alignment").
+
+  Upgrading a deployment:
+
+  - A deployment that spreads `packageCoverFigures.whyNow` or `packageCoverFigures.whenToUse` and overrides `alt` is now describing the old drawings. Rewrite that alt text for the new ones: a year of weekly reads against the board as it stands in December, and one mini-blueprint read four ways.
+  - A spread figure carries `srcDark` with it, so its dark file follows the theme with no other change.
+
+- 702eca9: Empty states draw a mini-blueprint. The empty canvas, the empty phase and panel frames, and the cell drawer with nothing selected now show a small picture of a blueprint above their copy: three lane rows, each a lane-colour square and a label bar, then cells holding one skeleton bar, with the missing cells dashed. It is drawn from theme tokens (the lane role colours, the border steps and the radius ladder), so it follows light and dark and a deployment's own lane palette with no change. It is hidden from assistive tech and does not animate, and it is left off when the phases could not be loaded, since a failed read is not an empty board. The copy is unchanged but for the empty canvas, which said to pick a path "under Paths in the sidebar", where there is no such section: a focused scenario now points at the paths menu in the header, and a phase canvas, which has no paths menu, says none of its scenarios has a path to draw and points at the sidebar.
+- 3eb3a1a: One motion vocabulary for the product layer. Four curves named by role — `--ease-arrive` (something enters or answers a hover), `--ease-leave` (something exits), `--ease-move` (something on screen goes from A to B) and `--ease-spring` (a small thing pops, as a `linear()` spring where the browser has it) — join the existing duration ladder in `styles/animations.css`, with `ease-arrive|leave|move|spring` utilities and a TypeScript mirror in `lib/motion.ts` (`EASE_POINTS`, `MOTION_EASE`, `MOTION_SPRING_LINEAR`, `cubicBezierEase`, `easeMove`). Every product-layer transition now names a `--motion-*` duration, a role curve and a reduced-motion path, and a guard fails on stock `duration-*`, `delay-*` or `ease-*` classes, raw times or keyword curves in inline styles, framer-motion options and product stylesheets, outside the vendored `ui/` layer and the canvas reveal chain.
+
+  What a reader will notice:
+
+  - Hover colour and opacity changes that used Tailwind's default curve (`transition-colors` and friends) now ease on arrive, at the same 150 ms.
+  - The editor surface fade, the presentation entry and the shell's entrance ladder move from `ease-out` to arrive; the presentation exit, the cell panel's close and the image zoom's close run on leave.
+  - Annotation swatches and the mobile agent button now overshoot a little on hover and press (spring).
+  - Chevrons, the cover tab indicator, the canvas load bar and image zoom ease on move.
+  - Prose links ease only their colour, at 150 ms rather than 180 ms, and not at all under reduced motion; cell hover and the slice badges gain a reduced-motion path. The delayed spinner holds 320 ms instead of 300 ms.
+
+  `--ease-structural` stays as an alias of arrive and `--ease-camera` keeps its current curve, so a deployment that reads either needs no change.
+
+- f74c6f8: Shape, edge and elevation follow the site. The surface rung `rounded-xl` (cards, panels, dialogs, sheets, cover figure frames, canvas phase frames) moves from 12px to 16px. Cells stay at 8px (`rounded-lg`), controls stay at 6px (`rounded-md`), and small tiles stay on `lg` (the annotation toolbars, the load-progress tile, the canvas corner stack). Neutral edges now come in three translucent-ink steps set by new per-theme dials `--border-alpha-resting`, `--border-alpha-hover` and `--border-alpha-hot`. At the shipped contrast they render at 9% / 17% / 42% in light and 8% / 15% / 45% in dark. `--border` is the resting step. The new `--border-strong` and `--border-stronger` tokens (utilities `border-strong`, `border-stronger`) are the hover and hot steps, and `--border-strong` is also the step for anything drawn on the canvas ground. The floating agent dock and the full-page error card move onto the surface rung. These resting surfaces drop their decorative shadows: the full-page error card, the compare panel, the sticky slide header, the walkthrough modal's override, and the presentation's popover trigger and nav buttons. Only what floats keeps a shadow. The vendored outline button and the segmented control's pressed segment are named exceptions. The filter toolbar button marks its checked state with the hot edge instead of a shadow and a black hairline. The composition overview now states the radius ladder, the border steps, the elevation rule and the dashed-versus-solid rule.
+
+  Upgrading a deployment:
+
+  - Custom CSS that sets `--radius` still scales every rung, but `xl` is now ×2 (was ×1.5). A deployment that picked a base for a particular dialog corner should check its dialogs and sheets.
+  - The three edge steps are stated at `--contrast: 0.5`, and `--contrast` still scales them. Above a fixed floor it scales them on the same ramp as `--border-muted`, `--input` and `--border-overlay`, so the ladder keeps its order across the whole knob. A deployment that turned `--contrast` to strengthen its dividers keeps that behaviour. To retune the steps themselves, set the `--border-alpha-*` dials in both theme files, and in the print block if light's values change.
+  - A deployment stylesheet that overrode `--border` directly keeps working, but `--border-strong` and `--border-stronger` will not follow that override. Set the dials instead so all three steps move together.
+
+- bb778b0: The canvas ground is a dot grid. Under the board, the flat grey becomes the site's motif: a 1px dot on a 20px pitch at zoom 1, in `--border-strong`, in both themes. The grid is one CSS background on a new composited layer, `[data-zoom-pan-ground]`, under the board. It pans and zooms with the board, and a pan only translates the layer, so panning repaints nothing, as before. Zoomed far out, the pitch doubles in world space so dots on screen are never closer than 10px. The dot alpha falls with the square of the pitch, so the ground's average tone holds steady across each step. The grid appears with the first fit, so it never snaps into place. Print and forced-colors mode keep a plain ground.
+
+  **Upgrading a deployment**
+
+  - Nothing to do. A deployment that wants the flat ground back can hide the layer in its own stylesheet: `[data-zoom-pan-ground] { display: none; }`.
+
+- 49de2dd: The six method figures are redrawn to the cover art direction, each with a dark file. `data-model-hierarchy` reads top to bottom, each level opening the one marked above it, down to a path drawn as a grid. `blueprint-anatomy` is one path: lanes as rows, steps as columns, leads-to arrows, and the lines of interaction, visibility and internal interaction falling between the lanes. `cell-anatomy` opens one cell on the board into its record. `slice-concept` shows numbered cells staying on the path while four ordered slides cite them. `slicing-model` draws the five slice types as five cuts through the same grid, with journey as one actor's lane plus the cells they touch. `skill-architecture` is a matrix of the four skills against the shared references each links and the agents each hands its reading to. Names of files and agents in `skill-architecture` are set in the mono face. Where they are embedded on GitHub they now use `<picture>`, so GitHub follows its own theme: the README shows `skill-architecture`, `data-model-hierarchy` and `blueprint-anatomy`; guide/01 shows `data-model-hierarchy`, `blueprint-anatomy`, `cell-anatomy` and `slicing-model`; guide/03 shows `skill-architecture`. `slice-concept` appears on the cover only.
+
+  Upgrading a deployment:
+
+  - A deployment that spreads `packageCoverFigures.blueprintAnatomy`, `cellAnatomy`, `dataModelHierarchy`, `sliceConcept`, `slicingModel` or `skillArchitecture` and overrides `alt` is now describing the old drawings. Rewrite that alt text for the new ones; the package's own alt text says what each now shows.
+  - Each of the six now carries `srcDark` and new `width`/`height` values. A spread figure takes both with it, so its dark file follows the theme with no other change. A deployment that hard-coded a height for one of them should drop it.
+
+- 70f2ab5: The four skill figures and the ways-in figure are redrawn to the cover's art direction, light and dark, and now read as kin to the site's own illustrations. Each skill figure runs left to right — what you have, the skill, what you get — with the skill named in a dark term chip, and makes one claim taken from the skill's own contract:
+
+  - `ub-map`: what it finds in your documents lands in cells, held as a draft until you sign it off.
+  - `ub-slice`: one cut of the blueprint (here a lane) becomes slides in order, each citing the cell it shows.
+  - `ub-audit`: findings — a step with no cell, two cells competing for one channel, a recorded owner and a perceived owner that differ — point at cells and wait for your triage; the blueprint is left as it was.
+  - `ub-whatif`: a change is traced on a copy, and reaches the blueprint only after you accept it, through `ub:map`.
+  - `four-ways-in`: the app, the in-app agent and agentic tools read and write one shared context; a Slack bot you build only reads it.
+
+  Each now ships a dark file, carried as `srcDark`, and the README and the guide embed them through `<picture>`. Their heights changed, so a page reserving their box uses the new `height` from `packageCoverFigures`.
+
+  Upgrading a deployment:
+
+  - A deployment that spreads `packageCoverFigures.fourWaysIn`, `ubMap`, `ubSlice`, `ubAudit` or `ubWhatif` and overrides `alt` is now describing the old drawings. Rewrite that alt text for the new ones, or drop the override to take the package's.
+  - A spread figure carries `srcDark` and the new `height` with it, so it follows the theme with no other change. A deployment that restated `height` by hand should take the new value.
+
+- 362e4ef: The template ships teal. The filled control and the identity fill are now `#00806a` in light and, within one sRGB channel step, `#3ecfb0` in dark (it renders `#3fcfb0`, held to light's hue), the Uno Blueprint site's teal, in place of the near-black and near-white neutral. Buttons, focus rings, selected sidebar rows, links and the cover call to action pick it up through the existing token chain; surfaces, text and borders stay neutral grey. The dials are `--hue: 175` in both themes, `--primary-lightness: 0.536` / `--primary-chroma: 0.101` in light and `0.771` / `0.129` in dark. Ink on the fill measures 4.69:1 in light and 9.15:1 in dark, so the guard on `--primary-foreground` holds AA (4.5:1) in light and keeps 7:1 in dark. The two themes no longer have to share a primary chroma, only a hue and whether there is colour at all; a `--brand-chroma` set in one theme file and not the other still fails. Warning, destructive and info lean 2.4 degrees further toward the brand through the existing harmony pull. The print override now restates `--primary-chroma`, since the themes differ on it.
+
+  **Upgrading a deployment**
+
+  - A deployment that declares its own `--hue`, `--primary-lightness` and `--primary-chroma` in both theme blocks is unaffected: its file loads after the package's and wins on source order.
+  - A deployment that does not declares none of them, and turns teal on its next pin bump. To stay neutral, add this to its own theme file, loaded after the package's styles:
+
+    ```css
+    :root,
+    .light {
+      --hue: 159;
+      --primary-lightness: 0.205;
+      --primary-chroma: 0;
+    }
+    .dark {
+      --hue: 159;
+      --primary-lightness: 0.922;
+      --primary-chroma: 0;
+    }
+    @media print {
+      :root,
+      .dark {
+        --primary-lightness: 0.205;
+      }
+    }
+    ```
+
+    The print block is there because this file loads after the package's print override, so without it a page printed from dark mode keeps the near-white fill on paper.
+
+  - A deployment that sets `brand.accent` on its config but declares no theme dials does not turn teal: the accent's hue is written onto the root inline, so it gets its own hue at the teal's lightness and chroma (0.536 / 0.101 light, 0.771 / 0.129 dark). At many hues that chroma is past what sRGB can show at that lightness, and the browser reduces it silently. Declare `--primary-lightness` and `--primary-chroma` in both theme blocks, tuned for the accent's hue, or use the neutral block above to keep it grey.
+  - A deployment that declares only some of the three gets the template's value for the rest. Check `--primary-chroma` in particular: one left unset now inherits 0.101 or 0.129.
+
+- 7fc13b9: Ubuntu Sans Mono replaces Source Code Pro as the mono face, so command copy, ids and code read in the same family as the Ubuntu Sans body. It is self-hosted from `@fontsource-variable/ubuntu-sans-mono` and the Source Code Pro package is gone. The mono override seam is now `--app-font-mono`, mirroring `--app-font-sans`. The old name, `--font-source-code-pro`, keeps working: an embedding app that sets it still swaps the mono face, and `--app-font-mono` wins when both are set.
+
+### Patch Changes
+
+- addc815: A selected phase frame shows a brand ring. Clicking a phase on the overview now gives its frame a brand edge and a soft brand ring (`0 0 0 3px` of `--brand` at 16%), so the click registers before the camera moves. The ring arrives on `--ease-structural` over `--motion-micro` and appears at once under reduced motion. It follows the editor's selection, so Escape, Home, the breadcrumb and picking another phase clear or move it, and a scenario focused inside the phase is the selection instead. Keyboard focus keeps the `--ring` token, so a focused phase and a selected one stay distinguishable. A deployment that retunes `--brand` gets the ring in its own colour.
+- 513d316: `BASE_PATH` alone serves the app from a path. A build under a prefix now writes the prefixed hosting rules into `dist/_redirects` — the site root sent on to the prefix with a 301, the `/<prefix>/assets/*` 404, then the `/<prefix>/*` fallback, none forced — and moves the year-long hashed cache in `dist/_headers` to `/<prefix>/assets/*`, so a host given only `BASE_PATH` serves deep links, 404s a missing chunk and caches the hashed output. `netlify.toml` stays written for the root. A `public/_redirects` of a repository's own is kept above the generated rules. A deployment that has one should expect three things under a prefix: a line that states a generated rule exactly is dropped, since the build writes it below; a line of its own for another path (`/old`, `/demo/api/*`) still applies; and a line that answers `/`, the prefix itself, or every path under it — `/*`, `/demo/*`, `/demo/:slug` — refuses the build in one line, which `npm run check:hosting` now reports before a build does. It no longer has to carry the prefixed 404 and fallback itself. `npm run check:hosting -- --built` reads the built pair back, and the committed check holds a root-written table to the root's rules. A root build is unchanged. A deployment that wrote the prefixed rules into `netlify.toml` by hand keeps working; the build writes the same rules ahead of them.
+- ef9213f: Dead design residue is gone: the unused starter assets (`hero.png`, `react.svg`, `vite.svg`), the stale `--font-family-body: Inter` variable nothing read, and a cover-figure comment that named a plate colour the figures don't use.
+- 83f8054: The sample board no longer claims a findings panel
+
+  The audit scenario's surface cells described a findings panel with severity
+  badges and triage buttons, and one step was named "Triage on the canvas". The
+  app has none of these. Findings are rows the agent lists in the chat (it can box
+  the cells they cite on request), and anyone triages one by asking the agent,
+  in the app or through `ub:audit`, with `open`, `resolved` and `dismissed`
+  as the only statuses. The cells now say that, the step is "Triage the
+  findings", and neither the owner's cell nor the path summary offers an
+  "accept" status that doesn't exist.
+
+  The step rename changes the path key of the four cells under it, so a
+  database re-seeded from `supabase/seed.sql` treats them as new rows.
+
+- 5308564: Small labels read in sentence case. Badges, tags, eyebrows, the canvas phase badge (`01 · Discover`), the divider captions (`Line of interaction`, `Line of visibility`, `Line of internal interaction`), the sidebar section and slice-group headings, and the Jump to… group headings are 12px sans at letter-spacing 0 in the case their strings are written in, rather than capitals with wide tracking. The phase badge drops mono for sans and keeps its overview-zoom counter-scale. A test now fails on `uppercase`, wide tracking, an inline `textTransform` or a positive `letterSpacing` in any authored component, dev page or stylesheet, and the composition guidelines state the rule. A deployment that renders its own labels through `Eyebrow` should pass them in sentence case: the component no longer capitalises.
+
 ## 2.4.0
 
 **One command starts a workspace.** `npm create uno-blueprint@latest`
@@ -10086,8 +10257,8 @@ accent: BRAND.accent }, content: { workspaceTitle: coverContent.title } }`. The
   constraint violation rather than as anything the authoring tools had said
   (#204):
 
-                                                                                                                                                                                                                                          ERROR: new row for relation "lanes" violates check constraint
-                                                                                                                                                                                                                                          "lanes_lane_role_check" … compliance_review
+                                                                                                                                                                                                                                            ERROR: new row for relation "lanes" violates check constraint
+                                                                                                                                                                                                                                            "lanes_lane_role_check" … compliance_review
 
   That error at least names the value. Meeting it after validation has passed is
   the wrong moment.

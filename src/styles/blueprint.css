@@ -1128,3 +1128,56 @@
     opacity: 0;
   }
 }
+
+/*
+ * THE CANVAS GROUND'S DOT GRID — the site's motif under the board: a dot on
+ * a 20px pitch at zoom 1, in `--border-strong`, the step named as the mark
+ * for anything drawn on the canvas ground. It flips with the theme the way
+ * that step does, and the contrast preference scales it with every other
+ * edge.
+ *
+ * One background on the viewport, no element per dot. The transform writer
+ * (`applyGroundToElement` in `useZoomPanViewport`) stamps the tile size and
+ * position on every camera frame, so the dots pan and zoom with the board;
+ * the values here are only what a viewport shows before its first frame.
+ * Far out, the pitch steps and the alpha below carries the tone across the
+ * step — `src/lib/canvasDotGrid.ts` has the rule and why.
+ *
+ * The dot is a constant on-screen size, never scaled with the board: a
+ * pixel-wide disc with a half-pixel soft edge, centred in its tile.
+ *
+ * `--canvas-dot-alpha` is registered `inherits: false` because the writer
+ * sets it on the viewport, the ancestor of the whole board. An inheriting
+ * property written there would restyle every cell on each zoom frame; this
+ * one restyles the viewport alone.
+ *
+ * Print takes the background off the viewport wholesale (`print.css`).
+ */
+@property --canvas-dot-alpha {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 1;
+}
+
+@layer utilities {
+  [data-zoom-pan-viewport] {
+    background-image: radial-gradient(
+      circle at center,
+      oklch(
+          from var(--border-strong) l c h /
+            calc(alpha * var(--canvas-dot-alpha))
+        )
+        0.5px,
+      transparent 1px
+    );
+    background-size: 20px 20px;
+    background-position: 10px 10px;
+  }
+
+  /* High Contrast keeps a flat system ground; a pattern there is noise. */
+  @media (forced-colors: active) {
+    [data-zoom-pan-viewport] {
+      background-image: none;
+    }
+  }
+}

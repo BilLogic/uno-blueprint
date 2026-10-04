@@ -20,6 +20,7 @@ import {
   type CameraVelocity,
 } from '@/lib/cameraTransition'
 import { FOCUS_DIM_OPACITY } from '@/lib/canvasFocusDim'
+import { canvasDotGrid } from '@/lib/canvasDotGrid'
 import { isCanvasResizeRefitSuppressed } from '@/lib/canvasChromeResize'
 import { settleJump, verdictOfFlight } from '@/lib/canvasJump'
 import {
@@ -239,6 +240,34 @@ function applyTransformToElement(
     el.dataset.semanticLabelBoost = nextBoost
     const badges = el.querySelectorAll<HTMLElement>('[data-phase-title-badge]')
     for (const badge of badges) badge.style.scale = nextBoost
+  }
+}
+
+/**
+ * Lay the canvas ground's dot grid under the board: tile size and position
+ * from the camera, so the dots pan and zoom with it (`canvasDotGrid` has the
+ * step-and-tone rule for far zoom).
+ *
+ * Written ONTO THE VIEWPORT as its own background properties, never as an
+ * inherited custom property — the same reason the label boost above is
+ * written onto the badges. The one custom property here, the dot alpha, is
+ * registered `inherits: false` in blueprint.css, so a write restyles this
+ * element alone, and the string guard means it is written only when a zoom
+ * changes it. A pan touches `background-position` and nothing else.
+ */
+function applyGroundToElement(
+  el: HTMLElement,
+  pan: { x: number; y: number },
+  zoom: number,
+) {
+  const grid = canvasDotGrid(pan, zoom)
+  const size = `${grid.pitch}px ${grid.pitch}px`
+  if (el.style.backgroundSize !== size) el.style.backgroundSize = size
+  el.style.backgroundPosition = `${grid.offsetX}px ${grid.offsetY}px`
+  const alpha = grid.alpha.toFixed(3)
+  if (el.dataset.canvasDotAlpha !== alpha) {
+    el.dataset.canvasDotAlpha = alpha
+    el.style.setProperty('--canvas-dot-alpha', alpha)
   }
 }
 
@@ -463,6 +492,15 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
   const [isSpaceHeld, setIsSpaceHeld] = useState(false)
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 })
   const transformRef = useRef(initialCamera.transform)
+  /*
+    A viewport that mounts or remounts starts with a bare ground: lay the dot
+    grid where the camera already is rather than waiting for its next move.
+  */
+  useLayoutEffect(() => {
+    if (!containerNode) return
+    const { pan: p, zoom: z } = transformRef.current
+    applyGroundToElement(containerNode, p, z)
+  }, [containerNode])
   const restoredSnapshotRef = useRef(initialCamera.snapshot)
   const restoredCameraPendingRef = useRef(initialCamera.restored)
   const lastFitGeometryRef = useRef<CanvasViewGeometry | null>(null)
@@ -704,6 +742,8 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
       tierZoom?: number,
     ) => {
       transformRef.current = { pan: nextPan, zoom: nextZoom }
+      const ground = containerRef.current
+      if (ground) applyGroundToElement(ground, nextPan, nextZoom)
       const el = contentRef.current
       if (el) {
         applyTransformToElement(

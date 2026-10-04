@@ -20,6 +20,7 @@ import {
   type CameraVelocity,
 } from '@/lib/cameraTransition'
 import { FOCUS_DIM_OPACITY } from '@/lib/canvasFocusDim'
+import { canvasDotGrid } from '@/lib/canvasDotGrid'
 import { isCanvasResizeRefitSuppressed } from '@/lib/canvasChromeResize'
 import { settleJump, verdictOfFlight } from '@/lib/canvasJump'
 import {
@@ -243,6 +244,65 @@ function applyTransformToElement(
 }
 
 /**
+ * Lay the canvas ground's dot grid under the board: tile size and position
+ * from the camera, so the dots pan and zoom with it (`canvasDotGrid` has the
+ * step-and-tone rule for far zoom).
+ *
+ * Written onto `[data-zoom-pan-ground]`, a layer of its own under the board,
+ * and a PAN IS COMPOSITOR-ONLY. The layer hangs one pitch past the viewport
+ * on every side, so translating it by the grid's offset (always inside one
+ * pitch) never uncovers an edge, and the translate is all a pan writes: no
+ * repaint, the same as the flat ground it replaced. Moving a
+ * `background-position` instead repainted the whole viewport on every pan
+ * frame. Only a zoom touches the tile size and the overhang, which is what
+ * repaints, and a zoom repaints the board anyway.
+ *
+ * Nothing is rounded to device pixels: the board's own translate and scale
+ * are not, and a dot snapped while the board is not drifts against it
+ * through a zoom. The one rounding the engine imposes — a background tile
+ * floored to a 1/64px layout unit, which over seventy tiles walked the far
+ * edge of the grid a pixel and more off the board — is taken back by the
+ * layer's scale (`canvasDotGrid` has the numbers).
+ *
+ * Never an inherited custom property — the same reason the label boost above
+ * is written onto the badges. The one custom property here, the dot alpha, is
+ * registered `inherits: false` in blueprint.css, so a write restyles this
+ * element alone, and the string guard means it is written only when a zoom
+ * changes it.
+ */
+function applyGroundToElement(
+  el: HTMLElement,
+  pan: { x: number; y: number },
+  zoom: number,
+) {
+  const grid = canvasDotGrid(pan, zoom)
+  const pitch = String(grid.pitch)
+  if (el.dataset.canvasDotPitch !== pitch) {
+    el.dataset.canvasDotPitch = pitch
+    el.style.inset = `${-grid.overhang}px`
+    el.style.backgroundSize = `${grid.tile}px ${grid.tile}px`
+  }
+  el.style.transform = `translate3d(${grid.offsetX}px, ${grid.offsetY}px, 0) scale(${grid.tileScale})`
+  const alpha = grid.alpha.toFixed(3)
+  if (el.dataset.canvasDotAlpha !== alpha) {
+    el.dataset.canvasDotAlpha = alpha
+    el.style.setProperty('--canvas-dot-alpha', alpha)
+  }
+}
+
+/**
+ * Show the dot grid. It is laid out from the first frame but hidden
+ * (`blueprint.css`) until the viewport has framed the board once: before
+ * that the camera is the unfitted origin, and a grid drawn there would snap
+ * to the fitted camera the moment the first fit lands. Hiding it is the
+ * whole cost — the first fit is a jump, so the grid appears already where
+ * it belongs, together with the board.
+ */
+function markGroundReady(el: HTMLElement) {
+  if (el.dataset.groundReady === undefined) el.dataset.groundReady = ''
+}
+
+/**
  * Dataset key for `data-camera-flight-reveal`. CSS under the blocks tier
  * skips the density encoding inside this subtree so the destination stays
  * readable while the rest of the board does not leave blocks.
@@ -431,6 +491,8 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
     setContainerNode(node)
   }, [])
   const contentRef = useRef<HTMLDivElement>(null)
+  /** The dot-grid layer under the board — see `applyGroundToElement`. */
+  const groundRef = useRef<HTMLDivElement>(null)
   const [initialCamera] = useState(() => {
     const stored = cameraStateKey
       ? beginCanvasViewState(cameraStateKey)
@@ -509,6 +571,19 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
    * (pan 0,0 / zoom 1) that every fresh mount starts at.
    */
   const hasFittedRef = useRef(false)
+  /*
+    A viewport that mounts or remounts starts with a bare ground: lay the dot
+    grid where the camera already is rather than waiting for its next move.
+    It stays hidden until the first fit has framed the board — see
+    `markGroundReady`.
+  */
+  useLayoutEffect(() => {
+    const ground = groundRef.current
+    if (!containerNode || !ground) return
+    const { pan: p, zoom: z } = transformRef.current
+    applyGroundToElement(ground, p, z)
+    if (hasFittedRef.current) markGroundReady(ground)
+  }, [containerNode])
   /**
    * True while the resetKey effect's settle loop is waiting for the fit
    * target's layout to go quiet. The resize observer's owed-fit branch
@@ -704,6 +779,11 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
       tierZoom?: number,
     ) => {
       transformRef.current = { pan: nextPan, zoom: nextZoom }
+      const ground = groundRef.current
+      if (ground) {
+        applyGroundToElement(ground, nextPan, nextZoom)
+        if (hasFittedRef.current) markGroundReady(ground)
+      }
       const el = contentRef.current
       if (el) {
         applyTransformToElement(
@@ -1239,6 +1319,8 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
       if (!outcome) return false
       pendingFitRef.current = false
       hasFittedRef.current = true
+      // The first fit jumps, so it has already committed by now.
+      if (groundRef.current) markGroundReady(groundRef.current)
       return outcome
     },
     [fitToView],
@@ -2700,6 +2782,7 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
   return {
     containerRef: attachContainer,
     contentRef,
+    groundRef,
     pan,
     zoom,
     isPanning,

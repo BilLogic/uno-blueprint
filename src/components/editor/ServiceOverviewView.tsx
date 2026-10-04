@@ -19,7 +19,10 @@ import {
   PhaseOverviewPhaseLoopArrow,
   PHASE_OVERVIEW_LOOP_CHANNEL_OFFSET,
 } from '@/components/editor/PhaseOverviewPhaseLoopArrow'
-import { CanvasEmptyState } from '@/components/editor/CanvasEmptyState'
+import {
+  CanvasEmptyState,
+  NoPathsEmptyState,
+} from '@/components/editor/CanvasEmptyState'
 import { CanvasLoadProgress } from '@/components/editor/CanvasLoadProgress'
 import { ServiceOverviewCanvasSkeleton } from '@/components/editor/EditorLoadingSkeletons'
 import { DeferredSkeleton } from '@/components/ui/deferred-skeleton'
@@ -1118,11 +1121,13 @@ function ServiceOverviewViewImpl({
                   }
                   // Paths are a filter over a board; there is no board.
                   showRestoreAction={false}
+                  // A read that failed is not an empty board.
+                  showIllustration={!slidesError}
                 />
               </div>
             ) : noPathsSelected ? (
               <div className="absolute inset-0 flex">
-                <CanvasEmptyState />
+                <NoPathsEmptyState focused={Boolean(focusedScenarioId)} />
               </div>
             ) : (
               <ZoomPanViewport

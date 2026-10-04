@@ -180,3 +180,36 @@ test('a skill with no frontmatter name is refused, named', () => {
     t.done()
   }
 })
+
+test('a frontmatter name that is not a bare slug is refused, and nothing is written outside the mirror', () => {
+  // The name becomes a folder under `.agents/skills/`, so `../x` would write
+  // beside the mirror rather than in it.
+  const t = stage()
+  try {
+    mkdirSync(join(t.root, 'skills/escape'), { recursive: true })
+    writeFileSync(
+      join(t.root, 'skills/escape/SKILL.md'),
+      '---\nname: ../x\ndescription: A staged skill.\n---\n\n# Escape\n',
+    )
+    const { status, output } = run(t.root)
+    assert.equal(status, 1, output)
+    assert.match(output, /name is not a slug: skills\/escape\/SKILL\.md/)
+    assert.equal(existsSync(join(t.root, '.agents/x')), false)
+  } finally {
+    t.done()
+  }
+})
+
+test('an empty folder left under the mirror is an orphan too, in both modes', () => {
+  const t = stage()
+  try {
+    mkdirSync(join(t.root, '.agents/skills/retired'), { recursive: true })
+    for (const args of [['--check'], []]) {
+      const { status, output } = run(t.root, ...args)
+      assert.equal(status, 1, output)
+      assert.match(output, /orphan: \.agents\/skills\/retired\//)
+    }
+  } finally {
+    t.done()
+  }
+})

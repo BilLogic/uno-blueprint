@@ -17,7 +17,9 @@
  *
  * THE FOLDER IS THE FRONTMATTER `name`, not the source directory, because the
  * name is what the discovering agent offers as the command. A skill without
- * one is refused rather than guessed at.
+ * one is refused rather than guessed at, and so is a name that is not a bare
+ * slug: the name becomes a path, and `../x` would write beside the mirror
+ * rather than in it.
  *
  * COPIES, NOT LINKS. The release tarball is refused by the initialiser if it
  * holds any link, so a symlinked mirror would break every new workspace.
@@ -25,7 +27,9 @@
  * IT WALKS BOTH WAYS, for the reason the canvas sync gives: a forward walk
  * alone compares every skill with its copy and never asks what else is under
  * the mirror. Anything there that no skill produced is an orphan — named,
- * never deleted, and a failure in both modes.
+ * never deleted, and a failure in both modes. An empty folder counts: it is
+ * what a retired skill leaves when only its copy is deleted, and an agent
+ * scanning the mirror still finds it.
  *
  * IT NEEDS NO GIT. It reads the tree it is run in — the working directory —
  * by walking it, because a workspace is written from a release tarball and is
@@ -57,12 +61,20 @@ function frontmatterName(text) {
   return line ? line[1] : null
 }
 
-/** Every file under a directory, absolute; nothing when it does not exist. */
-function filesUnder(dir) {
+/** A skill name that is safe to use as a folder: lowercase, digits, hyphens. */
+const SLUG = /^[a-z0-9-]+$/
+
+/**
+ * Every file under a directory, absolute, plus every empty directory with a
+ * trailing slash; nothing when the directory does not exist.
+ */
+function entriesUnder(dir) {
   if (!existsSync(dir)) return []
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name)
-    return entry.isDirectory() ? filesUnder(path) : [path]
+    if (!entry.isDirectory()) return [path]
+    const inside = entriesUnder(path)
+    return inside.length > 0 ? inside : [`${path}/`]
   })
 }
 
@@ -87,6 +99,14 @@ for (const source of sources) {
     drift += 1
     continue
   }
+  if (!SLUG.test(name)) {
+    console.error(
+      `name is not a slug: ${label(source)} — "${name}" would name a folder; ` +
+        'use lowercase letters, digits and hyphens.',
+    )
+    drift += 1
+    continue
+  }
   const target = join(MIRROR, name, 'SKILL.md')
   if (written.has(target)) {
     console.error(`duplicate name: ${label(source)} — another skill is already named ${name}.`)
@@ -106,10 +126,10 @@ for (const source of sources) {
   }
 }
 
-for (const path of filesUnder(MIRROR)) {
+for (const path of entriesUnder(MIRROR)) {
   if (written.has(path)) continue
   console.error(
-    `orphan: ${label(path)} — no skill produces it, so it is a copy of ` +
+    `orphan: ${label(path)}${path.endsWith('/') ? '/' : ''} — no skill produces it, so it is a copy of ` +
       'nothing. Add the skill it belongs to under skills/, or delete it.',
   )
   drift += 1

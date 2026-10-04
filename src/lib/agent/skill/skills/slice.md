@@ -15,8 +15,8 @@ It selects, orders, captions, and cites. Every claim points at a cell key.
 Regenerating a slice is therefore cheap and safe, which is the whole reason
 a slice is worth storing separately from the board at all.
 
-All paths are relative to the plugin root, which is the repository or
-workspace root (Claude Code names it `${CLAUDE_PLUGIN_ROOT}`): this
+All paths are relative to the plugin root — Claude Code's
+`${CLAUDE_PLUGIN_ROOT}`; anywhere else, the repository or workspace root: this
 skill's own materials (playbook, templates, schema, `slice_tools.py`) live
 under `skills/slice/`, the shared core under `references/`, `scripts/`, and
 `agents/`; a scaffolded workspace carries the same files

@@ -125,7 +125,12 @@ function Harness({
         camera.containerRef(node)
       }}
     >
-      <div data-zoom-pan-ground="" ref={camera.groundRef} />
+      <div
+        data-zoom-pan-ground=""
+        ref={(node) => {
+          camera.groundRef.current = node
+        }}
+      />
       {mountBoard ? (
         <div
           data-zoom-pan-content=""

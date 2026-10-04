@@ -166,24 +166,40 @@ it; the rest follow as they are redrawn.
   An image cannot load a webfont, so most readers see the fallback; leave room
   for the wider face rather than fitting labels to Ubuntu Sans exactly.
 - **Three marks, three meanings.** Teal is what the figure explains:
-  `#00806a` light, `#3ecfb0` dark. Amber is a cell that no longer holds: fill
-  `#fff4e0`, solid stroke `#b45309` (dark `#33260f` and `#fbbf6a`), and the
-  cell keeps its skeleton bar, because it is content that is wrong rather
-  than content that is missing. Dashed means not yet, missing or proposed.
-  Everything else stays ink, muted ink or a lane pastel, so the eye lands on
-  the teal first.
+  `#00806a` light, `#3ecfb0` dark. A teal cell is a 2px teal outline with a
+  soft ring round it (the same teal at 28%, 3px wide, 3 units out) and a teal
+  skeleton bar; the ring is what keeps it apart from a Customer cell, whose
+  lane line is a green. Amber is a cell that no longer holds: a solid
+  1.25px `#b45309` outline (dark `#fbbf6a`), no fill, and the cell keeps its
+  skeleton bar, drawn in the same amber at 55%, because it is content that is wrong
+  rather than content that is missing. The amber bar is what tells it from a
+  Support cell, whose lane line is an amber too. Dashed means not yet,
+  missing or proposed. Everything else stays ink, muted ink or a lane line,
+  so the eye lands on the teal first.
 - **Ink.** Text `oklch(.21 .008 175)` (`#151a18`), muted `oklch(.47 .008 175)`
   (`#565c5a`). Dark: `#ebf0ee` and `#a6acaa`.
-- **Lane pastels**, fill / stronger accent:
+- **A cell is an outline, never a fill.** `fill: none`, a 1.25px stroke in
+  its lane's line colour, radius 8, and one translucent-ink skeleton bar
+  inside. The row's swatch is a 10px square in the same colour. The line
+  colours are the board's own: each lane is its role's family at step 11,
+  the step the board draws a cell's ring in, so a figure matches the board a
+  reader opens next. Measured against the plate and the card (WCAG contrast,
+  at least 3:1 for a line that carries meaning):
 
-  | Lane | Light | Dark |
-  | --- | --- | --- |
-  | Customer | `#e8f3ed` / `#cfe6d9` | `#16302a` / `#235043` |
-  | Frontstage | `#fdf1e3` / `#f6e0bd` | `#35290f` / `#5a451c` |
-  | Backstage | `#fbe9f0` / `#f2cfdf` | `#371b27` / `#5a2d40` |
-  | Support | `#ecebf5` / `#d9d6ec` | `#24223d` / `#3b3866` |
+  | Lane | Role, family | Light | Dark |
+  | --- | --- | --- | --- |
+  | Customer | `customer_actions`, green | `#18794e` (5.07 / 5.41) | `#4cc38a` (8.40 / 7.71) |
+  | Frontstage | `frontstage_actions`, pink | `#cd1d8d` (4.74 / 5.05) | `#f65cb6` (6.31 / 5.79) |
+  | Backstage | `backstage_actions`, orange | `#bd4b00` (4.72 / 5.04) | `#ff8b3e` (7.98 / 7.33) |
+  | Support | `support_actions`, amber | `#ad5700` (4.76 / 5.07) | `#f1a10d` (8.72 / 8.00) |
 
-- **Borders are translucent ink**: about 9% at rest, 17% for emphasis.
+  A lane the table leaves out takes its role's step-11 colour the same way
+  (`colors.css`, `--color-{family}-1100`), measured before it ships.
+  `blueprint-anatomy` is drawn to this recipe; figures still filled with the
+  earlier lane pastels move to it as they are redrawn.
+
+- **Borders are translucent ink** on everything that is not a cell — cards,
+  wells, chips: about 9% at rest, 17% for emphasis.
 - **Radii**: 16 for the plate and cards, 8 for cells, 6 for small chips.
 - **A skill's name** sits in a dark terminal chip in mint mono, echoing the site: fill `#101417`, text `#7fe3cc` (dark: fill `#232a28` with a 17% ink edge, same text).
 - **The plate** is a full-bleed rect with a dot grid on it: 1.6px dots (`r=0.8`) on a
@@ -191,12 +207,14 @@ it; the rest follow as they are redrawn.
   the card colour (`#ffffff` light, `#181d1b` dark; plate `#f6f8f7` and
   `#0f1412`).
 - **Dashed means not yet, missing or proposed**; solid means it exists. A
-  proposed change, a pattern nobody has built. A cell that no longer holds is
-  amber, not dashed.
+  proposed change, a pattern nobody has built. On a cell it is the outline
+  that dashes, `stroke-dasharray: 3 3` at the same 1.25px, in the lane's
+  colour (or teal, if it is the cell the figure explains). A cell that no
+  longer holds is amber, not dashed.
 - **The mini-blueprint** is the shorthand for a blueprint: rows of a small
-  lane-colour square and a label bar, then cells 24px tall each holding one
-  skeleton bar. Highlight cells in teal to show which part of it a figure is
-  about.
+  lane-colour square and a label bar, then cells 24px tall, outlined in the
+  lane's line colour, each holding one skeleton bar. Highlight cells in teal
+  to show which part of it a figure is about.
 - **Light and dark differ only in the palette.** Put every colour in the
   file's `<style>` block as a class and keep the drawing identical, so the dark
   file is the light file with that block swapped. A test diffs the two outside

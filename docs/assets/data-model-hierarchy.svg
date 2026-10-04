@@ -1,37 +1,28 @@
-<svg viewBox="0 0 880 595" xmlns="http://www.w3.org/2000/svg" font-family="'Ubuntu Sans', system-ui, sans-serif">
+<svg viewBox="0 0 880 634" xmlns="http://www.w3.org/2000/svg" font-family="'Ubuntu Sans', system-ui, sans-serif">
   <style>
     .plate { fill: #f6f8f7; }
     .dot { fill: #151a18; fill-opacity: 0.17; }
     .card { fill: #ffffff; stroke: #151a18; stroke-opacity: 0.09; }
     .well { fill: #f6f8f7; stroke: #151a18; stroke-opacity: 0.09; }
-    .well-focus { stroke: #00806a; stroke-opacity: 1; stroke-width: 1.5; }
+    .front { fill: #ffffff; stroke: #00806a; stroke-width: 2; }
+    .focus { fill: none; stroke: #00806a; stroke-width: 2; }
+    .halo { fill: none; stroke: #00806a; stroke-opacity: 0.28; stroke-width: 3; }
+    .tab { fill: #f6f8f7; stroke: #151a18; stroke-opacity: 0.17; }
+    .tab-focus { fill: #f6f8f7; stroke: #00806a; stroke-width: 1.25; }
     .title { font-size: 15px; font-weight: 600; fill: #151a18; }
     .label { font-size: 14.5px; fill: #565c5a; }
     .label-teal { font-size: 14.5px; font-weight: 600; fill: #00806a; }
     .strong { font-size: 14.5px; font-weight: 600; fill: #151a18; }
-    .code { font-family: 'Ubuntu Sans Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14.5px; fill: #565c5a; }
-    .code-strong { font-family: 'Ubuntu Sans Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14.5px; font-weight: 600; fill: #151a18; }
-    .num { font-size: 14.5px; font-weight: 600; fill: #ffffff; }
-    .axis { stroke: #151a18; stroke-opacity: 0.09; }
-    .line { stroke: #565c5a; stroke-width: 1.25; }
-    .flow { stroke: #565c5a; stroke-width: 1.5; fill: none; }
+    .flow { stroke: #565c5a; stroke-width: 1.25; fill: none; }
+    .loop { stroke: #565c5a; stroke-width: 1.25; fill: none; stroke-dasharray: 3 3; }
     .flow-head { fill: #565c5a; }
-    .trace { stroke: #00806a; stroke-width: 1.5; fill: none; }
-    .trace-head { fill: #00806a; }
-    .zoom { stroke: #00806a; stroke-width: 1; stroke-opacity: 0.55; fill: none; }
+    .zoom { stroke: #00806a; stroke-width: 1.25; stroke-opacity: 0.6; fill: none; }
     .skel { fill: #151a18; fill-opacity: 0.16; }
-    .skel-teal { fill: #00806a; }
-    .cell { stroke: #151a18; stroke-opacity: 0.09; }
-    .cell-focus { stroke: #00806a; stroke-opacity: 1; stroke-width: 1.5; }
-    .hit { fill: #00806a; }
-    .tick { fill: #565c5a; }
-    .miss { fill: #151a18; fill-opacity: 0.16; }
-    .badge { fill: #00806a; stroke: #ffffff; stroke-width: 2; }
-    .faded { opacity: 0.4; }
-    .lane-c { fill: #e8f3ed; } .sq-c { fill: #cfe6d9; }
-    .lane-f { fill: #fdf1e3; } .sq-f { fill: #f6e0bd; }
-    .lane-b { fill: #fbe9f0; } .sq-b { fill: #f2cfdf; }
-    .lane-s { fill: #ecebf5; } .sq-s { fill: #d9d6ec; }
+    .cell { fill: none; stroke-width: 1.25; }
+    .lane-c { stroke: #18794e; } .sq-c { fill: #18794e; }
+    .lane-f { stroke: #cd1d8d; } .sq-f { fill: #cd1d8d; }
+    .lane-b { stroke: #bd4b00; } .sq-b { fill: #bd4b00; }
+    .lane-s { stroke: #ad5700; } .sq-s { fill: #ad5700; }
   </style>
   <defs>
     <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -41,52 +32,76 @@
       <stop offset="0.35" stop-color="#fff"/>
       <stop offset="1" stop-color="#000"/>
     </radialGradient>
-    <mask id="fadeMask"><rect width="880" height="595" fill="url(#fade)"/></mask>
+    <mask id="fadeMask"><rect width="880" height="634" fill="url(#fade)"/></mask>
     <marker id="headMuted" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="flow-head" d="M0,0.5 L7,4 L0,7.5 Z"/></marker>
-    <marker id="headTeal" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="trace-head" d="M0,0.5 L7,4 L0,7.5 Z"/></marker>
   </defs>
-  <rect class="plate" width="880" height="595" rx="16"/>
-  <rect width="880" height="595" rx="16" fill="url(#grid)" mask="url(#fadeMask)"/>
-  <rect class="card" x="24.5" y="24.5" width="831" height="127" rx="16"/>
-  <text class="title" x="48" y="84">Service</text>
-  <text class="label" x="48" y="106">Phases, in order</text>
-  <rect class="well well-focus" x="300.5" y="88.5" width="149" height="39" rx="8"/>
-  <text class="label-teal" x="375" y="113" text-anchor="middle">Phase 1</text>
-  <rect class="well" x="482.5" y="88.5" width="149" height="39" rx="8"/>
-  <text class="strong" x="557" y="113" text-anchor="middle">Phase 2</text>
-  <rect class="well" x="664.5" y="88.5" width="149" height="39" rx="8"/>
-  <text class="strong" x="739" y="113" text-anchor="middle">Phase 3</text>
-  <path class="flow" d="M454,108 H472" marker-end="url(#headMuted)"/>
-  <path class="flow" d="M636,108 H654" marker-end="url(#headMuted)"/>
-  <path class="flow" d="M739,86 V70 Q739,62 731,62 H411 Q403,62 403,70 V79" marker-end="url(#headMuted)"/>
-  <text class="label" x="571" y="54" text-anchor="middle">May loop back to an earlier phase</text>
-  <rect class="card" x="24.5" y="176.5" width="831" height="95" rx="16"/>
-  <text class="title" x="48" y="220">Phase</text>
-  <text class="label" x="48" y="242">Scenarios it holds</text>
-  <rect class="well well-focus" x="300.5" y="204.5" width="149" height="39" rx="8"/>
-  <text class="label-teal" x="375" y="229" text-anchor="middle">Scenario A</text>
-  <rect class="well" x="482.5" y="204.5" width="149" height="39" rx="8"/>
-  <text class="strong" x="557" y="229" text-anchor="middle">Scenario B</text>
-  <rect class="well" x="664.5" y="204.5" width="149" height="39" rx="8"/>
-  <text class="strong" x="739" y="229" text-anchor="middle">Scenario C</text>
-  <path class="trace" d="M375,128 V169" marker-end="url(#headTeal)"/>
-  <rect class="card" x="24.5" y="296.5" width="831" height="95" rx="16"/>
-  <text class="title" x="48" y="340">Scenario</text>
-  <text class="label" x="48" y="362">Paths, side by side</text>
-  <rect class="well well-focus" x="300.5" y="324.5" width="149" height="39" rx="8"/>
-  <text class="label-teal" x="375" y="349" text-anchor="middle">Happy</text>
-  <rect class="well" x="482.5" y="324.5" width="149" height="39" rx="8"/>
-  <text class="strong" x="557" y="349" text-anchor="middle">Variant</text>
-  <rect class="well" x="664.5" y="324.5" width="149" height="39" rx="8"/>
-  <text class="strong" x="739" y="349" text-anchor="middle">Exception</text>
-  <path class="trace" d="M375,244 V289" marker-end="url(#headTeal)"/>
-  <rect class="card" x="24.5" y="416.5" width="831" height="154" rx="16"/>
-  <text class="title" x="48" y="479.5">Path</text>
-  <text class="label" x="48" y="501.5">Lanes by steps;</text>
-  <text class="label" x="48" y="521.5">each square a cell</text>
-  <path class="trace" d="M375,364 V409" marker-end="url(#headTeal)"/>
-  <rect class="sq-c" x="300" y="446.5" width="10" height="10" rx="3"/><rect class="skel" x="316" y="448.5" width="18" height="6" rx="3"/><rect class="lane-c cell" x="340.5" y="440.5" width="55" height="23" rx="8"/><rect class="skel" x="346.5" y="450" width="25" height="4" rx="2"/><rect class="lane-c cell" x="401.5" y="440.5" width="55" height="23" rx="8"/><rect class="skel" x="407.5" y="450" width="33" height="4" rx="2"/><rect class="lane-c cell" x="462.5" y="440.5" width="55" height="23" rx="8"/><rect class="skel" x="468.5" y="450" width="21" height="4" rx="2"/><rect class="lane-c cell" x="523.5" y="440.5" width="55" height="23" rx="8"/><rect class="skel" x="529.5" y="450" width="30" height="4" rx="2"/><rect class="lane-c cell" x="584.5" y="440.5" width="55" height="23" rx="8"/><rect class="skel" x="590.5" y="450" width="24" height="4" rx="2"/><rect class="lane-c cell" x="645.5" y="440.5" width="55" height="23" rx="8"/><rect class="skel" x="651.5" y="450" width="35" height="4" rx="2"/><rect class="lane-c cell" x="706.5" y="440.5" width="55" height="23" rx="8"/><rect class="skel" x="712.5" y="450" width="27" height="4" rx="2"/><rect class="lane-c cell" x="767.5" y="440.5" width="55" height="23" rx="8"/><rect class="skel" x="773.5" y="450" width="22" height="4" rx="2"/>
-    <rect class="sq-f" x="300" y="474.5" width="10" height="10" rx="3"/><rect class="skel" x="316" y="476.5" width="18" height="6" rx="3"/><rect class="lane-f cell" x="340.5" y="468.5" width="55" height="23" rx="8"/><rect class="skel" x="346.5" y="478" width="32" height="4" rx="2"/><rect class="lane-f cell" x="401.5" y="468.5" width="55" height="23" rx="8"/><rect class="skel" x="407.5" y="478" width="25" height="4" rx="2"/><rect class="lane-f cell" x="462.5" y="468.5" width="55" height="23" rx="8"/><rect class="skel" x="468.5" y="478" width="29" height="4" rx="2"/><rect class="lane-f cell" x="523.5" y="468.5" width="55" height="23" rx="8"/><rect class="skel" x="529.5" y="478" width="21" height="4" rx="2"/><rect class="lane-f cell" x="584.5" y="468.5" width="55" height="23" rx="8"/><rect class="skel" x="590.5" y="478" width="25" height="4" rx="2"/><rect class="lane-f cell" x="645.5" y="468.5" width="55" height="23" rx="8"/><rect class="skel" x="651.5" y="478" width="33" height="4" rx="2"/><rect class="lane-f cell" x="706.5" y="468.5" width="55" height="23" rx="8"/><rect class="skel" x="712.5" y="478" width="21" height="4" rx="2"/><rect class="lane-f cell" x="767.5" y="468.5" width="55" height="23" rx="8"/><rect class="skel" x="773.5" y="478" width="30" height="4" rx="2"/>
-    <rect class="sq-b" x="300" y="502.5" width="10" height="10" rx="3"/><rect class="skel" x="316" y="504.5" width="18" height="6" rx="3"/><rect class="lane-b cell" x="340.5" y="496.5" width="55" height="23" rx="8"/><rect class="skel" x="346.5" y="506" width="24" height="4" rx="2"/><rect class="lane-b cell" x="401.5" y="496.5" width="55" height="23" rx="8"/><rect class="skel" x="407.5" y="506" width="35" height="4" rx="2"/><rect class="lane-b cell" x="462.5" y="496.5" width="55" height="23" rx="8"/><rect class="skel" x="468.5" y="506" width="27" height="4" rx="2"/><rect class="lane-b cell" x="523.5" y="496.5" width="55" height="23" rx="8"/><rect class="skel" x="529.5" y="506" width="22" height="4" rx="2"/><rect class="lane-b cell" x="584.5" y="496.5" width="55" height="23" rx="8"/><rect class="skel" x="590.5" y="506" width="32" height="4" rx="2"/><rect class="lane-b cell" x="645.5" y="496.5" width="55" height="23" rx="8"/><rect class="skel" x="651.5" y="506" width="25" height="4" rx="2"/><rect class="lane-b cell" x="706.5" y="496.5" width="55" height="23" rx="8"/><rect class="skel" x="712.5" y="506" width="29" height="4" rx="2"/><rect class="lane-b cell" x="767.5" y="496.5" width="55" height="23" rx="8"/><rect class="skel" x="773.5" y="506" width="21" height="4" rx="2"/>
-    <rect class="sq-s" x="300" y="530.5" width="10" height="10" rx="3"/><rect class="skel" x="316" y="532.5" width="18" height="6" rx="3"/><rect class="lane-s cell" x="340.5" y="524.5" width="55" height="23" rx="8"/><rect class="skel" x="346.5" y="534" width="25" height="4" rx="2"/><rect class="lane-s cell" x="401.5" y="524.5" width="55" height="23" rx="8"/><rect class="skel" x="407.5" y="534" width="33" height="4" rx="2"/><rect class="lane-s cell" x="462.5" y="524.5" width="55" height="23" rx="8"/><rect class="skel" x="468.5" y="534" width="21" height="4" rx="2"/><rect class="lane-s cell" x="523.5" y="524.5" width="55" height="23" rx="8"/><rect class="skel" x="529.5" y="534" width="30" height="4" rx="2"/><rect class="lane-s cell" x="584.5" y="524.5" width="55" height="23" rx="8"/><rect class="skel" x="590.5" y="534" width="24" height="4" rx="2"/><rect class="lane-s cell" x="645.5" y="524.5" width="55" height="23" rx="8"/><rect class="skel" x="651.5" y="534" width="35" height="4" rx="2"/><rect class="lane-s cell" x="706.5" y="524.5" width="55" height="23" rx="8"/><rect class="skel" x="712.5" y="534" width="27" height="4" rx="2"/><rect class="lane-s cell" x="767.5" y="524.5" width="55" height="23" rx="8"/><rect class="skel" x="773.5" y="534" width="22" height="4" rx="2"/>
+  <rect class="plate" width="880" height="634" rx="16"/>
+  <rect width="880" height="634" rx="16" fill="url(#grid)" mask="url(#fadeMask)"/>
+  <rect class="tab" x="24.5" y="24.5" width="83" height="27" rx="6"/>
+  <text class="strong" x="36" y="43">Service</text>
+  <rect class="card" x="24.5" y="62.5" width="175" height="175" rx="16"/>
+  <rect class="halo" x="45.5" y="81.5" width="141" height="37" rx="11"/>
+  <rect class="focus" x="48.5" y="84.5" width="135" height="31" rx="8"/>
+  <text class="label-teal" x="62" y="105">Phase 1</text>
+  <rect class="well" x="48.5" y="134.5" width="135" height="31" rx="8"/>
+  <text class="strong" x="62" y="155">Phase 2</text>
+  <rect class="well" x="48.5" y="184.5" width="135" height="31" rx="8"/>
+  <text class="strong" x="62" y="205">Phase 3</text>
+  <path class="flow" d="M116,119 V130" marker-end="url(#headMuted)"/>
+  <path class="flow" d="M116,169 V180" marker-end="url(#headMuted)"/>
+  <path class="loop" d="M46,200 H36 V100 H42" marker-end="url(#headMuted)"/>
+  <text class="title" x="112" y="268" text-anchor="middle">Service</text>
+  <text class="label" x="112" y="290" text-anchor="middle">Phases in order,</text>
+  <text class="label" x="112" y="310" text-anchor="middle">and may loop back</text>
+  <path class="zoom" d="M184,84 L243,144"/>
+  <path class="zoom" d="M184,116 L243,354"/>
+  <rect class="tab-focus" x="243.5" y="144.5" width="83" height="27" rx="6"/>
+  <text class="label-teal" x="255" y="163">Phase 1</text>
+  <rect class="card" x="243.5" y="182.5" width="175" height="171" rx="16"/>
+  <rect class="well" x="285.5" y="198.5" width="119" height="95" rx="8"/>
+  <text class="label" x="297" y="214">Scenario C</text>
+  <rect class="well" x="271.5" y="220.5" width="119" height="95" rx="8"/>
+  <text class="label" x="283" y="236">Scenario B</text>
+  <rect class="halo" x="254.5" y="239.5" width="125" height="101" rx="11"/>
+  <rect class="front" x="257.5" y="242.5" width="119" height="95" rx="8"/>
+  <text class="label-teal" x="269" y="265">Scenario A</text>
+  <text class="title" x="331" y="384" text-anchor="middle">Phase</text>
+  <text class="label" x="331" y="406" text-anchor="middle">Scenarios, in no</text>
+  <text class="label" x="331" y="426" text-anchor="middle">particular order</text>
+  <path class="zoom" d="M377,242 L461,244"/>
+  <path class="zoom" d="M377,338 L461,454"/>
+  <rect class="tab-focus" x="461.5" y="244.5" width="111" height="27" rx="6"/>
+  <text class="label-teal" x="473" y="263">Scenario A</text>
+  <rect class="card" x="461.5" y="282.5" width="175" height="171" rx="16"/>
+  <rect class="well" x="503.5" y="298.5" width="119" height="95" rx="8"/>
+  <text class="label" x="515" y="314">Exception</text>
+  <rect class="well" x="489.5" y="320.5" width="119" height="95" rx="8"/>
+  <text class="label" x="501" y="336">Variant</text>
+  <rect class="halo" x="472.5" y="339.5" width="125" height="101" rx="11"/>
+  <rect class="front" x="475.5" y="342.5" width="119" height="95" rx="8"/>
+  <text class="label-teal" x="487" y="365">Happy</text>
+  <text class="title" x="549" y="484" text-anchor="middle">Scenario</text>
+  <text class="label" x="549" y="506" text-anchor="middle">Paths side by side:</text>
+  <text class="label" x="549" y="526" text-anchor="middle">happy and the rest</text>
+  <path class="zoom" d="M595,342 L680,344"/>
+  <path class="zoom" d="M595,438 L680,538"/>
+  <rect class="tab-focus" x="680.5" y="344.5" width="111" height="27" rx="6"/>
+  <text class="label-teal" x="692" y="363">Happy path</text>
+  <rect class="card" x="680.5" y="382.5" width="175" height="155" rx="16"/>
+  <rect class="sq-c" x="692" y="407" width="10" height="10" rx="3"/><rect class="skel" x="708" y="409" width="16" height="6" rx="3"/>
+  <rect class="lane-c cell" x="730.5" y="400.5" width="33" height="23" rx="8"/><rect class="skel" x="737" y="410" width="22" height="4" rx="2"/>
+  <rect class="lane-c cell" x="768.5" y="400.5" width="33" height="23" rx="8"/><rect class="skel" x="775" y="410" width="16" height="4" rx="2"/>
+  <rect class="lane-c cell" x="806.5" y="400.5" width="33" height="23" rx="8"/><rect class="skel" x="813" y="410" width="20" height="4" rx="2"/>
+  <rect class="sq-f" x="692" y="439" width="10" height="10" rx="3"/><rect class="skel" x="708" y="441" width="16" height="6" rx="3"/>
+  <rect class="lane-f cell" x="730.5" y="432.5" width="33" height="23" rx="8"/><rect class="skel" x="737" y="442" width="18" height="4" rx="2"/>
+  <rect class="lane-f cell" x="768.5" y="432.5" width="33" height="23" rx="8"/><rect class="skel" x="775" y="442" width="22" height="4" rx="2"/>
+  <rect class="sq-b" x="692" y="471" width="10" height="10" rx="3"/><rect class="skel" x="708" y="473" width="16" height="6" rx="3"/>
+  <rect class="lane-b cell" x="768.5" y="464.5" width="33" height="23" rx="8"/><rect class="skel" x="775" y="474" width="16" height="4" rx="2"/>
+  <rect class="lane-b cell" x="806.5" y="464.5" width="33" height="23" rx="8"/><rect class="skel" x="813" y="474" width="22" height="4" rx="2"/>
+  <rect class="sq-s" x="692" y="503" width="10" height="10" rx="3"/><rect class="skel" x="708" y="505" width="16" height="6" rx="3"/>
+  <rect class="lane-s cell" x="730.5" y="496.5" width="33" height="23" rx="8"/><rect class="skel" x="737" y="506" width="16" height="4" rx="2"/>
+  <rect class="lane-s cell" x="806.5" y="496.5" width="33" height="23" rx="8"/><rect class="skel" x="813" y="506" width="18" height="4" rx="2"/>
+  <text class="title" x="768" y="568" text-anchor="middle">Path</text>
+  <text class="label" x="768" y="590" text-anchor="middle">Lanes by steps,</text>
+  <text class="label" x="768" y="610" text-anchor="middle">a cell where they cross</text>
 </svg>

@@ -1,3 +1,4 @@
+import { MiniBlueprintIllustration } from '@/components/blueprint/MiniBlueprintIllustration'
 import { Button } from '@/components/ui/button'
 import { usePathSelectionContext } from '@/hooks/usePathSelection'
 import { cn } from '@/lib/utils'
@@ -42,7 +43,7 @@ function RestoreDefaultPathsButton() {
 export function CanvasEmptyState({
   className,
   title = 'No paths selected',
-  summary = 'Pick one under Paths in the sidebar.',
+  summary = 'Pick one from the paths menu in the header.',
   variant = 'canvas',
   showRestoreAction,
 }: CanvasEmptyStateProps) {
@@ -75,6 +76,13 @@ export function CanvasEmptyState({
             'w-full flex-1 gap-2 rounded-xl border border-dashed border-border bg-[color:var(--background-blueprint-panel-canvas,var(--secondary))] px-6 py-7',
         )}
       >
+        {/* The picture sits above the copy and stays out of its way: large on
+            the open canvas, small inside a frame, where the frame is already
+            most of the figure. */}
+        <MiniBlueprintIllustration
+          size={isCanvas ? 'lg' : 'sm'}
+          className={isCanvas ? 'mb-4' : 'mb-2'}
+        />
         <p className="text-sm font-medium tracking-tight text-foreground">
           {title}
         </p>

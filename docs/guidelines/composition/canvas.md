@@ -17,6 +17,7 @@ claims:
   - src/components/blueprint/EntityHeader.tsx
   - src/components/blueprint/IntegratedDependencyArrows.tsx
   - src/components/blueprint/LaneCollapseToggle.tsx
+  - src/components/blueprint/MiniBlueprintIllustration.tsx
   - src/components/blueprint/PathKindBadge.tsx
   - src/components/blueprint/PathKindColorKey.tsx
   - src/components/blueprint/PathLabelBadge.tsx
@@ -192,6 +193,29 @@ cluster is a row of small buttons, and `xl` on a small tile reads as fully round
 gutter above the zoom cluster (`bottom-16` vs `bottom-4`) so the two never
 overlap — a spatial rule, not a z-index fight with the drawer primitive.
 The inspector already clears the same band via `CELL_DETAIL_PANEL_BOTTOM_GAP_PX`.
+
+## Empty states
+
+Every empty state carries the mini-blueprint (`MiniBlueprintIllustration`):
+three lane rows, each a lane-colour square and a label bar, then cells holding
+one skeleton bar, with some cells dashed. It is the cover figures' shorthand
+for a blueprint, but drawn from tokens rather than printed: the squares and
+cells take `--background-blueprint-cell` and its pressed step from real
+`[data-blueprint-lane]` roles, the label bars and gap edges take
+`--border-strong`, and the corners come off the radius ladder. So it follows
+the theme and the contrast dial, and a deployment's lane palette reaches it.
+
+- **The gaps are dashed because dashed means not yet** (the dashed-versus-solid
+  rule in [overview](overview.md)). A gap holds no skeleton bar, since there is
+  nothing in it to label.
+- **Size follows the frame.** The open canvas (`CanvasEmptyState`'s `canvas`
+  variant) draws it `lg`, with 24px cells; the `panel` and `phase` variants and
+  the cell drawer's nothing-selected surface draw it `sm`, because the frame
+  around them is already most of the picture.
+- **It is decoration.** `aria-hidden`, and still: no pulse, no arrival. The
+  copy beside it carries the meaning and stays an invitation to act, naming
+  where the next move is (the paths menu in the header, the `+` on a phase
+  row, a cell on the board).
 
 ## Panel as selection
 

@@ -751,6 +751,10 @@ const RADIUS_KIND_ALLOWLIST: Record<string, readonly string[]> = {
   'components/blueprint/StoryboardWalkthroughModal.tsx': ['xl', 'full'],
   'components/blueprint/ZoomableImage.tsx': ['xl', 'full'],
   'components/blueprint/ComparePathSectionFrame.tsx': ['xl'],
+  // The empty-state mini-blueprint: cells on lg, and on md at the small size,
+  // where lg on a 20px cell rounds it into a lozenge; the 12px lane squares on
+  // sm; the skeleton and label bars rounded-full.
+  'components/blueprint/MiniBlueprintIllustration.tsx': ['lg', 'md', 'sm', 'full'],
   'components/blueprint/MergedCompareGrid.tsx': ['xl', 'md'],
   'components/blueprint/BlueprintStepStoryboard.tsx': ['lg', 'md'],
   'components/blueprint/StoryboardStepDetailStack.tsx': ['lg'],

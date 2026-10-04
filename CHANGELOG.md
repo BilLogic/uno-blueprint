@@ -8,8 +8,8 @@ workflow shows up as that rather than as a bare `404`.
 
 ### Upgrading a deployment
 
-- **Nothing moves for a deployment.** The change is to the publish workflow,
-  which does nothing outside this repository.
+- **Bump the pin or skip this release; nothing else moves.** The change is to
+  the publish workflow, which publishes nothing outside this repository.
 
 ### Patch Changes
 

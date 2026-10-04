@@ -19,7 +19,10 @@ import {
   PhaseOverviewPhaseLoopArrow,
   PHASE_OVERVIEW_LOOP_CHANNEL_OFFSET,
 } from '@/components/editor/PhaseOverviewPhaseLoopArrow'
-import { CanvasEmptyState } from '@/components/editor/CanvasEmptyState'
+import {
+  CanvasEmptyState,
+  NoPathsEmptyState,
+} from '@/components/editor/CanvasEmptyState'
 import { CanvasLoadProgress } from '@/components/editor/CanvasLoadProgress'
 import { ServiceOverviewCanvasSkeleton } from '@/components/editor/EditorLoadingSkeletons'
 import { DeferredSkeleton } from '@/components/ui/deferred-skeleton'
@@ -1120,22 +1123,7 @@ function ServiceOverviewViewImpl({
               </div>
             ) : noPathsSelected ? (
               <div className="absolute inset-0 flex">
-                {/*
-                  Focused, the reader turned every path off, and the header's
-                  paths menu is the way back. Unfocused, a phase draws each
-                  scenario's default path, so the only way to draw nothing is
-                  for no scenario in scope to have a path to show — and the
-                  header has no paths menu to point at.
-                */}
-                {focusedScenarioId ? (
-                  <CanvasEmptyState />
-                ) : (
-                  <CanvasEmptyState
-                    title="No paths to show"
-                    summary="None of the scenarios here has a path to draw. Open one from the sidebar."
-                    showRestoreAction={false}
-                  />
-                )}
+                <NoPathsEmptyState focused={Boolean(focusedScenarioId)} />
               </div>
             ) : (
               <ZoomPanViewport

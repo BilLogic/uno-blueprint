@@ -1,10 +1,22 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CellDetailEmptySurface } from '@/components/blueprint/CellDetailEmptySurface'
 import { PanelDrawerShell } from '@/components/blueprint/panelShell'
 import { MiniBlueprintIllustration } from '@/components/blueprint/MiniBlueprintIllustration'
-import { CanvasEmptyState } from '@/components/editor/CanvasEmptyState'
+import {
+  CanvasEmptyState,
+  NoPathsEmptyState,
+} from '@/components/editor/CanvasEmptyState'
+
+// The focused copy offers the restore button, which reads the selection
+// store; a store with a default to restore is all these cases need.
+vi.mock('@/hooks/usePathSelection', () => ({
+  usePathSelectionContext: () => ({
+    defaultPathKeys: ['happy:Default'],
+    restoreDefaultPathKeys: () => {},
+  }),
+}))
 
 // Every empty state carries the mini-blueprint: lane rows, skeleton cells and
 // dashed gap cells, drawn from tokens and hidden from assistive tech. The
@@ -120,6 +132,32 @@ describe('CanvasEmptyState', () => {
       expect(screen.getByText('No scenarios in this phase yet')).toBeDefined()
     },
   )
+})
+
+describe('NoPathsEmptyState', () => {
+  // The copy names a control only where that control exists: the header's
+  // paths menu is mounted for a focused scenario and never on a phase.
+  it('points a focused scenario at the paths menu in the header', () => {
+    render(<NoPathsEmptyState focused />)
+    expect(screen.getByText('No paths selected')).toBeDefined()
+    expect(
+      screen.getByText('Pick one from the paths menu in the header.'),
+    ).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Show the default path' })).toBeDefined()
+  })
+
+  it('points a phase canvas, with every path hidden, at the sidebar', () => {
+    render(<NoPathsEmptyState focused={false} />)
+    expect(screen.getByText('No paths to show')).toBeDefined()
+    expect(
+      screen.getByText(
+        'None of the scenarios here has a path to draw. Open one from the sidebar.',
+      ),
+    ).toBeDefined()
+    expect(screen.queryByText(/paths menu/)).toBeNull()
+    expect(screen.queryByRole('button')).toBeNull()
+    expect(illustration()?.dataset.miniBlueprint).toBe('lg')
+  })
 })
 
 describe('CanvasEmptyState after a failed read', () => {

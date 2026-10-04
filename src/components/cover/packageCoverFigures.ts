@@ -10,7 +10,9 @@ import skillArchitecture from '../../../docs/assets/skill-architecture.svg'
 import sliceConcept from '../../../docs/assets/slice-concept.svg'
 import slicingModel from '../../../docs/assets/slicing-model.svg'
 import whenToUse from '../../../docs/assets/when-to-use.svg'
+import whenToUseDark from '../../../docs/assets/when-to-use.dark.svg'
 import whyNow from '../../../docs/assets/why-now.svg'
+import whyNowDark from '../../../docs/assets/why-now.dark.svg'
 import type { CoverFigure } from '@/components/cover/coverModel'
 
 /**
@@ -51,6 +53,10 @@ import type { CoverFigure } from '@/components/cover/coverModel'
  * that this repository's build still makes is for the bundled sample
  * blueprint, whose storyboard frames are database values and cannot be
  * imports.
+ *
+ * A figure with a dark file carries it as `srcDark`, imported the same way
+ * and named `<figure>.dark.svg` beside its light file. Figures without one
+ * yet show the light file in both themes.
  *
  * Dimensions are each SVG's own `viewBox`, so a page reserves the right box
  * before the image decodes. Alt text describes the drawing, because the
@@ -126,15 +132,17 @@ export const packageCoverFigures = {
   },
   whenToUse: {
     src: whenToUse,
-    alt: 'How teams use the blueprint — onboarding, stakeholder alignment, decision evaluation, and context management',
+    srcDark: whenToUseDark,
+    alt: 'Four ways teams use one blueprint — onboarding reads all of it, stakeholder alignment takes one lane as a slice, decision evaluation traces a change to the cells that depend on it, context management flags the cells that no longer hold, in amber',
     width: 880,
-    height: 406,
+    height: 376,
   },
   whyNow: {
     src: whyNow,
-    alt: 'The same service before and after it has a reader that opens the blueprint constantly',
+    srcDark: whyNowDark,
+    alt: 'A blueprint read at a few workshops a year drifts out of date; one read every week, by people and agents, stays true',
     width: 880,
-    height: 376,
+    height: 392,
   },
 } satisfies Record<string, CoverFigure>
 

@@ -23,7 +23,15 @@
  */
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -255,6 +263,42 @@ test('a root build, or a first build with no dist yet, is left alone', () => {
     clearPublishRoot(dist, '/')
     assert.deepEqual(readdirSync(dist).sort(), before)
     clearPublishRoot(join(root, 'nowhere'), BASE)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('a prefix that climbs out of `dist/` clears nothing, and says so', () => {
+  const root = mkdtempSync(join(tmpdir(), 'publish-root-'))
+  const dist = join(root, 'dist')
+  try {
+    mkdirSync(join(dist, 'x'), { recursive: true })
+    writeFileSync(join(dist, 'index.html'), '')
+    writeFileSync(join(root, 'package.json'), '{}')
+    for (const base of ['/../x/', '/a/../b/', '/./x/', '/x/../../']) {
+      assert.throws(() => clearPublishRoot(dist, base), /outside|path/, base)
+    }
+    assert.deepEqual(readdirSync(root).sort(), ['dist', 'package.json'])
+    assert.deepEqual(readdirSync(dist).sort(), ['index.html', 'x'])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('a prefix segment that is a symlink is never followed', () => {
+  const root = mkdtempSync(join(tmpdir(), 'publish-root-'))
+  const dist = join(root, 'dist')
+  const elsewhere = join(root, 'elsewhere')
+  try {
+    mkdirSync(dist, { recursive: true })
+    mkdirSync(join(elsewhere, 'b'), { recursive: true })
+    writeFileSync(join(elsewhere, 'keep.txt'), '')
+    writeFileSync(join(dist, 'index.html'), '')
+    symlinkSync(elsewhere, join(dist, 'a'), 'dir')
+    assert.throws(() => clearPublishRoot(dist, '/a/b/'), /symlink/)
+    assert.deepEqual(readdirSync(elsewhere).sort(), ['b', 'keep.txt'])
+    // Refused before anything is removed, the root included.
+    assert.deepEqual(readdirSync(dist).sort(), ['a', 'index.html'])
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

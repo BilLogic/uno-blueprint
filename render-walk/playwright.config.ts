@@ -96,7 +96,15 @@ if (!Number.isInteger(PREVIEW_PORT) || PREVIEW_PORT < 1 || PREVIEW_PORT > 65535)
  */
 export const BASE_PATH = (() => {
   const value = (process.env.BASE_PATH ?? '').trim()
-  if (/^[a-z][a-z0-9+.-]*:/i.test(value) || value.startsWith('.') || /[?#]/.test(value)) {
+  // A `.` or `..` segment anywhere is refused too: a prefix that climbs names
+  // a folder outside the build, and the build clears the folders it names.
+  const climbs = value.split('/').some((segment) => segment === '.' || segment === '..')
+  if (
+    /^[a-z][a-z0-9+.-]*:/i.test(value) ||
+    value.startsWith('.') ||
+    climbs ||
+    /[?#]/.test(value)
+  ) {
     throw new Error(`render-walk: BASE_PATH must be a path such as /demo/, not ${JSON.stringify(value)}`)
   }
   const segments = value.split('/').filter(Boolean)

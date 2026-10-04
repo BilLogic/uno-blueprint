@@ -38,7 +38,15 @@ const BUILD_BASE: string = import.meta.env.BASE_URL || '/'
 export function normalizeBasePath(value: string | undefined): string {
   const trimmed = (value ?? '').trim()
   if (!trimmed) return '/'
-  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed) || trimmed.startsWith('.') || /[?#]/.test(trimmed)) {
+  // A `.` or `..` segment anywhere is refused too: a prefix that climbs names
+  // a folder outside the build, and the build clears the folders it names.
+  const climbs = trimmed.split('/').some((segment) => segment === '.' || segment === '..')
+  if (
+    /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ||
+    trimmed.startsWith('.') ||
+    climbs ||
+    /[?#]/.test(trimmed)
+  ) {
     throw new Error(
       `BASE_PATH must be a path such as /demo/, not ${JSON.stringify(value)}`,
     )

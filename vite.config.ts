@@ -1,5 +1,13 @@
 /// <reference types="vitest/config" />
-import { existsSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs'
+import {
+  existsSync,
+  lstatSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'fs'
 import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -164,7 +172,15 @@ const deploymentSource = path.resolve(import.meta.dirname, './deployment')
 export function basePath(value: string | undefined): string {
   const trimmed = (value ?? '').trim()
   if (!trimmed) return '/'
-  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed) || trimmed.startsWith('.') || /[?#]/.test(trimmed)) {
+  // A `.` or `..` segment anywhere is refused too: a prefix that climbs names
+  // a folder outside the build, and the build clears the folders it names.
+  const climbs = trimmed.split('/').some((segment) => segment === '.' || segment === '..')
+  if (
+    /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ||
+    trimmed.startsWith('.') ||
+    climbs ||
+    /[?#]/.test(trimmed)
+  ) {
     throw new Error(`BASE_PATH must be a path such as /demo/, not ${JSON.stringify(value)}`)
   }
   const segments = trimmed.split('/').filter(Boolean)
@@ -292,15 +308,39 @@ export function hostRulesUnder(
  * prefix's own folder is Vite's to empty. What is left at the end is the
  * prefix and the two host files written below, and the hosting check's
  * `--built` read holds the root to exactly that.
+ *
+ * A step that deletes is held inside `dist/` on its own account, not only by
+ * `basePath` refusing a `.` or `..` segment: every folder it clears has to
+ * resolve under the publish root, and it never descends through a symlink,
+ * whose folder could be anywhere. Either one stops the build before anything
+ * is removed.
  */
 export function clearPublishRoot(publishRoot: string, base: string): void {
-  let dir = publishRoot
+  const root = path.resolve(publishRoot)
+  const folders = [root]
   for (const segment of base.split('/').filter(Boolean)) {
-    if (!existsSync(dir)) return
-    for (const entry of readdirSync(dir)) {
-      if (entry !== segment) rmSync(path.join(dir, entry), { recursive: true, force: true })
+    const next = path.resolve(folders.at(-1) as string, segment)
+    const within = path.relative(root, next)
+    if (segment === '.' || segment === '..' || !within || within.startsWith('..')) {
+      throw new Error(`BASE_PATH ${base} names a path outside dist/, so the build clears nothing`)
     }
-    dir = path.join(dir, segment)
+    folders.push(next)
+  }
+  const cleared = folders.slice(0, -1)
+  for (const dir of cleared.slice(1)) {
+    if (existsSync(dir) && lstatSync(dir).isSymbolicLink()) {
+      throw new Error(
+        `dist/${path.relative(root, dir)} is a symlink, and the build clears only what is ` +
+          'inside dist/. Remove it and build again.',
+      )
+    }
+  }
+  for (const [depth, dir] of cleared.entries()) {
+    if (!existsSync(dir)) return
+    const keep = path.basename(folders[depth + 1] as string)
+    for (const entry of readdirSync(dir)) {
+      if (entry !== keep) rmSync(path.join(dir, entry), { recursive: true, force: true })
+    }
   }
 }
 

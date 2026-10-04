@@ -130,7 +130,15 @@ export const MISSING_CHUNK = { from: ASSETS, to: '/assets/:splat', status: '404'
  */
 export function normalizeBasePath(value) {
   const trimmed = (value ?? '').trim()
-  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed) || trimmed.startsWith('.') || /[?#]/.test(trimmed)) {
+  // A `.` or `..` segment anywhere is refused too: a prefix that climbs names
+  // a folder outside the build, and the build clears the folders it names.
+  const climbs = trimmed.split('/').some((segment) => segment === '.' || segment === '..')
+  if (
+    /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ||
+    trimmed.startsWith('.') ||
+    climbs ||
+    /[?#]/.test(trimmed)
+  ) {
     throw new Error(`BASE_PATH must be a path such as /demo/, not ${JSON.stringify(value)}`)
   }
   const segments = trimmed.split('/').filter(Boolean)
@@ -780,13 +788,18 @@ export function hostingFindings(walk, base = '/') {
 }
 
 /** The directory a build publishes, whose root a host serves as `/`. */
-export const BUILT = 'dist'
+export const BUILT_ROOT = 'dist'
 
 /** Where a build publishes the redirect file a host reads first. */
-export const BUILT_REDIRECTS = 'dist/_redirects'
+export const BUILT_REDIRECTS = `${BUILT_ROOT}/_redirects`
 
 /** Where a build publishes the response headers. */
-export const BUILT_HEADERS = 'dist/_headers'
+export const BUILT_HEADERS = `${BUILT_ROOT}/_headers`
+
+/** The host files, by the names they have at the root of the build. */
+const BUILT_HOST_FILES = [BUILT_REDIRECTS, BUILT_HEADERS].map((path) =>
+  path.slice(BUILT_ROOT.length + 1),
+)
 
 /**
  * Every finding over a BUILT output, and how many rules were read for them.
@@ -801,11 +814,9 @@ export const BUILT_HEADERS = 'dist/_headers'
  * `netlify.toml` table answers, so only the headers are required.
  *
  * Under a prefix the root of `dist/` holds the two host files and the
- * prefix's folder, and nothing else. Anything more is a previous build's — a
- * host cache restores one as readily as a local `dist/` keeps it — and a host
- * serves a file that is there ahead of any rule that is not forced, so a root
- * `index.html` answers `/` with the old app and the redirect to the prefix is
- * never reached. `entries` is what the root holds; left out, it is not judged.
+ * prefix's folder, and nothing else — `clearPublishRoot` in `vite.config.ts`
+ * says why, and clears the rest when a build starts. `entries` is what the
+ * root holds; left out, it is not judged.
  *
  * Read from disk rather than from the commit: `dist/` is never committed, and
  * whether a file is tracked says nothing about what a build just wrote.
@@ -820,11 +831,11 @@ export function builtFindings(read, base = '/', entries = null) {
   const { toPrefix } = hostingRules(base)
 
   if (toPrefix && entries) {
-    const allowed = new Set(['_headers', '_redirects', base.split('/').filter(Boolean)[0]])
+    const allowed = new Set([...BUILT_HOST_FILES, base.split('/').filter(Boolean)[0]])
     const stray = entries.filter((name) => !allowed.has(name)).sort()
     if (stray.length > 0) {
       found.push(
-        `${BUILT}/ holds ${stray.map((name) => `\`${name}\``).join(', ')} beside the build for ` +
+        `${BUILT_ROOT}/ holds ${stray.map((name) => `\`${name}\``).join(', ')} beside the build for ` +
           `${base}. A host serves a file that is there before the redirect that sends \`/\` on ` +
           `to ${base}, so the site root answers with whatever an earlier build left. Build again ` +
           'under BASE_PATH, which clears them, and clear any build cache the host restores.',
@@ -899,7 +910,7 @@ export function judge(argv = process.argv.slice(2), env = process.env, root = pr
     }
     const base = basePathIn(read(CONFIG), env)
     const { assets, missingChunk, catchAll } = hostingRules(base)
-    const published = resolve(root, BUILT)
+    const published = resolve(root, BUILT_ROOT)
     const entries = existsSync(published) ? readdirSync(published) : null
     const { failures, rules } = builtFindings(read, base, entries)
     return {

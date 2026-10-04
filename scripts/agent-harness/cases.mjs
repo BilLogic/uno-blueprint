@@ -337,7 +337,7 @@ Active tab: base blueprint view (no slice tab)`,
     // Target the unhappy audit path: the notes' scope / export / dispatch /
     // dedupe / triage / re-run moments overlap existing steps ("Name the
     // scope", "Export once", "Dispatch the auditors", "Collect and dedupe",
-    // "Triage on the canvas", "Re-run the roster"), so the name-reuse rubric
+    // "Triage the findings", "Re-run the roster"), so the name-reuse rubric
     // has real teeth here.
     turns: [
       `${NOTES}\n\nExtend the Audit the check roster scenario's "A critical finding reopens" path with this failed-check recovery flow — build on what's already there.`,

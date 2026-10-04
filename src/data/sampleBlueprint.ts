@@ -284,7 +284,7 @@ export const SAMPLE_MAP_SERVICE_DIAGRAM_PATH_FALLBACK: BlueprintData = {
 }
 
 export const SAMPLE_AUDIT_TRIAGED_PATH_FALLBACK: BlueprintData = {
-  path: {"id":"f0000000-0000-4000-8000-310000000000","name":"Findings triaged","summary":"Every finding accepted, dismissed, or genuinely resolved, and the re-run comes back quiet.","note":null,"kind":"happy","status":"live"},
+  path: {"id":"f0000000-0000-4000-8000-310000000000","name":"Findings triaged","summary":"Every finding dismissed or genuinely resolved, and the re-run comes back quiet.","note":null,"kind":"happy","status":"live"},
   lanes: [
     {"id":"f0000000-0000-4000-8000-310100000000","name":"Stakeholders","role":null,"position":0},
     {"id":"f0000000-0000-4000-8000-310100010000","name":"Blueprint owner","role":"customer_actions","position":1},
@@ -300,16 +300,16 @@ export const SAMPLE_AUDIT_TRIAGED_PATH_FALLBACK: BlueprintData = {
     {"id":"f0000000-0000-4000-8000-300200030000","name":"Dispatch the auditors","position":3},
     {"id":"f0000000-0000-4000-8000-300200040000","name":"Collect and dedupe","position":4},
     {"id":"f0000000-0000-4000-8000-300200050000","name":"Record the findings","position":5},
-    {"id":"f0000000-0000-4000-8000-300200060000","name":"Triage on the canvas","position":6},
+    {"id":"f0000000-0000-4000-8000-300200060000","name":"Triage the findings","position":6},
     {"id":"f0000000-0000-4000-8000-300200070000","name":"Re-run the roster","position":7},
   ],
   cells: [
     {"id":"f0000000-0000-4000-8000-310300010001","lane_id":"f0000000-0000-4000-8000-310100010000","step_id":"f0000000-0000-4000-8000-300200010000","content":"Names the scenario to audit and lets the whole roster run","frame":null,"summary":null,"resources":[],"touchpoints":[]},
     {"id":"f0000000-0000-4000-8000-310300010005","lane_id":"f0000000-0000-4000-8000-310100010000","step_id":"f0000000-0000-4000-8000-300200050000","content":"Reads findings as rows to triage, not as a chat opinion to argue with","frame":null,"summary":null,"resources":[],"touchpoints":[]},
-    {"id":"f0000000-0000-4000-8000-310300010006","lane_id":"f0000000-0000-4000-8000-310100010000","step_id":"f0000000-0000-4000-8000-300200060000","content":"Triages every finding: accept, dismiss, or resolve once the fix has landed","frame":null,"summary":null,"resources":[],"touchpoints":[]},
+    {"id":"f0000000-0000-4000-8000-310300010006","lane_id":"f0000000-0000-4000-8000-310100010000","step_id":"f0000000-0000-4000-8000-300200060000","content":"Triages every finding: dismisses it, or resolves it once the fix has landed","frame":null,"summary":null,"resources":[],"touchpoints":[]},
     {"id":"f0000000-0000-4000-8000-310300010007","lane_id":"f0000000-0000-4000-8000-310100010000","step_id":"f0000000-0000-4000-8000-300200070000","content":"Sees the re-run report nothing new on the checks whose cells did not change","frame":null,"summary":null,"resources":[],"touchpoints":[]},
-    {"id":"f0000000-0000-4000-8000-310300020005","lane_id":"f0000000-0000-4000-8000-310100020000","step_id":"f0000000-0000-4000-8000-300200050000","content":"Findings panel\nSeverity badges","frame":null,"summary":null,"resources":[],"touchpoints":[]},
-    {"id":"f0000000-0000-4000-8000-310300020006","lane_id":"f0000000-0000-4000-8000-310100020000","step_id":"f0000000-0000-4000-8000-300200060000","content":"Triage controls (accept / dismiss / resolve)","frame":null,"summary":"Humans may change only findings.status. The audit points and never fixes, and it may supersede only its own check’s open rows.","resources":[],"touchpoints":[],"owner":"Whoever triages","perceived_owner":"The audit"},
+    {"id":"f0000000-0000-4000-8000-310300020005","lane_id":"f0000000-0000-4000-8000-310100020000","step_id":"f0000000-0000-4000-8000-300200050000","content":"Findings listed in the agent chat\nThe agent can box cited cells on request","frame":null,"summary":null,"resources":[],"touchpoints":[]},
+    {"id":"f0000000-0000-4000-8000-310300020006","lane_id":"f0000000-0000-4000-8000-310100020000","step_id":"f0000000-0000-4000-8000-300200060000","content":"Triage by asking the agent: dismiss, resolve or reopen","frame":null,"summary":"Humans may change only findings.status. The audit points and never fixes, and it may supersede only its own check’s open rows.","resources":[],"touchpoints":[],"owner":"Whoever triages","perceived_owner":"The audit"},
     {"id":"f0000000-0000-4000-8000-310300030001","lane_id":"f0000000-0000-4000-8000-310100030000","step_id":"f0000000-0000-4000-8000-300200010000","content":"Loads ub:audit and reads the audit playbook before executing any route","frame":null,"summary":null,"resources":[],"touchpoints":[]},
     {"id":"f0000000-0000-4000-8000-310300030002","lane_id":"f0000000-0000-4000-8000-310100030000","step_id":"f0000000-0000-4000-8000-300200020000","content":"Exports the blueprint once — every auditor reads that same export","frame":null,"summary":null,"resources":[],"touchpoints":[]},
     {"id":"f0000000-0000-4000-8000-310300030003","lane_id":"f0000000-0000-4000-8000-310100030000","step_id":"f0000000-0000-4000-8000-300200030000","content":"Dispatches one auditor per check, in parallel and blind","frame":null,"summary":null,"resources":[],"touchpoints":[]},
@@ -355,7 +355,7 @@ export const SAMPLE_AUDIT_REOPENS_PATH_FALLBACK: BlueprintData = {
     {"id":"f0000000-0000-4000-8000-300200030000","name":"Dispatch the auditors","position":3},
     {"id":"f0000000-0000-4000-8000-300200040000","name":"Collect and dedupe","position":4},
     {"id":"f0000000-0000-4000-8000-300200050000","name":"Record the findings","position":5},
-    {"id":"f0000000-0000-4000-8000-300200060000","name":"Triage on the canvas","position":6},
+    {"id":"f0000000-0000-4000-8000-300200060000","name":"Triage the findings","position":6},
     {"id":"f0000000-0000-4000-8000-300200070000","name":"Re-run the roster","position":7},
   ],
   cells: [
@@ -363,8 +363,8 @@ export const SAMPLE_AUDIT_REOPENS_PATH_FALLBACK: BlueprintData = {
     {"id":"f0000000-0000-4000-8000-320300010005","lane_id":"f0000000-0000-4000-8000-320100010000","step_id":"f0000000-0000-4000-8000-300200050000","content":"Reads findings as rows to triage, not as a chat opinion to argue with","frame":null,"summary":null,"resources":[],"touchpoints":[]},
     {"id":"f0000000-0000-4000-8000-320300010006","lane_id":"f0000000-0000-4000-8000-320100010000","step_id":"f0000000-0000-4000-8000-300200060000","content":"Marks a critical finding resolved before the fix has actually landed","frame":null,"summary":null,"resources":[],"touchpoints":[]},
     {"id":"f0000000-0000-4000-8000-320300010007","lane_id":"f0000000-0000-4000-8000-320100010000","step_id":"f0000000-0000-4000-8000-300200070000","content":"Sees the finding reopen, because its fingerprint matched a resolved row","frame":null,"summary":null,"resources":[],"touchpoints":[]},
-    {"id":"f0000000-0000-4000-8000-320300020005","lane_id":"f0000000-0000-4000-8000-320100020000","step_id":"f0000000-0000-4000-8000-300200050000","content":"Findings panel\nSeverity badges","frame":null,"summary":null,"resources":[],"touchpoints":[]},
-    {"id":"f0000000-0000-4000-8000-320300020006","lane_id":"f0000000-0000-4000-8000-320100020000","step_id":"f0000000-0000-4000-8000-300200060000","content":"Triage controls (accept / dismiss / resolve)","frame":null,"summary":"Humans may change only findings.status. The audit points and never fixes, and it may supersede only its own check’s open rows.","resources":[],"touchpoints":[],"owner":"Whoever triages","perceived_owner":"The audit"},
+    {"id":"f0000000-0000-4000-8000-320300020005","lane_id":"f0000000-0000-4000-8000-320100020000","step_id":"f0000000-0000-4000-8000-300200050000","content":"Findings listed in the agent chat\nThe agent can box cited cells on request","frame":null,"summary":null,"resources":[],"touchpoints":[]},
+    {"id":"f0000000-0000-4000-8000-320300020006","lane_id":"f0000000-0000-4000-8000-320100020000","step_id":"f0000000-0000-4000-8000-300200060000","content":"Triage by asking the agent: dismiss, resolve or reopen","frame":null,"summary":"Humans may change only findings.status. The audit points and never fixes, and it may supersede only its own check’s open rows.","resources":[],"touchpoints":[],"owner":"Whoever triages","perceived_owner":"The audit"},
     {"id":"f0000000-0000-4000-8000-320300030001","lane_id":"f0000000-0000-4000-8000-320100030000","step_id":"f0000000-0000-4000-8000-300200010000","content":"Loads ub:audit and reads the audit playbook before executing any route","frame":null,"summary":null,"resources":[],"touchpoints":[]},
     {"id":"f0000000-0000-4000-8000-320300030002","lane_id":"f0000000-0000-4000-8000-320100030000","step_id":"f0000000-0000-4000-8000-300200020000","content":"Exports the blueprint once — every auditor reads that same export","frame":null,"summary":null,"resources":[],"touchpoints":[]},
     {"id":"f0000000-0000-4000-8000-320300030003","lane_id":"f0000000-0000-4000-8000-320100030000","step_id":"f0000000-0000-4000-8000-300200030000","content":"Dispatches one auditor per check, in parallel and blind","frame":null,"summary":null,"resources":[],"touchpoints":[]},

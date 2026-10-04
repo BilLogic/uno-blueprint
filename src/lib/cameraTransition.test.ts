@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   createCameraFlightPlan,
   createCameraTransitionClock,
-  easeCameraTransition,
   interpolateCameraTransform,
   resolveCameraFlightDuration,
   transformCameraAroundPoint,
 } from '@/lib/cameraTransition'
+import { easeMoveFrom } from '@/lib/motion'
 
 const viewport = { width: 1200, height: 800 }
 const from = { pan: { x: -100, y: -50 }, zoom: 0.5 }
@@ -174,7 +174,7 @@ describe('camera transition', () => {
     )
     expect(opposing.sample(16).progress).toBeGreaterThan(0)
     expect(compatible.sample(400).transform).toEqual(destination)
-    // A rest takeoff still moves in the first beat — smoothstep-from-zero
+    // A rest takeoff still moves in the first beat — move-from-zero
     // spent that beat almost still, which a large zoom-in reads as lag.
     expect(resting.sample(40).progress).toBeGreaterThan(0.05)
   })
@@ -191,14 +191,94 @@ describe('camera transition', () => {
     expect(Number.isFinite(value.zoom)).toBe(true)
   })
 
-  it('eases gently without making the camera hesitate at either end', () => {
-    expect(easeCameraTransition(0)).toBe(0)
-    expect(easeCameraTransition(0.1)).toBeGreaterThan(0.02)
-    expect(easeCameraTransition(0.1)).toBeLessThan(0.03)
-    expect(easeCameraTransition(0.5)).toBeCloseTo(0.5)
-    expect(easeCameraTransition(0.9)).toBeGreaterThan(0.97)
-    expect(easeCameraTransition(0.9)).toBeLessThan(0.98)
-    expect(easeCameraTransition(1)).toBe(1)
+  it('rides the shared move curve, launched at the incoming speed', () => {
+    const origin = { pan: { x: 0, y: 0 }, zoom: 1 }
+    const destination = { pan: { x: -500, y: 0 }, zoom: 1 }
+    // 1 px/ms toward a target 500 px away over 400 ms: a slope of 0.8.
+    const plan = createCameraFlightPlan({
+      from: origin,
+      to: destination,
+      viewport,
+      durationMs: 400,
+      initialVelocity: { pan: { x: -1, y: 0 }, zoomPerMs: 0 },
+    })
+    const curve = easeMoveFrom(0.8)
+    for (let elapsed = 20; elapsed < 400; elapsed += 20) {
+      expect(plan.sample(elapsed).progress).toBeCloseTo(
+        curve.value(elapsed / 400),
+        6,
+      )
+    }
+    // Settles: the last beat is move's arrival, not a hard stop.
+    expect(Math.abs(plan.sample(399).velocity.pan.x)).toBeLessThan(0.01)
+  })
+
+  it('hands its velocity to a flight that retargets it mid-air', () => {
+    const origin = { pan: { x: 0, y: 0 }, zoom: 1 }
+    const first = createCameraFlightPlan({
+      from: origin,
+      to: { pan: { x: -500, y: 0 }, zoom: 1 },
+      viewport,
+      durationMs: 400,
+    })
+    // Late enough that the old flight is moving faster than a resting
+    // takeoff; below that, the new flight leaves at the resting slope (see
+    // the next assertion) rather than slower.
+    for (const at of [120, 200]) {
+      const handoff = first.sample(at)
+      expect(handoff.velocity.pan.x).toBeLessThan(0)
+      // A new destination farther along the same line.
+      const second = createCameraFlightPlan({
+        from: handoff.transform,
+        to: { pan: { x: -900, y: 0 }, zoom: 1 },
+        viewport,
+        durationMs: 450,
+        initialVelocity: handoff.velocity,
+      })
+      const takeoff = second.sample(0.01)
+      expect(takeoff.velocity.pan.x).toBeCloseTo(handoff.velocity.pan.x, 4)
+      expect(takeoff.transform.pan.x).toBeCloseTo(handoff.transform.pan.x, 1)
+    }
+
+    const early = first.sample(60)
+    const fromEarly = createCameraFlightPlan({
+      from: early.transform,
+      to: { pan: { x: -900, y: 0 }, zoom: 1 },
+      viewport,
+      durationMs: 450,
+      initialVelocity: early.velocity,
+    })
+    expect(fromEarly.sample(0.01).velocity.pan.x).toBeLessThanOrEqual(
+      early.velocity.pan.x,
+    )
+  })
+
+  it('hands zoom velocity across a retarget too', () => {
+    const center = { x: viewport.width / 2, y: viewport.height / 2 }
+    const zoomAboutCenter = (zoom: number) => ({
+      pan: { x: center.x - center.x * zoom, y: center.y - center.y * zoom },
+      zoom,
+    })
+    const first = createCameraFlightPlan({
+      from: zoomAboutCenter(0.2),
+      to: zoomAboutCenter(1),
+      viewport,
+      durationMs: 500,
+    })
+    const handoff = first.sample(180)
+    expect(handoff.velocity.zoomPerMs).toBeGreaterThan(0)
+    const second = createCameraFlightPlan({
+      from: handoff.transform,
+      to: zoomAboutCenter(2.5),
+      viewport,
+      durationMs: 500,
+      initialVelocity: handoff.velocity,
+    })
+    const takeoff = second.sample(0.01)
+    expect(takeoff.velocity.zoomPerMs / handoff.velocity.zoomPerMs).toBeCloseTo(
+      1,
+      3,
+    )
   })
 
   it('starts elapsed time on the first drawable frame', () => {

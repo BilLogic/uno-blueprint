@@ -46,14 +46,18 @@ export const MOTION_SPRING_LINEAR =
   'linear(0, 0.22 6%, 0.6 14%, 0.9 22%, 1.05 30%, 1.09 36%, 1.06 44%, 1.01 56%, 0.993 68%, 1)'
 
 /**
- * A CSS cubic-bezier as a JS easing function, for motion that runs on frames
- * rather than on a stylesheet (the camera). Same curve the browser draws for
- * the same four numbers: solve x(t) = progress by Newton's method with a
- * bisection fallback, then read y(t). Clamped to [0, 1] outside the interval.
+ * A cubic-bezier as a curve the JS can read both ways: where it is
+ * (`value`) and how fast it is going there (`slope`, d value / d progress).
+ * Same curve the browser draws for the same four numbers: solve
+ * x(t) = progress by Newton's method with a bisection fallback, then read
+ * y(t) and y'(t) / x'(t). Clamped to [0, 1] outside the interval.
  */
-export function cubicBezierEase([x1, y1, x2, y2]: BezierPoints): (
-  progress: number,
-) => number {
+export type EaseCurve = {
+  value: (progress: number) => number
+  slope: (progress: number) => number
+}
+
+function bezierCurve([x1, y1, x2, y2]: BezierPoints): EaseCurve {
   const ax = 3 * x1 - 3 * x2 + 1
   const bx = 3 * x2 - 6 * x1
   const cx = 3 * x1
@@ -63,6 +67,7 @@ export function cubicBezierEase([x1, y1, x2, y2]: BezierPoints): (
   const x = (t: number) => ((ax * t + bx) * t + cx) * t
   const y = (t: number) => ((ay * t + by) * t + cy) * t
   const dx = (t: number) => (3 * ax * t + 2 * bx) * t + cx
+  const dy = (t: number) => (3 * ay * t + 2 * by) * t + cy
 
   const solve = (target: number) => {
     let t = target
@@ -86,15 +91,67 @@ export function cubicBezierEase([x1, y1, x2, y2]: BezierPoints): (
     return t
   }
 
-  return (progress) => {
-    if (progress <= 0) return 0
-    if (progress >= 1) return 1
-    return y(solve(progress))
+  // The parameter's own slope at an end, where x'(t) can be zero: the
+  // handle's direction, or a flat end when the handle sits on the endpoint.
+  const endSlope = (hx: number, hy: number) =>
+    Math.abs(hx) < 1e-12 ? 0 : hy / hx
+
+  return {
+    value(progress) {
+      if (progress <= 0) return 0
+      if (progress >= 1) return 1
+      return y(solve(progress))
+    },
+    slope(progress) {
+      if (progress <= 0) return endSlope(x1, y1)
+      if (progress >= 1) return endSlope(1 - x2, 1 - y2)
+      const t = solve(progress)
+      const run = dx(t)
+      return Math.abs(run) < 1e-12 ? 0 : dy(t) / run
+    },
   }
+}
+
+/**
+ * A CSS cubic-bezier as a JS easing function, for motion that runs on frames
+ * rather than on a stylesheet (the camera).
+ */
+export function cubicBezierEase(points: BezierPoints): (
+  progress: number,
+) => number {
+  return bezierCurve(points).value
+}
+
+/**
+ * A curve that leaves already moving: the same arrival as `points`, with the
+ * departure handle turned to `initialSlope` so the curve starts at that
+ * speed. This is what keeps a camera flight that is retargeted mid-air from
+ * stalling: the new flight starts at the velocity the old one had.
+ *
+ * The handle keeps its length along x until its height would pass 1, then
+ * shortens so it never does. With the arrival handle at height 1 (move,
+ * arrive) every control point sits in [0, 1], so the curve neither dips nor
+ * overshoots at any slope. A slope of 0 or less is the curve itself.
+ */
+export function launchedBezierEase(
+  points: BezierPoints,
+  initialSlope: number,
+): EaseCurve {
+  const [x1, y1, x2, y2] = points
+  if (!(initialSlope > 0)) return bezierCurve(points)
+  const run = Math.min(x1 > 0 ? x1 : 1 / 3, 1 / initialSlope)
+  const rise = run * initialSlope
+  // A curve that already departs faster than asked keeps its own handle.
+  if (x1 > 0 && y1 / x1 >= initialSlope) return bezierCurve(points)
+  return bezierCurve([run, rise, x2, y2])
 }
 
 /** The move curve as a function of progress — what a JS camera rides. */
 export const easeMove = cubicBezierEase(EASE_POINTS.move)
+
+/** Move, launched at `initialSlope` — a flight that takes over a moving camera. */
+export const easeMoveFrom = (initialSlope: number): EaseCurve =>
+  launchedBezierEase(EASE_POINTS.move, initialSlope)
 
 /**
  * Structural width/size changes (sidebar collapse, presentation wipe). The
@@ -109,11 +166,13 @@ export const MOTION_FADE_STAGGER_MS = 75
 
 /**
  * Nominal camera reference; actual flights use bounded distance-aware time.
- * Still its own curve: CSS that rides the camera (focus dimming, the compare
- * fade) has to match the JS flight, so the two move onto `move` together.
+ * The camera IS move: the JS flight rides `easeMoveFrom`, and the CSS that
+ * rides it (focus dimming, the compare fade) reads `--ease-camera`, which
+ * is `var(--ease-move)`. Kept as its own name so those surfaces say what
+ * they are following.
  */
 export const MOTION_CAMERA_MS = 420
-export const MOTION_CAMERA_EASE = 'cubic-bezier(0.37, 0, 0.63, 1)'
+export const MOTION_CAMERA_EASE = MOTION_EASE.move
 
 /** Micro-interactions: hover, badges, threshold fades. */
 export const MOTION_MICRO_MS = 150

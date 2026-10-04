@@ -652,6 +652,52 @@ describe('viewport camera flights', () => {
     expect(cameraState().pan.x).toBeCloseTo(-400)
   })
 
+  it('yields to a wheel mid-flight from the interpolated position, with no snap', () => {
+    const target = { left: 0, top: 0, width: 1000, height: 600 }
+    const view = render(<Harness resetKey="initial" target={target} />)
+    act(() => {
+      flushFrame(0)
+      flushFrame(16)
+    })
+
+    target.left = 800
+    view.rerender(<Harness resetKey="far" target={target} />)
+    act(() => {
+      flushFrame(32)
+      flushFrame(48)
+      flushFrame(64)
+      flushFrame(164)
+    })
+    const midFlight = cameraState()
+    expect(midFlight.moving).toBe(true)
+    expect(midFlight.pan.x).toBeLessThan(0)
+    expect(midFlight.pan.x).toBeGreaterThan(-800)
+
+    const content = view.container.querySelector('[data-zoom-pan-content]')!
+    act(() => {
+      content.dispatchEvent(
+        new WheelEvent('wheel', {
+          deltaX: 12,
+          deltaY: 0,
+          bubbles: true,
+          cancelable: true,
+        }),
+      )
+    })
+    // The wheel lands on the frame the flight last drew, not on the target.
+    expect(cameraState().pan.x).toBeCloseTo(midFlight.pan.x - 12)
+    expect(cameraState().pan.y).toBeCloseTo(midFlight.pan.y)
+    expect(cameraState().moving).toBe(false)
+
+    // And the flight does not come back for it.
+    const afterWheel = cameraState().pan.x
+    act(() => {
+      flushFrame(300)
+      flushFrame(900)
+    })
+    expect(cameraState().pan.x).toBe(afterWheel)
+  })
+
   it('keeps advancing while the live target moves on consecutive frames', () => {
     const target = { left: 0, top: 0, width: 1000, height: 600 }
     const view = render(<Harness resetKey="initial" target={target} />)

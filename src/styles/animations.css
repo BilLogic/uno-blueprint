@@ -10,11 +10,10 @@
  * `--ease-structural` is the older name for arrive, kept as an alias so
  * stylesheets and deployments that read it keep working.
  *
- * `--ease-camera` is still its own curve, and only for CSS that rides the
- * camera's flight (focus dimming, the compare panel's fade). The JS camera
- * eases on its own curve in `cameraTransition.ts`; the camera becomes a move
- * when that flight and this token switch together, so the CSS that rides the
- * flight never runs on a different curve from it.
+ * `--ease-camera` is move, named for the CSS that rides the camera's flight
+ * (focus dimming, the compare panel's fade). The JS flight rides the same
+ * move curve from `motion.ts`, so the CSS that rides it never runs on a
+ * different curve from it.
  * Product classes use the role names (plus `ease-camera` for camera-riding
  * surfaces); the motion vocabulary guard holds that.
  */
@@ -24,7 +23,7 @@
   --ease-move: cubic-bezier(0.65, 0, 0.35, 1);
   --ease-spring: cubic-bezier(0.34, 1.45, 0.5, 1);
   --ease-structural: var(--ease-arrive);
-  --ease-camera: cubic-bezier(0.37, 0, 0.63, 1);
+  --ease-camera: var(--ease-move);
 }
 
 /*

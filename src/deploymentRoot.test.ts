@@ -775,11 +775,14 @@ describe('a deployment’s cover figures', () => {
    * added tomorrow is one this block then requires a deployment to be able to
    * fetch. Only the basename travels: WHERE a figure is served from is what
    * differs between this repository and a deployment, and is the thing under
-   * test.
+   * test. A figure's dark file counts as well: the cover shows it whenever
+   * the app is dark, so a deployment has to be able to fetch it too.
    */
   function figuresTheCoverRenders(): string[] {
-    return coverFigures(coverContent).map((figure) =>
-      path.basename(figure.src.split('?')[0]),
+    return coverFigures(coverContent).flatMap((figure) =>
+      [figure.src, figure.srcDark]
+        .filter((src): src is string => typeof src === 'string')
+        .map((src) => path.basename(src.split('?')[0])),
     )
   }
 
@@ -796,7 +799,9 @@ describe('a deployment’s cover figures', () => {
         "import { coverFigures } from '@/components/cover/coverModel'",
         "import { coverContent } from '@/content/coverContent'",
         '',
-        'export const srcs = coverFigures(coverContent).map((figure) => figure.src)',
+        'export const srcs = coverFigures(coverContent).flatMap((figure) =>',
+        '  figure.srcDark ? [figure.src, figure.srcDark] : [figure.src],',
+        ')',
         '',
         '// Read, so that a build keeps every one of them.',
         "document.title = srcs.join(' ')",
@@ -851,6 +856,7 @@ describe('a deployment’s cover figures', () => {
     // A floor, not a census: an empty expectation is met by a cover with no
     // figures at all.
     expect(figures.length).toBeGreaterThan(10)
+    expect(figures).toContain('why-now.dark.svg')
 
     const scratch = stageCoverDeployment()
     const server = await createServer({

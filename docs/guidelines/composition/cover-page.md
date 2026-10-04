@@ -153,11 +153,17 @@ it; the rest follow as they are redrawn.
   is needed; no in-figure headline when the section already has one. No ALL
   CAPS. Use the words `CONTEXT.md` fixes: lane, step, cell, slice, path.
 - **Never under 11px at the rendered width.** Beside the sidebar the cover
-  shows an 880-wide figure at about 688px, so author text at 14.5px or more.
+  shows an 880-wide figure at about 688px, so author text at 14.5px or more and titles at 15px. Measure each title in
+  the system fallbacks (SF, Segoe UI, Arial) and leave it at least 15 units of
+  slack in its column.
 - **Type.** `font-family="'Ubuntu Sans', system-ui, sans-serif"` on the root.
   An image cannot load a webfont, so most readers see the fallback; leave room
   for the wider face rather than fitting labels to Ubuntu Sans exactly.
-- **Teal for the one thing being explained**: `#00806a` light, `#3ecfb0` dark.
+- **Three marks, three meanings.** Teal is what the figure explains:
+  `#00806a` light, `#3ecfb0` dark. Amber is a cell that no longer holds: fill
+  `#fff4e0`, solid stroke `#b45309` (dark `#33260f` and `#fbbf6a`), and the
+  cell keeps its skeleton bar, because it is content that is wrong rather
+  than content that is missing. Dashed means not yet, missing or proposed.
   Everything else stays ink, muted ink or a lane pastel, so the eye lands on
   the teal first.
 - **Ink.** Text `oklch(.21 .008 175)` (`#151a18`), muted `oklch(.47 .008 175)`
@@ -173,12 +179,13 @@ it; the rest follow as they are redrawn.
 
 - **Borders are translucent ink**: about 9% at rest, 17% for emphasis.
 - **Radii**: 16 for the plate and cards, 8 for cells, 6 for small chips.
-- **The plate** is a full-bleed rect with a dot grid on it: 1px dots on a 20px
-  pitch at about 17% ink, masked to fade towards the edges. Cards sit on it in
+- **The plate** is a full-bleed rect with a dot grid on it: 1.6px dots (`r=0.8`) on a
+  20px pitch at about 17% ink, masked to fade towards the edges. Cards sit on it in
   the card colour (`#ffffff` light, `#181d1b` dark; plate `#f6f8f7` and
   `#0f1412`).
-- **Dashed means not yet, missing or hypothetical**; solid means it exists. A
-  proposed change, a cell that no longer holds, a pattern nobody has built.
+- **Dashed means not yet, missing or proposed**; solid means it exists. A
+  proposed change, a pattern nobody has built. A cell that no longer holds is
+  amber, not dashed.
 - **The mini-blueprint** is the shorthand for a blueprint: rows of a small
   lane-colour square and a label bar, then cells 24px tall each holding one
   skeleton bar. Highlight cells in teal to show which part of it a figure is

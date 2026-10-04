@@ -133,14 +133,14 @@ export const packageCoverFigures = {
   whenToUse: {
     src: whenToUse,
     srcDark: whenToUseDark,
-    alt: 'Four ways teams use one blueprint — onboarding reads all of it, stakeholder alignment takes one lane as a slice, decision evaluation traces a change to the cells that depend on it, context management flags the cells that no longer hold',
+    alt: 'Four ways teams use one blueprint — onboarding reads all of it, stakeholder alignment takes one lane as a slice, decision evaluation traces a change to the cells that depend on it, context management flags the cells that no longer hold, in amber',
     width: 880,
     height: 376,
   },
   whyNow: {
     src: whyNow,
     srcDark: whyNowDark,
-    alt: 'A blueprint read at a few workshops a year drifts out of date; one read every week by people and agents stays true',
+    alt: 'A blueprint read at a few workshops a year drifts out of date; one read every week, by people and agents, stays true',
     width: 880,
     height: 392,
   },

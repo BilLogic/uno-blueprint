@@ -6,4 +6,7 @@ Cover figures follow the theme. A figure can now ship a dark file beside its lig
 
 The cover-page guideline gains an art direction for the figures, and `why-now` and `when-to-use` are redrawn to it, light and dark. The Overview's four uses are now sentence case ("Stakeholder alignment").
 
-Upgrading a deployment: nothing to do. A deployment that spreads a package figure and overrides `alt` gets `srcDark` with it.
+Upgrading a deployment:
+
+- A deployment that spreads `packageCoverFigures.whyNow` or `packageCoverFigures.whenToUse` and overrides `alt` is now describing the old drawings. Rewrite that alt text for the new ones: a year of weekly reads against the board as it stands in December, and one mini-blueprint read four ways.
+- A spread figure carries `srcDark` with it, so its dark file follows the theme with no other change.

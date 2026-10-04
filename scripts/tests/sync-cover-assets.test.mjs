@@ -89,6 +89,27 @@ describe('sync-cover-assets manifest scope', () => {
 /** Everything in a figure except its `<style>` block, which holds the palette. */
 const withoutPalette = (code) => code.replace(/<style>[\s\S]*?<\/style>/, '<style/>')
 
+/**
+ * Colour literals written into the drawing rather than the palette. A literal
+ * outside `<style>` is the same in both files, so one theme would carry the
+ * other's colour. The stops of a gradient that only feeds a mask are
+ * luminance, not colour, and pass.
+ */
+function colourLiterals(code) {
+  let drawing = withoutPalette(code)
+  const maskFeeds = [...drawing.matchAll(/<mask\b[\s\S]*?<\/mask>/g)].flatMap((mask) =>
+    [...mask[0].matchAll(/url\(#([^)]+)\)/g)].map((ref) => ref[1]),
+  )
+  for (const id of maskFeeds) {
+    drawing = drawing.replace(
+      new RegExp(`<(linear|radial)Gradient\\b[^>]*id="${id}"[\\s\\S]*?<\\/\\1Gradient>`),
+      '',
+    )
+  }
+  const colour = /\b(?:fill|stroke|stop-color)\s*=\s*"(?:#[0-9a-f]{3,8}|rgba?\(|oklch\()/i
+  return drawing.split('\n').filter((line) => colour.test(line)).map((line) => line.trim())
+}
+
 describe('dark files', () => {
   const pairs = COVER_ASSET_MANIFEST.filter((name) =>
     existsSync(join(ASSETS_DIR, darkVariantName(name))),
@@ -107,6 +128,32 @@ describe('dark files', () => {
       expect(withoutPalette(dark), name).toBe(withoutPalette(light))
       expect(dark, name).not.toBe(light)
     }
+  })
+
+  it('keep every colour in the palette, none in the drawing', () => {
+    for (const name of pairs) {
+      for (const file of [name, darkVariantName(name)]) {
+        const code = readFileSync(join(ASSETS_DIR, file), 'utf8')
+        expect(colourLiterals(code), file).toEqual([])
+      }
+    }
+  })
+
+  it('catch a colour in the drawing, and let a mask’s stops through', () => {
+    const planted = [
+      '<svg><style>.a { fill: #000; }</style>',
+      '<defs><radialGradient id="fade"><stop stop-color="#fff"/></radialGradient>',
+      '<mask id="m"><rect fill="url(#fade)"/></mask>',
+      '<linearGradient id="paint"><stop stop-color="oklch(.5 .1 175)"/></linearGradient></defs>',
+      '<rect fill="#00806a"/>',
+      '<rect stroke="rgb(0, 0, 0)"/>',
+      '</svg>',
+    ].join('\n')
+    expect(colourLiterals(planted)).toEqual([
+      '<linearGradient id="paint"><stop stop-color="oklch(.5 .1 175)"/></linearGradient></defs>',
+      '<rect fill="#00806a"/>',
+      '<rect stroke="rgb(0, 0, 0)"/>',
+    ])
   })
 
   it('are offered to GitHub wherever the README or the guide shows the light file', () => {

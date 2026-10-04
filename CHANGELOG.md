@@ -2,9 +2,10 @@
 
 ## 2.6.0
 
-**Every cover figure draws cells as outlines.** A cell in the thirteen cover
-figures and in the empty-state picture is now a coloured outline in its lane's
-line colour, not a pastel box; the stale cell is the one filled cell. The
+**Every cover figure draws cells as outlines.** A cell in every cover figure
+that draws one, and in the empty-state picture, is now a coloured outline in
+its lane's line colour, not a pastel box; the stale cell is the one filled
+cell. The
 hierarchy figure is back to its staircase, `why-now` counts in quarters, and
 the browser tab shows the Uno mark. Other coding agents (Cursor, Codex) now
 find the four skills under `.agents/skills/`, and a `BASE_PATH` build leaves a
@@ -14,10 +15,14 @@ clean root.
 
 - **Bump the pin, and take the template's `vite.config.ts`.** It is held
   byte-identical. Under `BASE_PATH` the build now clears stale files at the
-  root of `dist/`, and a `.` or `..` segment in the prefix stops the build.
+  root of `dist/`, and a `.` or `..` segment in the prefix stops the build:
+  set it as a plain path, such as `/demo/`. A host that keeps its build
+  directory between deploys may hand the first build a stale root; the build
+  clears it, and `npm run check:hosting -- --built` confirms it.
 - **Apply the new migration** (`supabase db push`). `21000228000000` only
   re-issues a column comment; on a database that already holds the current
-  text it changes nothing.
+  text it changes nothing. A deployment that holds the generated recipe or
+  `panel-write-surface.mjs` byte-identical takes the new copies with the pin.
 - **Rewrite two figure overrides if the deployment has them.** An `alt` for
   `dataModelHierarchy` should describe the staircase, and a restated `height`
   should be 634 or dropped. An `alt` for `whyNow`, or a copy of the
@@ -28,7 +33,8 @@ clean root.
   read in plainer language; keep the deployment's own names where they differ.
 - **Copy the favicon to show the Uno mark.** A deployment keeps its own
   `public/` and `index.html`; copy `favicon.svg`, `favicon.png` and
-  `apple-touch-icon.png`, and the three `<link>` lines.
+  `apple-touch-icon.png`, and the three `<link>` lines. A deployment with its
+  own icon needs no change.
 - **Nothing else needs a change.** The empty-state picture reads theme tokens
   a deployment already sets, and the `.agents/skills/` mirror is not imported
   by a deployment.

@@ -9,7 +9,10 @@ This repo is that idea, working end to end — two things in one:
 
 ## Why a queryable blueprint
 
-![Why teams need a service blueprint — the same service before and after it has a reader that opens it constantly](./docs/assets/why-now.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/why-now.dark.svg">
+  <img src="./docs/assets/why-now.svg" alt="Why teams need a service blueprint — read at a few workshops a year, it drifts out of date; read every week, by people and agents, it stays true">
+</picture>
 
 Service blueprints have traditionally been strategic artifacts rather than day-to-day reference tools. Partly because they are expensive to use: interpreting one takes facilitation, workshops, and built-up context, so teams engage with them occasionally, not daily. Agents change that constraint. An agent can consult the blueprint continuously, grounding each recommendation in the full journey and checking proposed changes against the wider service, without adding work for the team.
 
@@ -42,7 +45,10 @@ The pipeline in one line:
 
 ### How it works
 
-![The skill set and agent fleet — four skills with their own resources, the shared references each links, and the agents they spawn](./docs/assets/skill-architecture.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/skill-architecture.dark.svg">
+  <img src="./docs/assets/skill-architecture.svg" alt="The skill set and agent fleet — four skills against the shared references each links and the fresh-context agents each hands its reading to">
+</picture>
 
 *Four skills, each carrying its own playbooks and scripts and linking only the shared references its task needs. The heavy reading happens in **fresh-context agents** — `document-reader` over the sources, `blueprint-reviewer` over the draft, `auditor` one check at a time, `impact-tracer` down the dependency graph — each returning a thin summary rather than its raw material. Every phase ends at a deterministic gate, never at "looks done".*
 
@@ -53,13 +59,16 @@ The pipeline in one line:
 | [`ub:map`](./skills/map/SKILL.md) | create a blueprint, import documents, translate a foreign diagram, resume an existing workspace | a validated `blueprint/blueprint.json`, signed off per scenario |
 | [`ub:audit`](./skills/audit/SKILL.md) | run the check roster over a blueprint | findings you triage, nothing changed for you |
 | [`ub:whatif`](./skills/whatif/SKILL.md) | trace a proposed change before anyone commits to it | the cells it would reach, on a copy |
-| [`ub:slice`](./skills/slice/SKILL.md) | take a stakeholder view out of the blueprint: `journey`, `step`, `lane`, `cell`, `custom` | a slice document that still points at the cells it quotes |
+| [`ub:slice`](./skills/slice/SKILL.md) | take a stakeholder view out of the blueprint: `journey`, `step`, `lane`, `cell`, `custom` | a slice document that still points at the cells it cites |
 
 Each is walked, with its own figure, in [guide/03 — The plugin](./docs/guide/03-the-plugin.md).
 
 ## Where the blueprint is used
 
-![Ways into the blueprint — the app, the in-app agent, agentic tools, and a Slack bot you could build, over one shared context layer](./docs/assets/four-ways-in.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/four-ways-in.dark.svg">
+  <img src="./docs/assets/four-ways-in.svg" alt="Four ways into one shared context — the app, the in-app agent and agentic tools read and write it; a Slack bot you build, dashed because the template does not ship it, only reads">
+</picture>
 
 The app is where people read, compare, and present. The in-app agent drafts changes in place; it asks you to sign in and bring your own model key. Your agentic tools reach the same rows from your IDE or CLI. The template ships those three, and all of them work from one shared context layer, so what any of them reads is what the others wrote. The fourth, dashed, is a pattern rather than a component: nothing here is a Slack bot. A chat surface over the blueprint can read what a deployment publishes, holding only the publishable key, and answer with links back to the exact cell; what it has to honour is the read-consumer section of the adapter contract, [references/adapter-contract.md](./references/adapter-contract.md#read-consumers-bots-agent-tools-external-integrations), and [guide/02](./docs/guide/02-using-it-in-practice.md) describes the shape. Who may do what follows from the account each one uses: see [guide/04 — Operations](./docs/guide/04-operations.md).
 
@@ -67,15 +76,21 @@ The app is where people read, compare, and present. The in-app agent drafts chan
 
 ### How a blueprint is organized
 
-![How a blueprint is organized — service to phase to scenario to path](./docs/assets/data-model-hierarchy.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/data-model-hierarchy.dark.svg">
+  <img src="./docs/assets/data-model-hierarchy.svg" alt="How a blueprint is organized — a service holds phases in order, a phase holds scenarios, a scenario holds paths side by side, and a path is a grid of lanes and steps">
+</picture>
 
-*Read left to right — each panel zooms one level in: a **service** holds ordered **phases** (which can loop back via `loops_to_phase_id`); a phase holds **scenarios**; a scenario holds **path** variants; each path is a lanes × steps grid of **cells**.*
+*Read top to bottom — each level opens the one marked above it: a **service** holds ordered **phases** (which can loop back via `loops_to_phase_id`); a phase holds **scenarios**; a scenario holds **path** variants; each path is a lanes × steps grid of **cells**.*
 
 ### Inside one path
 
-![Inside one path — lanes, steps, cells, dependencies, and the interaction/visibility lines](./docs/assets/blueprint-anatomy.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/blueprint-anatomy.dark.svg">
+  <img src="./docs/assets/blueprint-anatomy.svg" alt="Inside one path — lanes as rows, steps as columns, a cell where they cross, leads-to arrows between cells, and the three lines falling between the lanes">
+</picture>
 
-*Lanes are rows — one actor each, colored by semantic `lane_role` (labels are free-form, any language). Steps are columns — time runs left to right. A **cell** is what one actor does at one moment; **dependencies** are "this cell sets off that one" arrows between cells. The **interaction** and **visibility** lines are derived from roles, and the sheets stacked behind are the scenario's other **paths** (touchpoint lanes render their cells as touchpoints in the app).*
+*Lanes are rows — one actor each, colored by semantic `lane_role` (labels are free-form, any language). Steps are columns — time runs left to right. A **cell** is what one actor does at one moment; **dependencies** are "this cell sets off that one" arrows between cells. The lines of **interaction**, **visibility** and **internal interaction** are derived from roles, so each falls between the lanes it separates (touchpoint lanes render their cells as touchpoints in the app).*
 
 *Two levels down — what a single cell holds, and how a slice is taken out of the blueprint — are in [guide/01 — The blueprint model](./docs/guide/01-the-blueprint-model.md).*
 
@@ -154,7 +169,7 @@ All three are generated. Edit a migration and run `npm run generate:portable-cor
 
 `netlify.toml` at the repo root carries the build command, `dist/` publish dir, node version, and the redirect table — a 404 for `/assets/*` above the SPA fallback (`/* /index.html 200`). `public/_headers` carries the CSP and the one-year immutable cache for `/assets/*`. Both files are held by `npm run check:hosting`. Any static host works — the build always produces a plain `dist/`; live-DB mode needs `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` at **build time**. Blueprint-specific deploy gotchas: [skills/map/references/deploy-notes.md](./skills/map/references/deploy-notes.md).
 
-**Serving from a path** (`https://example.org/demo/` rather than a domain root): set `BASE_PATH=/demo/` at build time. The output then lands in `dist/demo/`, every URL the app reads or writes keeps the prefix, and the redirect and cache rules move under `/demo/`. The rules, and the one-line Netlify rewrite for showing the app under a path on another site, are in [guide/04 § Serving from a path](./docs/guide/04-operations.md#serving-from-a-path).
+**Serving from a path** (`https://example.org/demo/` rather than a domain root): set `BASE_PATH=/demo/` at build time. The output then lands in `dist/demo/`, every URL the app reads or writes keeps the prefix, and the build writes the redirect and cache rules for `/demo/` into `dist/`. The rules, and the one-line Netlify rewrite for showing the app under a path on another site, are in [guide/04 § Serving from a path](./docs/guide/04-operations.md#serving-from-a-path).
 
 ### Connect your agents
 

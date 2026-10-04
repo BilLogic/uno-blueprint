@@ -61,7 +61,7 @@ function RailButton({
         aria-pressed={toggled ?? selected}
         onClick={onClick}
         className={cn(
-          'relative flex size-9 items-center justify-center rounded-md transition-colors',
+          'relative flex size-9 items-center justify-center rounded-md transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring',
           selected &&
             'bg-sidebar-selected text-sidebar-selected-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-sidebar-selected-rail',

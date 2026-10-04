@@ -74,7 +74,7 @@ export function PathSelectorMenu({ options }: { options: PathOption[] }) {
                   }`}
                   className={cn(
                     'pointer-events-auto flex h-7 items-center gap-2 rounded-md border border-border bg-card',
-                    'px-2 text-sm text-muted-foreground transition-colors hover:text-foreground',
+                    'px-2 text-sm text-muted-foreground transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:text-foreground',
                   )}
                 >
                   <span className="flex items-center" aria-hidden>
@@ -127,7 +127,7 @@ export function PathSelectorMenu({ options }: { options: PathOption[] }) {
                       aria-pressed={checked}
                       onClick={() => togglePathKey(option.id)}
                       className={cn(
-                        'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors',
+                        'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
                         'hover:bg-accent',
                         checked
                           ? 'font-medium text-foreground'

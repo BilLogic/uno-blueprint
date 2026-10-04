@@ -1,5 +1,131 @@
 # Changelog
 
+## 2.4.0
+
+**One command starts a workspace.** `npm create uno-blueprint@latest`
+(or `pnpm`, `yarn` 1, `bun create`) downloads this release, writes it into a
+new folder and installs it with the package manager that ran it; `--no-install`
+writes the folder and leaves the install to you. The initialiser lives in
+`packages/create-uno-blueprint/`, and this tag is the first that publishes it
+to npm, with provenance, from `publish-initialiser.yml`.
+
+### Upgrading a deployment
+
+- **Bump the pin, and take the template's `vite.config.ts`.** It gains one
+  test glob (`packages/**/*.test.mjs`) and is held byte-identical, so the
+  reconciled-files gate is red until the copy matches. The glob matches
+  nothing in a deployment.
+- **Node 22 is now stated.** The root manifest declares `engines.node`
+  `>=22`, the floor the stack already needed. A deployment still building on
+  an older Node now gets an engines warning where it used to get a later
+  failure.
+- **Two development dependencies are now declared:** `rolldown` and
+  `playwright`, both already in the tree through Vite and
+  `@playwright/test`. A deployment installing with pnpm stops failing on
+  `Cannot find package`; with npm nothing changes.
+- **Nothing else moves for a deployment.** The initialiser, its workflow and
+  its checks sit in folders a deployment does not import, and the publish
+  workflow does nothing outside this repository.
+
+### Minor Changes
+
+- a06388a: A release tag publishes the initialiser
+
+  Pushing a `v<version>` tag now publishes `create-uno-blueprint` to npm at that
+  version, with provenance. A new workflow, `publish-initialiser.yml`, does it
+  through npm's trusted publishing: the registry trusts this repository and that
+  workflow file by name, so no npm token is stored anywhere.
+
+  The workflow asks `scripts/decide-initialiser-publish.mjs` before it publishes.
+  It refuses a tag that is not the version the initialiser states, a tree whose
+  version statements disagree, a tag on a commit that is not on `main`, and an
+  npm too old to publish without a token. A version the registry already has is
+  left alone and the run is green, so re-running a tag's run is safe. A
+  workspace, a fork, or a repository made from the template carries the workflow
+  and is not where the package comes from, so there it does nothing.
+
+  The package now ships a README and a LICENSE, and its manifest states
+  `publishConfig.access`, `bugs` and a `homepage` that opens the README.
+
+  The first publish and the trusted publisher are the owner's to do, once, and
+  `docs/engineering/releasing.md` § 6 lists the steps. Until they are done the
+  package is not on npm and the workflow's publish step fails.
+
+- 4e23ee7: One command writes a workspace
+
+  The template now carries an initialiser, `create-uno-blueprint`, in
+  `packages/create-uno-blueprint/`. Given a folder name it downloads the release
+  tarball whose tag is its own version, unpacks it there and prints what to type
+  next; given none it uses `uno-blueprint`. It asks no questions, needs neither
+  git nor a system `tar`, and has no runtime dependencies. A folder that already
+  has files is refused, a Node below 22 is refused first, and a download that
+  fails says where it tried. The workspace it writes is the whole template minus
+  the initialiser's own folder.
+
+  The version guard holds a fifth place. `npm run check:version` now fails when
+  `packages/create-uno-blueprint/package.json` states a different version from
+  `package.json`, and `npm run version` copies the number into it. A tree without
+  that folder, which is what the initialiser writes, is held to the other four.
+
+  The root manifest states the Node floor it has always had: `engines.node` is
+  `>=22`.
+
+- 75bae5a: The workspace is installed by whichever package manager called
+
+  `create-uno-blueprint` now finishes the job. Once the workspace is written it
+  installs the dependencies with the package manager that ran it, read from the
+  `npm_config_user_agent` each of them sets: `npm create`, `pnpm create`,
+  `yarn create` and `bun create` install with npm, pnpm, Yarn and Bun. Run any
+  other way, it is npm. The next steps it prints are that manager's own, and the
+  install is no longer one of them: `npm run dev`, `pnpm dev`, `yarn dev` or
+  `bun dev`.
+
+  `--no-install` now means what it says. The workspace is written, nothing is
+  installed, and the install is back in the next steps in the caller's words.
+
+  Yarn means Yarn 1. Yarn 2 and later do not run the `pre` scripts that `dev`
+  and `build` rely on, so under them the workspace is written, nothing is
+  installed, and the command exits non-zero with one line naming what can run
+  it: npm, pnpm, Bun and Yarn 1.
+
+  An install that fails leaves the workspace where it is. The command says so
+  in one line naming the folder, the command to run again and why it stopped
+  (the exit code, the signal that ended it, or that it could not be started),
+  and exits non-zero.
+
+  The entry function takes one more thing it would otherwise reach for:
+  `install({ pm, command, args, cwd })`, answering with an exit code. One table
+  holds each manager's command and arguments, and both what is run and what is
+  printed are read from it. The module also exports `installWith`, the install
+  when nothing replaces it, and `runInProcess`, which is `run` handed the real
+  process; the bin is now that one call.
+
+  The template declares two packages it already used. `scripts/app-module.mjs`
+  and the agent harness import `rolldown` by name, and the render walk's own
+  test resolves `playwright`; each was only ever installed because Vite and
+  `@playwright/test` depend on them. npm, Yarn and Bun hoist both to where the
+  import finds them; pnpm does not, so `npm run check:interface-map`, the
+  harness and that test failed there with `Cannot find package`. Both are
+  development dependencies now: `rolldown` at the range Vite asks for and
+  `playwright` at the version `@playwright/test` is pinned to, so the lock file
+  resolves what it already held.
+
+  CI has a `workspace` job, once each for npm, pnpm, Yarn 1 and Bun at pinned
+  versions. It writes a workspace from the commit under test, lets the
+  initialiser install it with that manager, and builds it. The script it runs,
+  `from-working-tree.mjs` beside the initialiser's source, hands the initialiser
+  a `git archive` of the checkout in place of the release tarball; it is not
+  published with the package.
+
+### Patch Changes
+
+- 5304272: Guide/02 no longer names a Slack bot as shipped
+
+  The "Ways in" table in guide/02 still labelled its fourth row "the Slack bot",
+  as though the template carried one, while the paragraph under it said nothing
+  here is a Slack bot. The row now reads "a Slack bot you build", matching the
+  README, the cover and its figure.
+
 ## 2.3.0
 
 **Small primary-coloured text reads role ink, and role ink outranks muted
@@ -9960,8 +10086,8 @@ accent: BRAND.accent }, content: { workspaceTitle: coverContent.title } }`. The
   constraint violation rather than as anything the authoring tools had said
   (#204):
 
-                                                                                                                                                                                                                                        ERROR: new row for relation "lanes" violates check constraint
-                                                                                                                                                                                                                                        "lanes_lane_role_check" … compliance_review
+                                                                                                                                                                                                                                          ERROR: new row for relation "lanes" violates check constraint
+                                                                                                                                                                                                                                          "lanes_lane_role_check" … compliance_review
 
   That error at least names the value. Meeting it after validation has passed is
   the wrong moment.

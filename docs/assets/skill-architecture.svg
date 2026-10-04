@@ -1,173 +1,134 @@
-<svg viewBox="0 -40 880 548" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<svg viewBox="0 0 880 670" xmlns="http://www.w3.org/2000/svg" font-family="'Ubuntu Sans', system-ui, sans-serif">
   <style>
-    .title { font-size: 11px; font-weight: 700; fill: #273036; }
-    .badge { font-size: 10px; font-weight: 600; fill: #273036; }
-    .sub { font-size: 9px; fill: #9ca3af; }
-    .tree { font-size: 8.5px; fill: #6b7280; }
-    .doc { font-size: 9px; fill: #273036; }
-    .rail { font-size: 9.5px; font-weight: 700; letter-spacing: .07em; fill: #8a8f98; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .twig { stroke: #d4d4da; stroke-width: 1; fill: none; }
-    .halo { stroke: #fafbfc; stroke-width: 4; fill: none; }
-
-    .lnMap   { stroke: #8ba3b6; stroke-width: 1; fill: none; }
-    .stMap   { stroke: #bccbd6; stroke-width: 1; fill: none; }
-    .spMap   { stroke: #8ba3b6; stroke-width: 1.4; fill: none; marker-end: url(#aMap); }
-    .lnSlice { stroke: #8fb39d; stroke-width: 1; fill: none; }
-    .stSlice { stroke: #c0d5c8; stroke-width: 1; fill: none; }
-    .spSlice { stroke: #8fb39d; stroke-width: 1.4; fill: none; marker-end: url(#aSlice); }
-    .lnAudit { stroke: #d29ab6; stroke-width: 1; fill: none; }
-    .stAudit { stroke: #ecc9da; stroke-width: 1; fill: none; }
-    .spAudit { stroke: #d29ab6; stroke-width: 1.4; fill: none; marker-end: url(#aAudit); }
-    .lnWhat  { stroke: #9a95c6; stroke-width: 1; fill: none; }
-    .stWhat  { stroke: #c8c5e2; stroke-width: 1; fill: none; }
-    .spWhat  { stroke: #9a95c6; stroke-width: 1.4; fill: none; marker-end: url(#aWhat); }
+    .plate { fill: #f6f8f7; }
+    .dot { fill: #151a18; fill-opacity: 0.17; }
+    .card { fill: #ffffff; stroke: #151a18; stroke-opacity: 0.09; }
+    .well { fill: #f6f8f7; stroke: #151a18; stroke-opacity: 0.09; }
+    .well-focus { stroke: #00806a; stroke-opacity: 1; stroke-width: 1.5; }
+    .title { font-size: 15px; font-weight: 600; fill: #151a18; }
+    .label { font-size: 14.5px; fill: #565c5a; }
+    .label-teal { font-size: 14.5px; font-weight: 600; fill: #00806a; }
+    .strong { font-size: 14.5px; font-weight: 600; fill: #151a18; }
+    .code { font-family: 'Ubuntu Sans Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14.5px; fill: #565c5a; }
+    .code-strong { font-family: 'Ubuntu Sans Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14.5px; font-weight: 600; fill: #151a18; }
+    .num { font-size: 14.5px; font-weight: 600; fill: #ffffff; }
+    .axis { stroke: #151a18; stroke-opacity: 0.09; }
+    .line { stroke: #565c5a; stroke-width: 1.25; }
+    .flow { stroke: #565c5a; stroke-width: 1.5; fill: none; }
+    .flow-head { fill: #565c5a; }
+    .trace { stroke: #00806a; stroke-width: 1.5; fill: none; }
+    .trace-head { fill: #00806a; }
+    .zoom { stroke: #00806a; stroke-width: 1; stroke-opacity: 0.55; fill: none; }
+    .skel { fill: #151a18; fill-opacity: 0.16; }
+    .skel-teal { fill: #00806a; }
+    .cell { stroke: #151a18; stroke-opacity: 0.09; }
+    .cell-focus { stroke: #00806a; stroke-opacity: 1; stroke-width: 1.5; }
+    .hit { fill: #00806a; }
+    .tick { fill: #565c5a; }
+    .miss { fill: #151a18; fill-opacity: 0.16; }
+    .badge { fill: #00806a; stroke: #ffffff; stroke-width: 2; }
+    .faded { opacity: 0.4; }
+    .lane-c { fill: #e8f3ed; } .sq-c { fill: #cfe6d9; }
+    .lane-f { fill: #fdf1e3; } .sq-f { fill: #f6e0bd; }
+    .lane-b { fill: #fbe9f0; } .sq-b { fill: #f2cfdf; }
+    .lane-s { fill: #ecebf5; } .sq-s { fill: #d9d6ec; }
   </style>
   <defs>
-    <marker id="aMap" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8ba3b6"/></marker>
-    <marker id="aSlice" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8fb39d"/></marker>
-    <marker id="aAudit" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#d29ab6"/></marker>
-    <marker id="aWhat" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#9a95c6"/></marker>
+    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle class="dot" cx="10" cy="10" r="0.8"/>
+    </pattern>
+    <radialGradient id="fade" cx="50%" cy="50%" r="70%">
+      <stop offset="0.35" stop-color="#fff"/>
+      <stop offset="1" stop-color="#000"/>
+    </radialGradient>
+    <mask id="fadeMask"><rect width="880" height="670" fill="url(#fade)"/></mask>
+    <marker id="headMuted" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="flow-head" d="M0,0.5 L7,4 L0,7.5 Z"/></marker>
+    <marker id="headTeal" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="trace-head" d="M0,0.5 L7,4 L0,7.5 Z"/></marker>
   </defs>
-
-  <rect x="0" y="-40" width="880" height="548" rx="14" fill="#eef1f5" stroke="#e2e4e9"/>
-  <text x="16" y="-14" font-size="15" font-weight="700" fill="#273036">The skill set and agent fleet</text>
-
-  <text x="16" y="18" class="rail">SKILLS AND THEIR OWN RESOURCES</text>
-  <text x="322" y="18" class="rail">SHARED REFERENCES</text>
-  <text x="618" y="18" class="rail">THE AGENTS THEY SPAWN</text>
-
-  <!-- ==================== column 2: one container per shared doc ==================== -->
-  <g>
-    <rect x="322" y="30" width="246" height="48" rx="8" fill="#ffffff" stroke="#d4d4da"/>
-    <text x="338" y="50" class="doc mono">lane-roles.md</text>
-    <text x="338" y="65" class="sub" font-size="8">which lane is which</text>
-
-    <rect x="322" y="89" width="246" height="48" rx="8" fill="#ffffff" stroke="#d4d4da"/>
-    <text x="338" y="109" class="doc mono">ir-schema.json</text>
-    <text x="338" y="124" class="sub" font-size="8">the file format</text>
-
-    <rect x="322" y="148" width="246" height="48" rx="8" fill="#ffffff" stroke="#d4d4da"/>
-    <text x="338" y="168" class="doc mono">lane-vocabulary.md</text>
-    <text x="338" y="183" class="sub" font-size="8">naming lanes and actors</text>
-
-    <rect x="322" y="207" width="246" height="48" rx="8" fill="#ffffff" stroke="#d4d4da"/>
-    <text x="338" y="227" class="doc mono">adapter-contract.md</text>
-    <text x="338" y="242" class="sub" font-size="8">what an import target accepts</text>
-
-    <rect x="322" y="266" width="246" height="48" rx="8" fill="#ffffff" stroke="#d4d4da"/>
-    <text x="338" y="286" class="doc mono">customization.md</text>
-    <text x="338" y="301" class="sub" font-size="8">themes, roles, template upgrades</text>
-
-    <rect x="322" y="325" width="246" height="48" rx="8" fill="#ffffff" stroke="#d4d4da"/>
-    <text x="338" y="345" class="doc mono">data-model.md</text>
-    <text x="338" y="360" class="sub" font-size="8">the underlying tables</text>
-
-    <rect x="322" y="384" width="246" height="48" rx="8" fill="#ffffff" stroke="#d4d4da"/>
-    <text x="338" y="404" class="doc mono">audit-playbook.md</text>
-    <text x="338" y="419" class="sub" font-size="8">findings mechanics</text>
-
-    <rect x="322" y="443" width="246" height="48" rx="8" fill="#ffffff" stroke="#d4d4da"/>
-    <text x="338" y="463" class="doc mono">canvas-adapter.md</text>
-    <text x="338" y="478" class="sub" font-size="8">the same work on the app canvas</text>
-  </g>
-
-  <!-- ==================== column 1: the four skills ==================== -->
-  <g>
-    <rect x="16" y="30" width="246" height="108" rx="10" fill="#ffffff" stroke="#c9ccd4" stroke-width="1.3"/>
-    <path d="M16,40 a10,10 0 0 1 10,-10 h226 a10,10 0 0 1 10,10 v18 h-246 z" fill="#d9e4ea"/>
-    <line x1="16" y1="58" x2="262" y2="58" stroke="#9aadbe"/>
-    <text x="30" y="49" class="title mono">ub:map</text>
-    <text x="248" y="49" class="sub" text-anchor="end">create, import, evolve</text>
-    <text x="30" y="78" class="tree mono">SKILL.md</text>
-    <path class="twig" d="M36,84 L36,110 M36,94 L50,94 M36,110 L50,110"/>
-    <text x="56" y="97" class="tree mono">references/ 8</text>
-    <text x="56" y="113" class="tree mono" fill="#9ca3af">shared references/ 6</text>
-  </g>
-
-  <g>
-    <rect x="16" y="148" width="246" height="108" rx="10" fill="#ffffff" stroke="#c9ccd4" stroke-width="1.3"/>
-    <path d="M16,158 a10,10 0 0 1 10,-10 h226 a10,10 0 0 1 10,10 v18 h-246 z" fill="#e8f3ed"/>
-    <line x1="16" y1="176" x2="262" y2="176" stroke="#9dbfa9"/>
-    <text x="30" y="167" class="title mono">ub:slice</text>
-    <text x="248" y="167" class="sub" text-anchor="end">take a stakeholder view</text>
-    <text x="30" y="196" class="tree mono">SKILL.md</text>
-    <path class="twig" d="M36,202 L36,244 M36,212 L50,212 M36,228 L50,228 M36,244 L50,244"/>
-    <text x="56" y="215" class="tree mono">references/ 4</text>
-    <text x="56" y="231" class="tree mono">scripts/ 1</text>
-    <text x="56" y="247" class="tree mono" fill="#9ca3af">shared references/ 4</text>
-  </g>
-
-  <g>
-    <rect x="16" y="266" width="246" height="108" rx="10" fill="#ffffff" stroke="#c9ccd4" stroke-width="1.3"/>
-    <path d="M16,276 a10,10 0 0 1 10,-10 h226 a10,10 0 0 1 10,10 v18 h-246 z" fill="#fbe9f0"/>
-    <line x1="16" y1="294" x2="262" y2="294" stroke="#f2cfdf"/>
-    <text x="30" y="285" class="title mono">ub:audit</text>
-    <text x="248" y="285" class="sub" text-anchor="end">run the check roster</text>
-    <text x="30" y="314" class="tree mono">SKILL.md</text>
-    <path class="twig" d="M36,320 L36,362 M36,330 L50,330 M36,346 L50,346 M36,362 L50,362"/>
-    <text x="56" y="333" class="tree mono">references/ 7</text>
-    <text x="56" y="349" class="tree mono">scripts/ 1</text>
-    <text x="56" y="365" class="tree mono" fill="#9ca3af">shared references/ 6</text>
-  </g>
-
-  <g>
-    <rect x="16" y="384" width="246" height="108" rx="10" fill="#ffffff" stroke="#c9ccd4" stroke-width="1.3"/>
-    <path d="M16,394 a10,10 0 0 1 10,-10 h226 a10,10 0 0 1 10,10 v18 h-246 z" fill="#ecebf5"/>
-    <line x1="16" y1="412" x2="262" y2="412" stroke="#b9b6d6"/>
-    <text x="30" y="403" class="title mono">ub:whatif</text>
-    <text x="248" y="403" class="sub" text-anchor="end">trace a change first</text>
-    <text x="30" y="432" class="tree mono">SKILL.md</text>
-    <path class="twig" d="M36,438 L36,464 M36,448 L50,448 M36,464 L50,464"/>
-    <text x="56" y="451" class="tree mono">references/ 2</text>
-    <text x="56" y="467" class="tree mono" fill="#9ca3af">shared references/ 5</text>
-  </g>
-
-  <!-- ==================== column 3: the agents ==================== -->
-  <g>
-    <rect x="618" y="30" width="246" height="48" rx="8" fill="#ffffff" stroke="#d4b483" stroke-width="1.2"/>
-    <text x="741" y="59" class="badge mono" font-size="9" text-anchor="middle">document-reader</text>
-    <rect x="618" y="133" width="246" height="48" rx="8" fill="#ffffff" stroke="#d4b483" stroke-width="1.2"/>
-    <text x="741" y="162" class="badge mono" font-size="9" text-anchor="middle">blueprint-reviewer</text>
-    <rect x="618" y="236" width="246" height="48" rx="8" fill="#ffffff" stroke="#d4b483" stroke-width="1.2"/>
-    <text x="741" y="265" class="badge mono" font-size="9" text-anchor="middle">render-checker</text>
-    <rect x="618" y="340" width="246" height="48" rx="8" fill="#ffffff" stroke="#d4b483" stroke-width="1.2"/>
-    <text x="741" y="369" class="badge mono" font-size="9" text-anchor="middle">auditor</text>
-    <rect x="618" y="443" width="246" height="48" rx="8" fill="#ffffff" stroke="#d4b483" stroke-width="1.2"/>
-    <text x="741" y="472" class="badge mono" font-size="9" text-anchor="middle">impact-tracer</text>
-  </g>
-
-  <!-- ============ skill links shared doc: one rail per skill, one stub per doc ============ -->
-  <g>
-    <!-- ub:map, rows 1-6 -->
-    <path class="stMap" d="M272,39 H322 M272,98 H322 M272,157 H322 M272,216 H322 M272,275 H322 M272,334 H322"/>
-    <path class="lnMap" d="M262,113 H272 M272,39 V334"/>
-    <!-- ub:slice, rows 3-6 -->
-    <path class="stSlice" d="M282,167 H322 M282,226 H322 M282,285 H322 M282,344 H322"/>
-    <path class="lnSlice" d="M262,247 H282 M282,167 V344"/>
-    <!-- ub:audit, rows 3-8 -->
-    <path class="stAudit" d="M292,177 H322 M292,236 H322 M292,295 H322 M292,354 H322 M292,413 H322 M292,472 H322"/>
-    <path class="lnAudit" d="M262,365 H292 M292,177 V472"/>
-    <!-- ub:whatif, rows 4-8 -->
-    <path class="stWhat" d="M302,246 H322 M302,305 H322 M302,364 H322 M302,423 H322 M302,482 H322"/>
-    <path class="lnWhat" d="M262,467 H302 M302,246 V482"/>
-  </g>
-
-  <!-- ============ skill spawns agent ============ -->
-  <g>
-    <path class="halo" d="M262,83.5 H592"/>
-    <path class="halo" d="M262,201.5 H600 V166"/>
-    <path class="halo" d="M262,319.5 H600 V364"/>
-    <path class="halo" d="M262,437.5 H600 V467"/>
-    <path class="halo" d="M576,83.5 V54 M584,83.5 V152 M592,83.5 V260"/>
-  </g>
-  <g>
-    <path class="spMap" d="M262,83.5 H576 V54 H614"/>
-    <path class="spMap" d="M576,83.5 H584 V152 H614"/>
-    <path class="spMap" d="M584,83.5 H592 V260 H614"/>
-    <path class="spSlice" d="M262,201.5 H600 V166 H614"/>
-    <path class="spAudit" d="M262,319.5 H600 V364 H614"/>
-    <path class="spWhat" d="M262,437.5 H600 V467 H614"/>
-  </g>
-
+  <rect class="plate" width="880" height="670" rx="16"/>
+  <rect width="880" height="670" rx="16" fill="url(#grid)" mask="url(#fadeMask)"/>
+  <rect class="card" x="24.5" y="24.5" width="831" height="621" rx="16"/>
+  <rect class="well" x="366.5" y="44.5" width="99" height="31" rx="8"/>
+  <text class="code-strong" x="416" y="65" text-anchor="middle">ub:map</text>
+  <rect class="well" x="486.5" y="44.5" width="99" height="31" rx="8"/>
+  <text class="code-strong" x="536" y="65" text-anchor="middle">ub:slice</text>
+  <rect class="well" x="606.5" y="44.5" width="99" height="31" rx="8"/>
+  <text class="code-strong" x="656" y="65" text-anchor="middle">ub:audit</text>
+  <rect class="well" x="726.5" y="44.5" width="99" height="31" rx="8"/>
+  <text class="code-strong" x="776" y="65" text-anchor="middle">ub:whatif</text>
+  <text class="strong" x="48" y="116">Its own references</text>
+  <circle class="tick" cx="416" cy="111" r="5"/>
+  <circle class="tick" cx="536" cy="111" r="5"/>
+  <circle class="tick" cx="656" cy="111" r="5"/>
+  <circle class="tick" cx="776" cy="111" r="5"/>
+  <line class="axis" x1="48" y1="138.5" x2="832" y2="138.5"/>
+  <text class="strong" x="48" y="170">Shared references it links</text>
+  <text class="code" x="72" y="204">adapter-contract.md</text>
+  <circle class="hit" cx="416" cy="199" r="5"/>
+  <circle class="hit" cx="536" cy="199" r="5"/>
+  <circle class="hit" cx="656" cy="199" r="5"/>
+  <circle class="hit" cx="776" cy="199" r="5"/>
+  <text class="code" x="72" y="232">audit-playbook.md</text>
+  <circle class="miss" cx="416" cy="227" r="2.5"/>
+  <circle class="miss" cx="536" cy="227" r="2.5"/>
+  <circle class="hit" cx="656" cy="227" r="5"/>
+  <circle class="hit" cx="776" cy="227" r="5"/>
+  <text class="code" x="72" y="260">canvas-adapter.md</text>
+  <circle class="miss" cx="416" cy="255" r="2.5"/>
+  <circle class="miss" cx="536" cy="255" r="2.5"/>
+  <circle class="hit" cx="656" cy="255" r="5"/>
+  <circle class="hit" cx="776" cy="255" r="5"/>
+  <text class="code" x="72" y="288">customization.md</text>
+  <circle class="hit" cx="416" cy="283" r="5"/>
+  <circle class="hit" cx="536" cy="283" r="5"/>
+  <circle class="hit" cx="656" cy="283" r="5"/>
+  <circle class="hit" cx="776" cy="283" r="5"/>
+  <text class="code" x="72" y="316">data-model.md</text>
+  <circle class="hit" cx="416" cy="311" r="5"/>
+  <circle class="hit" cx="536" cy="311" r="5"/>
+  <circle class="hit" cx="656" cy="311" r="5"/>
+  <circle class="hit" cx="776" cy="311" r="5"/>
+  <text class="code" x="72" y="344">ir-schema.json</text>
+  <circle class="hit" cx="416" cy="339" r="5"/>
+  <circle class="miss" cx="536" cy="339" r="2.5"/>
+  <circle class="miss" cx="656" cy="339" r="2.5"/>
+  <circle class="miss" cx="776" cy="339" r="2.5"/>
+  <text class="code" x="72" y="372">lane-roles.md</text>
+  <circle class="hit" cx="416" cy="367" r="5"/>
+  <circle class="miss" cx="536" cy="367" r="2.5"/>
+  <circle class="miss" cx="656" cy="367" r="2.5"/>
+  <circle class="miss" cx="776" cy="367" r="2.5"/>
+  <text class="code" x="72" y="400">lane-vocabulary.md</text>
+  <circle class="hit" cx="416" cy="395" r="5"/>
+  <circle class="hit" cx="536" cy="395" r="5"/>
+  <circle class="hit" cx="656" cy="395" r="5"/>
+  <circle class="miss" cx="776" cy="395" r="2.5"/>
+  <line class="axis" x1="48" y1="422.5" x2="832" y2="422.5"/>
+  <text class="strong" x="48" y="454">Agents it hands reading to</text>
+  <text class="label" x="48" y="476">Fresh context, a summary back</text>
+  <text class="code" x="72" y="510">document-reader</text>
+  <circle class="hit" cx="416" cy="505" r="5"/>
+  <circle class="hit" cx="536" cy="505" r="5"/>
+  <circle class="miss" cx="656" cy="505" r="2.5"/>
+  <circle class="miss" cx="776" cy="505" r="2.5"/>
+  <text class="code" x="72" y="538">blueprint-reviewer</text>
+  <circle class="hit" cx="416" cy="533" r="5"/>
+  <circle class="hit" cx="536" cy="533" r="5"/>
+  <circle class="miss" cx="656" cy="533" r="2.5"/>
+  <circle class="hit" cx="776" cy="533" r="5"/>
+  <text class="code" x="72" y="566">render-checker</text>
+  <circle class="hit" cx="416" cy="561" r="5"/>
+  <circle class="hit" cx="536" cy="561" r="5"/>
+  <circle class="miss" cx="656" cy="561" r="2.5"/>
+  <circle class="miss" cx="776" cy="561" r="2.5"/>
+  <text class="code" x="72" y="594">auditor</text>
+  <circle class="miss" cx="416" cy="589" r="2.5"/>
+  <circle class="miss" cx="536" cy="589" r="2.5"/>
+  <circle class="hit" cx="656" cy="589" r="5"/>
+  <circle class="miss" cx="776" cy="589" r="2.5"/>
+  <text class="code" x="72" y="622">impact-tracer</text>
+  <circle class="miss" cx="416" cy="617" r="2.5"/>
+  <circle class="miss" cx="536" cy="617" r="2.5"/>
+  <circle class="hit" cx="656" cy="617" r="5"/>
+  <circle class="hit" cx="776" cy="617" r="5"/>
 </svg>

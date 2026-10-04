@@ -103,6 +103,7 @@ function ZoomPanViewportInner({
   const {
     containerRef,
     contentRef,
+    groundRef,
     zoom,
     isPanning,
     isSpaceHeld,
@@ -276,6 +277,8 @@ function ZoomPanViewportInner({
         data-canvas-space-pan={isSpaceHeld ? '' : undefined}
         {...pointerHandlers}
       >
+        {/* The dot grid under the board; the camera writes its geometry. */}
+        <div ref={groundRef} aria-hidden data-zoom-pan-ground />
         <div
           ref={contentRef}
           /*

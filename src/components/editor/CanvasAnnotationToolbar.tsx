@@ -136,7 +136,7 @@ function StrokeWeightButton({
               onSelect()
             }}
             className={cn(
-              'pointer-events-auto flex size-7 items-center justify-center rounded-md transition-colors',
+              'pointer-events-auto flex size-7 items-center justify-center rounded-md transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
               selected
                 ? 'bg-primary/15 text-foreground'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -179,7 +179,7 @@ function DrawSubpanel() {
       data-annotation-toolbar=""
       role="toolbar"
       aria-label="Pen and eraser options"
-      className="pointer-events-none flex items-center gap-1 rounded-xl border border-muted bg-card px-2 py-1 shadow-md"
+      className="pointer-events-none flex items-center gap-1 rounded-lg border border-muted bg-card px-2 py-1 shadow-md"
     >
       {DRAW_SUBPANEL_TOOLS.map((item) => (
         <ToolButton
@@ -233,7 +233,7 @@ function DrawSubpanel() {
               disabled={penOptionsDisabled}
               onClick={() => setPenColor(swatch)}
               className={cn(
-                'tap-target-24 size-4 shrink-0 rounded-full border border-annotation-plate transition-transform hover:scale-110',
+                'tap-target-24 size-4 shrink-0 rounded-full border border-annotation-plate transition-transform duration-(--motion-micro) ease-spring motion-reduce:transition-none hover:scale-110',
                 penColor.toUpperCase() === swatch.toUpperCase() &&
                   !penOptionsDisabled &&
                   'ring-2 ring-primary ring-offset-1',
@@ -295,7 +295,7 @@ export function CanvasAnnotationToolbar() {
 
       <div
         data-annotation-toolbar=""
-        className="flex items-center gap-1 rounded-xl border border-muted bg-card/95 px-2 py-1 shadow-md backdrop-blur-sm"
+        className="flex items-center gap-1 rounded-lg border border-muted bg-card/95 px-2 py-1 shadow-md backdrop-blur-sm"
       >
         {/* Select holds the first slot in both modes — the one tool that means
             "do nothing special" should never move under the cursor. */}

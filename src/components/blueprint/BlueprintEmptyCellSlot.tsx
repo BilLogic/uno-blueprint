@@ -95,7 +95,7 @@ export function BlueprintEmptyCellSlot({
         className={cn(
           'group/slot shrink-0 rounded-md border border-dashed border-transparent',
           stretch,
-          'grid place-items-center transition-colors',
+          'grid place-items-center transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
           'hover:border-primary/50 hover:bg-primary/5',
           'focus-visible:border-primary/50 focus-visible:outline-none',
         )}
@@ -103,7 +103,7 @@ export function BlueprintEmptyCellSlot({
       >
         <span
           aria-hidden
-          className="grid size-4 place-items-center rounded-full bg-primary/80 text-primary-foreground opacity-0 transition-opacity group-hover/slot:opacity-100 group-focus-visible/slot:opacity-100"
+          className="grid size-4 place-items-center rounded-full bg-primary/80 text-primary-foreground opacity-0 transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none group-hover/slot:opacity-100 group-focus-visible/slot:opacity-100"
         >
           <Plus className="size-2.5" />
         </span>

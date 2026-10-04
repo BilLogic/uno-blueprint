@@ -19,7 +19,10 @@ import {
   PhaseOverviewPhaseLoopArrow,
   PHASE_OVERVIEW_LOOP_CHANNEL_OFFSET,
 } from '@/components/editor/PhaseOverviewPhaseLoopArrow'
-import { CanvasEmptyState } from '@/components/editor/CanvasEmptyState'
+import {
+  CanvasEmptyState,
+  NoPathsEmptyState,
+} from '@/components/editor/CanvasEmptyState'
 import { CanvasLoadProgress } from '@/components/editor/CanvasLoadProgress'
 import { ServiceOverviewCanvasSkeleton } from '@/components/editor/EditorLoadingSkeletons'
 import { DeferredSkeleton } from '@/components/ui/deferred-skeleton'
@@ -163,6 +166,8 @@ type ServicePhaseSectionProps = {
   dimmed?: boolean
   focusedScenarioId?: string | null
   focusActive?: boolean
+  /** The phase itself is the selection, not a scenario inside it. */
+  selected?: boolean
   /** Slice-tab scope: mount only this scenario's artboard within the phase. */
   onlyScenarioId?: string | null
   /** OPTIONAL: mobile passes nothing — the drawer owns navigation there. */
@@ -189,6 +194,7 @@ function ServicePhaseSection({
   dimmed = false,
   focusedScenarioId = null,
   focusActive = false,
+  selected = false,
   onlyScenarioId = null,
 }: ServicePhaseSectionProps) {
   const label = getSlideDisplayLabel(phase, slides)
@@ -208,6 +214,7 @@ function ServicePhaseSection({
       isLoopArrowTo={isLoopArrowTo}
       dimmed={dimmed}
       focusActive={focusActive}
+      selected={selected}
       onNavigate={onOpenPhase ? () => onOpenPhase(phase.id) : undefined}
     >
       <PhaseScenarioOverview
@@ -1114,11 +1121,13 @@ function ServiceOverviewViewImpl({
                   }
                   // Paths are a filter over a board; there is no board.
                   showRestoreAction={false}
+                  // A read that failed is not an empty board.
+                  showIllustration={!slidesError}
                 />
               </div>
             ) : noPathsSelected ? (
               <div className="absolute inset-0 flex">
-                <CanvasEmptyState />
+                <NoPathsEmptyState focused={Boolean(focusedScenarioId)} />
               </div>
             ) : (
               <ZoomPanViewport
@@ -1258,6 +1267,14 @@ function ServiceOverviewViewImpl({
                     {phases.map((phase, index) => {
                       const phaseIsFocused = focusedPhaseId === phase.id
                       const dimPhase = isDetail && !phaseIsFocused
+                      // The phase is the selection only while it is the
+                      // active slide itself; inside it, a focused scenario
+                      // is what is selected. Derived from the editor's
+                      // selection, so Escape, Home, the breadcrumb and
+                      // another phase clear or move it the way they do
+                      // every other.
+                      const phaseIsSelected =
+                        isDetail && activeSlide?.id === phase.id
 
                       return (
                         <Fragment key={phase.id}>
@@ -1285,6 +1302,7 @@ function ServiceOverviewViewImpl({
                             }
                             dimmed={dimPhase}
                             focusActive={phaseIsFocused}
+                            selected={phaseIsSelected}
                             focusedScenarioId={
                               phaseIsFocused ? focusedScenarioId : null
                             }
@@ -1341,7 +1359,7 @@ function ServiceOverviewViewImpl({
                 }
                 className={cn(
                   'pointer-events-none absolute inset-0 z-20 flex items-center justify-center',
-                  'transition-opacity duration-(--motion-fade) ease-out',
+                  'transition-opacity motion-reduce:transition-none duration-(--motion-fade) ease-arrive',
                   barDissolving && 'opacity-0',
                 )}
                 // The bar finishing its dissolve is what opens stage 1 —

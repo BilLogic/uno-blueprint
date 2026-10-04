@@ -172,7 +172,7 @@ function markSurface(
 
   const hasFill = Boolean(annotation.fillColor)
   return {
-    base: 'absolute box-border flex flex-col items-center justify-center p-2 transition-[box-shadow,outline-color] duration-(--motion-micro)',
+    base: 'absolute box-border flex flex-col items-center justify-center p-2 transition-[box-shadow,outline-color] ease-arrive motion-reduce:transition-none duration-(--motion-micro)',
     chrome:
       showChrome && 'outline outline-2 outline-offset-0 outline-annotation-selected',
     extra: cn(hasFill && 'shadow-sm', !selected && 'overflow-hidden'),

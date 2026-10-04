@@ -1,0 +1,97 @@
+# A release tag publishes the initialiser.
+#
+# `create-uno-blueprint` is the one package in this tree that goes to a
+# registry, and it downloads the release whose tag is its own version. So the
+# tag is what publishes it: the tag exists before the package does, and a
+# version on the registry always has a release behind it.
+#
+# NO TOKEN. The registry trusts this repository and this workflow file by
+# name (npm calls it trusted publishing): the job mints a short-lived OIDC
+# token, npm exchanges it for the right to publish this one package, and
+# nothing long-lived is stored here to leak or to rotate. The trust is set up
+# once, by the package's owner, on npmjs.com — docs/engineering/releasing.md
+# says how. It names this file, so renaming the file is a change to make there
+# as well.
+#
+# `push` on a tag, and nothing else. A run started by hand could be started
+# from a branch, where there is no tag for the published package to download.
+# To publish a tag again, re-run its run: a version the registry already has
+# is left alone and the run is green.
+#
+# ONLY A TAG ON `main` PUBLISHES. Pushing a tag is all it takes to start this,
+# and a tag can be put on any commit, so the decision refuses one whose commit
+# `main` does not contain. A tag ruleset on `v*` is the second lock, and the
+# releasing guide asks the owner to set it.
+name: Publish the initialiser
+
+on:
+  push:
+    tags: ['v*']
+
+# Least privilege at the top level. The one job raises what it needs, so the
+# diff shows the escalation.
+permissions:
+  contents: read
+
+# One publish per tag at a time, and never cancelled part-way: a publish that
+# is interrupted is a state nobody can read.
+concurrency:
+  group: publish-initialiser-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # What lets the job ask GitHub for the OIDC token npm exchanges. It
+      # grants nothing in this repository.
+      id-token: write
+    steps:
+      # The whole history, because the decision below asks whether the tagged
+      # commit is on `main` and a shallow checkout holds one commit and no
+      # `origin/main` to ask about.
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      # Node 24 for the npm it carries, not for the package: the initialiser's
+      # own floor is 22 and nothing here runs it. Trusted publishing needs npm
+      # 11.5.1 or later, Node 22 carries npm 10, and every Node 24 since 24.5
+      # carries one new enough. Nothing is installed over it: the decision
+      # below reads `npm --version` and refuses in one line if it is too old.
+      # No `cache`: a job that publishes restores nothing another run wrote.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: 'https://registry.npmjs.org'
+
+      # NOTHING IS INSTALLED. No `npm ci`, and no newer npm fetched over the
+      # one Node carries: the initialiser has no dependencies and no build
+      # step, and the decision reads files, asks git one question and reads
+      # one registry address with nothing but Node. Past the two actions above
+      # and the Node they set up, the job holding the right to publish runs
+      # only what is in this repository at the tag.
+      #
+      # THE DECISION, BEFORE THE ONE COMMAND THAT CANNOT BE TAKEN BACK. Red
+      # when the tag and the initialiser's version disagree, when the places
+      # that state the version do, when the tagged commit is not on `main`,
+      # when npm is too old or cannot be asked, or when the registry cannot be
+      # asked. `publish=false` and green when the registry already has this
+      # version, when this tree is a workspace, or when this repository is not
+      # the one the manifest names (a fork, or a repository made from the
+      # template). `publish=true`
+      # otherwise. The script's header is the account.
+      - name: Decide whether this tag publishes
+        id: decide
+        run: node scripts/decide-initialiser-publish.mjs
+
+      # From the initialiser's own folder: the root manifest is `private` and
+      # is not what is being published. `--provenance` is said out loud so the
+      # publish fails rather than going out without the attestation, and
+      # `--access public` says here what the manifest's `publishConfig` says.
+      - name: Publish with provenance
+        if: steps.decide.outputs.publish == 'true'
+        working-directory: packages/create-uno-blueprint
+        run: npm publish --provenance --access public

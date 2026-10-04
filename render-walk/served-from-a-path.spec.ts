@@ -20,7 +20,10 @@ import { BASE_PATH } from './playwright.config'
  *      after landing a board is what is asserted.
  *   2. **That address survives a reload.** A fresh load of it is a deep link:
  *      the host's fallback has to answer it with the app, and the app has to
- *      read the board back out of it.
+ *      read the board back out of it. Here the preview's own fallback answers;
+ *      the rules a host uses, which the build writes into `dist/_redirects`,
+ *      are resolved for deep links by
+ *      `scripts/tests/a-path-build-writes-its-hosting-rules.test.mjs`.
  *   3. **Nothing the page asks this host for falls outside the prefix, and
  *      nothing it asks for fails.** Chunks, styles, fonts, the icon, the
  *      public images — every same-origin request, over the whole case.

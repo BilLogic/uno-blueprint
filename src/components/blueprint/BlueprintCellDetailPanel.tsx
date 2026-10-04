@@ -453,7 +453,7 @@ function BlueprintCellDetailPanelBody() {
           <div className="shrink-0 px-4 pt-2">
             <button
               type="button"
-              className="inline-flex items-center gap-1 rounded-md text-xs text-muted-foreground transition-colors duration-(--motion-micro) hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              className="inline-flex items-center gap-1 rounded-md text-xs text-muted-foreground transition-colors ease-arrive motion-reduce:transition-none duration-(--motion-micro) hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               onClick={() => {
                 setReturnToDifferences(false)
                 setPanelSurface('differences')

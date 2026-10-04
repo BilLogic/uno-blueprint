@@ -434,7 +434,7 @@ export const ScenarioBlueprintPanelBody = memo(function ScenarioBlueprintPanelBo
     return (
       <div
         className={cn(
-          'flex flex-col gap-2 transition-opacity duration-(--motion-fade) ease-out',
+          'flex flex-col gap-2 transition-opacity motion-reduce:transition-none duration-(--motion-fade) ease-arrive',
           dimmed && FOCUS_DIM_CLASS,
         )}
         data-focus-slide-id={slide.id}
@@ -459,7 +459,7 @@ export const ScenarioBlueprintPanelBody = memo(function ScenarioBlueprintPanelBo
     return (
       <div
         className={cn(
-          'flex min-h-[280px] min-w-[320px] items-center justify-center rounded-lg border border-dashed p-8 text-center transition-opacity duration-(--motion-fade) ease-out',
+          'flex min-h-[280px] min-w-[320px] items-center justify-center rounded-lg border border-dashed p-8 text-center transition-opacity motion-reduce:transition-none duration-(--motion-fade) ease-arrive',
           dimmed && FOCUS_DIM_CLASS,
         )}
         data-focus-slide-id={slide.id}

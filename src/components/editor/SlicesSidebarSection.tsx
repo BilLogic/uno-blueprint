@@ -34,16 +34,11 @@ import { useSupabase } from '@/contexts/SupabaseProvider'
 import { useViewState } from '@/contexts/viewStateStore'
 import { useSlices, type SliceListEntry } from '@/hooks/useSlices'
 import { useActiveServiceId } from '@/contexts/activeService'
-
-/** Sidebar group order — unknown types fall into CUSTOM. */
-const SLICE_TYPE_GROUPS = ['journey', 'step', 'lane', 'cell', 'custom'] as const
-
-type SliceTypeGroup = (typeof SLICE_TYPE_GROUPS)[number]
-
-function sliceKindGroup(sliceKind: string): SliceTypeGroup {
-  const type = sliceKind.toLowerCase()
-  return SLICE_TYPE_GROUPS.find((group) => group === type) ?? 'custom'
-}
+import {
+  SLICE_GROUP_TITLE,
+  SLICE_TYPE_GROUPS,
+  sliceKindGroup,
+} from '@/lib/sliceGroups'
 
 function SliceRow({
   slice,
@@ -173,7 +168,7 @@ export function SlicesSidebarSection() {
       {groups.map((group) => (
         <NavSection
           key={group.type}
-          title={group.type}
+          title={SLICE_GROUP_TITLE[group.type]}
           open={!collapsedGroups.has(group.type)}
           onOpenChange={(open) =>
             setCollapsedGroups((collapsed) => {

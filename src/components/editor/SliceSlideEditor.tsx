@@ -70,7 +70,7 @@ function SlideSheetDivider() {
         setResizing(true)
       }}
       className={cn(
-        'h-1 shrink-0 cursor-row-resize touch-none transition-colors',
+        'h-1 shrink-0 cursor-row-resize touch-none transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
         resizing ? 'bg-border' : 'hover:bg-border/80',
       )}
     />
@@ -252,7 +252,7 @@ export function SliceSlideEditor({
       >
         <ChevronDown
           className={cn(
-            'size-3.5 transition-transform',
+            'size-3.5 transition-transform duration-(--motion-micro) ease-move motion-reduce:transition-none',
             collapsed && '-rotate-90',
           )}
           aria-hidden
@@ -305,7 +305,7 @@ export function SliceSlideEditor({
               // min-h-0 + overflow-y-auto: a card taller than the sheet
               // scrolls inside itself. Clipping it hid the images and the
               // caption with no way to reach them.
-              'group/slide flex min-h-0 w-56 shrink-0 flex-col gap-2 overflow-y-auto overscroll-y-contain rounded-lg border bg-card p-2 transition-colors',
+              'group/slide flex min-h-0 w-56 shrink-0 flex-col gap-2 overflow-y-auto overscroll-y-contain rounded-lg border bg-card p-2 transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
               isActive ? 'border-primary' : 'border-border',
               dropTarget === index && 'ring-2 ring-primary/40',
             )}
@@ -429,7 +429,7 @@ export function SliceSlideEditor({
                       aria-label="Remove cell from slice"
                       // Revealed on badge hover — a permanent ✕ per row is the
                       // loudest thing on a card that is mostly read.
-                      className="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/cell:opacity-100 focus-visible:opacity-100 hover:text-foreground"
+                      className="shrink-0 text-muted-foreground opacity-0 transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none group-hover/cell:opacity-100 focus-visible:opacity-100 hover:text-foreground"
                       onClick={(event) => {
                         event.stopPropagation()
                         removeCell(index, cell)
@@ -495,7 +495,7 @@ export function SliceSlideEditor({
       {/* An empty trailing slide is where the next clicked cell lands. */}
       <button
         type="button"
-        className="flex w-28 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+        className="flex w-28 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border text-xs text-muted-foreground transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:border-primary hover:text-foreground"
         onClick={() => {
           onChange([...slides, { cells: [], title: '', caption: '' }])
           onActivate(slides.length)

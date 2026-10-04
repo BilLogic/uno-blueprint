@@ -200,7 +200,7 @@ export function CellResourcesTab({
               href={safeExternalHref(row.url) ?? undefined}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex w-full min-w-0 items-center gap-2 px-2 py-2 text-xs font-normal text-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+              className="flex w-full min-w-0 items-center gap-2 px-2 py-2 text-xs font-normal text-foreground transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:bg-accent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
             >
               {row.kind === 'attachment' ? (
                 <FileText

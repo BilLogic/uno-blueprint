@@ -109,7 +109,7 @@
  * swaps these imports and the matching --font-sans/--font-mono defaults in
  * theme.css together. */
 @import '@fontsource-variable/ubuntu-sans';
-@import '@fontsource-variable/source-code-pro';
+@import '@fontsource-variable/ubuntu-sans-mono';
 
 /*
  * Define the semantic system first, then override its core inputs per theme.

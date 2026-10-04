@@ -16,7 +16,7 @@ export function NotionPropertyRow({
   return (
     <div
       className={cn(
-        'group -mx-1 flex min-h-[34px] items-start gap-3 rounded-md px-1 py-2 transition-colors hover:bg-accent/50',
+        'group -mx-1 flex min-h-[34px] items-start gap-3 rounded-md px-1 py-2 transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:bg-accent/50',
         className,
       )}
       onPointerDown={(e) => e.stopPropagation()}

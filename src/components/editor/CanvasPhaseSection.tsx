@@ -227,16 +227,19 @@ export function CanvasPhaseSection({
       <ScenarioTitleBadge
         name={ordinalLabel(ordinal, title)}
         summary={summary}
-        // The phase register — mono, uppercase, letterspaced. An identity,
-        // not an affordance: a phase frame that does not navigate (the
-        // mobile canvas) is still a phase, and its badge still says so.
+        // The phase register. An identity, not an affordance: a phase frame
+        // that does not navigate (the mobile canvas) is still a phase, and
+        // its badge still says so.
         tone="phase"
-        // The time-marker register: mono, uppercase, letterspaced — the same
-        // idiom the mobile reader's step eyebrows use, so both surfaces name
-        // time the same way. The aria-label above keeps the plain title.
+        // The time-marker label, `01 · Discover`: sans, sentence case, no
+        // tracking — the rule every small label follows — built by the same
+        // ordinal helper the mobile reader's step eyebrows use, so both
+        // surfaces name time the same way. The aria-label above keeps the
+        // plain title. Legibility at overview zoom is the counter-scale on
+        // `[data-phase-title-badge]`, not capitals.
         // z-30: zoomed far out the badge counter-scales larger than its
         // inset and must not sink under a neighboring phase's panels.
-        className="pointer-events-auto absolute z-30 max-w-[min(100%,28rem)] border-transparent font-mono uppercase tracking-wider"
+        className="pointer-events-auto absolute z-30 max-w-[min(100%,28rem)] border-transparent"
         style={{
           top: -sectionTopInset,
           // On the frame's own left edge, which sits at `-sectionInset`: a

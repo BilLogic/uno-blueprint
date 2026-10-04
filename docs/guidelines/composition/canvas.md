@@ -110,6 +110,22 @@ query per scenario and an unopened palette should cost nothing; Escape empties
 the field before it closes the dialog; and ⌘K is ignored while a text field has
 focus, so the chord never eats a character.
 
+## Labels on the board
+
+Every small label on the board follows the sentence-case rule in
+[overview](overview.md#small-labels-are-sentence-case). Two are worth naming:
+
+- **The phase badge** reads `01 · Discover` — the zero-padded ordinal from
+  `ordinalLabel`, then the phase's name as written. It is sans at letter-spacing
+  0, not mono capitals. It stays legible at overview zoom because
+  `[data-phase-title-badge]` is counter-scaled by the camera (the semantic
+  label boost), not because it is set in capitals.
+- **The divider captions** — `Line of interaction`, `Line of visibility`,
+  `Line of internal interaction` — are sentence case in their source strings.
+
+The **Jump to…** dialog's group headings (Scenarios, Cells, Actions) restate the
+rule over the vendored command group, which ships them in mono capitals.
+
 ## The click grammar
 
 One grammar for cells, everywhere (the authoritative comment lives in

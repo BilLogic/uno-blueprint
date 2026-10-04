@@ -119,17 +119,13 @@ export const REGISTER_2: readonly NamedSurface[] = [
 /**
  * Register 3 — eyebrow and wordmark.
  *
- * Uppercase section labels and marks, where mono is a deliberate display
+ * Display headings and marks, where mono is a deliberate display
  * choice rather than an identifier or a numeral column.
  */
 export const REGISTER_3: readonly NamedSurface[] = [
   {
     file: 'components/cover/CoverSections.tsx',
     because: 'cover section heading and skill navigation',
-  },
-  {
-    file: 'components/editor/CanvasPhaseSection.tsx',
-    because: 'canvas phase badge — uppercase, letterspaced',
   },
 ]
 

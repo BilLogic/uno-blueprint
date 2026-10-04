@@ -47,8 +47,17 @@ const RAIL_SURFACES: Array<{
 ]
 
 /** Same group taxonomy and order as the desktop slices sidebar
- * (SlicesSidebarSection) — unknown types fall into CUSTOM. */
+ * (SlicesSidebarSection) — unknown types fall into Custom. */
 const SLICE_TYPE_GROUPS = ['journey', 'step', 'lane', 'cell', 'custom'] as const
+
+/** The group's heading, in sentence case — the string carries its case. */
+const SLICE_GROUP_TITLE: Record<(typeof SLICE_TYPE_GROUPS)[number], string> = {
+  journey: 'Journey',
+  step: 'Step',
+  lane: 'Lane',
+  cell: 'Cell',
+  custom: 'Custom',
+}
 
 function sliceKindGroup(
   sliceKind: string,
@@ -93,7 +102,7 @@ function SliceGroups({
       {groups.map((group) => (
         <NavSection
           key={group.type}
-          title={group.type}
+          title={SLICE_GROUP_TITLE[group.type]}
           open={!collapsedGroups.has(group.type)}
           onOpenChange={(open) =>
             setCollapsedGroups((collapsed) => {

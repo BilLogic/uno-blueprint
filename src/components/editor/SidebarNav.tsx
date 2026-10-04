@@ -252,7 +252,7 @@ export function NavRow({
 }
 
 type NavSectionProps = {
-  /** Section name; rendered uppercase. */
+  /** Section name, in sentence case; rendered as written. */
   title: string
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -262,7 +262,7 @@ type NavSectionProps = {
 }
 
 /**
- * A sidebar section (PHASES, PATHS, a slice kind group). The whole header row
+ * A sidebar section (Phases, Paths, a slice kind group). The whole header row
  * is the trigger — there is no second action competing with it — but it wears
  * the same left-hand, hover-revealed chevron as the rows inside it, and its
  * label starts at the same x as theirs.

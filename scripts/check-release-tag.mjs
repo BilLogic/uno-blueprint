@@ -40,6 +40,12 @@ const REPO_ROOT = process.cwd()
 /** `v0.4.0` for `0.4.0`. One shape, so nothing has to guess. */
 export const tagFor = (version) => `v${version}`
 
+/** The version a release tag names, or null when its name is not one. */
+export const versionNamedBy = (tag) => /^v(\d+\.\d+\.\d+)$/.exec(tag)?.[1] ?? null
+
+/** What is wrong with a tag `versionNamedBy` reads no version out of. */
+export const misnamedTag = (tag) => `tag ${tag} is not v<major>.<minor>.<patch>`
+
 /** Every version the CHANGELOG records under a release heading. */
 export function releasedVersions(source) {
   return [...source.matchAll(/^##\s+(\d+\.\d+\.\d+)\b/gm)].map(([, version]) => version)
@@ -62,12 +68,12 @@ export function tagFaults({ tags, released, version, taggedTree, require = false
   const faults = []
 
   for (const tag of tags) {
-    const named = /^v(\d+\.\d+\.\d+)$/.exec(tag)
-    if (!named) {
-      faults.push(`tag ${tag} is not v<major>.<minor>.<patch>`)
+    const named = versionNamedBy(tag)
+    if (named === null) {
+      faults.push(misnamedTag(tag))
       continue
     }
-    if (!released.includes(named[1])) {
+    if (!released.includes(named)) {
       faults.push(`tag ${tag} names a version the CHANGELOG never released`)
     }
   }

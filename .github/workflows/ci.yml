@@ -329,6 +329,15 @@ jobs:
           BASE_PATH: /demo/
           VITE_SUPABASE_URL: ''
           VITE_SUPABASE_ANON_KEY: ''
+      # The rules that build wrote for the path. `BASE_PATH` alone is the
+      # whole setting, so the build writes the prefixed redirects and the
+      # hashed cache into dist/_redirects and dist/_headers; this reads them
+      # back through the hosting check, strictly at /demo/. The preview below
+      # reads neither file, so this is the step that sees them.
+      - name: The build for /demo/ wrote the prefixed hosting rules
+        run: npm run check:hosting -- --built
+        env:
+          BASE_PATH: /demo/
       - name: Walk the build served from /demo/
         run: npm run check:render-walk
         env:
@@ -575,3 +584,91 @@ jobs:
             exit 1
           fi
           echo "ok: Postgres refused a broken core, and ON_ERROR_STOP reported it"
+
+  # The workspace, installed and built under each package manager that can
+  # start one.
+  #
+  # `npm create`, `pnpm create`, `yarn create` and `bun create` all run the
+  # same initialiser, and it installs with whichever of them called. So the
+  # template has four ways to be installed and three of them are not the one
+  # this repository uses: every other job here runs `npm ci` against the lock
+  # file. What a strict store does to an import nobody declared, or what a
+  # manager that reads no `package-lock.json` resolves instead, is invisible
+  # to all of them.
+  #
+  # This job writes the workspace this commit would be — the initialiser, fed a
+  # `git archive` of the checkout where a release's tarball would have been
+  # (`from-working-tree.mjs`, beside the initialiser's own source) — lets the
+  # initialiser install it with the manager under test, and builds it there. It
+  # runs no `npm ci` of its own: the initialiser has no dependencies, which is
+  # the other thing this would notice.
+  #
+  # WHAT IT PROVES IS INSTALL AND BUILD, under the version of each manager
+  # pinned below, with `CI` set as the runner sets it — the unattended path,
+  # in a workspace that has npm's lock file and none of the manager's own.
+  # Three things it does not: that a manager is DETECTED, which is the unit
+  # tests' claim, made against the user-agent strings the managers really
+  # send (the one set below only selects the leg); that `<manager> create`
+  # reaches the initialiser, which needs it published; and that `dev` serves.
+  #
+  # Not the suite either. A workspace is not a git checkout, and part of the
+  # suite reads tags and the commit's file list out of git.
+  #
+  # Yarn is Yarn 1. The initialiser refuses to install under Yarn 2 or later,
+  # which skips the `pre` scripts `dev` and `build` rely on.
+  workspace:
+    name: workspace installs and builds (${{ matrix.pm }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      # One manager going red says nothing about the other three.
+      fail-fast: false
+      matrix:
+        # Exact versions, so a red leg is this commit's doing and not a
+        # release of the manager that landed overnight. npm is the one that
+        # ships with the Node this job sets up.
+        include:
+          - pm: npm
+            agent: npm/10
+          - pm: pnpm
+            setup: npm install --global pnpm@12.8.1
+            agent: pnpm/12.8.1
+          - pm: yarn
+            setup: npm install --global yarn@1.22.22
+            agent: yarn/1.22.22
+          - pm: bun
+            setup: npm install --global bun@1.4.2
+            agent: bun/1.4.2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install ${{ matrix.pm }}
+        if: matrix.setup
+        run: ${{ matrix.setup }}
+
+      # The manager is named where it names itself when it runs the
+      # initialiser: first in `npm_config_user_agent`. Set here rather than
+      # by running the script through each manager, because the checkout is an
+      # npm tree and three of them would have something to say about that.
+      - name: Write a workspace from this commit and install it
+        run: node packages/create-uno-blueprint/scripts/from-working-tree.mjs "$RUNNER_TEMP/workspace"
+        env:
+          npm_config_user_agent: ${{ matrix.agent }} npm/? node/v22 linux x64
+
+      - name: Build it
+        working-directory: ${{ runner.temp }}/workspace
+        run: ${{ matrix.pm }} run build
+
+      # A build with no figures still exits 0: they are copied in by the
+      # script's `prebuild` hook, and a manager that skipped the hook would
+      # ship a sample board whose storyboard frames are missing.
+      - name: The build carries the page and the figures
+        working-directory: ${{ runner.temp }}/workspace
+        run: |
+          set -euo pipefail
+          test -s dist/index.html
+          test -s dist/cover/blueprint-anatomy.svg

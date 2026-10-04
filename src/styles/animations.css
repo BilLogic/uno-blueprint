@@ -1,14 +1,40 @@
 /*
  * Motion tokens — the CSS half of the vocabulary in src/lib/motion.ts.
- * Same five numbers, one per motion class; the motion drift test pins the
- * TypeScript and CSS files together so they cannot drift apart silently.
+ * Four role curves and a short duration ladder — when to use each role:
+ * the canvas guideline, under Motion. The motion drift test
+ * compares the values here with the TypeScript ones.
  * The `--ease-*` Tailwind theme keys become `ease-*` utilities; durations
  * are plain vars because Tailwind v4 has no duration
  * namespace — consume them as `duration-(--motion-structural)`.
+ *
+ * `--ease-structural` is the older name for arrive, kept as an alias so
+ * stylesheets and deployments that read it keep working.
+ *
+ * `--ease-camera` is move, named for the CSS that rides the camera's flight
+ * (focus dimming, the compare panel's fade). The JS flight rides the same
+ * move curve from `motion.ts`, so the CSS that rides it never runs on a
+ * different curve from it.
+ * Product classes use the role names (plus `ease-camera` for camera-riding
+ * surfaces); the motion vocabulary guard holds that.
  */
 @theme {
-  --ease-structural: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-camera: cubic-bezier(0.37, 0, 0.63, 1);
+  --ease-arrive: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-leave: cubic-bezier(0.6, 0, 0.85, 0.25);
+  --ease-move: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.45, 0.5, 1);
+  --ease-structural: var(--ease-arrive);
+  --ease-camera: var(--ease-move);
+}
+
+/*
+ * A cubic-bezier overshoots once; a spring overshoots, comes back past rest
+ * and settles. Where the browser has `linear()`, the spring is the real one.
+ * Unlayered, so it wins over the theme layer's declaration.
+ */
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --ease-spring: linear(0, 0.22 6%, 0.6 14%, 0.9 22%, 1.05 30%, 1.09 36%, 1.06 44%, 1.01 56%, 0.993 68%, 1);
+  }
 }
 
 :root {
@@ -81,34 +107,37 @@
    this is a fade-through: the incoming surface fades up after the same
    75 ms stagger the sidebar crossfade uses. */
 [data-editor-content] {
-  animation: editor-fade-in var(--motion-fade) ease-out var(--motion-fade-stagger) both;
+  animation: editor-fade-in var(--motion-fade) var(--ease-arrive) var(--motion-fade-stagger) both;
 }
 
 /* Presentation enter — sidebar collapses (320 ms, owned by the shell) ∥
    stage fades up (200 ms) ∥ filmstrip slides up (200 ms). The 75 ms offset
    lines the pair up with the surface crossfade above. */
 [data-presentation-root] [data-presentation-stage] {
-  animation: editor-stage-in var(--motion-fade) ease-out var(--motion-fade-stagger) both;
+  animation: editor-stage-in var(--motion-fade) var(--ease-arrive) var(--motion-fade-stagger) both;
 }
 
 [data-presentation-root] [data-presentation-filmstrip] {
-  animation: editor-filmstrip-in var(--motion-fade) ease-out var(--motion-fade-stagger) both;
+  animation: editor-filmstrip-in var(--motion-fade) var(--ease-arrive) var(--motion-fade-stagger) both;
 }
 
 /* Presentation exit — the same three in reverse, same durations. The shell
    holds the tab switch for the full 320 ms so this actually plays instead
    of being cut off by the unmount; the band fades last so the dark surface
-   lands on the incoming tab rather than snapping to it. */
+   lands on the incoming tab rather than snapping to it. Its delay is the
+   structural hold minus its own fade (120 ms), so it ends exactly as the
+   hold does. */
 [data-presentation-root][data-leaving] [data-presentation-stage] {
-  animation: editor-stage-out var(--motion-fade) ease-out both;
+  animation: editor-stage-out var(--motion-fade) var(--ease-leave) both;
 }
 
 [data-presentation-root][data-leaving] [data-presentation-filmstrip] {
-  animation: editor-filmstrip-out var(--motion-fade) ease-out both;
+  animation: editor-filmstrip-out var(--motion-fade) var(--ease-leave) both;
 }
 
 [data-presentation-root][data-leaving] {
-  animation: editor-fade-out var(--motion-fade) ease-out 120ms both;
+  animation: editor-fade-out var(--motion-fade) var(--ease-leave)
+    calc(var(--motion-structural) - var(--motion-fade)) both;
 }
 
 /*
@@ -143,7 +172,7 @@
   --closed-transform: translate3d(10px, 0, 0);
   transition-property: transform, opacity;
   transition-duration: var(--motion-fade);
-  transition-timing-function: var(--ease-structural);
+  transition-timing-function: var(--ease-arrive);
 }
 
 /*
@@ -158,14 +187,14 @@
  * primitive also allows for), on the structural duration a whole surface
  * earns, and no opacity at all — a sheet that fades is a sheet you can see
  * the page through on the way up. Exit runs the same distance a hair
- * quicker and eased *in*, the usual asymmetry: arriving is an event,
+ * quicker and on the leave curve, the usual asymmetry: arriving is an event,
  * leaving is not.
  */
 [data-cell-detail-panel][data-cell-detail-posture='sheet'] {
   --closed-transform: translate3d(0, calc(100% + 2px), 0);
   transition-property: transform;
   transition-duration: var(--motion-structural);
-  transition-timing-function: var(--ease-structural);
+  transition-timing-function: var(--ease-arrive);
 }
 
 /*
@@ -197,16 +226,16 @@
   opacity: 0;
 }
 
-/* Leaving: shorter, and eased *in* so it clears out instead of trailing the
-   long quintic tail the structural ease ends on. */
+/* Leaving: shorter, and on the leave curve so it clears out instead of trailing the
+   long tail the arrive curve ends on. */
 [data-cell-detail-panel][data-cell-detail-posture='inspector'][data-ending-style] {
   transition-duration: var(--motion-micro);
-  transition-timing-function: ease-in;
+  transition-timing-function: var(--ease-leave);
 }
 
 [data-cell-detail-panel][data-cell-detail-posture='sheet'][data-ending-style] {
   transition-duration: var(--motion-fade);
-  transition-timing-function: ease-in;
+  transition-timing-function: var(--ease-leave);
 }
 
 /* A finger on the panel moves it 1:1 — no easing between frames. */
@@ -234,7 +263,7 @@
 }
 
 [data-shell-entrance='shown'] [data-shell-entrance-part] {
-  transition: opacity var(--motion-fade) ease-out;
+  transition: opacity var(--motion-fade) var(--ease-arrive);
 }
 
 [data-shell-entrance='shown'] [data-shell-entrance-part='rail'] {
@@ -278,8 +307,9 @@
  * Tailwind's `animate-pulse` is `cubic-bezier(0.4,0,0.6,1)` at 2s — a curve
  * that sits at both extremes and snaps between them, which on a panel full of
  * bars reads as flicker rather than as waiting. This holds the same rhythm on
- * the structural ease and a narrower opacity range, so a loading panel is
- * quiet next to the drawer sliding in beside it.
+ * the arrive curve and a narrower opacity range, so a loading panel is
+ * quiet next to the drawer sliding in beside it. The period is eight fade
+ * beats (1.6 s), so it stays on the ladder.
  */
 @keyframes skeleton-breath {
   0%,
@@ -292,12 +322,23 @@
 }
 
 [data-slot='skeleton'] {
-  animation: skeleton-breath 1.6s var(--ease-structural) infinite;
+  animation: skeleton-breath calc(var(--motion-fade) * 8) var(--ease-arrive) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   [data-slot='skeleton'] {
     animation: none;
     opacity: 0.7;
+  }
+}
+
+/*
+ * Prose links ease their colour on hover (typography.config.js). Under
+ * reduced motion the colour simply changes. Unlayered, so it beats the
+ * typography plugin's `.prose :where(a)` without !important.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :is(.prose, .prose-toc, .prose-docs) a {
+    transition: none;
   }
 }

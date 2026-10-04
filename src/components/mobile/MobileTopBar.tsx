@@ -45,7 +45,7 @@ export function MobileTopBar({
         <span
           aria-hidden
           className={cn(
-            'flex items-center justify-center transition-transform duration-(--motion-micro) motion-reduce:transition-none',
+            'flex items-center justify-center transition-transform ease-move duration-(--motion-micro) motion-reduce:transition-none',
             navOpen && 'rotate-90',
           )}
         >

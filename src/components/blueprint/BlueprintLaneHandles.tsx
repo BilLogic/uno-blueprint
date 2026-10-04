@@ -160,7 +160,7 @@ function BlueprintLaneHandlesActive({
                 setError(null)
                 requestAnimationFrame(() => inputRef.current?.focus())
               }}
-              className="flex w-full items-center gap-1 opacity-0 transition-opacity group-hover/lane-insert:opacity-100 focus-visible:opacity-100"
+              className="flex w-full items-center gap-1 opacity-0 transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none group-hover/lane-insert:opacity-100 focus-visible:opacity-100"
             >
               <span className="ml-1 grid size-4 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground shadow-sm">
                 <Plus className="size-3" aria-hidden />

@@ -32,7 +32,7 @@ type ScenarioTitleBadgeProps = {
  * One badge for two kinds because they are the same object on the board: the
  * label of a container, printed on the container's own edge. `tone="phase"`
  * puts it on a phase frame and the kind follows from that, so the popover says
- * PHASE over a phase and SCENARIO over a scenario, and neither has to be
+ * Phase over a phase and Scenario over a scenario, and neither has to be
  * passed twice.
  *
  * The explanation is a POPOVER rather than a tooltip: a tooltip never opens on
@@ -88,10 +88,9 @@ export function ScenarioTitleBadge({
           className={cn(
             // geometry: packs the name into the badge's fixed height.
             'min-w-0 truncate leading-none',
-            // The phase tone is the time-marker register — mono, uppercase,
-            // LETTERSPACED. The span's own tracking would silently beat the
-            // wrapper's `tracking-wider`, shipping the register tight.
-            phaseTone ? 'tracking-wider' : 'tracking-tight',
+            // The phase tone is a small label, and a small label is set at
+            // letter-spacing 0. The scenario name keeps its tight heading set.
+            phaseTone ? 'tracking-normal' : 'tracking-tight',
           )}
         >
           {name}

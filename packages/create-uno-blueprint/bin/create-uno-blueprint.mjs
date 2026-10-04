@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 /**
- * The command. Everything it does is `run`; this file hands it the real
- * process, so a test can hand it a throwaway one.
+ * The command. Everything it does is `run`, handed the real process by
+ * `runInProcess` beside it, so a test can hand it a throwaway one.
  *
  * WRITTEN IN THE SYNTAX AN OLD NODE PARSES, and that is the whole reason it
  * looks the way it does. `run` checks the Node floor first — but a Node old
  * enough fails to PARSE the module `run` lives in, and says `SyntaxError`
  * about an operator instead of which Node is needed. So the floor is checked
- * here as well, in nothing newer than `var` and a function expression, and
- * the entry is imported only once it has passed. The floor is the one in
- * `src/run.mjs` and the root manifest's `engines`.
+ * here as well, in nothing newer than `var`, function expressions, a static
+ * `import` of the floor and a dynamic `import()` of the entry — the last only
+ * once the check has passed. That is the module syntax any Node that can load
+ * this file at all already parses. The floor is `src/node-floor.mjs`, which
+ * `run` reads too; both manifests state it in `engines`.
  */
-var NODE_FLOOR = 22
+import { NODE_FLOOR } from '../src/node-floor.mjs'
 
 function lastResort(error) {
   // Nothing should arrive here: `run` reports its own failures in one line.
@@ -30,14 +32,7 @@ if (!(parseInt(process.versions.node, 10) >= NODE_FLOOR)) {
 } else {
   import('../src/run.mjs')
     .then(function (entry) {
-      return entry.run({
-        argv: process.argv.slice(2),
-        env: process.env,
-        cwd: process.cwd(),
-        stdout: process.stdout,
-        stderr: process.stderr,
-        nodeVersion: process.versions.node,
-      })
+      return entry.runInProcess()
     })
     .then(function (code) {
       process.exitCode = code

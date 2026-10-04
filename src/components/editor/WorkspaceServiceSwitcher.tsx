@@ -113,7 +113,7 @@ export function WorkspaceServiceSwitcher({
                     onActivate()
                   }}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-accent',
+                    'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:bg-accent',
                     isActive
                       ? 'font-medium text-foreground'
                       : 'text-muted-foreground',

@@ -142,7 +142,8 @@ module.exports = {
             },
             a: {
               position: 'relative',
-              transition: 'all 0.18s ease',
+              transition:
+                'color var(--motion-micro) var(--ease-arrive), text-decoration-color var(--motion-micro) var(--ease-arrive)',
               paddingBottom: '2px',
               fontWeight: '400',
               opacity: 1,
@@ -158,7 +159,7 @@ module.exports = {
             },
             figcaption: {
               color: 'var(--tertiary-foreground)',
-              fontFamily: 'Office Code Pro, monospace',
+              fontFamily: 'var(--font-mono)',
             },
             'figure.quote-figure p:first-child': {
               marginTop: '0 !important',

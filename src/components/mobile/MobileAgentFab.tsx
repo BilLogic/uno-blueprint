@@ -21,7 +21,7 @@ export function MobileAgentFab({
       type="button"
       aria-label="Ask the agent"
       onClick={onOpen}
-      className="fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg active:scale-95 transition-transform duration-(--motion-micro) motion-reduce:transition-none"
+      className="fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg active:scale-95 transition-transform ease-spring duration-(--motion-micro) motion-reduce:transition-none"
     >
       <Sparkles className="size-5" aria-hidden />
     </button>

@@ -77,6 +77,10 @@ export function disagreements(stated) {
     .map(([file, version]) => ({ file, version, expected: source }))
 }
 
+/** One disagreement, as the sentence that names the file and both numbers. */
+export const disagreementLine = ({ file, version, expected }) =>
+  `${file} says ${version ?? '(none)'}, package.json says ${expected}`
+
 /**
  * Copy package.json's version over the first `"version"` a manifest states.
  * A text edit rather than a JSON round-trip, so the file keeps its formatting
@@ -154,10 +158,7 @@ export function judge(argv = process.argv.slice(2)) {
   return {
     what: 'a file stating the version',
     count: Object.keys(stated).length,
-    findings: disagreements(stated).map(
-      ({ file, version, expected }) =>
-        `${file} says ${version ?? '(none)'}, package.json says ${expected}`,
-    ),
+    findings: disagreements(stated).map(disagreementLine),
     closing: '\nRun `npx changeset version` to cut a release, or fix the file by hand.',
     line: `version ${stated['package.json']} agrees everywhere`,
   }

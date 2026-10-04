@@ -1,3 +1,5 @@
+import { easeMoveFrom } from '@/lib/motion'
+
 export type CameraTransform = {
   pan: { x: number; y: number }
   zoom: number
@@ -59,29 +61,20 @@ export function transformCameraAroundPoint(
 }
 
 /**
- * Smoothstep ease-in-out: a calm departure and landing without the longer
- * near-still endpoints of smootherstep.
- */
-export function easeCameraTransition(value: number): number {
-  const t = Math.min(1, Math.max(0, value))
-  if (t === 0 || t === 1) return t
-  return t * t * (3 - 2 * t)
-}
-
-const hermiteProgress = (t: number, initialSlope: number) =>
-  t * t * (3 - 2 * t) + initialSlope * t * (1 - t) * (1 - t)
-
-const hermiteDerivative = (t: number, initialSlope: number) =>
-  6 * t * (1 - t) + initialSlope * (1 - 4 * t + 3 * t * t)
-
-/**
- * Resting flights still leave with a little speed. Smoothstep from a dead
- * stop spends the first beat of a large zoom-in almost still — overview to
- * a scenario reads as lag, even though the duration itself is fine. The
- * hermite's end slope stays zero for any start slope, so arrivals still
+ * Resting flights still leave with a little speed. Move from a dead stop
+ * spends the first beat of a large zoom-in almost still — overview to a
+ * scenario reads as lag, even though the duration itself is fine. The
+ * launched curve keeps move's arrival for any start slope, so arrivals still
  * settle rather than hitting the destination at speed.
  */
 const RESTING_FLIGHT_SLOPE = 0.55
+
+/**
+ * The steepest departure a flight takes over. Beyond it, incoming speed is
+ * shed rather than carried: a flick of momentum should not turn a short
+ * retarget into a lunge.
+ */
+const MAX_FLIGHT_SLOPE = 3
 
 /**
  * Returns transition progress measured from the first frame the browser can
@@ -269,7 +262,7 @@ export function createCameraFlightPlan({
   const screenInitialSlope =
     screenDistance > 0
       ? Math.min(
-          3,
+          MAX_FLIGHT_SLOPE,
           Math.max(
             RESTING_FLIGHT_SLOPE,
             (screenSpeedToward * safeDuration) / screenDistance,
@@ -289,12 +282,17 @@ export function createCameraFlightPlan({
     logZoomDelta === 0
       ? 0
       : Math.min(
-          3,
+          MAX_FLIGHT_SLOPE,
           Math.max(
             RESTING_FLIGHT_SLOPE,
             (logSpeedToward * safeDuration) / Math.abs(logZoomDelta),
           ),
         )
+
+  // Both channels ride move, each launched at the speed it already has, so a
+  // retarget mid-air starts at the velocity the last flight left it with.
+  const screenCurve = easeMoveFrom(screenInitialSlope)
+  const zoomCurve = easeMoveFrom(zoomInitialSlope)
 
   return {
     durationMs: safeDuration,
@@ -320,12 +318,10 @@ export function createCameraFlightPlan({
         }
       }
 
-      const screenProgress = hermiteProgress(time, screenInitialSlope)
-      const zoomProgress = hermiteProgress(time, zoomInitialSlope)
-      const screenDerivative =
-        hermiteDerivative(time, screenInitialSlope) / safeDuration
-      const zoomDerivative =
-        hermiteDerivative(time, zoomInitialSlope) / safeDuration
+      const screenProgress = screenCurve.value(time)
+      const zoomProgress = zoomCurve.value(time)
+      const screenDerivative = screenCurve.slope(time) / safeDuration
+      const zoomDerivative = zoomCurve.slope(time) / safeDuration
       const zoom = fromZoom * Math.exp(logZoomDelta * zoomProgress)
       const destinationScreen = {
         x: startScreen.x + screenDelta.x * screenProgress,

@@ -25,7 +25,7 @@ export function AgentTrialBanner() {
         <button
           type="button"
           aria-label="Why the agent is read-only here"
-          className="inline-flex translate-y-[0.15em] rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+          className="inline-flex translate-y-[0.15em] rounded-md text-muted-foreground transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
         >
           <Info className="size-3" aria-hidden />
         </button>

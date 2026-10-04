@@ -72,9 +72,9 @@ export function CellInSlicesFooter({ cellId }: CellInSlicesFooterProps) {
 
   return (
     <Collapsible className="shrink-0 border-t border-border px-4 py-2">
-      <CollapsibleTrigger className="group/in-slices flex w-full items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
+      <CollapsibleTrigger className="group/in-slices flex w-full items-center gap-1 text-xs font-medium text-muted-foreground transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:text-foreground">
         <ChevronRight
-          className="size-3 transition-transform group-aria-expanded/in-slices:rotate-90"
+          className="size-3 transition-transform duration-(--motion-micro) ease-move motion-reduce:transition-none group-aria-expanded/in-slices:rotate-90"
           aria-hidden
         />
         In slices ({matches.length})
@@ -85,7 +85,7 @@ export function CellInSlicesFooter({ cellId }: CellInSlicesFooterProps) {
             <li key={slice.id}>
               <button
                 type="button"
-                className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-xs text-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-xs text-foreground transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:bg-accent hover:text-foreground"
                 onClick={() => openTab({ kind: 'slice', sliceId: slice.id })}
               >
                 <span aria-hidden>◇</span>

@@ -28,6 +28,13 @@ export type CoverFigure = {
    * answered by the single-page fallback with a success and a page of HTML.
    */
   src: string
+  /**
+   * The same drawing in the dark palette, where one has been drawn. The cover
+   * shows it while the app is dark and switches with the toggle. Absent, the
+   * light file stands in for both themes, which is how a figure looks before
+   * its dark file exists.
+   */
+  srcDark?: string
   /** What the figure shows, not what it is called. */
   alt: string
   width: number
@@ -209,8 +216,8 @@ export type CoverContent = {
  */
 export function coverFigures(
   content: CoverContent,
-): Array<{ src: string; alt: string }> {
-  const images: Array<{ src: string; alt: string }> = []
+): Array<Pick<CoverFigure, 'src' | 'srcDark' | 'alt'>> {
+  const images: Array<Pick<CoverFigure, 'src' | 'srcDark' | 'alt'>> = []
   for (const tab of content.tabs) {
     for (const section of coverTabSections(tab)) {
       if ('figure' in section && section.figure) images.push(section.figure)

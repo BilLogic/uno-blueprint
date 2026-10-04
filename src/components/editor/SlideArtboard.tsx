@@ -30,13 +30,13 @@ export function SlideArtboard({
   const displayLabel = getSlideDisplayLabel(slide, slides)
 
   const sharedClassName = cn(
-    'relative flex items-center justify-center rounded-md border bg-card text-left transition-[box-shadow,border-color]',
+    'relative flex items-center justify-center rounded-md border bg-card text-left transition-[box-shadow,border-color] duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
     variant === 'viewport' && 'aspect-video w-full max-w-5xl',
     variant === 'canvas' && 'shrink-0',
     isActive
       ? 'border-primary ring-2 ring-primary/25'
       : 'border-border',
-    onSelect && 'hover:border-muted-foreground/40',
+    onSelect && 'hover:border-strong',
     className,
   )
 

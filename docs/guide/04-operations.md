@@ -84,7 +84,8 @@ build time**. Blueprint-specific gotchas are in
 
 By default the app is served from the root of a domain. To serve it under a
 path instead, such as `https://example.org/demo/`, set one build-time
-variable, `BASE_PATH`:
+variable, `BASE_PATH`, and nothing else. A host's build settings are enough,
+or the configuration file:
 
 ```toml
 # netlify.toml
@@ -105,11 +106,44 @@ was. Set, three things follow from the one value:
   deep links, the service slug in the path, the magic-link redirect, and
   root-relative image paths stored in the data (`/cover/…`, touchpoint logos)
   all resolve under `/demo/`. `src/lib/basePath.ts` is where they cross it.
-- **The hosting rules move under the path**, and `npm run check:hosting`
-  reads `BASE_PATH` (from the environment, or from `[build.environment]` above)
-  and holds the prefixed rules to the same order and cache:
+- **The build writes the hosting rules for the path.** `netlify.toml` stays
+  written for the root, and the build puts the prefixed rules in
+  `dist/_redirects`, which a host reads before it:
+
+```
+/  /demo/  301
+/demo/assets/*  /demo/assets/:splat  404
+/demo/*  /demo/index.html  200
+```
+
+The site root goes on to the app, a hashed chunk the deploy no longer ships
+answers 404, and every other path under the prefix is the app. In
+`dist/_headers` the year-long cache moves from `/assets/*` to
+`/demo/assets/*` (the `/*` CSP block already covers the path).
+`npm run check:hosting -- --built` reads both files back after a build and
+holds them to the same order and cache as the committed ones.
+
+A `public/_redirects` of your own is kept, above the generated rules, so a
+rule in it for a path of its own (`/old`, `/demo/api/*`) still applies. A line
+that states one of the generated rules exactly is dropped, since the build
+writes it below. Any other rule that answers `/`, the prefix itself, or every
+path under it — through a splat or a `:placeholder`, as `/*`, `/demo/*` or
+`/demo/:slug` do — would answer in place of the generated ones, and the build
+refuses it with one line naming it. `npm run check:hosting` finds the same
+line before a build does.
+
+**Writing the rules by hand.** A deployment that prefers its rules in
+`netlify.toml` can still write them there. `npm run check:hosting` reads
+`BASE_PATH` (from the environment, or from `[build.environment]` above), and
+holds a table that names the prefix to the whole prefixed set — the same
+order and cache:
 
 ```toml
+[[redirects]]
+  from = "/"
+  to = "/demo/"
+  status = 301
+
 [[redirects]]
   from = "/demo/assets/*"
   to = "/demo/assets/:splat"
@@ -121,13 +155,15 @@ was. Set, three things follow from the one value:
   status = 200
 ```
 
-and, in `public/_headers`, the long cache moves to `/demo/assets/*` (the
-`/*` CSP block already covers the path):
+and, in `public/_headers`, the long cache moves to `/demo/assets/*`:
 
 ```
 /demo/assets/*
   Cache-Control: public, max-age=31536000, immutable
 ```
+
+The build still writes `dist/_redirects`, with the same rules, and leaves
+headers that already name `/demo/assets/*` as they are.
 
 **Behind a proxy on another site.** When the path belongs to a different
 site (a marketing site that shows the app at `/demo/`), build and deploy the
@@ -156,9 +192,8 @@ link returns to the origin it was sent from, so when the app is reachable
 both ways, list both: `https://example.org/demo/` for the proxy, and
 `https://your-app-site.netlify.app/demo/` for the site itself.
 
-Nothing is served at the app site's own root any more, so `/` there answers
-404. If people know that address, send them on with a redirect above the
-others: `from = "/"`, `to = "/demo/"`, `status = 301`. A local build under a
+Nothing is served at the app site's own root any more, and the generated
+redirect sends `/` there on to `/demo/`. A local build under a
 path empties only `dist/demo/`, so delete `dist/` first if an earlier root
 build left files beside it. The render walk runs over a prefixed build
 too: build with `BASE_PATH=/demo/`, then run `BASE_PATH=/demo/ npm run

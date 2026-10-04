@@ -210,7 +210,7 @@ export function SliceSlideComposer({
       <div
         data-drop-slot={`${target.slide}:${target.index}`}
         className={cn(
-          'relative transition-[height]',
+          'relative transition-[height] duration-(--motion-micro) ease-move motion-reduce:transition-none',
           dragging === null ? 'h-1' : 'h-4',
         )}
         aria-hidden
@@ -242,7 +242,7 @@ export function SliceSlideComposer({
           <div
             key={slideIndex}
             className={cn(
-              'rounded-lg border bg-card p-2 transition-colors',
+              'rounded-lg border bg-card p-2 transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
               holdsDrag ? 'border-primary bg-primary/[0.03]' : 'border-border',
             )}
           >
@@ -278,7 +278,7 @@ export function SliceSlideComposer({
 
                     <div
                       className={cn(
-                        'flex items-center gap-2 rounded-md px-1 py-1 transition-opacity hover:bg-muted/60',
+                        'flex items-center gap-2 rounded-md px-1 py-1 transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:bg-muted/60',
                         isDragging && 'opacity-40',
                       )}
                     >
@@ -360,7 +360,7 @@ export function SliceSlideComposer({
         <div
           data-drop-slot={`${slides.length}:0`}
           className={cn(
-            'flex h-9 items-center justify-center rounded-lg border border-dashed text-xs transition-colors',
+            'flex h-9 items-center justify-center rounded-lg border border-dashed text-xs transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
             slot?.slide === slides.length
               ? 'border-primary text-text-primary'
               : 'border-border text-muted-foreground',

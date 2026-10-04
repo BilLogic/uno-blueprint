@@ -11,7 +11,7 @@ This repo is that idea, working end to end — two things in one:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/why-now.dark.svg">
-  <img src="./docs/assets/why-now.svg" alt="Why teams need a service blueprint — read at a few workshops a year, it drifts out of date; read every week, by people and agents, it stays true">
+  <img src="./docs/assets/why-now.svg" alt="Why teams need a service blueprint — checked at a quarterly, twice-yearly or yearly review, it drifts out of date between reviews; checked almost daily, by people and agents, it stays true">
 </picture>
 
 Service blueprints have traditionally been strategic artifacts rather than day-to-day reference tools. Partly because they are expensive to use: interpreting one takes facilitation, workshops, and built-up context, so teams engage with them occasionally, not daily. Agents change that constraint. An agent can consult the blueprint continuously, grounding each recommendation in the full journey and checking proposed changes against the wider service, without adding work for the team.

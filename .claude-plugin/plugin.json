@@ -1,6 +1,6 @@
 {
   "name": "ub",
-  "version": "2.6.0",
+  "version": "2.6.1",
   "description": "Uno Blueprint (ub), service blueprinting skills: four skills — ub:map ingests/co-creates/translates/imports blueprints with hash-bound sign-off, ub:slice cuts stakeholder views, ub:audit runs a check roster into triageable findings, ub:whatif traces hypothetical changes before promotion. Five agents + three hooks around a validated JSON intermediate representation, presented with the bundled React blueprint template.",
   "author": {
     "name": "BilLogic (Bill & Meryem)",

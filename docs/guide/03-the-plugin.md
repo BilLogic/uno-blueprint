@@ -1,5 +1,5 @@
 ---
-summary: How the machinery works and what lands on your disk — the four skills in the order a team meets them, the fresh-context agents they dispatch, the shared references, and the gates each phase ends at.
+summary: How the machinery works and what lands on your disk — the four skills in the order a team meets them, the fresh-context agents they dispatch, the shared references, the gates each phase ends at, and how other coding agents pick the skills up.
 ---
 
 # The plugin
@@ -105,3 +105,33 @@ in [`references/adapter-contract.md`](../../references/adapter-contract.md),
 which is normative: the read shape, the write path, and the access rules.
 The worked path is to hand that document to your agent and ask it to
 implement the contract against your stack.
+
+## 5. In other coding agents
+
+Several coding agents look for skills under `.agents/skills/<name>/SKILL.md`
+rather than in a top-level `skills/`. So the repo carries a mirror: each
+skill's `SKILL.md`, copied byte for byte into `.agents/skills/map/`,
+`slice/`, `audit/` and `whatif/`. Open a checkout or a workspace in one of
+those tools and the four skills are there, with no plugin to install.
+
+Cursor and Codex were checked by hand, and both showed the skills under
+their `ub:` names. In Cursor a skill is `ub:map`, or you describe a map
+task; in Codex it is `$ub:map`. A bare `map` is not registered in either.
+Gemini CLI, Copilot and Windsurf document the same `.agents/skills/`
+convention, so they are expected to find the skills as well; how each one
+names and calls them has not been checked.
+
+`skills/` stays the source, for two reasons. Its paths are a published
+interface: the deployment imports them by fixed path from a pinned tag, so
+moving them is a version bump and a matching change on the deployment's side
+([ADR 0004](../adr/0004-reference-paths-are-a-published-interface.md)). And
+only `SKILL.md` needs to be in the mirror, because every path a skill names
+resolves from the repository or workspace root, so its references, scripts
+and agents are found where they already are. The mirror is a copy, not a
+link, because the initialiser refuses a release tarball that holds a link.
+
+After editing a skill, run `npm run sync:skills`. It refreshes the mirror
+and the copy the app bundles under `src/lib/agent/skill/`. `npm test` runs
+the same sync with `--check` first, and fails on a copy that drifted, a copy
+that is missing, or a file under `.agents/skills/` that no skill produced,
+naming the file. Editing the mirror directly is lost on the next sync.

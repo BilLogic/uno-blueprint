@@ -12,7 +12,8 @@ import via a backend adapter (no-DB fallback or Supabase), present with the
 bundled React template, and update in place. A blueprint touched once is a
 failure; touched monthly is the product.
 
-All paths below are relative to the plugin root (`${CLAUDE_PLUGIN_ROOT}`):
+All paths below are relative to the plugin root, which is the repository
+or workspace root (Claude Code names it `${CLAUDE_PLUGIN_ROOT}`):
 this skill's own materials live under `skills/map/references/`, while the
 shared core (`references/`, `scripts/`, `agents/`, `assets/`) sits at the
 root because every skill uses it. A scaffolded workspace carries the same

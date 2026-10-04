@@ -28,9 +28,9 @@ python -m scripts.run_loop \
 (cwd = the skill-creator skill directory, which ships `scripts/run_loop.py`.
 It splits 60/40 train/test, proposes description rewrites, and reports
 `best_description` by held-out score.) Descriptions are shared verbatim
-with the app's composer — if a loop rewrites one, re-run
-`node scripts/sync-canvas-skills.mjs` in this repo (`npm test` runs the
-`--check` drift guard and fails until you do).
+with the app's composer and with the `.agents/skills/` mirror — if a loop
+rewrites one, re-run `npm run sync:skills` in this repo (`npm test` runs both
+`--check` drift guards and fails until you do).
 
 Editing rules for the eval sets: keep queries realistic (backstory, file
 paths, typos welcome), keep negatives genuinely tricky — an obviously

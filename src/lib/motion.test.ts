@@ -13,7 +13,6 @@ import {
   cubicBezierEase,
   easeMove,
   easeMoveFrom,
-  launchedBezierEase,
   MOTION_CAMERA_EASE,
   MOTION_CAMERA_MS,
   MOTION_FADE_MS,
@@ -173,9 +172,6 @@ test('a launched move starts at its slope and lands on move', () => {
 
   // Negative slopes are a stop, not a reversal.
   assert.ok(Math.abs(easeMoveFrom(-2).value(0.3) - easeMove(0.3)) < 1e-6)
-  // The general form takes any role's points; arrive leaves fast already.
-  const arrive = launchedBezierEase(EASE_POINTS.arrive, 0)
-  assert.ok(Math.abs(arrive.value(0.25) - cubicBezierEase(EASE_POINTS.arrive)(0.25)) < 1e-6)
 })
 
 /**

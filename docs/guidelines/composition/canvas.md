@@ -360,17 +360,20 @@ contract in short:
   move curve: zoom is geometric, screen-space travel is monotonic, and
   compatible velocity carries across superseding destinations. A flight that
   takes over a moving camera starts on move launched at the speed the camera
-  already has, so a retarget mid-air neither stalls nor jumps; a flight from
-  rest leaves at a small floor slope, because move from a dead stop spends
-  the first beat of a large zoom-in almost still. Arrival is always move's
-  settle. A zoom-in from the blocks tier keeps that
+  already has, clamped to a starting slope between 0.55 and 3: a slower
+  handoff (or a flight from rest, since move from a dead stop spends the
+  first beat of a large zoom-in almost still) steps up to the floor, and a
+  faster one is cut to the cap. Arrival is always move's settle. A zoom-in from the blocks tier keeps that
   encoding and reveals only the named destination, so overview → scenario
   does not paint the whole board on takeoff. Focus emphasis reads the same
   flight's
   progress. Manual wheel, pinch, drag, and keyboard input remains immediate
   and cancels the automatic flight from the frame it last drew — the input
   starts there, never from the target, so the hand-off has no snap. One
-  animation frame loop drives a flight, and it writes the transform only.
+  animation frame loop drives a flight. Each frame writes the board's
+  transform, the ground's transform (plus its inset and tile size when the
+  zoom changes), and the focus opacity of the cards whose emphasis is moving;
+  nothing else is laid out.
 - Wheel and trackpad zoom preserve the world point beneath the cursor. A
   two-finger pinch maps its previous midpoint directly to its current midpoint,
   combining scale and finger drift in one transform instead of applying drift

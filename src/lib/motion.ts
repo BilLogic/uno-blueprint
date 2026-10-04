@@ -122,36 +122,28 @@ export function cubicBezierEase(points: BezierPoints): (
   return bezierCurve(points).value
 }
 
-/**
- * A curve that leaves already moving: the same arrival as `points`, with the
- * departure handle turned to `initialSlope` so the curve starts at that
- * speed. This is what keeps a camera flight that is retargeted mid-air from
- * stalling: the new flight starts at the velocity the old one had.
- *
- * The handle keeps its length along x until its height would pass 1, then
- * shortens so it never does. With the arrival handle at height 1 (move,
- * arrive) every control point sits in [0, 1], so the curve neither dips nor
- * overshoots at any slope. A slope of 0 or less is the curve itself.
- */
-export function launchedBezierEase(
-  points: BezierPoints,
-  initialSlope: number,
-): EaseCurve {
-  const [x1, y1, x2, y2] = points
-  if (!(initialSlope > 0)) return bezierCurve(points)
-  const run = Math.min(x1 > 0 ? x1 : 1 / 3, 1 / initialSlope)
-  const rise = run * initialSlope
-  // A curve that already departs faster than asked keeps its own handle.
-  if (x1 > 0 && y1 / x1 >= initialSlope) return bezierCurve(points)
-  return bezierCurve([run, rise, x2, y2])
-}
-
 /** The move curve as a function of progress — what a JS camera rides. */
 export const easeMove = cubicBezierEase(EASE_POINTS.move)
 
-/** Move, launched at `initialSlope` — a flight that takes over a moving camera. */
-export const easeMoveFrom = (initialSlope: number): EaseCurve =>
-  launchedBezierEase(EASE_POINTS.move, initialSlope)
+/**
+ * Move, launched: the same arrival as move, with the departure handle turned
+ * to `initialSlope` so the curve starts at that speed — `slope(0)` is
+ * `initialSlope`. This is what keeps a camera flight that is retargeted
+ * mid-air from stalling: the new flight starts at the velocity the old one
+ * had.
+ *
+ * Move's own departure is flat, so any positive slope is a turn of its
+ * handle. The handle keeps move's length along x until its height would pass
+ * 1, then shortens so it never does; with the arrival handle at height 1,
+ * every control point sits in [0, 1], so the curve neither dips nor
+ * overshoots at any slope. A slope of 0 or less is move itself.
+ */
+export function easeMoveFrom(initialSlope: number): EaseCurve {
+  const [x1, , x2, y2] = EASE_POINTS.move
+  if (!(initialSlope > 0)) return bezierCurve(EASE_POINTS.move)
+  const run = Math.min(x1, 1 / initialSlope)
+  return bezierCurve([run, run * initialSlope, x2, y2])
+}
 
 /**
  * Structural width/size changes (sidebar collapse, presentation wipe). The

@@ -12,8 +12,8 @@ import { chromaCeiling, contrast, dial, oklch, type Theme } from '@/lib/tokenMod
  * The reader for `brand.accent`, and the one thing this template needs it to
  * do: nothing.
  *
- * `BRAND` here carries no accent — the template ships every chroma dial at
- * zero, so there is no hue for one to name — and `templateDefaultConfig` passes that
+ * `BRAND` here carries no accent — the template's teal is said in its theme
+ * files, not here — and `templateDefaultConfig` passes that
  * absence
  * straight through. The assertion below is what makes that provable rather
  * than argued: the dial the theme files declare is never written, so a
@@ -78,10 +78,9 @@ describe('applyBrandAccent', () => {
  * deployment's own theme file, and the DERIVATIONS belong to this template.
  * `palette.test.ts` measures the derivations at the dials standing here, which
  * is the right question for the template's own chrome and the wrong one for an
- * adopter — this template ships every chroma at zero, so its filled control is
- * an exact grey at any hue, and a wheel swept against it would be thirty-six
- * copies of one measurement. So the sweep supplies the chroma an adopter's own
- * theme file supplies, and asks whether the arithmetic in `semantic.css` holds
+ * adopter — this template ships one teal, and a wheel swept against its
+ * dials would measure one fork's tuning thirty-six times. So the sweep
+ * supplies the chroma an adopter's own theme file supplies, and asks whether the arithmetic in `semantic.css` holds
  * across the range of accents that arithmetic promises to serve.
  *
  * It promises in prose today. `brandAccent.ts` and `semantic.css` both state

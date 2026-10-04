@@ -1,16 +1,29 @@
 import blueprintAnatomy from '../../../docs/assets/blueprint-anatomy.svg'
+import blueprintAnatomyDark from '../../../docs/assets/blueprint-anatomy.dark.svg'
 import cellAnatomy from '../../../docs/assets/cell-anatomy.svg'
+import cellAnatomyDark from '../../../docs/assets/cell-anatomy.dark.svg'
 import dataModelHierarchy from '../../../docs/assets/data-model-hierarchy.svg'
+import dataModelHierarchyDark from '../../../docs/assets/data-model-hierarchy.dark.svg'
 import fourWaysIn from '../../../docs/assets/four-ways-in.svg'
+import fourWaysInDark from '../../../docs/assets/four-ways-in.dark.svg'
 import ubAudit from '../../../docs/assets/ub-audit.svg'
+import ubAuditDark from '../../../docs/assets/ub-audit.dark.svg'
 import ubMap from '../../../docs/assets/ub-map.svg'
+import ubMapDark from '../../../docs/assets/ub-map.dark.svg'
 import ubSlice from '../../../docs/assets/ub-slice.svg'
+import ubSliceDark from '../../../docs/assets/ub-slice.dark.svg'
 import ubWhatif from '../../../docs/assets/ub-whatif.svg'
+import ubWhatifDark from '../../../docs/assets/ub-whatif.dark.svg'
 import skillArchitecture from '../../../docs/assets/skill-architecture.svg'
+import skillArchitectureDark from '../../../docs/assets/skill-architecture.dark.svg'
 import sliceConcept from '../../../docs/assets/slice-concept.svg'
+import sliceConceptDark from '../../../docs/assets/slice-concept.dark.svg'
 import slicingModel from '../../../docs/assets/slicing-model.svg'
+import slicingModelDark from '../../../docs/assets/slicing-model.dark.svg'
 import whenToUse from '../../../docs/assets/when-to-use.svg'
+import whenToUseDark from '../../../docs/assets/when-to-use.dark.svg'
 import whyNow from '../../../docs/assets/why-now.svg'
+import whyNowDark from '../../../docs/assets/why-now.dark.svg'
 import type { CoverFigure } from '@/components/cover/coverModel'
 
 /**
@@ -52,6 +65,10 @@ import type { CoverFigure } from '@/components/cover/coverModel'
  * blueprint, whose storyboard frames are database values and cannot be
  * imports.
  *
+ * A figure with a dark file carries it as `srcDark`, imported the same way
+ * and named `<figure>.dark.svg` beside its light file. Figures without one
+ * yet show the light file in both themes.
+ *
  * Dimensions are each SVG's own `viewBox`, so a page reserves the right box
  * before the image decodes. Alt text describes the drawing, because the
  * drawing is this package's; a deployment that wants its own words keeps the
@@ -60,81 +77,94 @@ import type { CoverFigure } from '@/components/cover/coverModel'
 export const packageCoverFigures = {
   blueprintAnatomy: {
     src: blueprintAnatomy,
-    alt: 'Inside one path — lanes, steps, cells, dependencies, and the derived divider lines',
+    srcDark: blueprintAnatomyDark,
+    alt: 'Inside one path — lanes as rows, steps as columns, a cell where they cross, leads-to arrows from cell to cell, and the lines of interaction, visibility and internal interaction falling between the lanes',
     width: 880,
-    height: 544,
+    height: 408,
   },
   cellAnatomy: {
     src: cellAnatomy,
-    alt: 'Inside one cell — placement, ownership, function, evidence, dependencies, and the slices that quote it',
+    srcDark: cellAnatomyDark,
+    alt: 'One cell on the board opened into its record — where it sits and its lane, what it does, owner and perceived owner, function, form and value proposition, then its evidence, resources, dependencies and the slices that cite it',
     width: 880,
-    height: 730,
+    height: 580,
   },
   dataModelHierarchy: {
     src: dataModelHierarchy,
-    alt: 'How a blueprint is organized — service to phase to scenario to path',
+    srcDark: dataModelHierarchyDark,
+    alt: 'How a blueprint is organized — a service holds phases in order, and a phase may loop back; a phase holds scenarios; a scenario holds paths side by side; a path is a grid of lanes and steps',
     width: 880,
-    height: 634,
+    height: 595,
   },
   fourWaysIn: {
     src: fourWaysIn,
-    alt: 'Ways into the blueprint — the app, the in-app agent, agentic tools, and a Slack bot you could build — over one shared context layer',
+    srcDark: fourWaysInDark,
+    alt: 'Four ways into one shared context — the app, the in-app agent and agentic tools read and write it; a Slack bot you build, dashed because the template does not ship it, only reads',
     width: 880,
-    height: 334,
+    height: 324,
   },
   ubAudit: {
     src: ubAudit,
-    alt: 'How ub:audit runs its check roster and records findings for triage',
+    srcDark: ubAuditDark,
+    alt: 'ub:audit flags cells without changing the blueprint — a step with no cell, two cells competing for one channel, a recorded owner and a perceived owner that differ — and records each as a finding for you to triage',
     width: 880,
-    height: 292,
+    height: 300,
   },
   ubMap: {
     src: ubMap,
-    alt: 'How ub:map turns documents, sessions, or a foreign diagram into a validated blueprint',
+    srcDark: ubMapDark,
+    alt: 'ub:map reads what you already have — interview notes, support tickets, a journey map — and places what it finds into cells, held as a draft until you sign it off',
     width: 880,
-    height: 292,
+    height: 300,
   },
   ubSlice: {
     src: ubSlice,
-    alt: 'How ub:slice selects and orders cells into a stakeholder view',
+    srcDark: ubSliceDark,
+    alt: 'ub:slice takes one cut of the blueprint — a journey, step, lane, cell or custom set; here one lane — and orders it into slides that each cite the cell they show',
     width: 880,
-    height: 292,
+    height: 276,
   },
   ubWhatif: {
     src: ubWhatif,
-    alt: 'How ub:whatif traces a proposed change downstream on a copy',
+    srcDark: ubWhatifDark,
+    alt: 'ub:whatif traces a proposed change on a copy, to the cells it reaches and an assumption it breaks; the blueprint changes only after you accept, through ub:map',
     width: 880,
-    height: 292,
+    height: 348,
   },
   skillArchitecture: {
     src: skillArchitecture,
-    alt: 'The four skills, the resources each owns, the shared references they link, and the agents they spawn',
+    srcDark: skillArchitectureDark,
+    alt: 'The four skills against the shared references and the agents — each skill has its own references, links only the shared references its task needs, and hands its reading to its own fresh-context agents',
     width: 880,
-    height: 548,
+    height: 670,
   },
   sliceConcept: {
     src: sliceConcept,
-    alt: 'One path becoming a presentation — the cells a slice quotes, ordered into slides',
+    srcDark: sliceConceptDark,
+    alt: 'A slice citing cells — numbered cells stay where they are on the path, and four ordered slides point at them',
     width: 880,
-    height: 364,
+    height: 312,
   },
   slicingModel: {
     src: slicingModel,
-    alt: 'The five slice types and what each one selects out of a path',
+    srcDark: slicingModelDark,
+    alt: 'The five slice types as shapes cut from one grid — journey, one actor and what they touch; step, every lane at one moment; lane, one row at every step; cell, one cell in full; custom, whatever the question needs',
     width: 880,
-    height: 214,
+    height: 260,
   },
   whenToUse: {
     src: whenToUse,
-    alt: 'How teams use the blueprint — onboarding, stakeholder alignment, decision evaluation, and context management',
+    srcDark: whenToUseDark,
+    alt: 'Four ways teams use one blueprint — onboarding reads all of it, stakeholder alignment takes one lane as a slice, decision evaluation traces a change to the cells that depend on it, context management flags the cells that no longer hold, in amber',
     width: 880,
-    height: 406,
+    height: 376,
   },
   whyNow: {
     src: whyNow,
-    alt: 'The same service before and after it has a reader that opens the blueprint constantly',
+    srcDark: whyNowDark,
+    alt: 'A blueprint read at a few workshops a year drifts out of date; one read every week, by people and agents, stays true',
     width: 880,
-    height: 376,
+    height: 392,
   },
 } satisfies Record<string, CoverFigure>
 

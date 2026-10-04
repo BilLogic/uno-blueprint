@@ -122,7 +122,14 @@ BASE_PATH=/demo/ npm run check:render-walk
 ```
 
 The config reads the same `BASE_PATH` the build read and previews at
-`http://localhost:<port>/demo/`. Every spec navigates relative to that (`./`,
+`http://localhost:<port>/demo/`. `vite preview` reads no `_redirects`, so a
+cold load here is answered by the preview's own fallback, not by the rules a
+host would use. Those rules — the ones the build writes into
+`dist/_redirects` — are read back by `npm run check:hosting -- --built`, which
+CI runs over the same build, and
+`scripts/tests/a-path-build-writes-its-hosting-rules.test.mjs` resolves them
+the way a host does: a deep link reaches the app, `/` goes on to `/demo/`, and
+a missing chunk answers 404. Every spec navigates relative to that (`./`,
 `./?phase=…`), never to `/`, because Playwright resolves a leading slash
 against the origin and would step out of the prefix. Under a prefix, the rest
 of the walk also catches a stored image path that lost the prefix: the request

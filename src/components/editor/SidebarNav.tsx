@@ -37,7 +37,7 @@ const CHEVRON_SLOT_CLASS =
  * NavRowAction already states: an affordance that only exists under a
  * mouse is not an affordance for everyone. */
 const CHEVRON_REVEAL_CLASS =
-  'opacity-0 transition-opacity duration-(--motion-micro) group-hover/nav-row:opacity-100 group-focus-within/nav-row:opacity-100 motion-reduce:transition-none [@media(pointer:coarse)]:opacity-100'
+  'opacity-0 transition-opacity ease-arrive duration-(--motion-micro) group-hover/nav-row:opacity-100 group-focus-within/nav-row:opacity-100 motion-reduce:transition-none [@media(pointer:coarse)]:opacity-100'
 
 /** Child rows indent by exactly one chevron slot. */
 export const NAV_CHILD_INDENT_CLASS = 'pl-4'
@@ -102,7 +102,7 @@ export function NavRowAction({
         className={cn(
           ROW_ACTION_SLOT_CLASS,
           CHEVRON_REVEAL_CLASS,
-          'text-tertiary-foreground transition-[opacity,color] hover:text-sidebar-selected-rail',
+          'text-tertiary-foreground transition-[opacity,color] duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:text-sidebar-selected-rail',
           'focus-visible:text-sidebar-selected-rail focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring',
           '[@media(pointer:coarse)]:opacity-100',
         )}
@@ -118,7 +118,7 @@ function NavChevron({ open }: { open: boolean }) {
     <ChevronRight
       aria-hidden
       className={cn(
-        'size-3.5 text-muted-foreground transition-transform duration-(--motion-fade) ease-out motion-reduce:transition-none',
+        'size-3.5 text-muted-foreground transition-transform duration-(--motion-fade) ease-move motion-reduce:transition-none',
         open && 'rotate-90',
       )}
     />
@@ -195,7 +195,7 @@ export function NavRow({
       data-nav-row={rowId}
       style={{ height: SIDEBAR_ROW_PITCH }}
       className={cn(
-        'group/nav-row relative flex w-full min-w-0 items-center gap-1 rounded-md pl-1 pr-1 transition-colors',
+        'group/nav-row relative flex w-full min-w-0 items-center gap-1 rounded-md pl-1 pr-1 transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
         // ONE focus ring for the whole row (keyboard focus on the label or
         // the chevron both light it) — a ring on just the inner button read
         // as highlighting the wrong box.
@@ -232,7 +232,7 @@ export function NavRow({
         onKeyDown={handleKeyDown}
         aria-current={selected ? 'true' : undefined}
         className={cn(
-          'min-w-0 flex-1 truncate rounded-md pr-2 text-left transition-colors focus-visible:outline-none',
+          'min-w-0 flex-1 truncate rounded-md pr-2 text-left transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none focus-visible:outline-none',
           size === 'md' ? 'text-sm' : 'text-xs',
           selected
             ? 'font-medium text-sidebar-selected-foreground'
@@ -252,7 +252,7 @@ export function NavRow({
 }
 
 type NavSectionProps = {
-  /** Section name; rendered uppercase. */
+  /** Section name, in sentence case; rendered as written. */
   title: string
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -262,7 +262,7 @@ type NavSectionProps = {
 }
 
 /**
- * A sidebar section (PHASES, PATHS, a slice kind group). The whole header row
+ * A sidebar section (Phases, Paths, a slice kind group). The whole header row
  * is the trigger — there is no second action competing with it — but it wears
  * the same left-hand, hover-revealed chevron as the rows inside it, and its
  * label starts at the same x as theirs.
@@ -283,7 +283,7 @@ export function NavSection({
           onPointerDown={(event) => event.preventDefault()}
           aria-controls={panelId}
           className={cn(
-            'flex min-w-0 flex-1 items-center gap-1 rounded-md pl-1 text-left transition-colors',
+            'flex min-w-0 flex-1 items-center gap-1 rounded-md pl-1 text-left transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
             'hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring',
           )}
         >

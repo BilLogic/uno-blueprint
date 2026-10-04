@@ -20,19 +20,24 @@
  */
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
   ASSETS,
   CONFIG,
   FILE_REDIRECTS,
+  BUILT_HEADERS,
+  BUILT_REDIRECTS,
   HEADERS,
   IMMUTABLE,
   LONG_CACHE_SECONDS,
   MISSING_CHUNK,
+  baseWrittenFor,
   basePathIn,
+  builtFindings,
   cacheFindings,
   fileRedirectFindings,
   hashedCacheFindings,
@@ -379,9 +384,10 @@ test('a `_redirects` file nobody asked for is read, and the passing tree is sile
 
 // A deployment served from a prefix builds its output under `dist/<prefix>/`,
 // so every rule above moves under the prefix with it: the hashed chunks are
-// `/demo/assets/*`, and the fallback is `/demo/*`. The same order and the same
-// cache hold there, and a table still written for the root is the defect —
-// its `/assets/*` rule matches nothing the site serves.
+// `/demo/assets/*`, and the fallback is `/demo/*`. The build writes those
+// rules into `dist/` itself, so a committed table still written for the root
+// is held to the root's rules. One that names the prefix is a deployment
+// writing them by hand, and is held to the whole prefixed set.
 
 /** The rule files a deployment served from `/demo/` writes. */
 const PREFIXED_CONFIG = [
@@ -414,11 +420,15 @@ test('the rules move under the base path, and are the root rules at the root', (
     assets: ASSETS,
     missingChunk: MISSING_CHUNK,
     catchAll: '/*',
+    fallback: { from: '/*', to: '/index.html', status: '200' },
+    toPrefix: null,
   })
   assert.deepEqual(hostingRules('/demo/'), {
     assets: '/demo/assets/*',
     missingChunk: { from: '/demo/assets/*', to: '/demo/assets/:splat', status: '404' },
     catchAll: '/demo/*',
+    fallback: { from: '/demo/*', to: '/demo/index.html', status: '200' },
+    toPrefix: { from: '/', to: '/demo/', status: '301' },
   })
 })
 
@@ -438,14 +448,45 @@ test('a prefixed deployment passes with prefixed rules', () => {
   assert.deepEqual(hostingFindings(walk, '/demo/').failures, [])
 })
 
-test('a prefixed deployment with the root rules fails, naming the prefixed ones', () => {
-  const { failures } = hostingFindings(walkOver({ [CONFIG]: ORDERED, [HEADERS]: CACHED }), '/demo/')
-  assert.equal(failures.length, 4)
+test('a prefixed deployment with the root rules passes, because the build writes the prefixed ones', () => {
+  const said = hostingFindings(walkOver({ [CONFIG]: ORDERED, [HEADERS]: CACHED }), '/demo/')
+  assert.deepEqual(said.failures, [])
+  assert.equal(said.redirectsAt, '/')
+  assert.equal(said.headersAt, '/')
+  assert.equal(baseWrittenFor(['/assets/*', '/*'], '/demo/'), '/')
+  assert.equal(baseWrittenFor(['/demo/*'], '/demo/'), '/demo/')
+  assert.equal(baseWrittenFor(['/demo/*'], '/'), '/')
+})
+
+test('under a prefix a `_redirects` of its own is held to what the build accepts', () => {
+  // The build writes the 404 and the fallback below this file, so the file
+  // need not carry them, and a copy of them is dropped rather than refused.
+  const tree = { [CONFIG]: ORDERED, [HEADERS]: CACHED }
+  const own = (text) => hostingFindings(walkOver({ ...tree, [FILE_REDIRECTS]: text }), '/demo/')
+  assert.deepEqual(own('/old  /demo/  301\n').failures, [])
+  assert.deepEqual(
+    own('/demo/assets/*  /demo/assets/:splat  404\n/demo/*  /demo/index.html  200\n').failures,
+    [],
+  )
+  // A root catch-all is read before the generated rules and answers for them.
+  const fallback = own('/*  /index.html  200\n').failures
+  assert.equal(fallback.length, 1)
+  assert.match(fallback[0], /^public\/_redirects:1 sends `\/\*`.*the build refuses it/)
+})
+
+test('a table that names the prefix is held to the whole prefixed set', () => {
+  // Half a hand-written conversion — the fallback moved, the 404 left at the
+  // root — is the defect it always was.
+  const half = ORDERED.replace('from = "/*"', 'from = "/demo/*"')
+  const { failures } = hostingFindings(walkOver({ [CONFIG]: half, [HEADERS]: CACHED }), '/demo/')
+  assert.equal(failures.length, 1)
   assert.match(failures[0], /no `\/demo\/assets\/\*` rule/)
-  assert.match(failures[1], /no `\/demo\/\*` catch-all/)
-  assert.match(failures[2], /no `\/demo\/assets\/\*` block/)
-  // And the root block's year is now a year on a path with no hash behind it.
-  assert.match(failures[3], /`\/assets\/\*` is cached as/)
+
+  // And headers that name the prefix hold no year on the root's assets.
+  const both = `${PREFIXED_HEADERS}\n${ASSETS}\n  Cache-Control: ${IMMUTABLE}\n`
+  const cached = hostingFindings(walkOver({ [CONFIG]: PREFIXED_CONFIG, [HEADERS]: both }), '/demo/')
+  assert.equal(cached.failures.length, 1)
+  assert.match(cached.failures[0], /`\/assets\/\*` is cached as/)
 })
 
 test('under a base path a long cache on the root assets is the unhashed-path defect', () => {
@@ -456,10 +497,80 @@ test('under a base path a long cache on the root assets is the unhashed-path def
   assert.match(found[0], /`\/assets\/\*` is cached as/)
 })
 
+/* ----------------------------------------------------------- and the build */
+
+// `--built` reads what a host is handed rather than what was committed, and
+// holds it strictly: under a prefix there is no root reading to fall back on,
+// because the build is what was meant to write the prefixed rules.
+
+/** The `_redirects` a build under `/demo/` publishes. */
+const BUILT_PREFIXED = [
+  '/  /demo/  301',
+  '/demo/assets/*  /demo/assets/:splat  404',
+  '/demo/*  /demo/index.html  200',
+  '',
+].join('\n')
+
+const builtOver = (tree) => (path) => tree[path] ?? null
+
+test('a build under a prefix passes with the prefixed rules it wrote', () => {
+  const said = builtFindings(
+    builtOver({ [BUILT_REDIRECTS]: BUILT_PREFIXED, [BUILT_HEADERS]: PREFIXED_HEADERS }),
+    '/demo/',
+  )
+  assert.deepEqual(said.failures, [])
+  assert.equal(said.rules, 3 + 2)
+})
+
+test('a build under a prefix with no `_redirects`, or the root rules, fails', () => {
+  const missing = builtFindings(builtOver({ [BUILT_HEADERS]: PREFIXED_HEADERS }), '/demo/')
+  assert.equal(missing.failures.length, 1)
+  assert.match(missing.failures[0], /^dist\/_redirects is not in the build/)
+
+  // Built output is never read at the root's rules on a prefixed build.
+  const root = builtFindings(
+    builtOver({
+      [BUILT_REDIRECTS]: '/assets/*  /assets/:splat  404\n/*  /index.html  200\n',
+      [BUILT_HEADERS]: CACHED,
+    }),
+    '/demo/',
+  )
+  assert.ok(root.failures.some((one) => /no `\/demo\/assets\/\*` rule/.test(one)))
+  assert.ok(root.failures.some((one) => /does not send `\/` on to `\/demo\/`/.test(one)))
+  assert.ok(root.failures.some((one) => /no `\/demo\/assets\/\*` block/.test(one)))
+})
+
+test('a root build needs no `_redirects`, and still needs its headers', () => {
+  assert.deepEqual(builtFindings(builtOver({ [BUILT_HEADERS]: CACHED }), '/').failures, [])
+  const bare = builtFindings(builtOver({}), '/')
+  assert.equal(bare.rules, 0)
+  assert.equal(bare.failures.length, 1)
+  assert.match(bare.failures[0], /^dist\/_headers is not in the build/)
+})
+
+test('`--built` reads `dist/` off the disk, at the base the environment names', () => {
+  const root = mkdtempSync(join(tmpdir(), 'hosting-built-'))
+  try {
+    mkdirSync(join(root, 'dist'))
+    writeFileSync(join(root, CONFIG), ORDERED)
+    writeFileSync(join(root, BUILT_REDIRECTS), BUILT_PREFIXED)
+    writeFileSync(join(root, BUILT_HEADERS), PREFIXED_HEADERS)
+    const said = judge(['--built'], { BASE_PATH: '/demo/' }, root)
+    assert.deepEqual(said.findings, [])
+    assert.equal(said.count, 5)
+    assert.match(said.line, /in the build for \/demo\//)
+
+    // The same build judged as a root build is the wrong build.
+    assert.ok(judge(['--built'], {}, root).findings.length > 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 /* ------------------------------------------------- and the committed files */
 
 test('the committed rule files pass, and the check counted them', () => {
-  const said = judge(ROOT, {})
+  const said = judge([], {}, ROOT)
   assert.deepEqual(said.findings, [])
   assert.ok(said.count > 0, 'a green line over no rules is the defect this check exists for')
   const config = readFileSync(resolve(ROOT, CONFIG), 'utf8')

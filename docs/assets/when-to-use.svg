@@ -1,167 +1,80 @@
-<svg viewBox="0 -40 880 406" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<svg viewBox="0 0 880 376" xmlns="http://www.w3.org/2000/svg" font-family="'Ubuntu Sans', system-ui, sans-serif">
   <style>
-    .badge { font-size: 10.5px; font-weight: 700; fill: #273036; }
-    .sub { font-size: 9.5px; fill: #9ca3af; }
-    .who { fill: #eef0f4; stroke: #c9ccd4; stroke-width: 1.2; }
-    .read { stroke: #8a8f98; stroke-width: 1.2; fill: none; marker-end: url(#aRead); }
-    .reach { stroke: #b6bac2; stroke-width: 1.2; fill: none; stroke-dasharray: 4 3; marker-end: url(#aLink); }
+    .plate { fill: #f6f8f7; }
+    .dot { fill: #151a18; fill-opacity: 0.17; }
+    .card { fill: #ffffff; stroke: #151a18; stroke-opacity: 0.09; }
+    .title { font-size: 15px; font-weight: 600; fill: #151a18; }
+    .label { font-size: 14.5px; fill: #565c5a; }
+    .label-teal { font-size: 14.5px; font-weight: 600; fill: #00806a; }
+    .axis { stroke: #151a18; stroke-opacity: 0.17; }
+    .bar { fill: #00806a; }
+    .flow { stroke: #565c5a; stroke-width: 1.5; fill: none; }
+    .flow-head { fill: #565c5a; }
+    .trace { stroke: #00806a; stroke-width: 1.5; fill: none; }
+    .trace-head { fill: #00806a; }
+    .skel { fill: #151a18; fill-opacity: 0.16; }
+    .skel-teal { fill: #00806a; }
+    .cell { stroke: #151a18; stroke-opacity: 0.09; }
+    .cell-dash { fill: none; stroke: #151a18; stroke-opacity: 0.17; stroke-dasharray: 3 3; }
+    .cell-focus { stroke: #00806a; stroke-opacity: 1; stroke-width: 1.5; }
+    .cell-focus-dash { stroke: #00806a; stroke-opacity: 1; stroke-width: 1.5; stroke-dasharray: 3 3; }
+    .strong { font-size: 14.5px; font-weight: 600; fill: #151a18; }
+    .cell-stale { fill: #fff4e0; stroke: #b45309; stroke-width: 1.25; }
+    .skel-stale { fill: #b45309; fill-opacity: 0.55; }
+    .ring { fill: none; stroke: #00806a; stroke-width: 1.5; }
+    .flag { fill: #00806a; stroke: #ffffff; stroke-width: 2; }
+    .faded { opacity: 0.4; }
+    .lane-c { fill: #e8f3ed; } .sq-c { fill: #cfe6d9; }
+    .lane-f { fill: #fdf1e3; } .sq-f { fill: #f6e0bd; }
+    .lane-b { fill: #fbe9f0; } .sq-b { fill: #f2cfdf; }
+    .lane-s { fill: #ecebf5; } .sq-s { fill: #d9d6ec; }
   </style>
   <defs>
-    <marker id="aRead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8a8f98"/></marker>
-    <marker id="aLink" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#b6bac2"/></marker>
+    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle class="dot" cx="10" cy="10" r="0.8"/>
+    </pattern>
+    <radialGradient id="fade" cx="50%" cy="50%" r="70%">
+      <stop offset="0.35" stop-color="#fff"/>
+      <stop offset="1" stop-color="#000"/>
+    </radialGradient>
+    <mask id="fadeMask"><rect width="880" height="376" fill="url(#fade)"/></mask>
+    <marker id="headMuted" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="flow-head" d="M0,0.5 L7,4 L0,7.5 Z"/></marker>
+    <marker id="headTeal" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="trace-head" d="M0,0.5 L7,4 L0,7.5 Z"/></marker>
   </defs>
-
-  <rect x="0" y="-40" width="880" height="406" rx="14" fill="#eef1f5" stroke="#e2e4e9"/>
-
-  <text x="16" y="-14" font-size="15" font-weight="700" fill="#273036">How teams use the blueprint</text>
-
-  <!-- ==================== 1 · onboarding ==================== -->
-  <rect x="16" y="18" width="412" height="150" rx="14" fill="#ffffff" stroke="#c9ccd4" stroke-width="1.3"/>
-  <g class="who">
-    <circle cx="58" cy="62" r="9"/>
-    <path d="M43,90 a15,15 0 0 1 30,0 z"/>
-  </g>
-  <g>
-    <g opacity="0.8">
-      <rect x="124" y="34" width="288" height="22" fill="#e8f3ed"/>
-      <rect x="124" y="56" width="288" height="22" fill="#fdf1e3"/>
-      <rect x="124" y="78" width="288" height="22" fill="#fbe9f0"/>
-      <rect x="124" y="100" width="288" height="22" fill="#ecebf5"/>
-    </g>
-    <rect x="124" y="34" width="288" height="88" fill="none" stroke="#d4d4da"/>
-    <g stroke="#e2e4e9">
-      <line x1="196" y1="34" x2="196" y2="122"/>
-      <line x1="268" y1="34" x2="268" y2="122"/>
-      <line x1="340" y1="34" x2="340" y2="122"/>
-    </g>
-    <g fill="#ffffff" stroke="#d4d4da">
-      <rect x="132" y="38" width="56" height="14"/>
-      <rect x="204" y="38" width="56" height="14"/>
-      <rect x="348" y="38" width="56" height="14"/>
-      <rect x="132" y="60" width="56" height="14"/>
-      <rect x="276" y="60" width="56" height="14"/>
-      <rect x="348" y="60" width="56" height="14"/>
-      <rect x="204" y="82" width="56" height="14"/>
-      <rect x="276" y="82" width="56" height="14"/>
-      <rect x="132" y="104" width="56" height="14"/>
-      <rect x="348" y="104" width="56" height="14"/>
-    </g>
-  </g>
-  <g class="read">
-    <path d="M78,66 C94,50 108,44 128,45"/>
-    <path d="M80,70 C96,68 112,66 128,67"/>
-    <path d="M80,80 C110,84 176,88 200,89"/>
-    <path d="M78,86 C94,98 108,108 128,111"/>
-  </g>
-  <text x="32" y="140" class="badge">Onboarding</text>
-  <text x="32" y="154" class="sub">the whole service before you touch any of it</text>
-
-  <!-- ==================== 2 · stakeholder reviews ==================== -->
-  <rect x="452" y="18" width="412" height="150" rx="14" fill="#ffffff" stroke="#c9ccd4" stroke-width="1.3"/>
-  <g class="who">
-    <circle cx="486" cy="50" r="8"/>
-    <path d="M473,75 a13,13 0 0 1 26,0 z"/>
-    <circle cx="516" cy="50" r="8"/>
-    <path d="M503,75 a13,13 0 0 1 26,0 z"/>
-    <circle cx="501" cy="82" r="8"/>
-    <path d="M488,107 a13,13 0 0 1 26,0 z"/>
-  </g>
-  <rect x="566" y="34" width="282" height="88" rx="8" fill="#273036"/>
-  <rect x="572" y="64" width="14" height="28" rx="4" fill="#323a42"/>
-  <path d="M581,72 L577,78 L581,84" stroke="#8f98a3" stroke-width="1.3" fill="none"/>
-  <rect x="828" y="64" width="14" height="28" rx="4" fill="#323a42"/>
-  <path d="M833,72 L837,78 L833,84" stroke="#8f98a3" stroke-width="1.3" fill="none"/>
-  <rect x="632" y="52" width="150" height="10" rx="3" fill="#5d6771"/>
-  <rect x="612" y="70" width="190" height="6" rx="3" fill="#434c55"/>
-  <rect x="636" y="82" width="142" height="6" rx="3" fill="#434c55"/>
-  <g fill="#323a42">
-    <rect x="600" y="98" width="48" height="16" rx="3"/>
-    <rect x="712" y="98" width="48" height="16" rx="3"/>
-    <rect x="768" y="98" width="48" height="16" rx="3"/>
-  </g>
-  <rect x="656" y="98" width="48" height="16" rx="3" fill="#3f4952" stroke="#8f98a3" stroke-width="1.2"/>
-  <path class="read" d="M534,76 C548,76 550,78 562,78"/>
-  <text x="468" y="140" class="badge">Stakeholder Alignment</text>
-  <text x="468" y="154" class="sub">one audience sees only what concerns them</text>
-
-  <!-- ==================== 3 · weighing a change ==================== -->
-  <rect x="16" y="192" width="412" height="150" rx="14" fill="#ffffff" stroke="#c9ccd4" stroke-width="1.3"/>
-  <g class="who">
-    <circle cx="48" cy="240" r="9"/>
-    <path d="M33,268 a15,15 0 0 1 30,0 z"/>
-  </g>
-  <rect x="110" y="236" width="68" height="26" rx="5" fill="#fafbfc" stroke="#9aadbe" stroke-width="1.5" stroke-dasharray="5 4"/>
-  <g fill="#eceef2" stroke="#d4d4da">
-    <rect x="240" y="208" width="68" height="24" rx="5"/>
-    <rect x="240" y="240" width="68" height="24" rx="5"/>
-    <rect x="340" y="240" width="64" height="24" rx="5"/>
-  </g>
-  <rect x="240" y="272" width="68" height="24" rx="5" fill="#fbe9f0" stroke="#f2cfdf" stroke-width="1.4"/>
-  <g fill="#c9ccd4">
-    <rect x="248" y="216" width="38" height="4" rx="2"/>
-    <rect x="248" y="223" width="26" height="4" rx="2"/>
-    <rect x="248" y="248" width="32" height="4" rx="2"/>
-    <rect x="248" y="255" width="42" height="4" rx="2"/>
-    <rect x="348" y="248" width="36" height="4" rx="2"/>
-    <rect x="348" y="255" width="24" height="4" rx="2"/>
-    <rect x="248" y="280" width="40" height="4" rx="2"/>
-    <rect x="248" y="287" width="28" height="4" rx="2"/>
-  </g>
-  <g fill="#9aadbe">
-    <rect x="120" y="244" width="38" height="4" rx="2"/>
-    <rect x="120" y="251" width="26" height="4" rx="2"/>
-  </g>
-  <path class="read" d="M66,246 C84,246 90,248 106,248"/>
-  <g class="reach">
-    <path d="M178,244 C208,240 212,222 236,220"/>
-    <path d="M178,250 C204,250 214,252 236,252"/>
-    <path d="M178,256 C208,262 212,282 236,284"/>
-    <path d="M308,252 C320,252 324,252 336,252"/>
-  </g>
-  <text x="32" y="314" class="badge">Decision Evaluation</text>
-  <text x="32" y="328" class="sub">what a change breaks, before you make it</text>
-
-  <!-- ==================== 4 · keeping it current ==================== -->
-  <rect x="452" y="192" width="412" height="150" rx="14" fill="#ffffff" stroke="#c9ccd4" stroke-width="1.3"/>
-  <g class="who">
-    <circle cx="484" cy="240" r="9"/>
-    <path d="M469,268 a15,15 0 0 1 30,0 z"/>
-  </g>
-  <g>
-    <g opacity="0.8">
-      <rect x="532" y="208" width="130" height="22" fill="#e8f3ed"/>
-      <rect x="532" y="230" width="130" height="22" fill="#fdf1e3"/>
-      <rect x="532" y="252" width="130" height="22" fill="#fbe9f0"/>
-      <rect x="532" y="274" width="130" height="22" fill="#ecebf5"/>
-    </g>
-    <rect x="532" y="208" width="130" height="88" fill="none" stroke="#d4d4da"/>
-    <g stroke="#e2e4e9">
-      <line x1="575" y1="208" x2="575" y2="296"/>
-      <line x1="618" y1="208" x2="618" y2="296"/>
-    </g>
-    <g fill="#ffffff" stroke="#d4d4da">
-      <rect x="537" y="212" width="33" height="14"/>
-      <rect x="623" y="212" width="33" height="14"/>
-      <rect x="537" y="234" width="33" height="14"/>
-      <rect x="580" y="256" width="33" height="14"/>
-      <rect x="623" y="256" width="33" height="14"/>
-      <rect x="537" y="278" width="33" height="14"/>
-    </g>
-    <rect x="580" y="234" width="33" height="14" fill="#d9e4ea" stroke="#9aadbe" stroke-width="1.6"/>
-  </g>
-  <g>
-    <rect x="690" y="212" width="158" height="20" rx="5" fill="#fafbfc" stroke="#e2e4e9"/>
-    <rect x="700" y="219" width="88" height="5" rx="2.5" fill="#d4d4da"/>
-    <circle cx="832" cy="222" r="4.5" fill="#e8f3ed" stroke="#9dbfa9"/>
-    <rect x="690" y="242" width="158" height="20" rx="5" fill="#fafbfc" stroke="#e2e4e9"/>
-    <rect x="700" y="249" width="66" height="5" rx="2.5" fill="#d4d4da"/>
-    <circle cx="832" cy="252" r="4.5" fill="#fbe9f0" stroke="#f2cfdf"/>
-    <rect x="690" y="272" width="158" height="20" rx="5" fill="#fafbfc" stroke="#e2e4e9"/>
-    <rect x="700" y="279" width="102" height="5" rx="2.5" fill="#d4d4da"/>
-    <circle cx="832" cy="282" r="4.5" fill="#e8f3ed" stroke="#9dbfa9"/>
-  </g>
-  <path class="read" d="M502,246 C512,246 516,248 528,248"/>
-  <path class="read" d="M662,252 C672,252 676,252 686,252"/>
-  <text x="468" y="314" class="badge">Context Management</text>
-  <text x="468" y="328" class="sub">what no longer holds since the last change</text>
+  <rect class="plate" width="880" height="376" rx="16"/>
+  <rect width="880" height="376" rx="16" fill="url(#grid)" mask="url(#fadeMask)"/>
+  <rect class="card" x="24.5" y="24.5" width="407" height="155" rx="16"/>
+    <rect class="sq-c" x="48" y="55" width="10" height="10" rx="3"/><rect class="skel" x="64" y="57" width="18" height="6" rx="3"/><rect class="lane-c cell" x="88.5" y="48.5" width="25" height="23" rx="8"/><rect class="skel" x="95" y="58" width="12" height="4" rx="2"/><rect class="lane-c cell" x="118.5" y="48.5" width="25" height="23" rx="8"/><rect class="skel" x="125" y="58" width="14" height="4" rx="2"/><rect class="lane-c cell" x="148.5" y="48.5" width="25" height="23" rx="8"/><rect class="skel" x="155" y="58" width="10" height="4" rx="2"/><rect class="lane-c cell" x="178.5" y="48.5" width="25" height="23" rx="8"/><rect class="skel" x="185" y="58" width="12" height="4" rx="2"/>
+    <rect class="sq-f" x="48" y="83" width="10" height="10" rx="3"/><rect class="skel" x="64" y="85" width="18" height="6" rx="3"/><rect class="lane-f cell" x="88.5" y="76.5" width="25" height="23" rx="8"/><rect class="skel" x="95" y="86" width="14" height="4" rx="2"/><rect class="lane-f cell" x="118.5" y="76.5" width="25" height="23" rx="8"/><rect class="skel" x="125" y="86" width="10" height="4" rx="2"/><rect class="lane-f cell" x="148.5" y="76.5" width="25" height="23" rx="8"/><rect class="skel" x="155" y="86" width="12" height="4" rx="2"/><rect class="lane-f cell" x="178.5" y="76.5" width="25" height="23" rx="8"/><rect class="skel" x="185" y="86" width="11" height="4" rx="2"/>
+    <rect class="sq-b" x="48" y="111" width="10" height="10" rx="3"/><rect class="skel" x="64" y="113" width="18" height="6" rx="3"/><rect class="lane-b cell" x="88.5" y="104.5" width="25" height="23" rx="8"/><rect class="skel" x="95" y="114" width="10" height="4" rx="2"/><rect class="lane-b cell" x="118.5" y="104.5" width="25" height="23" rx="8"/><rect class="skel" x="125" y="114" width="12" height="4" rx="2"/><rect class="lane-b cell" x="148.5" y="104.5" width="25" height="23" rx="8"/><rect class="skel" x="155" y="114" width="11" height="4" rx="2"/><rect class="lane-b cell" x="178.5" y="104.5" width="25" height="23" rx="8"/><rect class="skel" x="185" y="114" width="12" height="4" rx="2"/>
+    <rect class="sq-s" x="48" y="139" width="10" height="10" rx="3"/><rect class="skel" x="64" y="141" width="18" height="6" rx="3"/><rect class="lane-s cell" x="88.5" y="132.5" width="25" height="23" rx="8"/><rect class="skel" x="95" y="142" width="12" height="4" rx="2"/><rect class="lane-s cell" x="118.5" y="132.5" width="25" height="23" rx="8"/><rect class="skel" x="125" y="142" width="11" height="4" rx="2"/><rect class="lane-s cell" x="148.5" y="132.5" width="25" height="23" rx="8"/><rect class="skel" x="155" y="142" width="12" height="4" rx="2"/><rect class="lane-s cell" x="178.5" y="132.5" width="25" height="23" rx="8"/><rect class="skel" x="185" y="142" width="14" height="4" rx="2"/>
+    <rect class="ring" x="38" y="38" width="176" height="128" rx="14"/>
+  <text class="title" x="226" y="96">Onboarding</text>
+  <text class="label" x="226" y="118">Read the whole service</text>
+  <rect class="card" x="448.5" y="24.5" width="407" height="155" rx="16"/>
+    <g class="faded"><rect class="sq-c" x="472" y="55" width="10" height="10" rx="3"/><rect class="skel" x="488" y="57" width="18" height="6" rx="3"/><rect class="lane-c cell" x="512.5" y="48.5" width="25" height="23" rx="8"/><rect class="skel" x="519" y="58" width="12" height="4" rx="2"/><rect class="lane-c cell" x="542.5" y="48.5" width="25" height="23" rx="8"/><rect class="skel" x="549" y="58" width="14" height="4" rx="2"/><rect class="lane-c cell" x="572.5" y="48.5" width="25" height="23" rx="8"/><rect class="skel" x="579" y="58" width="10" height="4" rx="2"/><rect class="lane-c cell" x="602.5" y="48.5" width="25" height="23" rx="8"/><rect class="skel" x="609" y="58" width="12" height="4" rx="2"/></g>
+    <rect class="sq-f" x="472" y="83" width="10" height="10" rx="3"/><rect class="skel" x="488" y="85" width="18" height="6" rx="3"/><rect class="lane-f cell-focus" x="512.5" y="76.5" width="25" height="23" rx="8"/><rect class="skel-teal" x="519" y="86" width="14" height="4" rx="2"/><rect class="lane-f cell-focus" x="542.5" y="76.5" width="25" height="23" rx="8"/><rect class="skel-teal" x="549" y="86" width="10" height="4" rx="2"/><rect class="lane-f cell-focus" x="572.5" y="76.5" width="25" height="23" rx="8"/><rect class="skel-teal" x="579" y="86" width="12" height="4" rx="2"/><rect class="lane-f cell-focus" x="602.5" y="76.5" width="25" height="23" rx="8"/><rect class="skel-teal" x="609" y="86" width="11" height="4" rx="2"/>
+    <g class="faded"><rect class="sq-b" x="472" y="111" width="10" height="10" rx="3"/><rect class="skel" x="488" y="113" width="18" height="6" rx="3"/><rect class="lane-b cell" x="512.5" y="104.5" width="25" height="23" rx="8"/><rect class="skel" x="519" y="114" width="10" height="4" rx="2"/><rect class="lane-b cell" x="542.5" y="104.5" width="25" height="23" rx="8"/><rect class="skel" x="549" y="114" width="12" height="4" rx="2"/><rect class="lane-b cell" x="572.5" y="104.5" width="25" height="23" rx="8"/><rect class="skel" x="579" y="114" width="11" height="4" rx="2"/><rect class="lane-b cell" x="602.5" y="104.5" width="25" height="23" rx="8"/><rect class="skel" x="609" y="114" width="12" height="4" rx="2"/></g>
+    <g class="faded"><rect class="sq-s" x="472" y="139" width="10" height="10" rx="3"/><rect class="skel" x="488" y="141" width="18" height="6" rx="3"/><rect class="lane-s cell" x="512.5" y="132.5" width="25" height="23" rx="8"/><rect class="skel" x="519" y="142" width="12" height="4" rx="2"/><rect class="lane-s cell" x="542.5" y="132.5" width="25" height="23" rx="8"/><rect class="skel" x="549" y="142" width="11" height="4" rx="2"/><rect class="lane-s cell" x="572.5" y="132.5" width="25" height="23" rx="8"/><rect class="skel" x="579" y="142" width="12" height="4" rx="2"/><rect class="lane-s cell" x="602.5" y="132.5" width="25" height="23" rx="8"/><rect class="skel" x="609" y="142" width="14" height="4" rx="2"/></g>
+  <text class="title" x="650" y="96">Stakeholder alignment</text>
+  <text class="label" x="650" y="118">One slice per audience</text>
+  <rect class="card" x="24.5" y="196.5" width="407" height="155" rx="16"/>
+    <rect class="sq-c" x="48" y="227" width="10" height="10" rx="3"/><rect class="skel" x="64" y="229" width="18" height="6" rx="3"/><rect class="card cell-focus-dash" x="88.5" y="220.5" width="25" height="23" rx="8"/><rect class="skel-teal" x="95" y="230" width="12" height="4" rx="2"/><g class="faded"><rect class="lane-c cell" x="118.5" y="220.5" width="25" height="23" rx="8"/><rect class="skel" x="125" y="230" width="14" height="4" rx="2"/></g><g class="faded"><rect class="lane-c cell" x="148.5" y="220.5" width="25" height="23" rx="8"/><rect class="skel" x="155" y="230" width="10" height="4" rx="2"/></g><g class="faded"><rect class="lane-c cell" x="178.5" y="220.5" width="25" height="23" rx="8"/><rect class="skel" x="185" y="230" width="12" height="4" rx="2"/></g>
+    <rect class="sq-f" x="48" y="255" width="10" height="10" rx="3"/><rect class="skel" x="64" y="257" width="18" height="6" rx="3"/><g class="faded"><rect class="lane-f cell" x="88.5" y="248.5" width="25" height="23" rx="8"/><rect class="skel" x="95" y="258" width="14" height="4" rx="2"/></g><g class="faded"><rect class="lane-f cell" x="118.5" y="248.5" width="25" height="23" rx="8"/><rect class="skel" x="125" y="258" width="10" height="4" rx="2"/></g><rect class="lane-f cell-focus" x="148.5" y="248.5" width="25" height="23" rx="8"/><rect class="skel-teal" x="155" y="258" width="12" height="4" rx="2"/><g class="faded"><rect class="lane-f cell" x="178.5" y="248.5" width="25" height="23" rx="8"/><rect class="skel" x="185" y="258" width="11" height="4" rx="2"/></g>
+    <rect class="sq-b" x="48" y="283" width="10" height="10" rx="3"/><rect class="skel" x="64" y="285" width="18" height="6" rx="3"/><g class="faded"><rect class="lane-b cell" x="88.5" y="276.5" width="25" height="23" rx="8"/><rect class="skel" x="95" y="286" width="10" height="4" rx="2"/></g><g class="faded"><rect class="lane-b cell" x="118.5" y="276.5" width="25" height="23" rx="8"/><rect class="skel" x="125" y="286" width="12" height="4" rx="2"/></g><g class="faded"><rect class="lane-b cell" x="148.5" y="276.5" width="25" height="23" rx="8"/><rect class="skel" x="155" y="286" width="11" height="4" rx="2"/></g><rect class="lane-b cell-focus" x="178.5" y="276.5" width="25" height="23" rx="8"/><rect class="skel-teal" x="185" y="286" width="12" height="4" rx="2"/>
+    <rect class="sq-s" x="48" y="311" width="10" height="10" rx="3"/><rect class="skel" x="64" y="313" width="18" height="6" rx="3"/><g class="faded"><rect class="lane-s cell" x="88.5" y="304.5" width="25" height="23" rx="8"/><rect class="skel" x="95" y="314" width="12" height="4" rx="2"/></g><rect class="lane-s cell-focus" x="118.5" y="304.5" width="25" height="23" rx="8"/><rect class="skel-teal" x="125" y="314" width="11" height="4" rx="2"/><g class="faded"><rect class="lane-s cell" x="148.5" y="304.5" width="25" height="23" rx="8"/><rect class="skel" x="155" y="314" width="12" height="4" rx="2"/></g><g class="faded"><rect class="lane-s cell" x="178.5" y="304.5" width="25" height="23" rx="8"/><rect class="skel" x="185" y="314" width="14" height="4" rx="2"/></g>
+    <path class="trace" d="M115,232 H155 Q161,232 161,238 V246" marker-end="url(#headTeal)"/>
+    <path class="trace" d="M175,260 H185 Q191,260 191,266 V274" marker-end="url(#headTeal)"/>
+    <path class="trace" d="M147,260 H137 Q131,260 131,266 V302" marker-end="url(#headTeal)"/>
+  <text class="title" x="226" y="268">Decision evaluation</text>
+  <text class="label" x="226" y="290">What a change breaks</text>
+  <rect class="card" x="448.5" y="196.5" width="407" height="155" rx="16"/>
+    <rect class="sq-c" x="472" y="227" width="10" height="10" rx="3"/><rect class="skel" x="488" y="229" width="18" height="6" rx="3"/><rect class="lane-c cell" x="512.5" y="220.5" width="25" height="23" rx="8"/><rect class="skel" x="519" y="230" width="12" height="4" rx="2"/><rect class="lane-c cell" x="542.5" y="220.5" width="25" height="23" rx="8"/><rect class="skel" x="549" y="230" width="14" height="4" rx="2"/><rect class="cell-stale" x="572.5" y="220.5" width="25" height="23" rx="8"/><rect class="skel-stale" x="579" y="230" width="10" height="4" rx="2"/><rect class="lane-c cell" x="602.5" y="220.5" width="25" height="23" rx="8"/><rect class="skel" x="609" y="230" width="12" height="4" rx="2"/>
+    <rect class="sq-f" x="472" y="255" width="10" height="10" rx="3"/><rect class="skel" x="488" y="257" width="18" height="6" rx="3"/><rect class="lane-f cell" x="512.5" y="248.5" width="25" height="23" rx="8"/><rect class="skel" x="519" y="258" width="14" height="4" rx="2"/><rect class="lane-f cell" x="542.5" y="248.5" width="25" height="23" rx="8"/><rect class="skel" x="549" y="258" width="10" height="4" rx="2"/><rect class="lane-f cell" x="572.5" y="248.5" width="25" height="23" rx="8"/><rect class="skel" x="579" y="258" width="12" height="4" rx="2"/><rect class="lane-f cell" x="602.5" y="248.5" width="25" height="23" rx="8"/><rect class="skel" x="609" y="258" width="11" height="4" rx="2"/>
+    <rect class="sq-b" x="472" y="283" width="10" height="10" rx="3"/><rect class="skel" x="488" y="285" width="18" height="6" rx="3"/><rect class="lane-b cell" x="512.5" y="276.5" width="25" height="23" rx="8"/><rect class="skel" x="519" y="286" width="10" height="4" rx="2"/><rect class="cell-stale" x="542.5" y="276.5" width="25" height="23" rx="8"/><rect class="skel-stale" x="549" y="286" width="12" height="4" rx="2"/><rect class="lane-b cell" x="572.5" y="276.5" width="25" height="23" rx="8"/><rect class="skel" x="579" y="286" width="11" height="4" rx="2"/><rect class="lane-b cell" x="602.5" y="276.5" width="25" height="23" rx="8"/><rect class="skel" x="609" y="286" width="12" height="4" rx="2"/>
+    <rect class="sq-s" x="472" y="311" width="10" height="10" rx="3"/><rect class="skel" x="488" y="313" width="18" height="6" rx="3"/><rect class="lane-s cell" x="512.5" y="304.5" width="25" height="23" rx="8"/><rect class="skel" x="519" y="314" width="12" height="4" rx="2"/><rect class="lane-s cell" x="542.5" y="304.5" width="25" height="23" rx="8"/><rect class="skel" x="549" y="314" width="11" height="4" rx="2"/><rect class="lane-s cell" x="572.5" y="304.5" width="25" height="23" rx="8"/><rect class="skel" x="579" y="314" width="12" height="4" rx="2"/><rect class="lane-s cell" x="602.5" y="304.5" width="25" height="23" rx="8"/><rect class="skel" x="609" y="314" width="14" height="4" rx="2"/>
+    <circle class="flag" cx="597" cy="221" r="5"/>
+    <circle class="flag" cx="567" cy="277" r="5"/>
+  <text class="title" x="650" y="268">Context management</text>
+  <text class="label" x="650" y="290">What no longer holds</text>
 </svg>

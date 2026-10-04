@@ -1,5 +1,5 @@
 /// <reference types="vitest/config" />
-import { existsSync, renameSync } from 'fs'
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs'
 import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -172,29 +172,153 @@ export function basePath(value: string | undefined): string {
 }
 
 /**
- * The host's own files, put back where the host reads them.
+ * The hosting rules a build served from a path writes for itself.
+ *
+ * `netlify.toml` is written for the root, and a repository that serves the
+ * root from it cannot also serve a prefix from it. So under a prefix the build
+ * writes the prefixed rules into the files a host reads BEFORE that table:
+ *
+ *   `_redirects` — `/` sent on to the prefix with a 301, the
+ *   `/<prefix>/assets/*` 404 for a hashed chunk the deploy no longer ships,
+ *   then the `/<prefix>/*` single-page fallback. In that order, and none of
+ *   them forced: the 404 below the fallback is never reached, and a forced
+ *   404 answers for every asset that IS there.
+ *
+ *   `_headers` — the year-long cache on the hashed output moves to
+ *   `/<prefix>/assets/*`, the only path the hashed names are served from.
+ *   Headers that already name it are a deployment writing the rule by hand,
+ *   and are left as they are.
+ *
+ * A `_redirects` the repository wrote itself is kept, first, so its own rules
+ * still apply above the fallback. A line that states one of the generated
+ * rules exactly is dropped, since the build writes it below. Any other rule
+ * that answers a path the generated rules are for — `/`, the prefix itself,
+ * or every path under it, through a splat or a `:placeholder` — would answer
+ * in their place, and the build refuses it in one line rather than publish a
+ * site whose deep links depend on which rule a host met first. The rules are
+ * written once, so a file the build wrote passed back in comes out unchanged.
+ *
+ * The rules are stated here rather than imported because this file is bundled
+ * in isolation. The template's hosting check states them too, and the
+ * template's own suite reads what this writes back through that check, so the
+ * two are one fact.
+ */
+const IMMUTABLE = 'public, max-age=31536000, immutable'
+
+/**
+ * Whether a redirect's `from` answers for the app under `base`: the site root,
+ * the prefix itself, or any path beneath it — the case a splat or a
+ * placeholder in the segment after the prefix makes. A literal segment there
+ * (`/demo/api/*`) names a path of the repository's own and answers nothing
+ * else.
+ */
+export function answersForTheApp(from: string, base: string): boolean {
+  if (from === '/') return true
+  const want = base.split('/').filter(Boolean)
+  const have = from.split('/').filter(Boolean)
+  for (const [index, segment] of want.entries()) {
+    const said = have[index]
+    if (said === undefined) return false
+    if (said === '*') return true
+    if (said !== segment && !said.startsWith(':')) return false
+  }
+  const next = have[want.length]
+  return next === undefined || next === '*' || next.startsWith(':')
+}
+
+export function hostRulesUnder(
+  base: string,
+  own: { redirects: string | null; headers: string | null },
+): { redirects: string; headers: string } {
+  const assets = `${base}assets/*`
+  const rules = [
+    ['/', base, '301'],
+    [assets, `${base}assets/:splat`, '404'],
+    [`${base}*`, `${base}index.html`, '200'],
+  ]
+  const written = rules.map((rule) => rule.join('  '))
+  const comment = [
+    `# Written by the build for BASE_PATH=${base}: the site root goes on to the`,
+    '# prefix, a hashed chunk the deploy no longer ships answers 404, and every',
+    '# other path under the prefix is the app. Read before netlify.toml.',
+  ]
+
+  const kept: string[] = []
+  for (const [index, raw] of (own.redirects ?? '').split('\n').entries()) {
+    const line = raw.trim()
+    if (comment.includes(line)) continue
+    if (!line || line.startsWith('#')) {
+      kept.push(raw)
+      continue
+    }
+    const [from, to, status] = line.split(/\s+/)
+    if (rules.some((rule) => rule.join(' ') === [from, to, status].join(' '))) continue
+    if (!rules.some(([generated]) => generated === from) && !answersForTheApp(from, base)) {
+      kept.push(raw)
+      continue
+    }
+    throw new Error(
+      `public/_redirects line ${index + 1} sends ${from}, which a host reads before the rules ` +
+        `this build writes for BASE_PATH=${base} (${rules.map(([one]) => one).join(', ')}) and ` +
+        'so answers in their place. Remove the line; the build writes the prefixed rules itself.',
+    )
+  }
+
+  const before = kept.join('\n').trim()
+  const redirects = `${before ? `${before}\n\n` : ''}${[...comment, ...written].join('\n')}\n`
+
+  const block = `${assets}\n  Cache-Control: ${IMMUTABLE}\n`
+  const lines = (own.headers ?? '').split('\n')
+  let headers: string
+  if (!own.headers?.trim()) headers = block
+  else if (lines.some((line) => line.trimEnd() === assets)) headers = own.headers
+  else if (lines.some((line) => line.trimEnd() === '/assets/*')) {
+    headers = lines.map((line) => (line.trimEnd() === '/assets/*' ? assets : line)).join('\n')
+  } else headers = `${own.headers.replace(/\n*$/, '')}\n\n${block}`
+
+  return { redirects, headers }
+}
+
+/**
+ * The host's own files, put back where the host reads them, with the rules
+ * the prefix needs.
  *
  * `public/_headers` and `public/_redirects` are read from the ROOT of the
  * published directory and nowhere else. Under a prefix the whole output —
  * `public/` included — lands in `dist/<prefix>/`, so without this step the
  * two files are published one level down, where the host never looks, and
  * every rule in them (the CSP, the hashed-asset cache) silently stops
- * applying. At the root there is nothing to move and the step is not loaded.
+ * applying. Once they are back at the root, `hostRulesUnder` writes the
+ * prefixed rules into them. At the root there is nothing to move or write,
+ * and the step is not loaded.
  */
 const HOST_FILES = ['_headers', '_redirects']
 
 function hostFilesAtPublishRoot(base: string): Plugin[] {
   if (base === '/') return []
   const publishRoot = path.resolve(import.meta.dirname, 'dist')
+  const at = (file: string) => path.join(publishRoot, file)
+  const read = (file: string) => (existsSync(at(file)) ? readFileSync(at(file), 'utf8') : null)
   return [
     {
       name: 'host-files-at-publish-root',
       apply: 'build',
       closeBundle() {
+        // Only `dist/<prefix>/` is emptied before a build under a prefix, so
+        // a previous build's files at the root are still there. A file the
+        // repository does not ship this time is one to remove, not to read
+        // back as if the repository had written it.
         for (const file of HOST_FILES) {
           const nested = path.join(publishRoot, base, file)
-          if (existsSync(nested)) renameSync(nested, path.join(publishRoot, file))
+          if (existsSync(nested)) renameSync(nested, at(file))
+          else rmSync(at(file), { force: true })
         }
+        const written = hostRulesUnder(base, {
+          redirects: read('_redirects'),
+          headers: read('_headers'),
+        })
+        writeFileSync(at('_redirects'), written.redirects)
+        writeFileSync(at('_headers'), written.headers)
       },
     },
   ]
@@ -241,6 +365,9 @@ export default defineConfig(({ mode }) => {
         'deployment/**/*.test.ts',
         'deployment/**/*.test.tsx',
         'scripts/tests/**/*.test.mjs',
+        // The initialiser's, beside the package they test. A workspace is
+        // written without that folder, and there this matches nothing.
+        'packages/**/*.test.mjs',
       ],
     },
   }

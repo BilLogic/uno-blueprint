@@ -11,6 +11,7 @@ import {
   declaredNames,
   dial,
   missingRoleTokens,
+  parseColor,
   namesIn,
   resolveColor,
   resolveValue,
@@ -488,6 +489,11 @@ const DIALS = [
   // semantic.css states beside the sweep — so print.css has to take it back
   // the way it takes back every other dial the themes disagree about.
   '--role-edge-step',
+  // The three neutral edge steps, stated at the `--contrast: 0.5` baseline.
+  // Per theme for the same reason as the role edge, and print takes them back.
+  '--border-alpha-resting',
+  '--border-alpha-hover',
+  '--border-alpha-hot',
   '--warning-lightness',
   '--destructive-lightness',
   '--info-lightness',
@@ -618,7 +624,7 @@ describe('theme dials and semantic layer', () => {
     expect(rungs['--radius-sm']).toBe('calc(var(--radius) * 0.5)')
     expect(rungs['--radius-md']).toBe('calc(var(--radius) * 0.75)')
     expect(rungs['--radius-lg']).toBe('var(--radius)')
-    expect(rungs['--radius-xl']).toBe('calc(var(--radius) * 1.5)')
+    expect(rungs['--radius-xl']).toBe('calc(var(--radius) * 2)')
     expect(rungs['--radius-2xl']).toBeUndefined()
     expect(rungs['--radius-3xl']).toBeUndefined()
     expect(rungs['--radius-4xl']).toBeUndefined()
@@ -1162,4 +1168,83 @@ describe('a role tint stands off its ground', () => {
     )
     expect(Math.max(...measured)).toBeLessThan(TINT_FLOOR)
   })
+})
+
+/**
+ * The neutral edge ladder stays in order across the whole contrast knob.
+ *
+ * Five rungs share one ink and differ only in alpha: `--border-muted`, the
+ * resting `--border`, `--input` and `--border-overlay`, then the hover and
+ * hot steps `--border-strong` and `--border-stronger`. Three of them are
+ * dialled per theme and two are not, so a contrast preference that moved one
+ * family faster than the other could cross them — a resting edge louder than
+ * an input's, or a hover step quieter than the overlay it is meant to beat.
+ *
+ * The model resolves at each theme's own `--contrast`, so the sweep chases
+ * each token's declaration by hand and answers `--contrast` itself. Every
+ * other name resolves through the cascade, and the alpha is evaluated by the
+ * same `parseColor` every contrast rule in this repository reads.
+ */
+describe('the neutral edge ladder under the contrast knob', () => {
+  const alphaAt = (name: string, theme: 'light' | 'dark', knob: number) => {
+    const chase = (value: string, seen: Set<string>): string =>
+      value.replace(
+        /var\(\s*(--[a-zA-Z0-9-]+)\s*(?:,\s*([^()]*))?\)/g,
+        (whole, referenced: string) => {
+          if (referenced === '--contrast') return String(knob)
+          if (seen.has(referenced)) return whole
+          const declaration = winningDeclaration(referenced, theme)
+          if (!declaration) return whole
+          return chase(declaration.value, new Set([...seen, referenced]))
+        },
+      )
+    const declaration = winningDeclaration(name, theme)
+    if (!declaration) throw new Error(`not declared: ${name}`)
+    return parseColor(chase(declaration.value, new Set([name])), name).alpha
+  }
+
+  const LADDER = [
+    ['--border-muted'],
+    ['--border'],
+    ['--input', '--border-overlay'],
+    ['--border-strong'],
+    ['--border-stronger'],
+  ]
+
+  it.each(['light', 'dark'] as const)(
+    'keeps muted < border < input and overlay < strong < stronger from 0 to 1 in %s',
+    (theme) => {
+      const crossings: string[] = []
+      for (let step = 0; step <= 20; step += 1) {
+        const knob = step / 20
+        for (let rung = 1; rung < LADDER.length; rung += 1) {
+          for (const below of LADDER[rung - 1]) {
+            for (const above of LADDER[rung]) {
+              const quiet = alphaAt(below, theme, knob)
+              const loud = alphaAt(above, theme, knob)
+              if (!(loud > quiet)) {
+                crossings.push(
+                  `contrast ${knob}: ${above} ${loud.toFixed(4)} <= ${below} ${quiet.toFixed(4)}`,
+                )
+              }
+            }
+          }
+        }
+      }
+      expect(crossings).toEqual([])
+    },
+  )
+
+  it.each([
+    ['light', 0.09, 0.17, 0.42],
+    ['dark', 0.08, 0.15, 0.45],
+  ] as const)(
+    'lands the three steps on the site numbers at the shipped contrast in %s',
+    (theme, resting, hover, hot) => {
+      const knob = dial('--contrast', theme)
+      expect(alphaAt('--border', theme, knob)).toBeCloseTo(resting, 2)
+      expect(alphaAt('--border-strong', theme, knob)).toBeCloseTo(hover, 2)
+      expect(alphaAt('--border-stronger', theme, knob)).toBeCloseTo(hot, 2)
+    },
+  )
 })

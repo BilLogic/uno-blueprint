@@ -753,10 +753,10 @@ function DesktopEditorShell() {
             <div
               className={cn(
                 'flex h-full min-h-0 flex-row',
-                'transition-[opacity,transform] duration-(--motion-fade) ease-out motion-reduce:transition-none',
+                'transition-[opacity,transform] duration-(--motion-fade) ease-arrive motion-reduce:transition-none',
                 asideHidden
                   ? 'pointer-events-none -translate-x-2 opacity-0'
-                  : 'translate-x-0 opacity-100 delay-75',
+                  : 'translate-x-0 opacity-100 delay-(--motion-fade-stagger)',
               )}
               style={{ width: asideWidth }}
               aria-hidden={asideHidden}
@@ -771,7 +771,7 @@ function DesktopEditorShell() {
               <div
                 className={cn(
                   'absolute inset-y-0 left-0 z-10 bg-sidebar',
-                  'transition-opacity duration-(--motion-fade) ease-out',
+                  'transition-opacity motion-reduce:transition-none duration-(--motion-fade) ease-arrive',
                   !sidebarBooting && 'pointer-events-none opacity-0',
                 )}
                 style={

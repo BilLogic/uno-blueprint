@@ -378,10 +378,11 @@ describe('a made-up word is a plain field label, and still explains itself', () 
     // The three divider lines are the whole grammar of a service blueprint;
     // a rail that stated them in the register of every other row label hid
     // that.
-    render(<BlueprintDividerRailLabel label="line of interaction" />)
-    const block = screen.getByText('line of interaction')
+    render(<BlueprintDividerRailLabel label="Line of interaction" />)
+    const block = screen.getByText('Line of interaction')
     expect(block.hasAttribute('data-blueprint-row-header')).toBe(true)
-    expect(block.className).toContain('uppercase')
+    // Sentence case, as written: a small label is never capitalised by CSS.
+    expect(block.className).not.toMatch(/\buppercase\b|\btracking-wide/)
     hover(block)
     expect(
       await screen.findByText(/Above it, what the customer does/),

@@ -1,80 +1,79 @@
-<svg viewBox="0 -40 880 292" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<svg viewBox="0 0 880 348" xmlns="http://www.w3.org/2000/svg" font-family="'Ubuntu Sans', system-ui, sans-serif">
   <style>
-    .title { font-size: 11px; font-weight: 700; fill: #273036; }
-    .badge { font-size: 10px; font-weight: 600; fill: #273036; }
-    .sub { font-size: 9.5px; fill: #9ca3af; }
-    .rail { font-size: 9.5px; font-weight: 700; letter-spacing: .07em; fill: #8a8f98; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .flow { stroke: #8e8e93; stroke-width: 1.6; fill: none; marker-end: url(#arrwhatif); }
-    .spoke { stroke: #d4d4da; stroke-width: 1; fill: none; }
+    .plate { fill: #f6f8f7; }
+    .dot { fill: #151a18; fill-opacity: 0.17; }
+    .card { fill: #ffffff; stroke: #151a18; stroke-opacity: 0.09; }
+    .card-dash { fill: #ffffff; stroke: #151a18; stroke-opacity: 0.34; stroke-dasharray: 4 4; }
+    .card-focus { fill: #ffffff; stroke: #00806a; stroke-width: 1.5; }
+    .title { font-size: 15px; font-weight: 600; fill: #151a18; }
+    .label { font-size: 14.5px; fill: #565c5a; }
+    .label-teal { font-size: 14.5px; font-weight: 600; fill: #00806a; }
+    .strong { font-size: 14.5px; font-weight: 600; fill: #151a18; }
+    .flow { stroke: #565c5a; stroke-width: 1.5; fill: none; }
+    .flow-head { fill: #565c5a; }
+    .trace { stroke: #00806a; stroke-width: 1.5; fill: none; }
+    .trace-dash { stroke: #00806a; stroke-width: 1.5; fill: none; stroke-dasharray: 4 4; }
+    .trace-head { fill: #00806a; }
+    .skel { fill: #151a18; fill-opacity: 0.16; }
+    .skel-teal { fill: #00806a; }
+    .cell { stroke: #151a18; stroke-opacity: 0.09; }
+    .cell-dash { fill: none; stroke: #151a18; stroke-opacity: 0.34; stroke-dasharray: 3 3; }
+    .cell-focus { stroke: #00806a; stroke-opacity: 1; stroke-width: 1.5; }
+    .cell-focus-dash { stroke: #00806a; stroke-opacity: 1; stroke-width: 1.5; stroke-dasharray: 3 3; }
+    .cell-stale { fill: #fff4e0; stroke: #b45309; stroke-width: 1.25; }
+    .skel-stale { fill: #b45309; fill-opacity: 0.55; }
+    .flag { fill: #00806a; stroke: #ffffff; stroke-width: 2; }
+    .faded { opacity: 0.4; }
+    .rule { stroke: #151a18; stroke-opacity: 0.09; }
+    .tile { fill: #f6f8f7; stroke: #151a18; stroke-opacity: 0.09; }
+    .glyph { fill: none; stroke: #565c5a; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    .raised { fill: #ffffff; stroke: #151a18; stroke-opacity: 0.17; }
+    .term { fill: #101417; stroke: #101417; }
+    .term-key { font-family: 'Ubuntu Sans Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; font-weight: 500; fill: #7fe3cc; }
+    .lane-c { fill: #e8f3ed; } .sq-c { fill: #cfe6d9; }
+    .lane-f { fill: #fdf1e3; } .sq-f { fill: #f6e0bd; }
+    .lane-b { fill: #fbe9f0; } .sq-b { fill: #f2cfdf; }
+    .lane-s { fill: #ecebf5; } .sq-s { fill: #d9d6ec; }
   </style>
   <defs>
-    <marker id="arrwhatif" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L7,3 L0,6 Z" fill="#8e8e93"/>
-    </marker>
+    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle class="dot" cx="10" cy="10" r="0.8"/>
+    </pattern>
+    <radialGradient id="fade" cx="50%" cy="50%" r="70%">
+      <stop offset="0.35" stop-color="#fff"/>
+      <stop offset="1" stop-color="#000"/>
+    </radialGradient>
+    <mask id="fadeMask"><rect width="880" height="348" fill="url(#fade)"/></mask>
+    <marker id="headMuted" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="flow-head" d="M0,0.5 L7,4 L0,7.5 Z"/></marker>
+    <marker id="headTeal" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path class="trace-head" d="M0,0.5 L7,4 L0,7.5 Z"/></marker>
   </defs>
-
-  <rect x="0" y="-40" width="880" height="292" rx="14" fill="#eef1f5" stroke="#e2e4e9"/>
-
-  <text x="16" y="-14" font-size="15" font-weight="700" fill="#273036">How to use <tspan class="mono">ub:whatif</tspan></text>
-
-  <text x="24" y="10" class="rail">THE BLUEPRINT TODAY</text>
-  <rect x="16" y="18" width="340" height="210" rx="10" fill="#ffffff" stroke="#c9ccd4" stroke-width="1.3"/>
-  <rect x="44" y="32" width="284" height="26" rx="13" fill="#ffffff" stroke="#d4b483"/>
-  <text x="186" y="49" class="sub" font-size="9" text-anchor="middle" fill="#6b7280">what if we removed this step?</text>
-  <g opacity="0.7">
-    <rect x="44" y="72" width="284" height="35" fill="#e8f3ed"/>
-    <rect x="44" y="107" width="284" height="35" fill="#fdf1e3"/>
-    <rect x="44" y="142" width="284" height="35" fill="#fbe9f0"/>
-    <rect x="44" y="177" width="284" height="35" fill="#ecebf5"/>
-    <rect x="44" y="72" width="284" height="140" fill="none" stroke="#d4d4da"/>
-    <line x1="115" y1="72" x2="115" y2="212" stroke="#e2e4e9"/>
-    <line x1="186" y1="72" x2="186" y2="212" stroke="#e2e4e9"/>
-    <line x1="257" y1="72" x2="257" y2="212" stroke="#e2e4e9"/>
-  </g>
-  <rect x="57.5" y="81.625" width="44" height="15.75" rx="2" fill="#ffffff" stroke="#d4d4da"/>
-  <rect x="199.5" y="81.625" width="44" height="15.75" rx="2" fill="#ffffff" stroke="#d4d4da"/>
-  <rect x="128.5" y="116.625" width="44" height="15.75" rx="2" fill="#ffffff" stroke="#d4d4da"/>
-  <rect x="270.5" y="116.625" width="44" height="15.75" rx="2" fill="#ffffff" stroke="#d4d4da"/>
-  <rect x="57.5" y="151.625" width="44" height="15.75" rx="2" fill="#ffffff" stroke="#d4d4da"/>
-  <rect x="199.5" y="151.625" width="44" height="15.75" rx="2" fill="#ffffff" stroke="#d4d4da"/>
-  <rect x="128.5" y="186.625" width="44" height="15.75" rx="2" fill="#ffffff" stroke="#d4d4da"/>
-  <rect x="270.5" y="186.625" width="44" height="15.75" rx="2" fill="#ffffff" stroke="#d4d4da"/>
-  <path class="flow" d="M356,123 L518,123"/>
-  <rect x="365" y="96" width="150" height="54" rx="14" fill="#fdf1e3" stroke="#d4b483" stroke-width="1.4"/>
-  <text x="440" y="118" class="title mono" text-anchor="middle">ub:whatif</text>
-  <text x="440" y="134" class="sub" text-anchor="middle" fill="#6b7280">trace it before you commit</text>
-  <text x="532" y="10" class="rail">FUTURES IT TRACES, NONE OF THEM LIVE</text>
-  <rect x="524" y="18" width="340" height="210" rx="10" fill="#ffffff" stroke="#c9ccd4" stroke-width="1.3"/>
-  <rect x="540" y="32" width="308" height="56" rx="8" fill="#fafbfc" stroke="#c9ccd4" stroke-dasharray="4 3"/>
-  <rect x="552" y="43" width="60" height="34" fill="#ffffff" stroke="#d4d4da"/>
-  <line x1="567" y1="43" x2="567" y2="77" stroke="#e2e4e9"/>
-  <line x1="582" y1="43" x2="582" y2="77" stroke="#e2e4e9"/>
-  <line x1="597" y1="43" x2="597" y2="77" stroke="#e2e4e9"/>
-  <rect x="554" y="46" width="11" height="6" fill="#d9e4ea" stroke="#9aadbe"/>
-  <rect x="569" y="56" width="11" height="6" fill="#fdf1e3" stroke="#d4b483"/>
-  <rect x="584" y="56" width="11" height="6" fill="#fdf1e3" stroke="#d4b483"/>
-  <rect x="599" y="66" width="11" height="6" fill="#fdf1e3" stroke="#d4b483"/>
-  <rect x="584" y="66" width="11" height="6" fill="#fdf1e3" stroke="#d4b483"/>
-  <text x="628" y="58" class="badge" font-size="9.5">move it to another channel</text>
-  <text x="628" y="73" class="sub" font-size="9">7 cells reached, 2 assumptions break</text>
-  <rect x="540" y="96" width="308" height="56" rx="8" fill="#fafbfc" stroke="#c9ccd4" stroke-dasharray="4 3"/>
-  <rect x="552" y="107" width="60" height="34" fill="#ffffff" stroke="#d4d4da"/>
-  <line x1="567" y1="107" x2="567" y2="141" stroke="#e2e4e9"/>
-  <line x1="582" y1="107" x2="582" y2="141" stroke="#e2e4e9"/>
-  <line x1="597" y1="107" x2="597" y2="141" stroke="#e2e4e9"/>
-  <rect x="554" y="110" width="11" height="6" fill="#d9e4ea" stroke="#9aadbe"/>
-  <rect x="569" y="120" width="11" height="6" fill="#fdf1e3" stroke="#d4b483"/>
-  <rect x="584" y="120" width="11" height="6" fill="#fdf1e3" stroke="#d4b483"/>
-  <text x="628" y="122" class="badge" font-size="9.5">let the customer do it themselves</text>
-  <text x="628" y="137" class="sub" font-size="9">4 cells reached, 1 assumption breaks</text>
-  <rect x="540" y="160" width="308" height="56" rx="8" fill="#fafbfc" stroke="#c9ccd4" stroke-dasharray="4 3"/>
-  <rect x="552" y="171" width="60" height="34" fill="#ffffff" stroke="#d4d4da"/>
-  <line x1="567" y1="171" x2="567" y2="205" stroke="#e2e4e9"/>
-  <line x1="582" y1="171" x2="582" y2="205" stroke="#e2e4e9"/>
-  <line x1="597" y1="171" x2="597" y2="205" stroke="#e2e4e9"/>
-  <rect x="554" y="174" width="11" height="6" fill="#d9e4ea" stroke="#9aadbe"/>
-  <rect x="569" y="184" width="11" height="6" fill="#fdf1e3" stroke="#d4b483"/>
-  <text x="628" y="186" class="badge" font-size="9.5">keep it for some customers only</text>
-  <text x="628" y="201" class="sub" font-size="9">2 cells reached, nothing downstream</text>
+  <rect class="plate" width="880" height="348" rx="16"/>
+  <rect width="880" height="348" rx="16" fill="url(#grid)" mask="url(#fadeMask)"/>
+  <text class="label" x="24" y="50">Your blueprint today</text>
+  <rect class="card" x="24.5" y="68.5" width="288" height="171" rx="16"/>
+    <rect class="sq-c" x="52" y="107.5" width="10" height="10" rx="3"/><rect class="skel" x="68" y="109.5" width="18" height="6" rx="3"/><rect class="lane-c cell" x="92.5" y="101" width="34" height="23" rx="8"/><rect class="skel" x="99" y="110.5" width="17" height="4" rx="2"/><rect class="lane-c cell" x="132.5" y="101" width="34" height="23" rx="8"/><rect class="skel" x="139" y="110.5" width="14" height="4" rx="2"/><rect class="lane-c cell" x="172.5" y="101" width="34" height="23" rx="8"/><rect class="skel" x="179" y="110.5" width="12" height="4" rx="2"/><rect class="lane-c cell" x="212.5" y="101" width="34" height="23" rx="8"/><rect class="skel" x="219" y="110.5" width="21" height="4" rx="2"/><rect class="lane-c cell" x="252.5" y="101" width="34" height="23" rx="8"/><rect class="skel" x="259" y="110.5" width="19" height="4" rx="2"/>
+    <rect class="sq-f" x="52" y="135.5" width="10" height="10" rx="3"/><rect class="skel" x="68" y="137.5" width="18" height="6" rx="3"/><rect class="lane-f cell" x="92.5" y="129" width="34" height="23" rx="8"/><rect class="skel" x="99" y="138.5" width="18" height="4" rx="2"/><rect class="lane-f cell" x="132.5" y="129" width="34" height="23" rx="8"/><rect class="skel" x="139" y="138.5" width="17" height="4" rx="2"/><rect class="lane-f cell" x="172.5" y="129" width="34" height="23" rx="8"/><rect class="skel" x="179" y="138.5" width="14" height="4" rx="2"/><rect class="lane-f cell" x="212.5" y="129" width="34" height="23" rx="8"/><rect class="skel" x="219" y="138.5" width="12" height="4" rx="2"/><rect class="lane-f cell" x="252.5" y="129" width="34" height="23" rx="8"/><rect class="skel" x="259" y="138.5" width="21" height="4" rx="2"/>
+    <rect class="sq-b" x="52" y="163.5" width="10" height="10" rx="3"/><rect class="skel" x="68" y="165.5" width="18" height="6" rx="3"/><rect class="lane-b cell" x="92.5" y="157" width="34" height="23" rx="8"/><rect class="skel" x="99" y="166.5" width="16" height="4" rx="2"/><rect class="lane-b cell" x="132.5" y="157" width="34" height="23" rx="8"/><rect class="skel" x="139" y="166.5" width="18" height="4" rx="2"/><rect class="lane-b cell" x="172.5" y="157" width="34" height="23" rx="8"/><rect class="skel" x="179" y="166.5" width="17" height="4" rx="2"/><rect class="lane-b cell" x="212.5" y="157" width="34" height="23" rx="8"/><rect class="skel" x="219" y="166.5" width="14" height="4" rx="2"/><rect class="lane-b cell" x="252.5" y="157" width="34" height="23" rx="8"/><rect class="skel" x="259" y="166.5" width="12" height="4" rx="2"/>
+    <rect class="sq-s" x="52" y="191.5" width="10" height="10" rx="3"/><rect class="skel" x="68" y="193.5" width="18" height="6" rx="3"/><rect class="lane-s cell" x="92.5" y="185" width="34" height="23" rx="8"/><rect class="skel" x="99" y="194.5" width="13" height="4" rx="2"/><rect class="lane-s cell" x="132.5" y="185" width="34" height="23" rx="8"/><rect class="skel" x="139" y="194.5" width="16" height="4" rx="2"/><rect class="lane-s cell" x="172.5" y="185" width="34" height="23" rx="8"/><rect class="skel" x="179" y="194.5" width="18" height="4" rx="2"/><rect class="lane-s cell" x="212.5" y="185" width="34" height="23" rx="8"/><rect class="skel" x="219" y="194.5" width="17" height="4" rx="2"/><rect class="lane-s cell" x="252.5" y="185" width="34" height="23" rx="8"/><rect class="skel" x="259" y="194.5" width="14" height="4" rx="2"/>
+  <path class="flow" d="M322.5,154 H371.5" marker-end="url(#headMuted)"/>
+  <rect class="term" x="380" y="135.5" width="120" height="37" rx="8"/>
+  <text class="term-key" x="440" y="159" text-anchor="middle">ub:whatif</text>
+  <path class="flow" d="M508.5,154 H557.5" marker-end="url(#headMuted)"/>
+  <text class="label" x="567" y="50">Traced on a copy</text>
+  <rect class="card-dash" x="567.5" y="68.5" width="288" height="171" rx="16"/>
+    <rect class="sq-c" x="595" y="107.5" width="10" height="10" rx="3"/><rect class="skel" x="611" y="109.5" width="18" height="6" rx="3"/><g class="faded"><rect class="lane-c cell" x="635.5" y="101" width="34" height="23" rx="8"/><rect class="skel" x="642" y="110.5" width="17" height="4" rx="2"/></g><rect class="card cell-focus-dash" x="675.5" y="101" width="34" height="23" rx="8"/><rect class="skel-teal" x="682" y="110.5" width="14" height="4" rx="2"/><g class="faded"><rect class="lane-c cell" x="715.5" y="101" width="34" height="23" rx="8"/><rect class="skel" x="722" y="110.5" width="12" height="4" rx="2"/></g><g class="faded"><rect class="lane-c cell" x="755.5" y="101" width="34" height="23" rx="8"/><rect class="skel" x="762" y="110.5" width="21" height="4" rx="2"/></g><g class="faded"><rect class="lane-c cell" x="795.5" y="101" width="34" height="23" rx="8"/><rect class="skel" x="802" y="110.5" width="19" height="4" rx="2"/></g>
+    <rect class="sq-f" x="595" y="135.5" width="10" height="10" rx="3"/><rect class="skel" x="611" y="137.5" width="18" height="6" rx="3"/><g class="faded"><rect class="lane-f cell" x="635.5" y="129" width="34" height="23" rx="8"/><rect class="skel" x="642" y="138.5" width="18" height="4" rx="2"/></g><g class="faded"><rect class="lane-f cell" x="675.5" y="129" width="34" height="23" rx="8"/><rect class="skel" x="682" y="138.5" width="17" height="4" rx="2"/></g><rect class="lane-f cell-focus" x="715.5" y="129" width="34" height="23" rx="8"/><rect class="skel-teal" x="722" y="138.5" width="14" height="4" rx="2"/><g class="faded"><rect class="lane-f cell" x="755.5" y="129" width="34" height="23" rx="8"/><rect class="skel" x="762" y="138.5" width="12" height="4" rx="2"/></g><g class="faded"><rect class="lane-f cell" x="795.5" y="129" width="34" height="23" rx="8"/><rect class="skel" x="802" y="138.5" width="21" height="4" rx="2"/></g>
+    <rect class="sq-b" x="595" y="163.5" width="10" height="10" rx="3"/><rect class="skel" x="611" y="165.5" width="18" height="6" rx="3"/><g class="faded"><rect class="lane-b cell" x="635.5" y="157" width="34" height="23" rx="8"/><rect class="skel" x="642" y="166.5" width="16" height="4" rx="2"/></g><g class="faded"><rect class="lane-b cell" x="675.5" y="157" width="34" height="23" rx="8"/><rect class="skel" x="682" y="166.5" width="18" height="4" rx="2"/></g><g class="faded"><rect class="lane-b cell" x="715.5" y="157" width="34" height="23" rx="8"/><rect class="skel" x="722" y="166.5" width="17" height="4" rx="2"/></g><rect class="lane-b cell-focus" x="755.5" y="157" width="34" height="23" rx="8"/><rect class="skel-teal" x="762" y="166.5" width="14" height="4" rx="2"/><g class="faded"><rect class="lane-b cell" x="795.5" y="157" width="34" height="23" rx="8"/><rect class="skel" x="802" y="166.5" width="12" height="4" rx="2"/></g>
+    <rect class="sq-s" x="595" y="191.5" width="10" height="10" rx="3"/><rect class="skel" x="611" y="193.5" width="18" height="6" rx="3"/><g class="faded"><rect class="lane-s cell" x="635.5" y="185" width="34" height="23" rx="8"/><rect class="skel" x="642" y="194.5" width="13" height="4" rx="2"/></g><rect class="cell-stale" x="675.5" y="185" width="34" height="23" rx="8"/><rect class="skel-stale" x="682" y="194.5" width="16" height="4" rx="2"/><g class="faded"><rect class="lane-s cell" x="715.5" y="185" width="34" height="23" rx="8"/><rect class="skel" x="722" y="194.5" width="18" height="4" rx="2"/></g><g class="faded"><rect class="lane-s cell" x="755.5" y="185" width="34" height="23" rx="8"/><rect class="skel" x="762" y="194.5" width="17" height="4" rx="2"/></g><g class="faded"><rect class="lane-s cell" x="795.5" y="185" width="34" height="23" rx="8"/><rect class="skel" x="802" y="194.5" width="14" height="4" rx="2"/></g>
+    <path class="trace" d="M710.5,112.5 H726.5 Q732.5,112.5 732.5,118.5 V122.5" marker-end="url(#headTeal)"/>
+    <path class="trace" d="M750.5,140.5 H766.5 Q772.5,140.5 772.5,146.5 V150.5" marker-end="url(#headTeal)"/>
+    <path class="trace" d="M714.5,140.5 H698.5 Q692.5,140.5 692.5,146.5 V178.5" marker-end="url(#headTeal)"/>
+  <path class="flow" d="M711.5,247.5 V292 Q711.5,300 703.5,300 H638" marker-end="url(#headMuted)"/>
+  <rect class="raised" x="490.5" y="281.5" width="139" height="37" rx="8"/>
+  <path class="glyph" d="M510,298 a5,5 0 1,1 0.01,0 M502,310 a8,7 0 0,1 16,0"/>
+  <text class="strong" x="526" y="305">You accept</text>
+  <path class="flow" d="M482,300 H424" marker-end="url(#headMuted)"/>
+  <rect class="term" x="324.5" y="281.5" width="91" height="37" rx="8"/>
+  <text class="term-key" x="370" y="305" text-anchor="middle">ub:map</text>
+  <path class="flow" d="M316,300 H176.5 Q168.5,300 168.5,292 V249.5" marker-end="url(#headMuted)"/>
 </svg>

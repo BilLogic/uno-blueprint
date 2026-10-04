@@ -55,7 +55,7 @@ function InfoHint({ label, className }: { label: string; className?: string }) {
         type="button"
         aria-label={label}
         className={cn(
-          'shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
+          'shrink-0 rounded-md p-1 text-muted-foreground transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
           className,
         )}
       >

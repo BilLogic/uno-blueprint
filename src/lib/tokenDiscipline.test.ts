@@ -337,11 +337,6 @@ const ABSOLUTE_EXEMPT_FILES: ReadonlyArray<{ file: string; because: string }> = 
     because:
       'upstream shadcn overlay scrim (components.json — the CLI owns this file)',
   },
-  {
-    file: 'lib/filterToolbarButton.ts',
-    because:
-      'a 4% black hairline on a raised plate, which is a shadow written as a ring rather than an edge colour — the neutral semantics invert and a shadow must not, so it darkens in light and disappears in dark, which is what a shadow does',
-  },
 ]
 
 const VAR_PRIMITIVE_EXEMPT_FILES: ReadonlyArray<{
@@ -706,12 +701,14 @@ test('layout-token pixel exports sit on the 4px grid', async () => {
 })
 
 /**
- * Radius by kind. Controls sit on md; containment (cells, cards, popovers,
- * canvas corner chrome) on lg; dialogs, modal sheets and plates on xl;
- * rounded-full stays; sm is for kbd, inline code and marks under 12px.
- * A file listed here may not pick up another rung. The list covers every
- * primitive, editor and blueprint file that carries more than one rung or
- * sits on a rung the kind table reserves.
+ * Radius by kind. Controls sit on md; containment (cells, popovers, small
+ * tiles, canvas corner chrome, boxes inline in a surface) on lg; surfaces —
+ * cards, panels, dialogs, sheets and plates — on xl, never a small tile;
+ * rounded-full stays; sm is for kbd, inline code, marks under 12px and a
+ * corner nested one padding step inside a control. The composition overview
+ * carries the ladder. A file listed here may not pick up another rung. The
+ * list covers every primitive, editor and blueprint file that carries more
+ * than one rung or sits on a rung the kind table reserves.
  */
 const RADIUS_KIND_ALLOWLIST: Record<string, readonly string[]> = {
   'components/ui/button.tsx': ['md', 'none', 'full'],
@@ -732,8 +729,8 @@ const RADIUS_KIND_ALLOWLIST: Record<string, readonly string[]> = {
   'components/ui/switch.tsx': ['full'],
   // The menu arrow is an 8px rotated square, the kind of mark sm is for.
   'components/ui/navigation-menu.tsx': ['lg', 'md', 'sm'],
-  'components/editor/CanvasAnnotationToolbar.tsx': ['xl', 'md', 'full'],
-  'components/editor/CanvasAnnotationBarChrome.tsx': ['xl', 'md'],
+  'components/editor/CanvasAnnotationToolbar.tsx': ['lg', 'md', 'full'],
+  'components/editor/CanvasAnnotationBarChrome.tsx': ['lg', 'md'],
   'components/editor/EditorZoomIndicator.tsx': ['lg', 'md'],
   'components/editor/JumpToSearch.tsx': ['md'],
   // The path selector is a plain control on md — trigger, skeleton and
@@ -742,17 +739,21 @@ const RADIUS_KIND_ALLOWLIST: Record<string, readonly string[]> = {
   // the control itself cannot drift back onto it.
   'components/editor/PathSelectorMenu.tsx': ['md', 'full'],
   'components/editor/CanvasEmptyState.tsx': ['xl'],
+  'components/editor/CanvasLoadProgress.tsx': ['lg', 'full'],
   'components/editor/SlideStickyHeader.tsx': ['xl', 'md'],
   'components/editor/EditorLoadingSkeletons.tsx': ['xl', 'lg', 'md', 'full'],
   // Blueprint surfaces. Modal sheets, walkthrough and plates on xl; the
   // canvas inspector and other corner chrome on lg (same family as the
-  // zoom cluster and the panel error card); cells and cards on lg;
-  // controls and badges on md; rounded-full stays.
+  // zoom cluster and the panel error card — one shape for the corner stack);
+  // cells on lg; controls and badges on md; rounded-full stays.
   'components/blueprint/panelShell.tsx': ['lg', 'md'],
   'components/blueprint/ResizableComparePanel.tsx': ['xl', 'md'],
   'components/blueprint/StoryboardWalkthroughModal.tsx': ['xl', 'full'],
   'components/blueprint/ZoomableImage.tsx': ['xl', 'full'],
   'components/blueprint/ComparePathSectionFrame.tsx': ['xl'],
+  // The empty-state mini-blueprint: cells on lg at both sizes, as cells are;
+  // the 12px lane squares on sm; the skeleton and label bars rounded-full.
+  'components/blueprint/MiniBlueprintIllustration.tsx': ['lg', 'sm', 'full'],
   'components/blueprint/MergedCompareGrid.tsx': ['xl', 'md'],
   'components/blueprint/BlueprintStepStoryboard.tsx': ['lg', 'md'],
   'components/blueprint/StoryboardStepDetailStack.tsx': ['lg'],

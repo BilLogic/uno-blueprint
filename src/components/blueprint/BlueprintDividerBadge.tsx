@@ -44,7 +44,7 @@ export function BlueprintDividerRailLabel({
       {...(meaning ? { tabIndex: 0 } : {})}
       className={cn(
         // geometry: packs the caption into the badge's fixed height, not a prose line.
-        'shrink-0 border-current/30 font-medium uppercase leading-none tracking-wider',
+        'shrink-0 border-current/30 font-medium leading-none',
       )}
       style={{ color: BLUEPRINT_THEME.dividerLabel }}
     >
@@ -72,8 +72,9 @@ export function BlueprintDividerRailLabel({
  *
  * Built on `Badge` rather than a hand-rolled span so it inherits the one
  * geometry and, with it, the rule that a badge does not react to the pointer.
- * The overrides are the register (uppercase, letterspaced, tighter corners)
- * and the fill, which comes from the blueprint theme rather than a variant.
+ * The overrides are the tighter corners and the fill, which comes from the
+ * blueprint theme rather than a variant. The caption reads in the case its
+ * string is written in — sentence case — like every other small label.
  */
 export function BlueprintDividerBadge({
   label,
@@ -84,7 +85,7 @@ export function BlueprintDividerBadge({
       data-blueprint-fill
       className={cn(
         // geometry: packs the caption into the badge's fixed height, not a prose line.
-        'border-transparent font-medium uppercase leading-none tracking-wide',
+        'border-transparent font-medium leading-none',
         connected ? 'rounded-l-md rounded-r-none' : 'rounded-md',
       )}
       style={getBlueprintFillStyle(BLUEPRINT_THEME.dividerBadgeBg)}

@@ -98,14 +98,14 @@ describe('classListsIn', () => {
 
   it('reads a class list split across cn() arguments', () => {
     // The title badge writes `leading-none` in one argument and tracking
-    // in the next (`phaseTone ? 'tracking-wider' : 'tracking-tight'`). No
+    // in the next (`phaseTone ? 'tracking-normal' : 'tracking-tight'`). No
     // quoted string in the file holds both; the call site as a list does.
     const source = sourceOf(EYEBROW_FILE)
-    expect(source).not.toMatch(/['"][^'"]*leading-none[^'"]*tracking-wider[^'"]*['"]/)
+    expect(source).not.toMatch(/['"][^'"]*leading-none[^'"]*tracking-normal[^'"]*['"]/)
     const lists = classListsIn(source, EYEBROW_FILE)
     expect(
       lists.some((site) =>
-        classListHas(site.classes, ['leading-none', 'tracking-wider']),
+        classListHas(site.classes, ['leading-none', 'tracking-normal']),
       ),
     ).toBe(true)
   })

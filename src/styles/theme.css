@@ -32,17 +32,30 @@
  */
 @theme inline {
   /*
-   * Multiplicative, so a deployment that turns `--radius` keeps the same
-   * four-rung proportions. sm ×0.5, md ×0.75, lg ×1, xl ×1.5. 2xl, 3xl,
-   * 4xl and the standalone panel radius are retired: nothing in the tree
-   * picked 2xl once the corner chrome folded onto lg, and a rung nobody
-   * uses is a rung a deployment reaches for by accident. All four live in
-   * this inline block so a utility compiles to the calc, not a second name.
+   * The radius ladder, named for jobs and multiplicative on `--radius` so a
+   * deployment that turns the base keeps the proportions. At the template's
+   * 8px base:
+   *
+   *   sm  ×0.5   4px   a corner nested one padding step inside a control
+   *   md  ×0.75  6px   controls — buttons, inputs, menu items, badges
+   *   lg  ×1     8px   cells, popovers, small tiles and canvas corner chrome
+   *   xl  ×2    16px   surfaces — cards, panels, dialogs, sheets, cover figures
+   *
+   * A nested corner is the outer radius minus the padding between them. The
+   * vendored menus, selects, command lists and tabs are an 8px `p-1` box
+   * around md items, and an 8px item would meet its box's corner square-on —
+   * which is why controls stay at 6px rather than following the site's
+   * buttons up to 8. xl is for surfaces and not for small tiles: a 40px
+   * toolbar or tile at 16px reads as fully rounded. 2xl, 3xl, 4xl and the
+   * standalone panel radius are retired: a rung nobody uses is a rung a
+   * deployment reaches for by accident. All four live in this inline block
+   * so a utility compiles to the calc, not a second name. The composition
+   * overview carries the rule.
    */
   --radius-sm: calc(var(--radius) * 0.5);
   --radius-md: calc(var(--radius) * 0.75);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.5);
+  --radius-xl: calc(var(--radius) * 2);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-canvas: var(--canvas);
@@ -93,6 +106,9 @@
      both namespaces. */
   --border-color-overlay: var(--border-overlay);
   --border-color-muted: var(--border-muted);
+  /* The hover and hot edge steps: `border-strong`, `border-stronger`. */
+  --border-color-strong: var(--border-strong);
+  --border-color-stronger: var(--border-stronger);
   --border-color-control-hover: var(--border-control-hover);
   --border-color-annotation-plate: var(--border-annotation-plate);
 
@@ -436,15 +452,17 @@
   /*
    * Font stacks, in Supabase's shape: an injection seam variable first, the
    * full fallback chain after it, generic always last. An embedding app
-   * declares `--app-font-sans` (or `--font-source-code-pro`) at `:root` to
-   * swap the face; unset, the defaults apply.
+   * declares `--app-font-sans` (or `--app-font-mono`) at `:root` to swap
+   * the face; unset, the defaults apply.
    *
    * The default is the one thing that differs from theirs, and it has to:
    * their default is Circular, which is a licensed face we cannot ship.
-   * Ubuntu Sans is the default here, loaded from
-   * `@fontsource-variable/ubuntu-sans` in the entry — variable, so the whole
-   * weight axis comes in one file. A fork that wants a different face swaps
-   * the import and this default together.
+   * Ubuntu Sans is the default here, and Ubuntu Sans Mono its mono partner,
+   * loaded from `@fontsource-variable/ubuntu-sans` and
+   * `@fontsource-variable/ubuntu-sans-mono` in the entry — variable, so each
+   * weight axis comes in one file. One family on both sides keeps mono copy
+   * reading as the same voice as the prose around it. A fork that wants a
+   * different face swaps the import and this default together.
    *
    * No heading font, no type-scale overrides. Weight has a two-scope
    * `--font-weight-normal` knob on the ladder block below — the decision that a rung owns size and leading.
@@ -456,8 +474,7 @@
    * discarded, and a face that fails to load renders as the browser default
    * serif. Outside, var() substitutes into a comma list and the system
    * faces + generic always survive. (Found live: `font-mono` computed to
-   * just "Source Code Pro Variable","Source Code Pro" — Times on any load
-   * failure.)
+   * just its two named faces — Times on any load failure.)
    */
   /*
    * The seam is `--app-font-sans`, NOT `--font-sans` itself. A self-referential
@@ -466,15 +483,20 @@
    * what puts every hue step above into the artifact — so it would land at
    * `:root, :host` as a custom-property cycle, invalid at computed-value time,
    * and it would silently discard an embedder's own `--font-sans` whenever
-   * this sheet sorts later in the cascade. A distinctly named seam (mirroring
-   * `--font-source-code-pro` on the mono side) cannot cycle.
+   * this sheet sorts later in the cascade. A distinctly named seam
+   * (`--app-font-mono` on the mono side) cannot cycle.
+   *
+   * `--font-source-code-pro` is the deprecated name of the mono seam, from
+   * when Source Code Pro was the default face. It is still read, nested in
+   * `--app-font-mono`'s fallback arm, so an embedder that sets it keeps its
+   * face; `--app-font-mono` wins when both are set.
    */
   --font-sans:
     var(--app-font-sans, 'Ubuntu Sans Variable'), 'Ubuntu Sans', Ubuntu,
     'Helvetica Neue', Helvetica, Arial, sans-serif;
   --font-mono:
-    var(--font-source-code-pro, 'Source Code Pro Variable'), 'Source Code Pro',
-    'Office Code Pro', Menlo, monospace;
+    var(--app-font-mono, var(--font-source-code-pro, 'Ubuntu Sans Mono Variable')),
+    'Ubuntu Sans Mono', 'Ubuntu Mono', Menlo, monospace;
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -550,10 +572,11 @@
   --text-5xl: 2.875rem;
   --text-5xl--line-height: 1;
   /*
-   * Recorded under the decision that a rung owns size and leading. The reference sets sans `--font-weight-normal` to 450 because
-   * Inter reads light at 400, and leaves the mono scope at 400 because
-   * Source Code Pro does not need the bump. Ubuntu Sans holds its colour
-   * at 400 down to 12px, so both scopes stay at 400. The two-scope
+   * Recorded under the decision that a rung owns size and leading. The
+   * reference sets sans `--font-weight-normal` to 450 because Inter reads
+   * light at 400, and leaves the mono scope at 400 because its mono face
+   * does not need the bump. Ubuntu Sans and Ubuntu Sans Mono hold their
+   * colour at 400 down to 12px, so both scopes stay at 400. The two-scope
    * mechanism is taken so the knob exists; the 450 is not.
    */
   --font-weight-normal: 400;

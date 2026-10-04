@@ -104,7 +104,7 @@ anything.
 
 **Cell** — what one actor does at one moment: the content at the intersection
 of a lane and a step on a path. A cell is the unit everything else points at
-— a slice quotes cells, a finding names cells, evidence attaches to a cell.
+— a slice cites cells, a finding names cells, evidence attaches to a cell.
 
 **Storyboard** — the lane that draws the service rather than describing it.
 `lane_role = 'storyboard'`, one of the roles the lane-role constraint admits.

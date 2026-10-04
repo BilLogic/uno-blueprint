@@ -1,128 +1,87 @@
-<svg viewBox="0 -44 880 544" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<svg viewBox="0 0 880 408" xmlns="http://www.w3.org/2000/svg" font-family="'Ubuntu Sans', system-ui, sans-serif">
   <style>
-    .h2 { font-size: 14px; font-weight: 700; fill: #273036; }
-    .badge { font-size: 10.5px; font-weight: 700; fill: #4f4b47; }
-    .step { font-size: 11px; font-weight: 600; fill: #9ca3af; }
-    .anno { font-size: 9.5px; font-weight: 700; letter-spacing: .07em; fill: #8a8f98; }
-    .sub { font-size: 9.5px; fill: #9ca3af; }
-    .lead { stroke: #b6bac2; stroke-width: 1; fill: none; }
-    .boundary { stroke: #8a8f98; stroke-width: 1.6; stroke-dasharray: 5 4; }
-    .dependency { stroke: #5a6472; stroke-width: 1.5; fill: none; marker-end: url(#arrT); }
+    .plate { fill: #f6f8f7; }
+    .dot { fill: #151a18; fill-opacity: 0.17; }
+    .card { fill: #ffffff; stroke: #151a18; stroke-opacity: 0.09; }
+    .well { fill: #f6f8f7; stroke: #151a18; stroke-opacity: 0.09; }
+    .well-focus { stroke: #00806a; stroke-opacity: 1; stroke-width: 1.5; }
+    .title { font-size: 15px; font-weight: 600; fill: #151a18; }
+    .label { font-size: 14.5px; fill: #565c5a; }
+    .label-teal { font-size: 14.5px; font-weight: 600; fill: #00806a; }
+    .strong { font-size: 14.5px; font-weight: 600; fill: #151a18; }
+    .code { font-family: 'Ubuntu Sans Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14.5px; fill: #565c5a; }
+    .code-strong { font-family: 'Ubuntu Sans Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14.5px; font-weight: 600; fill: #151a18; }
+    .num { font-size: 14.5px; font-weight: 600; fill: #ffffff; }
+    .axis { stroke: #151a18; stroke-opacity: 0.09; }
+    .line { stroke: #565c5a; stroke-width: 1.25; }
+    .flow { stroke: #565c5a; stroke-width: 1.5; fill: none; }
+    .flow-head { fill: #565c5a; }
+    .trace { stroke: #00806a; stroke-width: 1.5; fill: none; }
+    .trace-head { fill: #00806a; }
+    .zoom { stroke: #00806a; stroke-width: 1; stroke-opacity: 0.55; fill: none; }
+    .skel { fill: #151a18; fill-opacity: 0.16; }
+    .skel-teal { fill: #00806a; }
+    .cell { stroke: #151a18; stroke-opacity: 0.09; }
+    .cell-focus { stroke: #00806a; stroke-opacity: 1; stroke-width: 1.5; }
+    .hit { fill: #00806a; }
+    .tick { fill: #565c5a; }
+    .miss { fill: #151a18; fill-opacity: 0.16; }
+    .badge { fill: #00806a; stroke: #ffffff; stroke-width: 2; }
+    .faded { opacity: 0.4; }
+    .lane-c { fill: #e8f3ed; } .sq-c { fill: #cfe6d9; }
+    .lane-f { fill: #fdf1e3; } .sq-f { fill: #f6e0bd; }
+    .lane-b { fill: #fbe9f0; } .sq-b { fill: #f2cfdf; }
+    .lane-s { fill: #ecebf5; } .sq-s { fill: #d9d6ec; }
   </style>
   <defs>
-    <marker id="arrT" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L7,3 L0,6 Z" fill="#5a6472"/>
-    </marker>
+    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle class="dot" cx="10" cy="10" r="0.8"/>
+    </pattern>
+    <radialGradient id="fade" cx="50%" cy="50%" r="70%">
+      <stop offset="0.35" stop-color="#fff"/>
+      <stop offset="1" stop-color="#000"/>
+    </radialGradient>
+    <mask id="fadeMask"><rect width="880" height="408" fill="url(#fade)"/></mask>
+    <marker id="headMuted" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="flow-head" d="M0,0.5 L7,4 L0,7.5 Z"/></marker>
+    <marker id="headTeal" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="trace-head" d="M0,0.5 L7,4 L0,7.5 Z"/></marker>
   </defs>
-
-  <rect x="0" y="-44" width="880" height="544" rx="14" fill="#eef1f5" stroke="#e2e4e9"/>
-
-  <text x="16" y="-18" font-size="15" font-weight="700" fill="#273036">Inside one path</text>
-
-  <!-- Path sheets: variants stacked behind -->
-  <rect x="130" y="22" width="580" height="424" rx="10" fill="#eceef2" stroke="#d4d4da"/>
-  <rect x="120" y="32" width="580" height="424" rx="10" fill="#f4f5f7" stroke="#d4d4da"/>
-  <rect x="110" y="42" width="580" height="424" rx="10" fill="#ffffff" stroke="#9aadbe" stroke-width="1.5"/>
-  <text x="126" y="68" class="h2">Path · happy</text>
-
-  <!-- Step headers -->
-  <g class="step" text-anchor="middle">
-    <text x="268" y="100">Step 1</text>
-    <text x="384" y="100">Step 2</text>
-    <text x="501" y="100">Step 3</text>
-    <text x="617" y="100">Step 4</text>
-  </g>
-
-  <!-- Lane group: users -->
-  <rect x="124" y="110" width="552" height="60" fill="#e8f3ed"/>
-  <rect x="124" y="170" width="552" height="60" fill="#e8f3ed"/>
-  <line x1="124" y1="170" x2="676" y2="170" stroke="#e2e4e9"/>
-  <rect x="124" y="110" width="552" height="120" fill="none" stroke="#d4d4da"/>
-
-  <!-- Lane group: frontstage -->
-  <rect x="124" y="242" width="552" height="60" fill="#fdf1e3"/>
-  <rect x="124" y="242" width="552" height="60" fill="none" stroke="#d4d4da"/>
-
-  <!-- Lane group: backstage + support -->
-  <rect x="124" y="314" width="552" height="60" fill="#fbe9f0"/>
-  <rect x="124" y="374" width="552" height="60" fill="#ecebf5"/>
-  <line x1="124" y1="374" x2="676" y2="374" stroke="#e2e4e9"/>
-  <rect x="124" y="314" width="552" height="120" fill="none" stroke="#d4d4da"/>
-
-  <!-- Vertical grid lines -->
-  <g stroke="#e2e4e9" stroke-width="1">
-    <line x1="210" y1="110" x2="210" y2="230"/>
-    <line x1="326" y1="110" x2="326" y2="230"/>
-    <line x1="443" y1="110" x2="443" y2="230"/>
-    <line x1="559" y1="110" x2="559" y2="230"/>
-    <line x1="210" y1="242" x2="210" y2="302"/>
-    <line x1="326" y1="242" x2="326" y2="302"/>
-    <line x1="443" y1="242" x2="443" y2="302"/>
-    <line x1="559" y1="242" x2="559" y2="302"/>
-    <line x1="210" y1="314" x2="210" y2="434"/>
-    <line x1="326" y1="314" x2="326" y2="434"/>
-    <line x1="443" y1="314" x2="443" y2="434"/>
-    <line x1="559" y1="314" x2="559" y2="434"/>
-  </g>
-
-  <!-- Lane badges, on their own rail before Step 1 -->
-  <g>
-    <rect x="132" y="118" width="62" height="18" rx="9" fill="#cfe6d9"/>
-    <text x="140" y="131" class="badge">User #1</text>
-    <rect x="132" y="178" width="62" height="18" rx="9" fill="#cfe6d9"/>
-    <text x="140" y="191" class="badge">User #2</text>
-    <rect x="132" y="250" width="76" height="18" rx="9" fill="#f6e0bd"/>
-    <text x="140" y="263" class="badge">Frontstage</text>
-    <rect x="132" y="322" width="72" height="18" rx="9" fill="#f2cfdf"/>
-    <text x="140" y="335" class="badge">Backstage</text>
-    <rect x="132" y="382" width="62" height="18" rx="9" fill="#d9d6ec"/>
-    <text x="140" y="395" class="badge">Support</text>
-  </g>
-
-  <!-- Line of interaction / visibility, in their own gaps -->
-  <line class="boundary" x1="110" y1="236" x2="690" y2="236"/>
-  <line class="boundary" x1="110" y1="308" x2="690" y2="308"/>
-
-  <!-- Cells: consistent style, spread across lanes; one pair linked by a dependency -->
-  <rect x="334" y="120" width="100" height="40" rx="6" fill="#ffffff" stroke="#9aadbe" stroke-width="1.4"/>
-  <rect x="451" y="180" width="100" height="40" rx="6" fill="#ffffff" stroke="#9aadbe" stroke-width="1.4"/>
-  <rect x="451" y="252" width="100" height="40" rx="6" fill="#ffffff" stroke="#9aadbe" stroke-width="1.4"/>
-  <path class="dependency" d="M501,222 L501,246"/>
-  <rect x="567" y="252" width="100" height="40" rx="6" fill="#ffffff" stroke="#9aadbe" stroke-width="1.4"/>
-  <rect x="334" y="324" width="100" height="40" rx="6" fill="#ffffff" stroke="#9aadbe" stroke-width="1.4"/>
-  <rect x="567" y="384" width="100" height="40" rx="6" fill="#ffffff" stroke="#9aadbe" stroke-width="1.4"/>
-
-  <!-- ===== Left callouts ===== -->
-  <text x="8" y="92" class="anno">STEP</text>
-  <text x="8" y="105" class="sub">a moment in the journey</text>
-  <path class="lead" d="M52,95 L248,96"/>
-
-  <text x="8" y="152" class="anno">LANE</text>
-  <text x="8" y="165" class="sub">every actor gets</text>
-  <text x="8" y="177" class="sub">their own lane</text>
-  <path class="lead" d="M92,155 L128,130"/>
-  <path class="lead" d="M92,160 L128,186"/>
-
-  <text x="8" y="352" class="anno">CELL</text>
-  <text x="8" y="365" class="sub">what an actor does</text>
-  <text x="8" y="377" class="sub">at a step</text>
-  <path class="lead" d="M62,355 L330,348"/>
-
-  <!-- ===== Right callouts ===== -->
-  <text x="724" y="36" class="anno">PATHS</text>
-  <text x="724" y="49" class="sub">this scenario's variants</text>
-  <path class="lead" d="M720,32 L712,28"/>
-
-  <text x="724" y="150" class="anno">DEPENDENCY</text>
-  <text x="724" y="163" class="sub">one cell leads to or enables another</text>
-  <path class="lead" d="M720,153 L508,232"/>
-
-  <text x="724" y="218" class="anno">LINE OF INTERACTION</text>
-  <text x="724" y="231" class="sub">where users meet the service</text>
-  <path class="lead" d="M720,221 L694,234"/>
-
-  <text x="724" y="322" class="anno">LINE OF VISIBILITY</text>
-  <text x="724" y="335" class="sub">users can't see below this line</text>
-  <path class="lead" d="M720,325 L694,310"/>
-
+  <rect class="plate" width="880" height="408" rx="16"/>
+  <rect width="880" height="408" rx="16" fill="url(#grid)" mask="url(#fadeMask)"/>
+  <rect class="card" x="24.5" y="24.5" width="831" height="383" rx="16"/>
+  <text class="label" x="48" y="64">Lane</text>
+  <text class="label" x="230" y="64" text-anchor="middle">Step 1</text>
+  <text class="label" x="334" y="64" text-anchor="middle">Step 2</text>
+  <text class="label" x="438" y="64" text-anchor="middle">Step 3</text>
+  <text class="label" x="542" y="64" text-anchor="middle">Step 4</text>
+  <rect class="sq-c" x="48" y="109" width="10" height="10" rx="3"/>
+  <text class="strong" x="66" y="119">Customer</text>
+  <rect class="lane-c cell" x="184.5" y="96.5" width="92" height="36" rx="8"/><rect class="skel" x="196.5" y="112" width="49" height="5" rx="2.5"/>
+  <rect class="lane-c cell" x="288.5" y="96.5" width="92" height="36" rx="8"/><rect class="skel" x="300.5" y="112" width="39" height="5" rx="2.5"/>
+  <rect class="lane-c cell" x="496.5" y="96.5" width="92" height="36" rx="8"/><rect class="skel" x="508.5" y="112" width="58" height="5" rx="2.5"/>
+  <rect class="sq-f" x="48" y="169" width="10" height="10" rx="3"/>
+  <text class="strong" x="66" y="179">Frontstage</text>
+  <rect class="lane-f cell-focus" x="288.5" y="156.5" width="92" height="36" rx="8"/><rect class="skel-teal" x="300.5" y="172" width="45" height="5" rx="2.5"/>
+  <rect class="lane-f cell" x="392.5" y="156.5" width="92" height="36" rx="8"/><rect class="skel" x="404.5" y="172" width="37" height="5" rx="2.5"/>
+  <rect class="sq-b" x="48" y="229" width="10" height="10" rx="3"/>
+  <text class="strong" x="66" y="239">Backstage</text>
+  <rect class="lane-b cell" x="288.5" y="216.5" width="92" height="36" rx="8"/><rect class="skel" x="300.5" y="232" width="53" height="5" rx="2.5"/>
+  <rect class="lane-b cell" x="392.5" y="216.5" width="92" height="36" rx="8"/><rect class="skel" x="404.5" y="232" width="41" height="5" rx="2.5"/>
+  <rect class="lane-b cell" x="496.5" y="216.5" width="92" height="36" rx="8"/><rect class="skel" x="508.5" y="232" width="48" height="5" rx="2.5"/>
+  <rect class="sq-s" x="48" y="289" width="10" height="10" rx="3"/>
+  <text class="strong" x="66" y="299">Support</text>
+  <rect class="lane-s cell" x="392.5" y="276.5" width="92" height="36" rx="8"/><rect class="skel" x="404.5" y="292" width="35" height="5" rx="2.5"/>
+  <line class="line" x1="48" y1="144" x2="604" y2="144"/>
+  <text class="label" x="620" y="149">Line of interaction</text>
+  <line class="line" x1="48" y1="204" x2="604" y2="204"/>
+  <text class="label" x="620" y="209">Line of visibility</text>
+  <line class="line" x1="48" y1="264" x2="604" y2="264"/>
+  <text class="label" x="620" y="269">Line of internal interaction</text>
+  <path class="trace" d="M230,133 V168 Q230,174 236,174 H281" marker-end="url(#headTeal)"/>
+  <path class="trace" d="M334,193 V209" marker-end="url(#headTeal)"/>
+  <path class="flow" d="M381,234 H385" marker-end="url(#headMuted)"/>
+  <path class="flow" d="M438,253 V269" marker-end="url(#headMuted)"/>
+  <rect class="lane-f cell-focus" x="48.5" y="340.5" width="32" height="22" rx="8"/><rect class="skel-teal" x="56.5" y="349.5" width="14" height="4" rx="2"/>
+  <text class="label" x="92" y="356">A cell: one lane at one step</text>
+  <path class="trace" d="M372,351 H404" marker-end="url(#headTeal)"/>
+  <text class="label" x="420" y="356">Leads to: one cell sets off the next</text>
 </svg>

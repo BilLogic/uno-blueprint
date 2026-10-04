@@ -1,3 +1,4 @@
+import { MiniBlueprintIllustration } from '@/components/blueprint/MiniBlueprintIllustration'
 import { PanelHeader } from '@/components/blueprint/panelShell'
 import type { ReactNode } from 'react'
 
@@ -23,7 +24,8 @@ export function CellDetailEmptySurface({
         closeLabel="Close cell details"
         onClose={onClose}
       />
-      <div className="flex min-h-0 flex-1 items-center justify-center px-6 pb-8">
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6 pb-8">
+        <MiniBlueprintIllustration size="sm" />
         <p className="text-center text-xs text-muted-foreground">
           No cell selected — click a cell on the board.
         </p>

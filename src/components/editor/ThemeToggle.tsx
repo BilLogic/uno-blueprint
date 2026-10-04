@@ -3,7 +3,7 @@ import { Moon, Sun } from 'lucide-react'
 import { useTheme } from '@/lib/theme'
 import { IconTooltip } from '@/components/editor/IconTooltip'
 import { Button } from '@/components/ui/button'
-import { MOTION_MICRO_MS, prefersReducedMotion } from '@/lib/motion'
+import { EASE_POINTS, MOTION_MICRO_MS, prefersReducedMotion } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
 type ThemeToggleProps = {
@@ -66,7 +66,7 @@ export function ThemeToggle({ className, size = 'icon-xs' }: ThemeToggleProps) {
               exit={{ opacity: 0, rotate: 90 }}
               transition={{
                 duration: prefersReducedMotion() ? 0 : MOTION_MICRO_MS / 1000,
-                ease: 'easeOut',
+                ease: EASE_POINTS.arrive,
               }}
             >
               {isDark ? (

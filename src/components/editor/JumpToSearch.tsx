@@ -34,6 +34,15 @@ import {
 const NO_SCENARIOS: string[] = []
 
 /**
+ * The vendored command group sets its heading in mono capitals with wide
+ * tracking. A group heading here is a small label like any other — sans,
+ * sentence case as written, letter-spacing 0 — so the wrapper restates those
+ * three and leaves the primitive as the component CLI shipped it.
+ */
+const GROUP_HEADING_CLASS =
+  '**:[[cmdk-group-heading]]:font-sans **:[[cmdk-group-heading]]:normal-case **:[[cmdk-group-heading]]:tracking-normal'
+
+/**
  * Whether the element taking keystrokes is somewhere a character belongs.
  *
  * @param element - Usually `document.activeElement`.
@@ -275,7 +284,7 @@ function JumpToDialog({
         />
         <CommandList>
           <CommandEmpty>No matches.</CommandEmpty>
-          <CommandGroup heading="Scenarios">
+          <CommandGroup className={GROUP_HEADING_CLASS} heading="Scenarios">
             {scenarios.map((scenario) => (
               <CommandItem
                 key={scenario.id}
@@ -297,7 +306,7 @@ function JumpToDialog({
           {/* No query, no Cells group — not even its heading. A heading over
               nothing is what this group drew before the reader typed. */}
           {query.length > 0 && cells.length > 0 ? (
-            <CommandGroup heading="Cells">
+            <CommandGroup className={GROUP_HEADING_CLASS} heading="Cells">
               {cells.map((cell) => (
                 <CommandItem
                   key={cell.id}
@@ -320,7 +329,7 @@ function JumpToDialog({
               ))}
             </CommandGroup>
           ) : null}
-          <CommandGroup heading="Actions">
+          <CommandGroup className={GROUP_HEADING_CLASS} heading="Actions">
             <CommandItem
               value="Fit scenario to view"
               onSelect={() =>

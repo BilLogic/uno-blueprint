@@ -53,6 +53,7 @@ function Harness() {
       onDraftChange={setDraft}
       caret={caret}
       onCaretPlaced={() => setCaret(null)}
+      onSelectionChange={() => {}}
       onKeyDown={(event) => {
         if (event.key !== 'Tab') return
         event.preventDefault()

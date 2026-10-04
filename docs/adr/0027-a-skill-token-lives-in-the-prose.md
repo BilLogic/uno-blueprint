@@ -93,13 +93,15 @@ that iterates the string has no list of properties to notice it is missing
 one. That half is caught in review or not at all, and it is the first thing to
 look for when this composer is edited.
 
-**Where the completion leaves the caret is not guarded in jsdom, and cannot
-be.** Assigning a textarea's `value` moves `selectionStart` to the end of the
-new text by itself, and a lookup's span always reaches the end of the draft,
-so the offset a completion should produce and the offset the value setter
-produces on its own are the same offset for every input there is. A test of it
-passes whatever the code does. It is a browser case or it is nothing, and the
-gap is stated here rather than papered over with a green assertion.
+**Where the completion leaves the caret is guarded by the component tests.**
+The lookup follows the caret: it is the token the caret sits at the end of,
+wherever that is in the draft, so a completion can have prose behind it — a
+pick made back inside a sentence, or an accepted near-miss offer. There the
+offset a completion should produce, past the name and its gap, and the offset
+assigning `value` produces on its own, the end of the new text, are different
+offsets, and a jsdom assertion on `selectionStart` can tell them apart. Only
+at the tail do the two coincide, and a test there catches a caret written to
+the wrong offset rather than one never written.
 
 **While an IME composes, the field draws its own text.** The field's text is
 transparent only while the layer is drawing, or a preedit string would be

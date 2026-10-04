@@ -21,21 +21,20 @@
  * wiring — that the panel hands that module the tokens it read out of the
  * draft, so a resolved token is coloured on the surface a reader is typing on.
  *
- * WHERE THE COMPLETION LEAVES THE CARET is asserted here for the one
- * completion whose answer differs from the value setter's, and the
+ * WHERE THE COMPLETION LEAVES THE CARET is asserted here for the
+ * completions whose answer differs from the value setter's, and the
  * distinction is worth keeping straight, because a case that could not fail
  * once stood in this file. Assigning a textarea's `value` moves
  * `selectionStart` to the end of the new text on its own, with no React in
- * the loop. `findSkillLookup` is tail-anchored — its span ends at
- * `draft.length` on both branches — so for a pick from the MENU the offset
- * the completion should produce and the offset the setter produces by itself
- * are the same offset for every input there is, and an assertion about it
- * passes whatever the code does.
+ * the loop. For a pick at the TAIL of the draft the offset the completion
+ * should produce and the offset the setter produces by itself are the same
+ * offset, and an assertion about it passes whatever the code does.
  *
- * The NEAR-MISS rewrite is the one span with prose behind it, and there the
- * two offsets differ: accepting in `check /audit then /map this` should leave
- * the caret at 15 and the setter leaves it at 30. That assertion can fail,
- * and did — it is the defect that put this pin here.
+ * A span with prose behind it is where the two differ: a pick made with the
+ * caret moved back into the sentence, and the NEAR-MISS rewrite. Accepting
+ * in `check /audit then /map this` should leave the caret at 16 and the
+ * setter leaves it at 30. That assertion can fail, and did — it is the
+ * defect that put this pin here.
  *
  * The tail case is pinned below all the same, and what it is worth is stated
  * where it sits: its caret offset cannot distinguish a deliberate write from
@@ -107,6 +106,43 @@ const type = (composer: HTMLElement, value: string) =>
   fireEvent.change(composer, { target: { value } })
 
 /**
+ * Typing with the caret somewhere other than the end. A change event cannot
+ * say where the caret is — assigning `value` puts it at the end — so the text
+ * goes in through the prototype setter React watches, the caret is put where
+ * the keystroke left it, and only then does the input event fire.
+ */
+const typeAt = (composer: HTMLElement, value: string, caret: number) => {
+  const field = composer as HTMLTextAreaElement
+  Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(
+    field,
+    value,
+  )
+  field.setSelectionRange(caret, caret)
+  fireEvent.input(field)
+}
+
+/**
+ * Moving the caret without typing — an arrow key or a click. React reads a
+ * selection change off the key-up or mouse-up that follows it.
+ */
+const moveCaret = (
+  composer: HTMLElement,
+  start: number,
+  end: number = start,
+  how: 'key' | 'click' = 'key',
+) => {
+  const field = composer as HTMLTextAreaElement
+  field.focus()
+  field.setSelectionRange(start, end)
+  if (how === 'key') fireEvent.keyUp(field, { key: 'ArrowLeft' })
+  else {
+    fireEvent.mouseDown(field)
+    fireEvent.mouseUp(field)
+    fireEvent.click(field)
+  }
+}
+
+/**
  * The menu's row for a skill — scoped to the popover, because the token in
  * the field and the mirror drawing it behind carry the same label, and an
  * unscoped text query would find whichever the DOM happened to hold first,
@@ -170,8 +206,8 @@ describe('the composer opens a skill lookup wherever a slash opens a word', () =
   })
 
   it('leaves the caret at the end of a completion that reaches the end', () => {
-    // The tail-anchored answer, unchanged: the lookup's span runs to
-    // `draft.length`, so "after the token just completed" and "the end of
+    // The tail answer, unchanged: with the caret at the end of the draft the
+    // lookup's span runs to `draft.length`, so "after the token just completed" and "the end of
     // the draft" are the same place and the reader carries on typing there.
     //
     // WHAT THIS CAN CATCH, plainly: not the absence of a caret write —
@@ -199,6 +235,122 @@ describe('the composer opens a skill lookup wherever a slash opens a word', () =
     expect(menuOption('/ub:audit')).toBeNull()
     type(composer, 'do this and/or that')
     expect(menuOption('/ub:audit')).toBeNull()
+  })
+
+  it('opens on a slash typed back into the middle of a sentence, and completes it there', () => {
+    const composer = openComposer() as HTMLTextAreaElement
+    type(composer, 'Can you this part')
+    // The reader clicks back to just after "you " and types the token there.
+    moveCaret(composer, 'Can you '.length, undefined, 'click')
+    typeAt(composer, 'Can you / this part', 'Can you /'.length)
+    expect(menuOption('/ub:audit')).toBeTruthy()
+    typeAt(composer, 'Can you /au this part', 'Can you /au'.length)
+    expect(menuOption('/ub:audit')).toBeTruthy()
+    expect(menuOption('/ub:map')).toBeNull()
+    fireEvent.keyDown(composer, { key: 'Enter' })
+    // Completed where it was typed, the space the prose had kept rather than
+    // doubled, and the caret past the name and that space.
+    expect(composer.value).toBe('Can you /ub:audit this part')
+    expect(composer.selectionStart).toBe('Can you /ub:audit '.length)
+    expect(composer.selectionEnd).toBe('Can you /ub:audit '.length)
+    // The menu does not reopen on the name it just wrote, and Enter picked
+    // rather than sent.
+    expect(menuOption('/ub:audit')).toBeNull()
+    expect(provider.inputs).toEqual([])
+  })
+
+  it('completes a mid-sentence token from a click on the menu too', () => {
+    const composer = openComposer() as HTMLTextAreaElement
+    type(composer, 'Can you this part')
+    moveCaret(composer, 'Can you '.length)
+    typeAt(composer, 'Can you /au this part', 'Can you /au'.length)
+    fireEvent.click(menuOption('/ub:audit')!)
+    expect(composer.value).toBe('Can you /ub:audit this part')
+    expect(composer.selectionStart).toBe('Can you /ub:audit '.length)
+    expect(menuOption('/ub:audit')).toBeNull()
+  })
+
+  it('re-reads the lookup when the caret moves without typing', () => {
+    const composer = openComposer() as HTMLTextAreaElement
+    // Typed through to the end: the caret is after "part", and there is no
+    // token there.
+    type(composer, 'Can you /au this part')
+    expect(menuOption('/ub:audit')).toBeNull()
+    // Back to the end of the token: the menu for it.
+    moveCaret(composer, 'Can you /au'.length)
+    expect(menuOption('/ub:audit')).toBeTruthy()
+    // Into the middle of the token: a word being edited, not a lookup.
+    moveCaret(composer, 'Can you /a'.length)
+    expect(menuOption('/ub:audit')).toBeNull()
+    // Into the prose after it, by a click this time.
+    moveCaret(composer, 'Can you /au this'.length, undefined, 'click')
+    expect(menuOption('/ub:audit')).toBeNull()
+    moveCaret(composer, 'Can you /au'.length, undefined, 'click')
+    expect(menuOption('/ub:audit')).toBeTruthy()
+  })
+
+  it('opens nothing when the caret is moved past a name that already resolves', () => {
+    const composer = openComposer() as HTMLTextAreaElement
+    type(composer, '/ub:map notes')
+    moveCaret(composer, '/ub:map'.length, undefined, 'click')
+    expect(menuOption('/ub:map')).toBeNull()
+    moveCaret(composer, '/ub:map'.length)
+    expect(menuOption('/ub:map')).toBeNull()
+    // So Enter there sends, rather than picking the name a second time.
+    fireEvent.keyDown(composer, { key: 'Enter' })
+    expect(composer.value).toBe('')
+  })
+
+  it('still opens on the full name typed at the tail', () => {
+    const composer = openComposer()
+    type(composer, 'then /ub:map')
+    expect(menuOption('/ub:map')).toBeTruthy()
+  })
+
+  it('leaves an Enter that confirms an IME candidate to the IME', () => {
+    const composer = openComposer() as HTMLTextAreaElement
+    type(composer, 'Hey /au')
+    expect(menuOption('/ub:audit')).toBeTruthy()
+    fireEvent.keyDown(composer, { key: 'Enter', isComposing: true })
+    // Neither a pick nor a send.
+    expect(composer.value).toBe('Hey /au')
+    expect(menuOption('/ub:audit')).toBeTruthy()
+    expect(provider.inputs).toEqual([])
+  })
+
+  it('completes a token whose gap is a newline, with the caret at the head of the next line', () => {
+    const composer = openComposer() as HTMLTextAreaElement
+    type(composer, '/au\nnext')
+    moveCaret(composer, '/au'.length)
+    fireEvent.keyDown(composer, { key: 'Enter' })
+    expect(composer.value).toBe('/ub:audit\nnext')
+    expect(composer.selectionStart).toBe('/ub:audit\n'.length)
+    expect(menuOption('/ub:audit')).toBeNull()
+  })
+
+  it('opens nothing while a range is selected', () => {
+    const composer = openComposer() as HTMLTextAreaElement
+    type(composer, 'Can you /au')
+    expect(menuOption('/ub:audit')).toBeTruthy()
+    // A selection ending at the token is a range the reader is about to
+    // replace, not a caret standing at the end of a word.
+    moveCaret(composer, 'Can '.length, 'Can you /au'.length)
+    expect(menuOption('/ub:audit')).toBeNull()
+  })
+
+  it('keeps an Escape dismissal until the reader edits or moves on', () => {
+    const composer = openComposer() as HTMLTextAreaElement
+    type(composer, 'Can you /au this part')
+    moveCaret(composer, 'Can you /au'.length)
+    expect(menuOption('/ub:audit')).toBeTruthy()
+    fireEvent.keyDown(composer, { key: 'Escape' })
+    fireEvent.keyUp(composer, { key: 'Escape' })
+    expect(menuOption('/ub:audit')).toBeNull()
+    expect(composer.value).toBe('Can you /au this part')
+    // A caret moved away and back is a new question about the token.
+    moveCaret(composer, 'Can you /au this'.length)
+    moveCaret(composer, 'Can you /au'.length)
+    expect(menuOption('/ub:audit')).toBeTruthy()
   })
 
   it('closes on the space after the token', () => {
@@ -292,9 +444,10 @@ describe('a token that nearly names a skill', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Run /ub:audit' }))
     // The token is rewritten in place and the prose behind it is untouched.
     expect(composer.value).toBe('check /ub:audit then /map this')
-    // Immediately after the name they accepted — 15, not the draft's 30.
-    expect(composer.selectionStart).toBe('check /ub:audit'.length)
-    expect(composer.selectionEnd).toBe('check /ub:audit'.length)
+    // Immediately after the name they accepted and its space — 16, not the
+    // draft's 30.
+    expect(composer.selectionStart).toBe('check /ub:audit '.length)
+    expect(composer.selectionEnd).toBe('check /ub:audit '.length)
     // And in the field: the answer was given on a button, so the caret is
     // worth nothing unless the focus comes back with it.
     expect(document.activeElement).toBe(composer)

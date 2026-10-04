@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { CoverFigure } from '@/components/cover/CoverFigure'
+import { setTheme } from '@/lib/theme'
 
 /*
   The lightbox contract, REVERSED where it used to say "inert".
@@ -377,5 +378,49 @@ describe('CoverFigure motion', () => {
     } finally {
       window.matchMedia = matchMedia
     }
+  })
+})
+
+describe('CoverFigure, by theme', () => {
+  afterEach(() => {
+    act(() => setTheme('light'))
+  })
+
+  const themed = { ...figure, srcDark: '/cover/example.dark.svg' }
+  const shown = () =>
+    screen
+      .getByRole('button', { name: TRIGGER })
+      .querySelector('img')
+      ?.getAttribute('src')
+
+  it('shows the light file in the light theme', () => {
+    act(() => setTheme('light'))
+    render(<CoverFigure figure={themed} />)
+    expect(shown()).toBe('/cover/example.svg')
+  })
+
+  it('swaps to the dark file when the theme flips, and back', () => {
+    act(() => setTheme('light'))
+    render(<CoverFigure figure={themed} />)
+    act(() => setTheme('dark'))
+    expect(shown()).toBe('/cover/example.dark.svg')
+    act(() => setTheme('light'))
+    expect(shown()).toBe('/cover/example.svg')
+  })
+
+  it('opens the viewer on the file the page is showing', () => {
+    act(() => setTheme('dark'))
+    render(<CoverFigure figure={themed} />)
+    fireEvent.click(screen.getByRole('button', { name: TRIGGER }))
+    const opened = within(screen.getByRole('dialog')).getByRole('img', {
+      name: figure.alt,
+    })
+    expect(opened.getAttribute('src')).toBe('/cover/example.dark.svg')
+  })
+
+  it('keeps the light file in the dark theme when no dark file exists yet', () => {
+    act(() => setTheme('dark'))
+    render(<CoverFigure figure={figure} />)
+    expect(shown()).toBe('/cover/example.svg')
   })
 })

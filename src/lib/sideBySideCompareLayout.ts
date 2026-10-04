@@ -82,7 +82,7 @@ export const COMPARE_CARD_GAP = 20
 export const COMPARE_CARD_PADDING_X = 12
 /**
  * The painted rail: room for two-word lane names ("Front Stage Actions") and,
- * the binding case, the canonical "LINE OF …" divider captions.
+ * the binding case, the canonical "Line of …" divider captions.
  *
  * 208 -> 214 on 2026-08-21. "LINE OF INTERNAL INTERACTION" measured ~221px
  * at the caption size then in use, with its tracking, and is `shrink-0` —

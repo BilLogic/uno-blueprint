@@ -157,8 +157,6 @@ function ModeColumn({
           fontSize: 12,
           fontWeight: 600,
           color: '#334155',
-          textTransform: 'uppercase',
-          letterSpacing: '0.04em',
         }}
       >
         {mode}

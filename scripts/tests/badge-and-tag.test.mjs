@@ -70,7 +70,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { RENAME_MAP } from '../retired-vocabulary.mjs'
-import { COVER_ASSET_MANIFEST } from '../sync-cover-assets.mjs'
+import { coverAssetFiles } from '../sync-cover-assets.mjs'
 import { sweep } from '../sweep.mjs'
 
 const ROOT = resolve(new URL('../..', import.meta.url).pathname)
@@ -591,7 +591,7 @@ test('the figure walk reads the figures it claims to', () => {
   // would satisfy both assertions above in silence — the failure mode every
   // check in this directory is written against.
   const figures = figureClasses()
-  assert.equal(figures.length, COVER_ASSET_MANIFEST.length)
+  assert.equal(figures.length, coverAssetFiles().length)
   const used = figures.reduce((total, { used: names }) => total + names.size, 0)
   assert.ok(used > 80, `the figures parsed to ${used} class names`)
   // The word this change moved the corpus to, in the two places it can sit.

@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.6.2
+
+**The render walk spends none of a deployment's storage egress.** Every walk
+spec answers an image bound for another origin with a placeholder built in the
+runner, so a walk over a board exported from a live database no longer
+downloads that bucket's images on every push. Measured on one deployment, the
+walk was about 99% of its storage egress.
+
+### Upgrading a deployment
+
+- **Bump the pin; nothing else moves.** The walk comes with the package. Its
+  run log now ends with how many remote images it answered locally and any
+  other outside hosts it saw; a deployment whose board holds bucket images
+  should see that count above zero and its storage host absent.
+
+### Patch Changes
+
+- 9acd67f: The render walk draws no image from a live bucket. A no-database build draws a board exported from the live one, whose attachment and frame image URLs still point at the deployment's storage bucket, so every walk downloaded every one of those images on every run. Every walk spec now takes its `test` from `render-walk/remote-images.ts`, which answers each image request bound for another origin with a 1×1 placeholder built in the runner, lets other cross-origin requests through and records their hosts, and leaves the served origin alone. The view walk prints how many images it answered locally and any other outside hosts it saw, and `render-walk/remote-images.spec.ts` watches the route work in a browser.
+
+  Upgrading a deployment: no action; the walk comes with the pin, and a deployment's CI stops downloading its bucket's images on every run.
+
 ## 2.6.1
 
 **A slash typed mid-sentence opens the skill menu.** The agent composer's skill

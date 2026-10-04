@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { sweep } from '../../scripts/sweep.mjs'
 import { GROUNDS } from '@/lib/ground'
-import { hexToRgb } from '@/lib/oklch'
 import {
   type Consumer,
   consumers,
@@ -1163,31 +1162,4 @@ describe('a role tint stands off its ground', () => {
     )
     expect(Math.max(...measured)).toBeLessThan(TINT_FLOOR)
   })
-})
-
-/* ------------------------------------------------------------------ *
- * The default brand. The template ships teal rather than a chroma-0 ink, at
- * the two colours the Uno Blueprint site wears: `#00806a` on light and
- * `#3ecfb0` on dark, each to within one sRGB channel step. Read off the
- * cascade's own answer, so the rule holds the colour on screen rather than
- * the dials that make it. The ink on the fill and the identity following it
- * are measured in `lib/palette.test.ts`, not restated here.
- * ------------------------------------------------------------------ */
-
-const SITE_TEAL = { light: '#00806a', dark: '#3ecfb0' } as const
-
-/** One sRGB channel step, the rounding a hex can carry. */
-const CHANNEL = 1.5 / 255
-
-describe('the default brand', () => {
-  it.each(['light', 'dark'] as const)(
-    'fills the control with the site teal under %s',
-    (theme) => {
-      const fill = resolveColor('--primary', theme)
-      const target = hexToRgb(SITE_TEAL[theme])
-      fill.forEach((channel, at) =>
-        expect(Math.abs(channel - target[at])).toBeLessThanOrEqual(CHANNEL),
-      )
-    },
-  )
 })

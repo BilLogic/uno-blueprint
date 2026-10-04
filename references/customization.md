@@ -43,9 +43,9 @@ the set is a deliberate multi-file act, listed in `references/lane-roles.md`
   radii, fonts, light/dark), split across a file per concern. The blocks an
   adopter edits are marked **BRAND SEAM**, and there are two of them:
   `src/styles/themes/light.css` and `src/styles/themes/dark.css`. The
-  template ships a teal accent — `#00806a` in light and, within one channel
-  step, `#3ecfb0` in dark, at `--hue: 175` — on neutral surfaces
-  (`--chroma: 0`). **To rebrand:** set `--hue` to your brand's OKLCH hue and
+  template ships the Uno Blueprint site's teal as its accent (the values sit
+  beside the primary dials in each theme file), at `--hue: 175`, on neutral
+  surfaces (`--chroma: 0`). **To rebrand:** set `--hue` to your brand's OKLCH hue and
   `--primary-lightness` and `--primary-chroma` (the filled control) to your
   fill, in both theme blocks; raise `--chroma` too if the surfaces should
   carry a tint. To keep the app neutral instead, set `--primary-chroma: 0` in
@@ -85,8 +85,9 @@ the set is a deliberate multi-file act, listed in `references/lane-roles.md`
   **0.145** in dark (L 0.771); rotated to hue 280 they are about **0.264**
   and **0.119**. Declare more than a mode's ceiling and the browser
   chroma-reduces it silently, which makes the number in your theme file a
-  lie and freezes the next retune. A strong tint therefore needs `--brand-lightness` as well,
-  moving the fill to a lightness that can carry the chroma you want.
+  lie and freezes the next retune. A strong tint therefore needs
+  `--brand-lightness` as well, moving the fill to a lightness that can carry
+  the chroma you want.
   `src/lib/palette.test.ts` holds the ceiling on `--brand`'s *resolved*
   values, so it fails on a dial that overshoots rather than letting it ship
   clamped.

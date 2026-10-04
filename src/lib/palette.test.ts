@@ -19,6 +19,7 @@ import {
   contrast,
   derivedFillInk,
   dial,
+  hexToRgb,
   inSrgbGamut,
   oklch,
   oklchFromSrgb,
@@ -154,8 +155,9 @@ describe('brand fill', () => {
      * and its own comment conceded the point: "the one assertion that is about
      * the TEMPLATE rather than the mechanism … a fork updates this expectation
      * deliberately". An assertion a fork must edit is an assertion that does
-     * not travel, and the greyscale seam is already stated where it belongs —
-     * in `themes/light.css`, beside the dials themselves.
+     * not travel, and what the template ships is already stated where it
+     * belongs — in `themes/light.css`, beside the dials themselves, which is
+     * where the teal and the route back to neutral are both written.
      *
      * What replaces it is the claim the number was standing in for. A brand
      * that changes saturation when the lights go out is two brands, exactly as
@@ -173,9 +175,10 @@ describe('brand fill', () => {
      * its canvas lets it read, and the two canvases are a long way apart.
      *
      * CHROMA is held as presence rather than equality. The template's teal is
-     * the site's pair, `#00806a` and `#3ecfb0`, and the dark one is the more
-     * saturated of the two — a lighter fill on a charcoal canvas carries more
-     * chroma before it reads as louder, and sRGB has more room for it there.
+     * the site's pair (asserted under "the default brand" below), and the
+     * dark one is the more saturated of the two — a lighter fill on a
+     * charcoal canvas carries more chroma before it reads as louder, and sRGB
+     * has more room for it there.
      * Equality would force one of the two off the site's colour. What is
      * still two brands is a mode that drops to grey while the other wears a
      * colour, and that is the first thing this holds.
@@ -1226,11 +1229,40 @@ const perceptualDistance = (a: Rgb, b: Rgb) => {
  *
  * A fact about eyes rather than about this palette, which is what lets it
  * travel — no brand is named by it and none can be tuned around it. It is the
- * floor the four status fills are held off both accents by: the neutral
- * template clears it seven times over, and a rebrand that walks a status fill
+ * floor the four status fills are held off both accents by: the template
+ * clears it, and a rebrand that walks a status fill
  * onto the accent lands at zero and fails.
  */
 const JUST_NOTICEABLE = 0.02
+
+/* ------------------------------------------------------------------ *
+ * The default brand. The template ships teal rather than a chroma-0 ink, at
+ * the two colours the Uno Blueprint site wears, each to within one sRGB
+ * channel step: the dark one, `#3ecfb0`, sits at hue 175.1 and the dial is
+ * one hue for both modes, so it renders `#3fcfb0`. Read off the cascade's
+ * own answer, so the rule holds the colour on screen rather than the dials
+ * that make it. This is the one place the hexes are asserted; the theme
+ * files name them once beside the dials. Ink on the fill and the identity
+ * following it are measured by the brand-fill rules below.
+ * ------------------------------------------------------------------ */
+
+const SITE_TEAL = { light: '#00806a', dark: '#3ecfb0' } as const
+
+/** One sRGB channel step, the rounding a hex can carry. */
+const CHANNEL = 1.5 / 255
+
+describe('the default brand', () => {
+  it.each(['light', 'dark'] as const)(
+    'fills the control with the site teal under %s',
+    (theme) => {
+      const fill = resolveColor('--primary', theme)
+      const target = hexToRgb(SITE_TEAL[theme])
+      fill.forEach((channel, at) =>
+        expect(Math.abs(channel - target[at])).toBeLessThanOrEqual(CHANNEL),
+      )
+    },
+  )
+})
 
 /**
  * Identity and action are two JOBS, and one colour until a deployment says

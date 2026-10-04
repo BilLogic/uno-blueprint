@@ -79,8 +79,8 @@ describe('applyBrandAccent', () => {
  * `palette.test.ts` measures the derivations at the dials standing here, which
  * is the right question for the template's own chrome and the wrong one for an
  * adopter — this template ships one teal, and a wheel swept against its
- * dials would measure one fork's tuning thirty-six times. So the sweep supplies the chroma an adopter's own
- * theme file supplies, and asks whether the arithmetic in `semantic.css` holds
+ * dials would measure one fork's tuning thirty-six times. So the sweep
+ * supplies the chroma an adopter's own theme file supplies, and asks whether the arithmetic in `semantic.css` holds
  * across the range of accents that arithmetic promises to serve.
  *
  * It promises in prose today. `brandAccent.ts` and `semantic.css` both state

@@ -9,7 +9,10 @@ summary: What you are looking at when you open a blueprint — the hierarchy fro
 
 ## 1. The hierarchy
 
-![How a blueprint is organized](../assets/data-model-hierarchy.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/data-model-hierarchy.dark.svg">
+  <img src="../assets/data-model-hierarchy.svg" alt="How a blueprint is organized — a service holds phases in order, a phase holds scenarios, a scenario holds paths side by side, and a path is a grid of lanes and steps">
+</picture>
 
 A **service** holds ordered **phases**. A phase can loop back to an
 earlier one (`loops_to_phase_id`), which is how renewals and repeat visits
@@ -28,7 +31,10 @@ meaningful rather than approximate.
 
 ## 2. Lanes and roles
 
-![Inside one path](../assets/blueprint-anatomy.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/blueprint-anatomy.dark.svg">
+  <img src="../assets/blueprint-anatomy.svg" alt="Inside one path — lanes as rows, steps as columns, a cell where they cross, leads-to arrows between cells, and the lines of interaction, visibility and internal interaction between the lanes">
+</picture>
 
 Lanes are rows, one actor each. Steps are columns, time running left to
 right. Rendering is driven by `lanes.lane_role`, a semantic key, never by
@@ -53,7 +59,10 @@ lanes they separate.
 
 ## 3. Cells
 
-![Inside one cell](../assets/cell-anatomy.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/cell-anatomy.dark.svg">
+  <img src="../assets/cell-anatomy.svg" alt="One cell on the board opened into its record — placement, content, owner and perceived owner, function, form and value proposition, evidence, resources, dependencies and the slices that quote it">
+</picture>
 
 A cell is what one actor does at one step. Beyond its content it carries:
 
@@ -76,7 +85,10 @@ A cell is what one actor does at one step. Beyond its content it carries:
 
 ## 4. Slices
 
-![Types of slices](../assets/slicing-model.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/slicing-model.dark.svg">
+  <img src="../assets/slicing-model.svg" alt="The five slice types as shapes cut from one grid — journey, step, lane, cell and custom">
+</picture>
 
 A slice is a lens on the blueprint, not a copy of it. Its slides point at
 live cells, so updating a cell updates every slice that quotes it, and a

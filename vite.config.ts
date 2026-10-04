@@ -1,5 +1,5 @@
 /// <reference types="vitest/config" />
-import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs'
+import { existsSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs'
 import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -280,6 +280,31 @@ export function hostRulesUnder(
 }
 
 /**
+ * Everything at the root of `dist/` but the path down to the prefix, removed.
+ *
+ * Vite empties only the output directory, and under a prefix that is
+ * `dist/<prefix>/`, so whatever an earlier build wrote at the root stays —
+ * left in a local `dist/`, or restored by a host's build cache. A host serves
+ * a file that is there before a rule that is not forced, so a root build's
+ * `index.html` answers `/` with the old app, ahead of the redirect that sends
+ * it on to the prefix. So a build under a prefix starts by clearing the root,
+ * and at each level down keeps only the next segment of the prefix; the
+ * prefix's own folder is Vite's to empty. What is left at the end is the
+ * prefix and the two host files written below, and the hosting check's
+ * `--built` read holds the root to exactly that.
+ */
+export function clearPublishRoot(publishRoot: string, base: string): void {
+  let dir = publishRoot
+  for (const segment of base.split('/').filter(Boolean)) {
+    if (!existsSync(dir)) return
+    for (const entry of readdirSync(dir)) {
+      if (entry !== segment) rmSync(path.join(dir, entry), { recursive: true, force: true })
+    }
+    dir = path.join(dir, segment)
+  }
+}
+
+/**
  * The host's own files, put back where the host reads them, with the rules
  * the prefix needs.
  *
@@ -303,15 +328,15 @@ function hostFilesAtPublishRoot(base: string): Plugin[] {
     {
       name: 'host-files-at-publish-root',
       apply: 'build',
+      buildStart() {
+        clearPublishRoot(publishRoot, base)
+      },
       closeBundle() {
-        // Only `dist/<prefix>/` is emptied before a build under a prefix, so
-        // a previous build's files at the root are still there. A file the
-        // repository does not ship this time is one to remove, not to read
-        // back as if the repository had written it.
+        // The root was cleared when the build started, so a host file found
+        // there now is one this build shipped, never one an earlier build left.
         for (const file of HOST_FILES) {
           const nested = path.join(publishRoot, base, file)
           if (existsSync(nested)) renameSync(nested, at(file))
-          else rmSync(at(file), { force: true })
         }
         const written = hostRulesUnder(base, {
           redirects: read('_redirects'),

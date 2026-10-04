@@ -82,7 +82,9 @@
  *
  * `--built` reads the build instead of the commit: `dist/_redirects` and
  * `dist/_headers`, held strictly to the rules of the base the build was made
- * for. That is the half that proves the build wrote what it says it writes.
+ * for, and under a prefix the root of `dist/`, which holds those two and the
+ * prefix's folder and nothing a previous build left. That is the half that
+ * proves the build wrote what it says it writes.
  * `dist/` is read off the disk, not through a sweep subject: every subject the
  * sweep names is a tree a commit carries, and `dist/` is the one it never does.
  *
@@ -93,7 +95,7 @@
  * Run: node scripts/check-hosting-rules.mjs   (also: npm run check:hosting)
  *      node scripts/check-hosting-rules.mjs --built   (after npm run build)
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { sweep } from './sweep.mjs'
@@ -777,6 +779,9 @@ export function hostingFindings(walk, base = '/') {
   return { failures: found, rules, redirectsAt, headersAt }
 }
 
+/** The directory a build publishes, whose root a host serves as `/`. */
+export const BUILT = 'dist'
+
 /** Where a build publishes the redirect file a host reads first. */
 export const BUILT_REDIRECTS = 'dist/_redirects'
 
@@ -795,16 +800,37 @@ export const BUILT_HEADERS = 'dist/_headers'
  * cached past a deploy. At the root a build writes no `_redirects` and the
  * `netlify.toml` table answers, so only the headers are required.
  *
+ * Under a prefix the root of `dist/` holds the two host files and the
+ * prefix's folder, and nothing else. Anything more is a previous build's — a
+ * host cache restores one as readily as a local `dist/` keeps it — and a host
+ * serves a file that is there ahead of any rule that is not forced, so a root
+ * `index.html` answers `/` with the old app and the redirect to the prefix is
+ * never reached. `entries` is what the root holds; left out, it is not judged.
+ *
  * Read from disk rather than from the commit: `dist/` is never committed, and
  * whether a file is tracked says nothing about what a build just wrote.
  *
  * @param {(path: string) => string | null} read
  * @param {string} [base]
+ * @param {string[] | null} [entries] the names at the root of `dist/`
  */
-export function builtFindings(read, base = '/') {
+export function builtFindings(read, base = '/', entries = null) {
   const found = []
   let rules = 0
   const { toPrefix } = hostingRules(base)
+
+  if (toPrefix && entries) {
+    const allowed = new Set(['_headers', '_redirects', base.split('/').filter(Boolean)[0]])
+    const stray = entries.filter((name) => !allowed.has(name)).sort()
+    if (stray.length > 0) {
+      found.push(
+        `${BUILT}/ holds ${stray.map((name) => `\`${name}\``).join(', ')} beside the build for ` +
+          `${base}. A host serves a file that is there before the redirect that sends \`/\` on ` +
+          `to ${base}, so the site root answers with whatever an earlier build left. Build again ` +
+          'under BASE_PATH, which clears them, and clear any build cache the host restores.',
+      )
+    }
+  }
 
   const redirects = read(BUILT_REDIRECTS)
   if (redirects === null) {
@@ -873,7 +899,9 @@ export function judge(argv = process.argv.slice(2), env = process.env, root = pr
     }
     const base = basePathIn(read(CONFIG), env)
     const { assets, missingChunk, catchAll } = hostingRules(base)
-    const { failures, rules } = builtFindings(read, base)
+    const published = resolve(root, BUILT)
+    const entries = existsSync(published) ? readdirSync(published) : null
+    const { failures, rules } = builtFindings(read, base, entries)
     return {
       what: 'a hosting rule a build publishes',
       count: rules,

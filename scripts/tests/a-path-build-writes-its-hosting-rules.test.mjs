@@ -16,16 +16,22 @@
  * The render walk previews with `vite preview`, which reads no `_redirects`,
  * so the deep links are proven here instead: the written rules are resolved
  * the way a host resolves them — first match wins, and a non-forced rule
- * never shadows a file that is there.
+ * never shadows a file that is there. Which is why the build clears the root
+ * of `dist/` first: a file an earlier build left there is served ahead of the
+ * root redirect, and the check's `--built` read finds what the clearing
+ * removes.
  */
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
   IMMUTABLE,
   answersForTheApp as checkAnswers,
+  builtFindings,
   cacheFindings,
   fileRedirectFindings,
   headerBlocksIn,
@@ -33,7 +39,11 @@ import {
   ownRedirectFindings,
   redirectLinesIn,
 } from '../check-hosting-rules.mjs'
-import { answersForTheApp as buildAnswers, hostRulesUnder } from '../../vite.config.ts'
+import {
+  answersForTheApp as buildAnswers,
+  clearPublishRoot,
+  hostRulesUnder,
+} from '../../vite.config.ts'
 
 const BASE = '/demo/'
 const COMMITTED_HEADERS = readFileSync(
@@ -188,6 +198,86 @@ test('the build and the check agree on which own rules a prefix refuses', () => 
   }
   // And a file the build keeps whole passes the check without a table of its own.
   assert.deepEqual(ownRedirectFindings('/old  /demo/  301\n', 'public/_redirects', BASE), [])
+})
+
+/* ------------------------------------------- and nothing else at the root */
+
+/**
+ * A `dist/` a root build left behind, with a prefixed build's own folder
+ * beside it: the shell and the hashed chunks at the root, which a host serves
+ * as files ahead of the root redirect, so `/` answers with the old app.
+ */
+function distOverARootBuild() {
+  const root = mkdtempSync(join(tmpdir(), 'publish-root-'))
+  const dist = join(root, 'dist')
+  mkdirSync(join(dist, 'assets'), { recursive: true })
+  mkdirSync(join(dist, 'demo', 'assets'), { recursive: true })
+  writeFileSync(join(dist, 'index.html'), '<!doctype html>')
+  writeFileSync(join(dist, 'assets', 'index-old000.js'), '')
+  writeFileSync(join(dist, 'favicon.svg'), '<svg/>')
+  writeFileSync(join(dist, '_headers'), COMMITTED_HEADERS)
+  writeFileSync(join(dist, 'demo', 'index.html'), '<!doctype html>')
+  return { root, dist }
+}
+
+test('a build under a prefix clears every root file a previous build left', () => {
+  const { root, dist } = distOverARootBuild()
+  try {
+    clearPublishRoot(dist, BASE)
+    // The prefix's own folder is Vite's to empty, and is left to it.
+    assert.deepEqual(readdirSync(dist), ['demo'])
+    assert.deepEqual(readdirSync(join(dist, 'demo')).sort(), ['assets', 'index.html'])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('under a nested prefix only the path down to it is kept', () => {
+  const root = mkdtempSync(join(tmpdir(), 'publish-root-'))
+  const dist = join(root, 'dist')
+  try {
+    mkdirSync(join(dist, 'a', 'b'), { recursive: true })
+    mkdirSync(join(dist, 'a', 'stale'), { recursive: true })
+    writeFileSync(join(dist, 'a', 'index.html'), '')
+    writeFileSync(join(dist, 'index.html'), '')
+    clearPublishRoot(dist, '/a/b/')
+    assert.deepEqual(readdirSync(dist), ['a'])
+    assert.deepEqual(readdirSync(join(dist, 'a')), ['b'])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('a root build, or a first build with no dist yet, is left alone', () => {
+  const { root, dist } = distOverARootBuild()
+  try {
+    const before = readdirSync(dist).sort()
+    clearPublishRoot(dist, '/')
+    assert.deepEqual(readdirSync(dist).sort(), before)
+    clearPublishRoot(join(root, 'nowhere'), BASE)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('the check finds the root files the build clears, and none once it has', () => {
+  const { root, dist } = distOverARootBuild()
+  const written = write({ headers: COMMITTED_HEADERS })
+  const read = (path) =>
+    ({ 'dist/_redirects': written.redirects, 'dist/_headers': written.headers })[path] ?? null
+  try {
+    const stale = builtFindings(read, BASE, readdirSync(dist))
+    assert.equal(stale.failures.length, 1)
+    for (const name of ['index.html', 'assets', 'favicon.svg']) {
+      assert.ok(stale.failures[0].includes(name), `names ${name}`)
+    }
+    clearPublishRoot(dist, BASE)
+    // What the build writes back at the root once the bundle is closed.
+    const entries = [...readdirSync(dist), '_headers', '_redirects']
+    assert.deepEqual(builtFindings(read, BASE, entries).failures, [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })
 
 /* ----------------------------------------------- and the deep links resolve */

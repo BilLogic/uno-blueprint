@@ -567,6 +567,39 @@ test('`--built` reads `dist/` off the disk, at the base the environment names', 
   }
 })
 
+test('a build under a prefix fails while anything but the host files and the prefix is at the root', () => {
+  const tree = { [BUILT_REDIRECTS]: BUILT_PREFIXED, [BUILT_HEADERS]: PREFIXED_HEADERS }
+  const clean = ['_headers', '_redirects', 'demo']
+  assert.deepEqual(builtFindings(builtOver(tree), '/demo/', clean).failures, [])
+
+  // A root build's shell and chunks, left behind: a host serves them as
+  // files, ahead of the redirect that sends `/` on to the prefix.
+  const stale = builtFindings(builtOver(tree), '/demo/', [...clean, 'assets', 'index.html'])
+  assert.equal(stale.failures.length, 1)
+  assert.match(stale.failures[0], /^dist\/ holds `assets`, `index\.html` beside/)
+
+  // At the root the whole of `dist/` is the app, and nothing there is stray.
+  const root = builtFindings(builtOver({ [BUILT_HEADERS]: CACHED }), '/', ['assets', 'index.html'])
+  assert.deepEqual(root.failures, [])
+})
+
+test('`--built` reads the entries at the root of `dist/` off the disk', () => {
+  const root = mkdtempSync(join(tmpdir(), 'hosting-built-'))
+  try {
+    mkdirSync(join(root, 'dist', 'demo'), { recursive: true })
+    writeFileSync(join(root, CONFIG), ORDERED)
+    writeFileSync(join(root, BUILT_REDIRECTS), BUILT_PREFIXED)
+    writeFileSync(join(root, BUILT_HEADERS), PREFIXED_HEADERS)
+    assert.deepEqual(judge(['--built'], { BASE_PATH: '/demo/' }, root).findings, [])
+    writeFileSync(join(root, 'dist', 'index.html'), '<!doctype html>')
+    const said = judge(['--built'], { BASE_PATH: '/demo/' }, root)
+    assert.equal(said.findings.length, 1)
+    assert.match(said.findings[0], /`index\.html`/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 /* ------------------------------------------------- and the committed files */
 
 test('the committed rule files pass, and the check counted them', () => {

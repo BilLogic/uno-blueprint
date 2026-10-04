@@ -1,5 +1,5 @@
 ---
-summary: The shell's landing view — a content model supplied by the deployment, one navigating action, click-to-expand figures that never write or fetch, and one measure down the whole page.
+summary: The shell's landing view — a content model supplied by the deployment, one navigating action, click-to-expand figures with a light and a dark file drawn to one art direction, and one measure down the whole page.
 claims:
   - src/components/cover/CoverCommandCopy.tsx
   - src/components/cover/CoverFigure.tsx
@@ -100,13 +100,28 @@ a full-bleed rounded background rect across its whole viewBox, so the artwork
 already *is* its own container. Wrapping it in a second bordered, padded white
 box drew a frame around a frame.
 
-That self-plate is also what makes dark mode work with no treatment at all: the
-figures are authored light — fills, text and strokes are literal values inside
-the file, and an `<img>` seals page CSS out of them — so they read as printed
-plates in a dark book, which is a convention, rather than as panels that forgot
-to theme themselves. **Not `dark:invert`**, which destroys the lane colours the
-figures encode; not an opacity dim either, which drops the smallest labels below
-AA.
+**Dark mode is a second file.** Fills, text and strokes are literal values
+inside each SVG, and an `<img>` seals page CSS out of them, so the page's `.dark`
+class never reaches in. A figure therefore ships as `name.svg` and
+`name.dark.svg`, and its `packageCoverFigures` entry carries the second as
+`srcDark`. `CoverFigure` picks the file from the app's resolved theme, so the
+toggle swaps it live and the opened viewer shows the same one. A figure without
+a dark file yet shows its light file in both themes. **Not `dark:invert`**, which
+destroys the lane colours the figures encode; not an opacity dim either, which
+drops the smallest labels below AA.
+
+On GitHub the README and the guide cannot see the app's theme, so they embed a
+figure that has a dark file as a `<picture>` and let GitHub follow its own:
+
+```html
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/why-now.dark.svg">
+  <img src="./docs/assets/why-now.svg" alt="…">
+</picture>
+```
+
+`scripts/sync-cover-assets.mjs` copies each dark file along with its figure, and
+refuses a dark file whose light figure is not in the manifest.
 
 The whole image is the trigger — a diagram this dense benefits from a big hit
 target — and the cursor stays a plain pointer, because the corner hint already
@@ -125,6 +140,60 @@ starts at fit: the zoom a reader builds up is a per-visit choice, not a
 remembered preference.
 
 The first figure decodes eagerly; the rest are lazy.
+
+## Art direction
+
+How the figures look and how they argue. `why-now` and `when-to-use` are drawn to
+it; the rest follow as they are redrawn.
+
+- **One idea per figure.** Decide the one sentence the figure proves, then cut
+  everything that does not help prove it. The prose around the figure carries
+  the detail.
+- **Minimal text, sentence case.** A short title and a short line where a label
+  is needed; no in-figure headline when the section already has one. No ALL
+  CAPS. Use the words `CONTEXT.md` fixes: lane, step, cell, slice, path.
+- **Never under 11px at the rendered width.** Beside the sidebar the cover
+  shows an 880-wide figure at about 688px, so author text at 14.5px or more and titles at 15px. Measure each title in
+  the system fallbacks (SF, Segoe UI, Arial) and leave it at least 15 units of
+  slack in its column.
+- **Type.** `font-family="'Ubuntu Sans', system-ui, sans-serif"` on the root.
+  An image cannot load a webfont, so most readers see the fallback; leave room
+  for the wider face rather than fitting labels to Ubuntu Sans exactly.
+- **Three marks, three meanings.** Teal is what the figure explains:
+  `#00806a` light, `#3ecfb0` dark. Amber is a cell that no longer holds: fill
+  `#fff4e0`, solid stroke `#b45309` (dark `#33260f` and `#fbbf6a`), and the
+  cell keeps its skeleton bar, because it is content that is wrong rather
+  than content that is missing. Dashed means not yet, missing or proposed.
+  Everything else stays ink, muted ink or a lane pastel, so the eye lands on
+  the teal first.
+- **Ink.** Text `oklch(.21 .008 175)` (`#151a18`), muted `oklch(.47 .008 175)`
+  (`#565c5a`). Dark: `#ebf0ee` and `#a6acaa`.
+- **Lane pastels**, fill / stronger accent:
+
+  | Lane | Light | Dark |
+  | --- | --- | --- |
+  | Customer | `#e8f3ed` / `#cfe6d9` | `#16302a` / `#235043` |
+  | Frontstage | `#fdf1e3` / `#f6e0bd` | `#35290f` / `#5a451c` |
+  | Backstage | `#fbe9f0` / `#f2cfdf` | `#371b27` / `#5a2d40` |
+  | Support | `#ecebf5` / `#d9d6ec` | `#24223d` / `#3b3866` |
+
+- **Borders are translucent ink**: about 9% at rest, 17% for emphasis.
+- **Radii**: 16 for the plate and cards, 8 for cells, 6 for small chips.
+- **The plate** is a full-bleed rect with a dot grid on it: 1.6px dots (`r=0.8`) on a
+  20px pitch at about 17% ink, masked to fade towards the edges. Cards sit on it in
+  the card colour (`#ffffff` light, `#181d1b` dark; plate `#f6f8f7` and
+  `#0f1412`).
+- **Dashed means not yet, missing or proposed**; solid means it exists. A
+  proposed change, a pattern nobody has built. A cell that no longer holds is
+  amber, not dashed.
+- **The mini-blueprint** is the shorthand for a blueprint: rows of a small
+  lane-colour square and a label bar, then cells 24px tall each holding one
+  skeleton bar. Highlight cells in teal to show which part of it a figure is
+  about.
+- **Light and dark differ only in the palette.** Put every colour in the
+  file's `<style>` block as a class and keep the drawing identical, so the dark
+  file is the light file with that block swapped. A test diffs the two outside
+  the block.
 
 ## Sections
 

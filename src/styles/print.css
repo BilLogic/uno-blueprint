@@ -28,7 +28,7 @@
    * theme's, bar the two paper tunings marked below; the tunings are exactly
    * those two; and nothing is restated that the dark theme does not take over.
    * The last of those is why dials both themes already agree on — `--hue`,
-   * `--chroma`, `--radius`, `--primary-chroma` — are absent rather than
+   * `--chroma`, `--radius` — are absent rather than
    * restated defensively: the first rule is what now guarantees they agree,
    * and a defensive copy here would be a second unheld source of truth of
    * precisely the kind that caused this.
@@ -61,10 +61,12 @@
        file that declares this dial at all. */
     --field-alpha: 0.015;
 
-    /* The filled control and the focus ring. Dark inverts the control to a
-       near-white fill (0.922), which on the 0.968 print ground is very nearly
-       invisible — the failure that opened this. */
-    --primary-lightness: 0.205;
+    /* The filled control and the focus ring. Dark runs the control lighter
+       and more saturated (0.771 / 0.129) for its charcoal canvas, which on the
+       0.968 print ground loses the contrast its ink was tuned for — and a
+       near-white dark fill on paper is the failure that opened this. */
+    --primary-lightness: 0.536;
+    --primary-chroma: 0.101;
     --ring-lightness: 0.58;
 
     --warning-lightness: 0.68;

@@ -1,5 +1,5 @@
 ---
-summary: The board and the chrome around it — click grammar, canvas modes, panel-as-selection, camera behaviour, the phase-row height contract and the touch contract.
+summary: The board and the chrome around it — click grammar, canvas modes, panel-as-selection, the motion vocabulary, camera behaviour, the phase-row height contract and the touch contract.
 claims:
   - src/components/blueprint/BlueprintArrowMarkerDefs.tsx
   - src/components/blueprint/BlueprintCellButton.tsx
@@ -17,6 +17,7 @@ claims:
   - src/components/blueprint/EntityHeader.tsx
   - src/components/blueprint/IntegratedDependencyArrows.tsx
   - src/components/blueprint/LaneCollapseToggle.tsx
+  - src/components/blueprint/MiniBlueprintIllustration.tsx
   - src/components/blueprint/PathKindBadge.tsx
   - src/components/blueprint/PathKindColorKey.tsx
   - src/components/blueprint/PathLabelBadge.tsx
@@ -209,6 +210,35 @@ gutter above the zoom cluster (`bottom-16` vs `bottom-4`) so the two never
 overlap — a spatial rule, not a z-index fight with the drawer primitive.
 The inspector already clears the same band via `CELL_DETAIL_PANEL_BOTTOM_GAP_PX`.
 
+## Empty states
+
+The canvas's empty states (`CanvasEmptyState`, in all three variants) and the
+cell drawer's nothing-selected surface (`CellDetailEmptySurface`) carry the
+mini-blueprint (`MiniBlueprintIllustration`):
+three lane rows, each a lane-colour square and a label bar, then cells holding
+one skeleton bar, with some cells dashed. It is the cover figures' shorthand
+for a blueprint, but drawn from tokens rather than printed: the squares and
+cells take `--background-blueprint-cell` and its pressed step from real
+lane roles (`blueprintLaneAttrs`), the label bars and gap edges take
+`--border-strong`, and the corners come off the radius ladder. So it follows
+the theme and the contrast dial, and a deployment's lane palette reaches it.
+
+- **The gaps are dashed because dashed means not yet** (the dashed-versus-solid
+  rule in [overview](overview.md)). A gap holds no skeleton bar, since there is
+  nothing in it to label.
+- **Size follows the frame.** The open canvas (`CanvasEmptyState`'s `canvas`
+  variant) draws it `lg`, with 24px cells; the `panel` and `phase` variants and
+  the cell drawer's nothing-selected surface draw it `sm`, because the frame
+  around them is already most of the picture.
+- **Only for an empty board.** A read that failed ("The phases could not be
+  loaded") turns it off with `showIllustration={false}`: nobody knows the
+  board is empty, so a picture of an empty one would say more than the copy.
+- **It is decoration.** `aria-hidden`, and still: no pulse, no arrival. The
+  copy beside it carries the meaning and stays an invitation to act, naming
+  where the next move is, and only where that control exists: the paths menu
+  in the header for a focused scenario, the sidebar on a phase canvas (which
+  has no paths menu), the `+` on a phase row, a cell on the board.
+
 ## Panel as selection
 
 The open cell panel IS the selection, and `panelState` is its **single
@@ -259,6 +289,48 @@ through with back and forward.
   the ones that do resolve. Never an error page, never a blank one.
 
 `BoardAddressSync` is the seam and `lib/boardAddress.ts` is the vocabulary.
+
+## Motion
+
+The product layer has one motion vocabulary: four curves named by what the
+motion is for, and a short ladder of durations. Pick the role first; the
+curve follows from it.
+
+| Role | Curve | Use it when |
+| --- | --- | --- |
+| **arrive** (`ease-arrive`) | `cubic-bezier(.22,1,.36,1)` | Something enters or is revealed — a panel opening, a popover, a fade-up, hover and focus feedback. Fast off the mark, long settle. |
+| **leave** (`ease-leave`) | `cubic-bezier(.6,0,.85,.25)` | Something exits — a panel closing, a dialog's backdrop on its way out. Pair it with a shorter rung than the entry: arriving is an event, leaving is not. |
+| **move** (`ease-move`) | `cubic-bezier(.65,0,.35,1)` | Something already on screen goes from A to B — a tab indicator sliding, a chevron rotating, a height or width changing, a progress bar filling. |
+| **spring** (`ease-spring`) | `cubic-bezier(.34,1.45,.5,1)`, a `linear()` spring where supported | A small thing pops — a swatch on hover, a button press. Never on anything panel-sized. |
+
+Durations come from the ladder, never a number: `--motion-micro` (150 ms,
+hover and small state changes), `--motion-fade` (200 ms, crossfades and
+entries), `--motion-fade-stagger` (75 ms, the gap between an out and its in),
+`--motion-structural` (320 ms, a whole surface changing size) and
+`--motion-camera` (420 ms, camera-adjacent CSS). In a class string that is
+`duration-(--motion-micro) ease-arrive motion-reduce:transition-none` — every
+product transition names its rung, its role and its reduced-motion answer in
+the same string.
+
+- `--ease-structural` remains as an alias of arrive for stylesheets that
+  already read it; product classes use the role names.
+- `--ease-camera` (`ease-camera`) is still the camera's own curve, kept for
+  CSS that rides a camera flight (focus dimming, the compare fade) so it
+  matches the JS flight. The camera becomes a move when the flight and this
+  token switch together.
+- The vendored `ui/` primitives keep their upstream timings. A product surface
+  that needs a different feel sets it on its own wrapper's classes.
+- The canvas reveal ladder keeps the plain `ease-out` it documents in
+  `blueprint.css`: its beats run serially, and a long-tailed arrive curve
+  makes each handoff land late. It is a separate clock from the shell's.
+- `lib/motion.ts` carries the curves for JS that animates on frames
+  (`EASE_POINTS`, `cubicBezierEase`, `easeMove`). The camera flight does not
+  use them yet: it still eases on its own hermite curve in
+  `lib/cameraTransition.ts`.
+
+`lib/motion.ts` and `styles/animations.css` hold the two halves, and a drift
+test compares their token values. What the product layer may not write is
+enforced, and listed, by `components/motionVocabulary.test.ts`.
 
 ## Camera
 

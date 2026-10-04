@@ -12,9 +12,10 @@
  */
 
 @utility delayed-appear {
-  /* Loading indicators that hold back ~300ms so fast loads show nothing. */
+  /* Loading indicators that hold back one structural beat (~320ms) so fast loads show nothing. */
   opacity: 0;
-  animation: delayed-appear var(--motion-fade) ease-out 300ms forwards;
+  animation: delayed-appear var(--motion-fade) var(--ease-arrive)
+    var(--motion-structural) forwards;
 }
 
 @keyframes delayed-appear {

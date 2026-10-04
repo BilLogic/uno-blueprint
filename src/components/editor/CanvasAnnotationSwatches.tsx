@@ -48,7 +48,7 @@ export function ColorSwatch({
         onClick={onSelect}
         data-blueprint-fill={empty ? undefined : ''}
         className={cn(
-          'relative size-6 shrink-0 rounded-full border transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+          'relative size-6 shrink-0 rounded-full border transition-transform duration-(--motion-micro) ease-spring motion-reduce:transition-none hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
           empty
             ? 'swatch-empty-light border-border'
             : 'hairline-border-annotation-plate border-annotation-plate',
@@ -99,7 +99,7 @@ export function StrokeWidthSwatch({
         aria-pressed={selected}
         onClick={onSelect}
         className={cn(
-          'flex size-6 shrink-0 items-center justify-center rounded-md border border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          'flex size-6 shrink-0 items-center justify-center rounded-md border border-transparent transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           selected
             ? 'border-(--border-annotation-chrome-selected) bg-(--wash-annotation-chrome-strong)'
             : 'hover:bg-(--wash-annotation-chrome)',

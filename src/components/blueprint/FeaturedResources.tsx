@@ -39,7 +39,7 @@ export function FeaturedButtons({
             title={button.host}
             className={cn(
               'inline-flex h-7 items-center gap-2 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground',
-              'transition-colors hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none',
+              'transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none',
             )}
           >
             <Glyph className="size-3 shrink-0 text-muted-foreground" aria-hidden />

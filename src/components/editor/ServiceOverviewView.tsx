@@ -19,7 +19,10 @@ import {
   PhaseOverviewPhaseLoopArrow,
   PHASE_OVERVIEW_LOOP_CHANNEL_OFFSET,
 } from '@/components/editor/PhaseOverviewPhaseLoopArrow'
-import { CanvasEmptyState } from '@/components/editor/CanvasEmptyState'
+import {
+  CanvasEmptyState,
+  NoPathsEmptyState,
+} from '@/components/editor/CanvasEmptyState'
 import { CanvasLoadProgress } from '@/components/editor/CanvasLoadProgress'
 import { ServiceOverviewCanvasSkeleton } from '@/components/editor/EditorLoadingSkeletons'
 import { DeferredSkeleton } from '@/components/ui/deferred-skeleton'
@@ -1118,11 +1121,13 @@ function ServiceOverviewViewImpl({
                   }
                   // Paths are a filter over a board; there is no board.
                   showRestoreAction={false}
+                  // A read that failed is not an empty board.
+                  showIllustration={!slidesError}
                 />
               </div>
             ) : noPathsSelected ? (
               <div className="absolute inset-0 flex">
-                <CanvasEmptyState />
+                <NoPathsEmptyState focused={Boolean(focusedScenarioId)} />
               </div>
             ) : (
               <ZoomPanViewport
@@ -1354,7 +1359,7 @@ function ServiceOverviewViewImpl({
                 }
                 className={cn(
                   'pointer-events-none absolute inset-0 z-20 flex items-center justify-center',
-                  'transition-opacity duration-(--motion-fade) ease-out',
+                  'transition-opacity motion-reduce:transition-none duration-(--motion-fade) ease-arrive',
                   barDissolving && 'opacity-0',
                 )}
                 // The bar finishing its dissolve is what opens stage 1 —

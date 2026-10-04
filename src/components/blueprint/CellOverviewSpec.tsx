@@ -89,7 +89,7 @@ export function CellOverviewSpec({ cellId }: CellOverviewSpecProps) {
   if (sections.length === 0) return null
 
   return (
-    <div className="flex flex-col gap-3 animate-in fade-in duration-(--motion-fade)">
+    <div className="flex flex-col gap-3 animate-in ease-arrive motion-reduce:animate-none fade-in duration-(--motion-fade)">
       {sections}
     </div>
   )

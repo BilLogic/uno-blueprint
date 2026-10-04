@@ -1,3 +1,4 @@
+import { MiniBlueprintIllustration } from '@/components/blueprint/MiniBlueprintIllustration'
 import { Button } from '@/components/ui/button'
 import { usePathSelectionContext } from '@/hooks/usePathSelection'
 import { cn } from '@/lib/utils'
@@ -14,6 +15,12 @@ type CanvasEmptyStateProps = {
   variant?: 'canvas' | 'panel' | 'phase'
   /** One-click way out of "no paths selected"; canvas variant only by default. */
   showRestoreAction?: boolean
+  /**
+   * Draw the mini-blueprint. Off for a failed read: that is not an empty
+   * board, and a picture of one would say the board is empty when nobody
+   * knows.
+   */
+  showIllustration?: boolean
 }
 
 /**
@@ -42,9 +49,10 @@ function RestoreDefaultPathsButton() {
 export function CanvasEmptyState({
   className,
   title = 'No paths selected',
-  summary = 'Pick one under Paths in the sidebar.',
+  summary = 'Pick one from the paths menu in the header.',
   variant = 'canvas',
   showRestoreAction,
+  showIllustration = true,
 }: CanvasEmptyStateProps) {
   const isCanvas = variant === 'canvas'
   const isPanel = variant === 'panel'
@@ -75,6 +83,15 @@ export function CanvasEmptyState({
             'w-full flex-1 gap-2 rounded-xl border border-dashed border-border bg-[color:var(--background-blueprint-panel-canvas,var(--secondary))] px-6 py-7',
         )}
       >
+        {/* The picture sits above the copy and stays out of its way: large on
+            the open canvas, small inside a frame, where the frame is already
+            most of the figure. */}
+        {showIllustration ? (
+          <MiniBlueprintIllustration
+            size={isCanvas ? 'lg' : 'sm'}
+            className={isCanvas ? 'mb-4' : 'mb-2'}
+          />
+        ) : null}
         <p className="text-sm font-medium tracking-tight text-foreground">
           {title}
         </p>
@@ -89,5 +106,24 @@ export function CanvasEmptyState({
         {(showRestoreAction ?? isCanvas) ? <RestoreDefaultPathsButton /> : null}
       </div>
     </div>
+  )
+}
+
+/**
+ * The canvas with nothing drawn because no path is on, worded for where the
+ * reader is. Focused, the reader turned every path off, and the header's
+ * paths menu is the way back. Unfocused, a phase draws each scenario's
+ * default path, so the only way to draw nothing is for no scenario in scope
+ * to have a path to show, and the header has no paths menu to point at.
+ */
+export function NoPathsEmptyState({ focused }: { focused: boolean }) {
+  return focused ? (
+    <CanvasEmptyState />
+  ) : (
+    <CanvasEmptyState
+      title="No paths to show"
+      summary="None of the scenarios here has a path to draw. Open one from the sidebar."
+      showRestoreAction={false}
+    />
   )
 }

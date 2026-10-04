@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils'
  * pointer that just changed it; a control the width of its column does not.
  */
 export const PANEL_SELECT_TRIGGER_CLASS =
-  'flex h-8 w-full items-center justify-between gap-1 rounded-md border border-input bg-transparent px-2 text-left text-sm outline-none transition-colors hover:border-control-hover focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50'
+  'flex h-8 w-full items-center justify-between gap-1 rounded-md border border-input bg-transparent px-2 text-left text-sm outline-none transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:border-control-hover focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50'
 
 export type SelectOption<V extends string> = {
   value: V

@@ -29,7 +29,7 @@ export function SessionRow({
       className={cn(
         // pl-6 = the NavSection title's own text indent (pl-1 + size-4
         // chevron slot + gap-1), so rows left-align with TODAY / EARLIER.
-        'group/session flex w-full min-w-0 items-center gap-2 rounded-md py-2 pl-6 pr-2 text-left transition-colors',
+        'group/session flex w-full min-w-0 items-center gap-2 rounded-md py-2 pl-6 pr-2 text-left transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
         'hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring',
       )}
     >

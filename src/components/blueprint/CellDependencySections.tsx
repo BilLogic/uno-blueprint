@@ -136,7 +136,7 @@ function DependencyRow({
   const row = (
     <button
       type="button"
-      className="flex min-w-0 flex-col items-stretch gap-1 text-left text-foreground transition-colors hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+      className="flex min-w-0 flex-col items-stretch gap-1 text-left text-foreground transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
       onMouseEnter={() => preview(null)}
       onMouseLeave={clearPreview}
       onFocus={() => preview(null)}
@@ -178,7 +178,7 @@ function DependencyRow({
     >
       <div
         className={cn(
-          'flex flex-col gap-1 px-2 py-2 text-xs transition-colors group-hover:bg-accent group-focus-within:bg-accent',
+          'flex flex-col gap-1 px-2 py-2 text-xs transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none group-hover:bg-accent group-focus-within:bg-accent',
           action ? 'pr-8' : undefined,
         )}
       >

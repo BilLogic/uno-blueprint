@@ -165,14 +165,14 @@ function ToolRow({ event }: { event: ToolEvent }) {
             type="button"
             className={cn(
               markerVariants({ variant: 'default' }),
-              'cursor-pointer rounded-md transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              'cursor-pointer rounded-md transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               event.isError && 'text-destructive',
             )}
           >
             {face}
             <ChevronRight
               className={cn(
-                'ml-auto size-3 shrink-0 opacity-60 transition-transform',
+                'ml-auto size-3 shrink-0 opacity-60 transition-transform duration-(--motion-micro) ease-move motion-reduce:transition-none',
                 open && 'rotate-90',
               )}
               aria-hidden

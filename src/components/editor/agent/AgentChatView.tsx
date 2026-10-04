@@ -354,7 +354,7 @@ export function AgentChatView({
             {session.title}
           </span>
           <Pencil
-            className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/title:opacity-100"
+            className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none group-hover/title:opacity-100"
             aria-hidden
           />
         </button>

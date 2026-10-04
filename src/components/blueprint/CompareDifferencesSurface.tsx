@@ -155,7 +155,7 @@ const CompareDiffRow = memo(function CompareDiffRow({
             type="button"
             variant="ghost"
             size="icon-sm"
-            className="size-5 shrink-0 text-muted-foreground opacity-0 transition-opacity duration-(--motion-micro) group-hover/diffrow:opacity-100 group-focus-within/diffrow:opacity-100 focus-visible:opacity-100 hover:text-foreground"
+            className="size-5 shrink-0 text-muted-foreground opacity-0 transition-opacity ease-arrive motion-reduce:transition-none duration-(--motion-micro) group-hover/diffrow:opacity-100 group-focus-within/diffrow:opacity-100 focus-visible:opacity-100 hover:text-foreground"
             aria-label={`Open ${slot.laneLabel} at ${slot.columnLabel} in Details`}
             onClick={(event) => {
               event.stopPropagation()
@@ -245,7 +245,7 @@ function FilterTag({
       onClick={onToggle}
       className={cn(
         // geometry: packs the path name into the badge's fixed height.
-        'rounded-full border px-2 py-1 text-xs leading-none transition-colors duration-(--motion-micro)',
+        'rounded-full border px-2 py-1 text-xs leading-none transition-colors ease-arrive motion-reduce:transition-none duration-(--motion-micro)',
         pressed
           ? 'border-stronger bg-foreground/10 text-foreground'
           : 'border-border text-muted-foreground hover:text-foreground',

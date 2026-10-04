@@ -119,7 +119,7 @@ export function CanvasLoadProgress({
       </div>
       <div className="h-0.5 w-40 overflow-hidden rounded-full bg-border">
         <div
-          className="h-full rounded-full bg-primary transition-[width] duration-(--motion-camera) ease-out motion-reduce:transition-none"
+          className="h-full rounded-full bg-primary transition-[width] duration-(--motion-camera) ease-move motion-reduce:transition-none"
           style={{ width: `${display}%` }}
         />
       </div>

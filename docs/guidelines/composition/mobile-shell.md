@@ -6,6 +6,7 @@ claims:
   - src/components/mobile/MobileTopBar.tsx
   - src/components/mobile/MobileNavSheet.tsx
   - src/components/mobile/MobilePathSelector.tsx
+  - src/components/mobile/usePhoneSettingsAsk.ts
 ---
 
 # Mobile shell

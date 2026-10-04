@@ -26,8 +26,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const PHONE = { width: 375, height: 812 }
 
-// The sample trial with no key saved: the agent is allowed and has nothing to
-// talk to yet — the one state that offers Add API key….
+// An agent allowed and no key saved — the one state that offers Add API
+// key…. In a real build that is a signed-in session on a configured
+// deployment (a no-database build admits the agent only once a key exists,
+// which is why the render walk cannot reach it). The trial's flags stand in
+// for it here because they keep transcript persistence, which would wait on
+// a database, out of the panel; the shell's handling of the ask is the same.
 vi.mock('@/contexts/SupabaseProvider', () => ({
   useSupabase: () => ({
     client: null,
@@ -60,7 +64,11 @@ import {
   closeAgentSession,
   deleteAgentSession,
 } from '@/lib/agent/sessions'
-import { setAgentSettingsOpen } from '@/lib/agent/settings'
+import {
+  openAgentSettings,
+  setAgentSettingsOpen,
+} from '@/lib/agent/settings'
+import { SAMPLE_PHASES, SAMPLE_SCENARIOS } from '@/data/sampleBlueprint'
 import { MOTION_FADE_MS } from '@/lib/motion'
 import { queryClient } from '@/lib/queryClient'
 
@@ -94,8 +102,9 @@ function phoneScreen() {
   })) as unknown as typeof window.matchMedia
 }
 
-function renderPhone() {
-  return render(
+/** The phone shell — or, with `shell` false, its providers with no shell in them. */
+function phoneTree(shell = true) {
+  return (
     <QueryClientProvider client={queryClient}>
       <DeploymentConfigProvider>
         <ActiveServiceProvider>
@@ -103,15 +112,19 @@ function renderPhone() {
             <PathSelectionProvider>
               <EditorProvider>
                 <div style={{ width: PHONE.width, height: PHONE.height }}>
-                  <MobileShell />
+                  {shell ? <MobileShell /> : null}
                 </div>
               </EditorProvider>
             </PathSelectionProvider>
           </ViewStateProvider>
         </ActiveServiceProvider>
       </DeploymentConfigProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   )
+}
+
+function renderPhone() {
+  return render(phoneTree())
 }
 
 /** Turn the faked clock in small steps, so effects scheduled mid-way run too. */
@@ -138,6 +151,31 @@ async function readerOpensTheAgentWithNoKey() {
 function forgetEverySession() {
   closeAgentSession()
   agentSessionsSnapshot().forEach((session) => deleteAgentSession(session.id))
+}
+
+/** Dismiss the drawer with its own Close control. */
+async function dismissTheDrawer() {
+  fireEvent.click(within(theDrawer()!).getByRole('button', { name: 'Close' }))
+  await letTheClockRun(MOTION_FADE_MS * 2)
+}
+
+/** Ask for the key settings from the agent's no-key state. */
+async function tapAddApiKey() {
+  fireEvent.click(screen.getByRole('button', { name: 'Add API key…' }))
+  await letTheClockRun(MOTION_FADE_MS * 2)
+}
+
+/** The drawer surface the rail marks as pressed. */
+function thePressedSurface(): string | null {
+  const rail = within(theDrawer()!).getByRole('navigation', {
+    name: 'Sidebar surfaces',
+  })
+  return (
+    within(rail)
+      .getAllByRole('button')
+      .find((button) => button.getAttribute('aria-pressed') === 'true')
+      ?.getAttribute('aria-label') ?? null
+  )
 }
 
 /** The drawer, when it is open. */
@@ -219,5 +257,86 @@ describe('Add API key… on a phone', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add API key…' }))
     await letTheClockRun(MOTION_FADE_MS * 2)
     expect(theKeySettingsAreShowing()).toBe(true)
+  })
+
+  it('closing the drawer by navigating restores nothing — the reader went somewhere new', async () => {
+    await readerOpensTheAgentWithNoKey()
+    await tapAddApiKey()
+    expect(theKeySettingsAreShowing()).toBe(true)
+
+    const scenario = SAMPLE_SCENARIOS.find(
+      (one) => one.name === 'Map your service',
+    )!
+    const phase = SAMPLE_PHASES.find((one) => one.id === scenario.phase_id)!
+    fireEvent.click(within(theDrawer()!).getByRole('button', { name: 'Blueprints' }))
+    await letTheClockRun(MOTION_FADE_MS)
+    fireEvent.click(within(theDrawer()!).getByText(phase.name))
+    await letTheClockRun(MOTION_FADE_MS)
+    fireEvent.click(within(theDrawer()!).getByText(scenario.name))
+    await letTheClockRun(MOTION_FADE_MS * 4)
+
+    expect(theDrawer()).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Add API key…' })).toBeNull()
+  })
+
+  it('dismissing puts the drawer back on the surface it was left on', async () => {
+    await readerOpensTheAgentWithNoKey()
+    // The reader had last left the drawer on Slices.
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await letTheClockRun(MOTION_FADE_MS * 2)
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }))
+    await letTheClockRun(MOTION_FADE_MS)
+    fireEvent.click(within(theDrawer()!).getByRole('button', { name: 'Slices' }))
+    await letTheClockRun(MOTION_FADE_MS)
+    await dismissTheDrawer()
+    fireEvent.click(screen.getByRole('button', { name: 'Ask the agent' }))
+    await letTheClockRun(MOTION_FADE_MS)
+
+    await tapAddApiKey()
+    expect(theKeySettingsAreShowing()).toBe(true)
+    await dismissTheDrawer()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await letTheClockRun(MOTION_FADE_MS * 2)
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }))
+    await letTheClockRun(MOTION_FADE_MS)
+    expect(thePressedSurface()).toBe('Slices')
+  })
+
+  it('a key saved in the drawer is the agent ready to talk once the drawer is dismissed', async () => {
+    await readerOpensTheAgentWithNoKey()
+    await tapAddApiKey()
+
+    const drawer = within(theDrawer()!)
+    fireEvent.change(drawer.getByLabelText('API key'), {
+      target: { value: 'test-key' },
+    })
+    fireEvent.click(drawer.getByRole('button', { name: 'Save' }))
+    await letTheClockRun(MOTION_FADE_MS)
+    await dismissTheDrawer()
+
+    const composer = screen.getByRole('textbox', { name: 'Message the agent' })
+    expect((composer as HTMLTextAreaElement).disabled).toBe(false)
+    expect(screen.queryByRole('button', { name: 'Add API key…' })).toBeNull()
+  })
+
+  it('an ask made before the phone shell mounted still opens the settings, and dismissing it restores', async () => {
+    // A window narrowed with the desktop popover up: the ask was made with
+    // no phone shell listening, and is still unanswered when one mounts. The
+    // providers stay up across the swap, as they do in the app, so the shell
+    // mounts onto the board rather than the cover.
+    const { rerender } = renderPhone()
+    fireEvent.click(screen.getByRole('button', { name: 'Open the blueprint' }))
+    await letTheClockRun(MOTION_FADE_MS * 4)
+    rerender(phoneTree(false))
+    openAgentSettings()
+    rerender(phoneTree())
+    await letTheClockRun(MOTION_FADE_MS * 2)
+
+    expect(theKeySettingsAreShowing()).toBe(true)
+    await dismissTheDrawer()
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }))
+    await letTheClockRun(MOTION_FADE_MS)
+    expect(thePressedSurface()).toBe('Blueprints')
   })
 })

@@ -12,6 +12,8 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+// An agent allowed and no key saved; see `mobileAddApiKey.test.tsx` for why
+// the trial's flags stand in for a signed-in session.
 vi.mock('@/contexts/SupabaseProvider', () => ({
   useSupabase: () => ({
     client: null,

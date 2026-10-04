@@ -70,20 +70,35 @@ describe('MiniBlueprintIllustration', () => {
     }
   })
 
-  it('leaves gaps dashed and skeleton bars as they were', () => {
+  it('draws gaps as dashed outlines in the lane colour, at the cell weight', () => {
+    // A gap is a cell missing from this lane, so it dashes in the lane's
+    // line colour, as a missing cell does on the cover figures.
     render(<MiniBlueprintIllustration size="lg" />)
-    for (const gap of document.querySelectorAll<HTMLElement>(
-      '[data-mini-blueprint-cell="gap"]',
-    )) {
+    const gaps = [
+      ...document.querySelectorAll<HTMLElement>(
+        '[data-mini-blueprint-cell="gap"]',
+      ),
+    ]
+    expect(gaps.length).toBeGreaterThan(0)
+    for (const gap of gaps) {
       expect(gap.className).toContain('border-dashed')
-      expect(gap.className).toContain('border-strong')
+      expect(gap.className).toContain('border-[color:var(--ring-blueprint-cell)]')
+      expect(gap.className).not.toMatch(/\bborder-strong\b/)
+      expect(gap.className).toMatch(/(^|\s)border(\s|$)/)
     }
-    for (const bar of document.querySelectorAll<HTMLElement>(
-      '[data-mini-blueprint-bar]',
-    )) {
-      expect(bar.className).toContain(
-        'bg-[color:var(--background-blueprint-cell-pressed)]',
-      )
+  })
+
+  it('draws skeleton bars in translucent ink, not a lane fill', () => {
+    // With no cell fill behind it, a lane-coloured bar sits on the page at
+    // under 2:1; translucent ink is what the figures' bars are.
+    render(<MiniBlueprintIllustration size="lg" />)
+    const bars = [
+      ...document.querySelectorAll<HTMLElement>('[data-mini-blueprint-bar]'),
+    ]
+    expect(bars.length).toBeGreaterThan(0)
+    for (const bar of bars) {
+      expect(bar.className).toContain('bg-foreground/15')
+      expect(bar.className).not.toContain('--background-blueprint-cell')
     }
   })
 

@@ -452,7 +452,7 @@ function SlideCellsList({
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger className="rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:bg-accent">
+      <PopoverTrigger className="rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:bg-accent">
         {count === 1 ? '1 cell' : `${count} cells`}
       </PopoverTrigger>
       <PopoverContent
@@ -514,7 +514,7 @@ function SlideNavButton({
         onClick={onClick}
         disabled={disabled}
         aria-label={label}
-        className="h-auto w-10 shrink-0 self-center rounded-md border-border bg-card px-0 py-6 text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground disabled:opacity-30 dark:hover:bg-accent"
+        className="h-auto w-10 shrink-0 self-center rounded-md border-border bg-card px-0 py-6 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 dark:hover:bg-accent"
       >
         <Icon className="size-5" />
       </Button>

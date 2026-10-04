@@ -89,6 +89,9 @@ const AUTHORED_PER_THEME = [
   '--primary-lightness',
   '--ring-lightness',
   '--role-edge-step',
+  '--border-alpha-resting',
+  '--border-alpha-hover',
+  '--border-alpha-hot',
 ]
 
 /** What one theme file declares a name as, or `ABSENT`. */

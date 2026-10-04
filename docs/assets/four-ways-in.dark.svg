@@ -1,0 +1,83 @@
+<svg viewBox="0 0 880 324" xmlns="http://www.w3.org/2000/svg" font-family="'Ubuntu Sans', system-ui, sans-serif">
+  <style>
+    .plate { fill: #0f1412; }
+    .dot { fill: #ebf0ee; fill-opacity: 0.17; }
+    .card { fill: #181d1b; stroke: #ebf0ee; stroke-opacity: 0.09; }
+    .card-dash { fill: #181d1b; stroke: #ebf0ee; stroke-opacity: 0.34; stroke-dasharray: 4 4; }
+    .card-focus { fill: #181d1b; stroke: #3ecfb0; stroke-width: 1.5; }
+    .title { font-size: 15px; font-weight: 600; fill: #ebf0ee; }
+    .label { font-size: 14.5px; fill: #a6acaa; }
+    .label-teal { font-size: 14.5px; font-weight: 600; fill: #3ecfb0; }
+    .strong { font-size: 14.5px; font-weight: 600; fill: #ebf0ee; }
+    .flow { stroke: #a6acaa; stroke-width: 1.5; fill: none; }
+    .flow-head { fill: #a6acaa; }
+    .trace { stroke: #3ecfb0; stroke-width: 1.5; fill: none; }
+    .trace-dash { stroke: #3ecfb0; stroke-width: 1.5; fill: none; stroke-dasharray: 4 4; }
+    .trace-head { fill: #3ecfb0; }
+    .skel { fill: #ebf0ee; fill-opacity: 0.22; }
+    .skel-teal { fill: #3ecfb0; }
+    .cell { stroke: #ebf0ee; stroke-opacity: 0.09; }
+    .cell-dash { fill: none; stroke: #ebf0ee; stroke-opacity: 0.34; stroke-dasharray: 3 3; }
+    .cell-focus { stroke: #3ecfb0; stroke-opacity: 1; stroke-width: 1.5; }
+    .cell-focus-dash { stroke: #3ecfb0; stroke-opacity: 1; stroke-width: 1.5; stroke-dasharray: 3 3; }
+    .cell-stale { fill: #33260f; stroke: #fbbf6a; stroke-width: 1.25; }
+    .skel-stale { fill: #fbbf6a; fill-opacity: 0.55; }
+    .flag { fill: #3ecfb0; stroke: #181d1b; stroke-width: 2; }
+    .faded { opacity: 0.4; }
+    .rule { stroke: #ebf0ee; stroke-opacity: 0.09; }
+    .tile { fill: #0f1412; stroke: #ebf0ee; stroke-opacity: 0.09; }
+    .glyph { fill: none; stroke: #a6acaa; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    .raised { fill: #181d1b; stroke: #ebf0ee; stroke-opacity: 0.17; }
+    .term { fill: #232a28; stroke: #ebf0ee; stroke-opacity: 0.17; }
+    .term-key { font-family: 'Ubuntu Sans Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; font-weight: 500; fill: #7fe3cc; }
+    .lane-c { fill: #16302a; } .sq-c { fill: #235043; }
+    .lane-f { fill: #35290f; } .sq-f { fill: #5a451c; }
+    .lane-b { fill: #371b27; } .sq-b { fill: #5a2d40; }
+    .lane-s { fill: #24223d; } .sq-s { fill: #3b3866; }
+  </style>
+  <defs>
+    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle class="dot" cx="10" cy="10" r="0.8"/>
+    </pattern>
+    <radialGradient id="fade" cx="50%" cy="50%" r="70%">
+      <stop offset="0.35" stop-color="#fff"/>
+      <stop offset="1" stop-color="#000"/>
+    </radialGradient>
+    <mask id="fadeMask"><rect width="880" height="324" fill="url(#fade)"/></mask>
+    <marker id="headMuted" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="flow-head" d="M0,0.5 L7,4 L0,7.5 Z"/></marker>
+    <marker id="headTeal" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path class="trace-head" d="M0,0.5 L7,4 L0,7.5 Z"/></marker>
+  </defs>
+  <rect class="plate" width="880" height="324" rx="16"/>
+  <rect width="880" height="324" rx="16" fill="url(#grid)" mask="url(#fadeMask)"/>
+  <rect class="card" x="24.5" y="24.5" width="328" height="60" rx="16"/>
+  <rect class="tile" x="40.5" y="38.5" width="32" height="32" rx="8"/>
+  <path class="glyph" d="M48.5,48.5 h16 v12 h-16 z M48.5,52.5 h16 M53.5,52.5 v8"/>
+  <text class="strong" x="88" y="51.5">The app</text>
+  <text class="label" x="88" y="71.5">Read, compare, present</text>
+  <path class="trace" d="M360.5,54.5 C442.5,54.5 442.5,123.5 524.5,123.5" marker-start="url(#headTeal)" marker-end="url(#headTeal)"/>
+  <rect class="card" x="24.5" y="96.5" width="328" height="60" rx="16"/>
+  <rect class="tile" x="40.5" y="110.5" width="32" height="32" rx="8"/>
+  <path class="glyph" d="M56.5,118.5 Q57.5,125.5 64.5,126.5 Q57.5,127.5 56.5,134.5 Q55.5,127.5 48.5,126.5 Q55.5,125.5 56.5,118.5 z"/>
+  <text class="strong" x="88" y="123.5">The in-app agent</text>
+  <text class="label" x="88" y="143.5">Ask, and it drafts the change</text>
+  <path class="trace" d="M360.5,126.5 C442.5,126.5 442.5,149.5 524.5,149.5" marker-start="url(#headTeal)" marker-end="url(#headTeal)"/>
+  <rect class="card" x="24.5" y="168.5" width="328" height="60" rx="16"/>
+  <rect class="tile" x="40.5" y="182.5" width="32" height="32" rx="8"/>
+  <path class="glyph" d="M49.5,193.5 l4,4 l-4,4 M56.5,202.5 h7"/>
+  <text class="strong" x="88" y="195.5">Agentic tools</text>
+  <text class="label" x="88" y="215.5">The ub skills, in your IDE or CLI</text>
+  <path class="trace" d="M360.5,198.5 C442.5,198.5 442.5,175.5 524.5,175.5" marker-start="url(#headTeal)" marker-end="url(#headTeal)"/>
+  <rect class="card-dash" x="24.5" y="240.5" width="328" height="60" rx="16"/>
+  <rect class="tile" x="40.5" y="254.5" width="32" height="32" rx="8"/>
+  <path class="glyph" d="M48.5,264.5 h16 v10 h-9 l-4,4 v-4 h-3 z"/>
+  <text class="strong" x="88" y="267.5">A Slack bot you build</text>
+  <text class="label" x="88" y="287.5">Not in the template; reads only</text>
+  <path class="trace-dash" d="M360.5,270.5 C442.5,270.5 442.5,201.5 524.5,201.5" marker-start="url(#headTeal)"/>
+  <rect class="card-focus" x="532.5" y="50.5" width="323" height="224" rx="16"/>
+  <text class="title" x="560" y="88.5">One shared context</text>
+    <rect class="sq-c" x="560" y="115.5" width="10" height="10" rx="3"/><rect class="skel" x="576" y="117.5" width="18" height="6" rx="3"/><rect class="lane-c cell" x="600.5" y="109" width="34" height="23" rx="8"/><rect class="skel" x="607" y="118.5" width="17" height="4" rx="2"/><rect class="lane-c cell" x="640.5" y="109" width="34" height="23" rx="8"/><rect class="skel" x="647" y="118.5" width="14" height="4" rx="2"/><rect class="lane-c cell" x="680.5" y="109" width="34" height="23" rx="8"/><rect class="skel" x="687" y="118.5" width="12" height="4" rx="2"/><rect class="lane-c cell" x="720.5" y="109" width="34" height="23" rx="8"/><rect class="skel" x="727" y="118.5" width="21" height="4" rx="2"/><rect class="lane-c cell" x="760.5" y="109" width="34" height="23" rx="8"/><rect class="skel" x="767" y="118.5" width="19" height="4" rx="2"/><rect class="lane-c cell" x="800.5" y="109" width="34" height="23" rx="8"/><rect class="skel" x="807" y="118.5" width="20" height="4" rx="2"/>
+    <rect class="sq-f" x="560" y="143.5" width="10" height="10" rx="3"/><rect class="skel" x="576" y="145.5" width="18" height="6" rx="3"/><rect class="lane-f cell" x="600.5" y="137" width="34" height="23" rx="8"/><rect class="skel" x="607" y="146.5" width="18" height="4" rx="2"/><rect class="lane-f cell" x="640.5" y="137" width="34" height="23" rx="8"/><rect class="skel" x="647" y="146.5" width="17" height="4" rx="2"/><rect class="lane-f cell" x="680.5" y="137" width="34" height="23" rx="8"/><rect class="skel" x="687" y="146.5" width="14" height="4" rx="2"/><rect class="lane-f cell" x="720.5" y="137" width="34" height="23" rx="8"/><rect class="skel" x="727" y="146.5" width="12" height="4" rx="2"/><rect class="lane-f cell" x="760.5" y="137" width="34" height="23" rx="8"/><rect class="skel" x="767" y="146.5" width="21" height="4" rx="2"/><rect class="lane-f cell" x="800.5" y="137" width="34" height="23" rx="8"/><rect class="skel" x="807" y="146.5" width="19" height="4" rx="2"/>
+    <rect class="sq-b" x="560" y="171.5" width="10" height="10" rx="3"/><rect class="skel" x="576" y="173.5" width="18" height="6" rx="3"/><rect class="lane-b cell" x="600.5" y="165" width="34" height="23" rx="8"/><rect class="skel" x="607" y="174.5" width="16" height="4" rx="2"/><rect class="lane-b cell" x="640.5" y="165" width="34" height="23" rx="8"/><rect class="skel" x="647" y="174.5" width="18" height="4" rx="2"/><rect class="lane-b cell" x="680.5" y="165" width="34" height="23" rx="8"/><rect class="skel" x="687" y="174.5" width="17" height="4" rx="2"/><rect class="lane-b cell" x="720.5" y="165" width="34" height="23" rx="8"/><rect class="skel" x="727" y="174.5" width="14" height="4" rx="2"/><rect class="lane-b cell" x="760.5" y="165" width="34" height="23" rx="8"/><rect class="skel" x="767" y="174.5" width="12" height="4" rx="2"/><rect class="lane-b cell" x="800.5" y="165" width="34" height="23" rx="8"/><rect class="skel" x="807" y="174.5" width="21" height="4" rx="2"/>
+    <rect class="sq-s" x="560" y="199.5" width="10" height="10" rx="3"/><rect class="skel" x="576" y="201.5" width="18" height="6" rx="3"/><rect class="lane-s cell" x="600.5" y="193" width="34" height="23" rx="8"/><rect class="skel" x="607" y="202.5" width="13" height="4" rx="2"/><rect class="lane-s cell" x="640.5" y="193" width="34" height="23" rx="8"/><rect class="skel" x="647" y="202.5" width="16" height="4" rx="2"/><rect class="lane-s cell" x="680.5" y="193" width="34" height="23" rx="8"/><rect class="skel" x="687" y="202.5" width="18" height="4" rx="2"/><rect class="lane-s cell" x="720.5" y="193" width="34" height="23" rx="8"/><rect class="skel" x="727" y="202.5" width="17" height="4" rx="2"/><rect class="lane-s cell" x="760.5" y="193" width="34" height="23" rx="8"/><rect class="skel" x="767" y="202.5" width="14" height="4" rx="2"/><rect class="lane-s cell" x="800.5" y="193" width="34" height="23" rx="8"/><rect class="skel" x="807" y="202.5" width="12" height="4" rx="2"/>
+  <text class="label" x="560" y="252.5">What one writes, the others read</text>
+</svg>

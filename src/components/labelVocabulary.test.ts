@@ -4,11 +4,14 @@ import { filesOn, surfaceOf } from '@/lib/sourceTree'
 /*
  * TWO WAYS TO LABEL A THING, AND ONLY TWO.
  *
- *   `PanelSectionLabel` — a section name inside a panel. Sentence case,
- *     because a panel is already a quiet surface and capitals there are a
- *     second voice in a room that has one.
- *   `Eyebrow` — a capitalised word over a region of chrome. One spelling of
- *     the letterspacing, in one file.
+ *   `PanelSectionLabel` — a section name inside a panel.
+ *   `Eyebrow` — a small word over a region of chrome. One spelling, in one
+ *     file.
+ *
+ * Both are sentence case now, like every small label
+ * (`sentenceCaseLabels.test.ts` holds that across the tree). What this file
+ * still holds is the older half: the capitalised hand-spelling that both
+ * primitives replaced does not come back.
  *
  * Both existed before this test and both were bypassed: a dependency group
  * inlined its own capitalised label while every other panel section used the

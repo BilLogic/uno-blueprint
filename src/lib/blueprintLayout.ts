@@ -220,9 +220,10 @@ export function lanePrecedesBlueprintDivider(
 }
 
 // Service-blueprint canon: the dividers are the "line of …" boundaries.
-export const INTERACTION_LINE_LABEL = 'LINE OF INTERACTION'
-export const VISIBILITY_LINE_LABEL = 'LINE OF VISIBILITY'
-export const INTERNAL_INTERACTION_LINE_LABEL = 'LINE OF INTERNAL INTERACTION'
+// Sentence case in the string itself: no label is capitalised by CSS.
+export const INTERACTION_LINE_LABEL = 'Line of interaction'
+export const VISIBILITY_LINE_LABEL = 'Line of visibility'
+export const INTERNAL_INTERACTION_LINE_LABEL = 'Line of internal interaction'
 
 export const BLUEPRINT_DIVIDER_ROW_HEIGHT = 28
 /** Right inset so interaction / visibility lines stop before the board edge. */

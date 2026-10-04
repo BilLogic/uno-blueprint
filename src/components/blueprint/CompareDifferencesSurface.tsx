@@ -247,7 +247,7 @@ function FilterTag({
         // geometry: packs the path name into the badge's fixed height.
         'rounded-full border px-2 py-1 text-xs leading-none transition-colors ease-arrive motion-reduce:transition-none duration-(--motion-micro)',
         pressed
-          ? 'border-foreground/50 bg-foreground/10 text-foreground'
+          ? 'border-stronger bg-foreground/10 text-foreground'
           : 'border-border text-muted-foreground hover:text-foreground',
       )}
     >

@@ -3,6 +3,7 @@ import type { CoverFigure as CoverFigureModel } from '@/components/cover/coverMo
 import { ZoomableImage } from '@/components/blueprint/ZoomableImage'
 import { COVER_MEASURE } from '@/components/cover/coverMeasure'
 import { servedUrl } from '@/lib/basePath'
+import { useTheme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
 /**
@@ -10,15 +11,17 @@ import { cn } from '@/lib/utils'
  *
  * No plate, no border, no padding — deliberately. Every figure is authored
  * with a full-bleed rounded background rect across its whole viewBox
- * (`fill="#fafbfc" rx="14"`), so the artwork already IS its own container.
+ * (`fill="#eef1f5" rx="14"`), so the artwork already IS its own container.
  * Wrapping it in a second bordered, padded, white box drew a frame around a
  * frame, which is what made the page read as boxes inside boxes.
  *
- * That self-plate is also what makes dark mode work without any treatment
- * here: the figures are authored light — panel fills, text and strokes are
- * literal hex inside the file, and an `<img>` seals page CSS out of them —
- * so they read as printed plates in a dark book, which is a convention,
- * rather than as panels that forgot to theme themselves.
+ * Dark mode is a second file, not a treatment. Fills, text and strokes are
+ * literal values inside each SVG, and an `<img>` seals page CSS out of them,
+ * so the page's `.dark` class cannot reach in. A figure that has a dark file
+ * carries it as `srcDark`, and this component picks the file from the app's
+ * resolved theme, so the toggle swaps it live and the opened viewer shows the
+ * same one. A figure with no dark file yet keeps its light plate in both
+ * themes.
  *
  * Not `dark:invert` — that destroys the lane colours the figures encode.
  * Not an opacity dim either, which drops the smallest labels below AA.
@@ -61,9 +64,12 @@ export function CoverFigure({
   eager?: boolean
   className?: string
 }) {
+  const { resolvedTheme } = useTheme()
+  const src =
+    resolvedTheme === 'dark' && figure.srcDark ? figure.srcDark : figure.src
   return (
     <ZoomableImage
-      src={figure.src}
+      src={src}
       alt={figure.alt}
       // The authored size, which the browser cannot be asked for: these
       // figures are `viewBox`-only SVGs with no intrinsic size at all.
@@ -77,7 +83,7 @@ export function CoverFigure({
       )}
     >
       <img
-        src={servedUrl(figure.src)}
+        src={servedUrl(src)}
         alt={figure.alt}
         width={figure.width}
         height={figure.height}

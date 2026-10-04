@@ -173,7 +173,7 @@
   --closed-transform: translate3d(10px, 0, 0);
   transition-property: transform, opacity;
   transition-duration: var(--motion-fade);
-  transition-timing-function: var(--ease-structural);
+  transition-timing-function: var(--ease-arrive);
 }
 
 /*
@@ -195,7 +195,7 @@
   --closed-transform: translate3d(0, calc(100% + 2px), 0);
   transition-property: transform;
   transition-duration: var(--motion-structural);
-  transition-timing-function: var(--ease-structural);
+  transition-timing-function: var(--ease-arrive);
 }
 
 /*

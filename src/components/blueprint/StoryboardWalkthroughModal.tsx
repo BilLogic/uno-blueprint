@@ -134,7 +134,7 @@ export function StoryboardWalkthroughModal() {
       {session ? (
         <DialogContent
           data-storyboard-walkthrough-modal=""
-          className="flex h-[min(85vh,36rem)] flex-col gap-0 overflow-hidden rounded-xl border-border p-0 shadow-sm sm:max-w-5xl"
+          className="flex h-[min(85vh,36rem)] flex-col gap-0 overflow-hidden rounded-xl border-border p-0 sm:max-w-5xl"
           aria-label="Storyboard walkthrough"
         >
           <DialogHeader className="shrink-0 flex-row items-center gap-2 border-b border-muted px-5 py-4 pr-14 text-left">

@@ -156,7 +156,7 @@ describe('MobileNavSheet accordion and rail', () => {
 
   it('slices surface groups rows under the kind section', () => {
     renderSheet({ surface: 'slices' })
-    expect(screen.getByText('lane')).toBeDefined()
+    expect(screen.getByText('Lane')).toBeDefined()
     expect(screen.getByText('Field Crew lane: intake')).toBeDefined()
   })
 

@@ -154,6 +154,11 @@
     background: #fff !important;
   }
 
+  /* The canvas ground's dot grid is a screen surface; paper stays plain. */
+  [data-zoom-pan-ground] {
+    display: none !important;
+  }
+
   /* Grid scroll containers clip on screen; let them overflow onto pages. */
   .blueprint-scroll {
     overflow: visible !important;

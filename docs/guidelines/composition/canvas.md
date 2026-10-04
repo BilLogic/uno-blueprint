@@ -388,6 +388,52 @@ contract in short:
   70% on hover or keyboard focus. They remain navigation targets so a reader
   can switch focus directly; cell-level actions inside them remain inactive.
 
+## The canvas ground
+
+The board sits on a dot grid: the site's motif, one pixel-wide dot on a 20px
+pitch at zoom 1, drawn in `--border-strong`, the edge step reserved for marks
+on the canvas ground. It flips with the theme and follows the contrast
+preference like every other edge, and introduces no colour of its own.
+
+- **One CSS background on one layer, no element per dot.** The grid is a
+  `radial-gradient` on `[data-zoom-pan-ground]`, a `will-change: transform`
+  layer under the board that hangs at least one pitch past the viewport on
+  every side (`blueprint.css`). The camera's transform writer moves it in the
+  same call that moves the board, so the grid pans and zooms with the board
+  and the ground reads as the surface the board sits on.
+- **A pan is compositor-only.** A pan writes only the layer's `translate`,
+  which is always inside one pitch, so the layer is never repainted, the same
+  as the flat ground. A zoom changes the tile size and repaints, and a zoom
+  repaints the board anyway. Moving a `background-position` instead repainted
+  the whole viewport on every pan frame. The dot alpha is a custom property
+  registered `inherits: false`, so writing it restyles the layer alone.
+- **The dots stay on the board at any zoom.** No value is rounded to device
+  pixels, because the board's own transform is not rounded. Two engine
+  roundings are taken back. Blink floors a background tile to 1/64px, so the
+  tile is drawn on that unit and the layer's scale (at most 1.0016) restores
+  the exact pitch. Without that, the grid ran up to 1.2px off the board at
+  the far edge. The layer's overhang is a whole pixel, because a fractional
+  layer origin is snapped when the background paints.
+- **The grid appears with the first fit.** It is laid out from the first
+  frame but hidden until the viewport has framed the board once, so it never
+  snaps from the unfitted camera to the fitted one. The first fit is a jump,
+  so the grid appears already in place, together with the board.
+- **The pitch steps when you zoom out far.** Below the zoom where the
+  on-screen pitch would drop under 10px, the world pitch doubles (20, 40,
+  80…). Every other dot stays where it was, and the on-screen pitch stays
+  between 10px and 20px down to the minimum zoom, so the grid never collapses
+  into shimmer or moiré. As the pitch narrows, the dot alpha falls with the
+  square of the on-screen pitch. That holds the ground's average tone constant
+  under zoom 1 and across each step: a step changes the grain, not the shade.
+  The overview keeps its grid. A fade-out would have removed the grid at the
+  zoom where the ground shows most. The rule and its tests are in
+  `src/lib/canvasDotGrid.ts`.
+- **The dots stay the same size on screen.** Zooming in spreads them apart and
+  never enlarges them.
+- **Print is plain.** `print.css` drops the layer. Forced-colors mode drops
+  it too.
+- The loading skeleton keeps the flat ground. It has no camera to follow.
+
 ## The phase-row height contract
 
 Scenario panels in one phase row share a height so the row reads as one

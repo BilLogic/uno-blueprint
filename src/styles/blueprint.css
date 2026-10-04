@@ -1187,3 +1187,69 @@
     opacity: 0;
   }
 }
+
+/*
+ * THE CANVAS GROUND'S DOT GRID — the site's motif under the board: a dot on
+ * a 20px pitch at zoom 1, in `--border-strong`, the step named as the mark
+ * for anything drawn on the canvas ground. It flips with the theme the way
+ * that step does, and the contrast preference scales it with every other
+ * edge.
+ *
+ * One background on one layer, `[data-zoom-pan-ground]`, under the board —
+ * no element per dot. The transform writer (`applyGroundToElement` in
+ * `useZoomPanViewport`) writes a translate on every camera frame, and the
+ * tile size and the overhang only when the pitch changes, so the dots pan
+ * and zoom with the board, and a pan moves a composited layer without
+ * repainting it. The layer stays hidden
+ * until the first fit has framed the board, so it never snaps from the
+ * unfitted camera to the fitted one. Far out, the pitch steps and the alpha
+ * below carries the tone across the step — `src/lib/canvasDotGrid.ts` has
+ * the rule and why.
+ *
+ * The dot is a constant on-screen size, never scaled with the board: a
+ * pixel-wide disc with a half-pixel soft edge, centred in its tile.
+ *
+ * `--canvas-dot-alpha` is registered `inherits: false` so a write restyles
+ * the layer alone. The layer is a leaf today, but an inheriting property is
+ * exactly the trap the label boost fell into once already.
+ *
+ * Print drops the layer (`print.css`).
+ */
+@property --canvas-dot-alpha {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 1;
+}
+
+@layer utilities {
+  [data-zoom-pan-ground] {
+    position: absolute;
+    /* One pitch past the viewport on every side; the writer keeps it so. */
+    inset: -20px;
+    pointer-events: none;
+    will-change: transform;
+    /* The writer's scale corrects the tile from its corner, where tiling starts. */
+    transform-origin: 0 0;
+    background-image: radial-gradient(
+      circle at center,
+      oklch(
+          from var(--border-strong) l c h /
+            calc(alpha * var(--canvas-dot-alpha))
+        )
+        0.5px,
+      transparent 1px
+    );
+    background-size: 20px 20px;
+  }
+
+  [data-zoom-pan-ground]:not([data-ground-ready]) {
+    visibility: hidden;
+  }
+
+  /* High Contrast keeps a flat system ground; a pattern there is noise. */
+  @media (forced-colors: active) {
+    [data-zoom-pan-ground] {
+      display: none;
+    }
+  }
+}

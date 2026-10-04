@@ -452,9 +452,7 @@ test.describe('the bundled sample board', () => {
         `${phases.reduce((total, phase) => total + phase.scenarios.length, 0)} scenarios; ` +
         `screenshots in ${VIEW_SCREENSHOT_DIR}`,
     )
-    // And what it did not fetch: every image bound for another origin was
-    // answered in the runner, so a board exported from a live one spends none
-    // of its bucket's egress — see `remote-images.ts`.
+    // And what it did not fetch — why is `render-walk/README.md` § No image from a live bucket.
     console.log(remoteRequests.summary())
   })
 })

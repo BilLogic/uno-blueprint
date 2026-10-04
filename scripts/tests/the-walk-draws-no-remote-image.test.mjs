@@ -23,35 +23,40 @@ import {
   PLACEHOLDER_PNG,
   RemoteRequests,
   answerFor,
+  parseRequestUrl,
 } from '../../render-walk/remote-images.ts'
 
 const WALK = new URL('../../render-walk/', import.meta.url).pathname
-const SERVED = 'http://localhost:4173/demo/'
+const SERVED_ORIGIN = 'http://localhost:4173'
+
+const answer = (address, type) => answerFor(parseRequestUrl(address), type, SERVED_ORIGIN)
 
 test('an image on another origin is answered with the placeholder', () => {
   assert.equal(
-    answerFor('https://abc.supabase.co/storage/v1/object/public/a/b.png', 'image', SERVED),
+    answer('https://abc.supabase.co/storage/v1/object/public/a/b.png', 'image'),
     'placeholder',
   )
   // Another port on the same host is another origin.
-  assert.equal(answerFor('http://localhost:9999/x.png', 'image', SERVED), 'placeholder')
+  assert.equal(answer('http://localhost:9999/x.png', 'image'), 'placeholder')
 })
 
 test('an image on the served origin goes through, inside the path or not', () => {
-  assert.equal(answerFor('http://localhost:4173/demo/favicon.png', 'image', SERVED), 'continue')
-  assert.equal(answerFor('http://localhost:4173/elsewhere.png', 'image', SERVED), 'continue')
+  assert.equal(answer('http://localhost:4173/demo/favicon.png', 'image'), 'same-origin')
+  assert.equal(answer('http://localhost:4173/elsewhere.png', 'image'), 'same-origin')
 })
 
-test('anything other than an image goes through, wherever it is bound', () => {
+test('anything other than an image on another origin is let through as remote', () => {
   for (const type of ['fetch', 'xhr', 'script', 'stylesheet', 'font', 'document', 'media']) {
-    assert.equal(answerFor('https://api.example.com/x', type, SERVED), 'continue', type)
+    assert.equal(answer('https://api.example.com/x', type), 'remote', type)
   }
+  assert.equal(answer('http://localhost:4173/api', 'fetch'), 'same-origin')
 })
 
 test('an address that reaches no server is left alone', () => {
-  assert.equal(answerFor('data:image/png;base64,AAAA', 'image', SERVED), 'continue')
-  assert.equal(answerFor('blob:http://localhost:4173/uuid', 'image', SERVED), 'continue')
-  assert.equal(answerFor('not a url', 'image', SERVED), 'continue')
+  assert.equal(answer('data:image/png;base64,AAAA', 'image'), 'same-origin')
+  assert.equal(answer('blob:http://localhost:4173/uuid', 'image'), 'same-origin')
+  assert.equal(parseRequestUrl('not a url'), null)
+  assert.equal(answerFor(null, 'image', SERVED_ORIGIN), 'same-origin')
 })
 
 test('the placeholder is a whole PNG, one pixel square', () => {
@@ -80,16 +85,59 @@ test('the summary names the count and every other host', () => {
   )
 })
 
-test('every walk spec takes its test from remote-images.ts', () => {
+/**
+ * The ways a spec can bring in a `test` other than the walk's: a named import
+ * from anywhere but `./remote-images` (renamed or not), or a namespace or
+ * default import of Playwright's own, whose `.test` is the unrouted one.
+ * Type-only names are not a `test`.
+ */
+export function foreignTestImports(source) {
+  const found = []
+  for (const [statement, clause, from] of source.matchAll(
+    /^import\s+(?!type\s)([\s\S]*?)\s+from\s+['"]([^'"]+)['"]/gm,
+  )) {
+    const named = clause.match(/\{([\s\S]*)\}/)?.[1] ?? ''
+    const bringsTest = named
+      .split(',')
+      .map((name) => name.trim())
+      .some((name) => /^test(\s+as\s+\w+)?$/.test(name))
+    const outsideBraces = clause.replace(/\{[\s\S]*\}/, '').replace(/,/g, ' ').trim()
+    const wholeModule = from === '@playwright/test' && outsideBraces !== ''
+    if ((bringsTest && from !== './remote-images') || wholeModule) found.push(statement)
+  }
+  return found
+}
+
+test('the import rule catches every way of bringing in Playwright\'s own test', () => {
+  for (const source of [
+    "import { expect, test } from '@playwright/test'",
+    "import { test as base } from '@playwright/test'",
+    "import * as pw from '@playwright/test'",
+    "import pw from '@playwright/test'",
+    "import {\n  expect,\n  test,\n} from '@playwright/test'",
+    "import { test } from './somewhere-else'",
+  ]) {
+    assert.equal(foreignTestImports(source).length, 1, source)
+  }
+  for (const source of [
+    "import { expect, type Page } from '@playwright/test'",
+    "import type { TestInfo } from '@playwright/test'",
+    "import { test } from './remote-images'",
+  ]) {
+    assert.deepEqual(foreignTestImports(source), [], source)
+  }
+})
+
+test('every walk spec takes its test from remote-images.ts, and from nowhere else', () => {
   const specs = readdirSync(WALK).filter((name) => name.endsWith('.spec.ts'))
   assert.ok(specs.length > 0)
   for (const name of specs) {
     const source = readFileSync(join(WALK, name), 'utf8')
     assert.match(source, /import \{[^}]*\btest\b[^}]*\} from '\.\/remote-images'/, name)
-    assert.doesNotMatch(
-      source,
-      /import \{[^}]*(?<!type )\btest\b[^}]*\} from '@playwright\/test'/,
-      `${name} imports Playwright's own test, which walks with no route installed`,
+    assert.deepEqual(
+      foreignTestImports(source),
+      [],
+      `${name} brings in a test other than the walk's, which walks with no route installed`,
     )
   }
 })

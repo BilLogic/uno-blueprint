@@ -147,6 +147,9 @@ export default defineConfig({
     // and there is one test.
     screenshot: 'off',
     trace: 'retain-on-failure',
+    // A deployment's service worker would fetch around `context.route`, and
+    // its image requests would then reach the bucket `remote-images.ts` answers.
+    serviceWorkers: 'block',
   },
   projects: [
     {

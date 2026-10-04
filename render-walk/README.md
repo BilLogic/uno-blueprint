@@ -161,6 +161,10 @@ browser context before the first navigation:
 - **The served origin** is never touched, so the app's own assets load as
   themselves.
 
+Any route turns off the browser's HTTP cache for the context it is on, which
+costs nothing measurable over a preview on localhost. The config also blocks
+service workers, because a deployment's worker would fetch around the route.
+
 The view walk ends by printing how many image requests it answered locally
 and any other cross-origin hosts it saw, so a new outside dependency shows up
 in the log. `remote-images.spec.ts` puts remote images on the served page

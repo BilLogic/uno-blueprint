@@ -314,19 +314,20 @@ the same string.
 
 - `--ease-structural` remains as an alias of arrive for stylesheets that
   already read it; product classes use the role names.
-- `--ease-camera` (`ease-camera`) is still the camera's own curve, kept for
-  CSS that rides a camera flight (focus dimming, the compare fade) so it
-  matches the JS flight. The camera becomes a move when the flight and this
-  token switch together.
+- `--ease-camera` (`ease-camera`) is `var(--ease-move)`: the camera is a
+  move. The name stays for CSS that rides a camera flight (focus dimming, the
+  compare fade), so those surfaces say what they follow and stay in step with
+  the JS flight.
 - The vendored `ui/` primitives keep their upstream timings. A product surface
   that needs a different feel sets it on its own wrapper's classes.
 - The canvas reveal ladder keeps the plain `ease-out` it documents in
   `blueprint.css`: its beats run serially, and a long-tailed arrive curve
   makes each handoff land late. It is a separate clock from the shell's.
 - `lib/motion.ts` carries the curves for JS that animates on frames
-  (`EASE_POINTS`, `cubicBezierEase`, `easeMove`). The camera flight does not
-  use them yet: it still eases on its own hermite curve in
-  `lib/cameraTransition.ts`.
+  (`EASE_POINTS`, `cubicBezierEase`, `easeMove`), and the launched form the
+  camera flies on: `easeMoveFrom(slope)` is move with its departure handle
+  turned to a starting slope, readable as a value and as a slope. The camera
+  flight in `lib/cameraTransition.ts` rides it and keeps no curve of its own.
 
 `lib/motion.ts` and `styles/animations.css` hold the two halves, and a drift
 test compares their token values. What the product layer may not write is
@@ -355,14 +356,24 @@ contract in short:
   retargets while live — is the camera's own contract, and
   `src/lib/canvasCameraPolicy.ts` and `src/lib/cameraTransition.ts` are where
   it is written down.
-  Automatic travel follows a bounded distance-aware camera flight: zoom is
-  geometric, screen-space travel is monotonic, and compatible velocity carries
-  across superseding destinations. A zoom-in from the blocks tier keeps that
+  Automatic travel follows a bounded distance-aware camera flight on the
+  move curve: zoom is geometric, screen-space travel is monotonic, and
+  compatible velocity carries across superseding destinations. A flight that
+  takes over a moving camera starts on move launched at the speed the camera
+  already has, clamped to a starting slope between 0.55 and 3: a slower
+  handoff (or a flight from rest, since move from a dead stop spends the
+  first beat of a large zoom-in almost still) steps up to the floor, and a
+  faster one is cut to the cap. Arrival is always move's settle. A zoom-in from the blocks tier keeps that
   encoding and reveals only the named destination, so overview → scenario
   does not paint the whole board on takeoff. Focus emphasis reads the same
   flight's
   progress. Manual wheel, pinch, drag, and keyboard input remains immediate
-  and cancels the automatic flight.
+  and cancels the automatic flight from the frame it last drew — the input
+  starts there, never from the target, so the hand-off has no snap. One
+  animation frame loop drives a flight. Each frame writes the board's
+  transform, the ground's transform (plus its inset and tile size when the
+  zoom changes), and the focus opacity of the cards whose emphasis is moving;
+  nothing else is laid out.
 - Wheel and trackpad zoom preserve the world point beneath the cursor. A
   two-finger pinch maps its previous midpoint directly to its current midpoint,
   combining scale and finger drift in one transform instead of applying drift

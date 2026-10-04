@@ -12,6 +12,7 @@ import {
   MOTION_SPRING_LINEAR,
   cubicBezierEase,
   easeMove,
+  easeMoveFrom,
   MOTION_CAMERA_EASE,
   MOTION_CAMERA_MS,
   MOTION_FADE_MS,
@@ -78,8 +79,9 @@ test('structural is arrive, in both files', () => {
   assert.equal(cssToken('--ease-structural'), 'var(--ease-arrive)')
 })
 
-test('camera ease matches between motion.ts and the @theme key', () => {
-  assert.equal(squash(cssToken('--ease-camera')), squash(MOTION_CAMERA_EASE))
+test('the camera eases on move, in both files', () => {
+  assert.equal(MOTION_CAMERA_EASE, MOTION_EASE.move)
+  assert.equal(cssToken('--ease-camera'), 'var(--ease-move)')
 })
 
 test('the spring upgrades to linear() only where the browser has it', () => {
@@ -126,6 +128,50 @@ test('move is monotonic, so a camera riding it never backtracks', () => {
     assert.ok(value >= last, `easeMove dips at ${i / 200}`)
     last = value
   }
+})
+
+/**
+ * A camera retargeted mid-flight is already moving. The launched curve is
+ * move with its departure handle bent to the incoming slope, so the new
+ * flight leaves at the speed the old one had and still lands on move's
+ * settle.
+ */
+test('a launched move starts at its slope and lands on move', () => {
+  const zero = easeMoveFrom(0)
+  for (let i = 0; i <= 20; i += 1) {
+    const p = i / 20
+    assert.ok(Math.abs(zero.value(p) - easeMove(p)) < 1e-6, `rest is move at ${p}`)
+  }
+
+  for (const slope of [0, 0.3, 0.55, 1, 2, 3, 8]) {
+    const curve = easeMoveFrom(slope)
+    assert.equal(curve.value(0), 0, `value(0) at slope ${slope}`)
+    assert.equal(curve.value(1), 1, `value(1) at slope ${slope}`)
+    assert.ok(
+      Math.abs(curve.slope(0) - slope) < 1e-6,
+      `slope(0) is ${curve.slope(0)}, wanted ${slope}`,
+    )
+    assert.ok(Math.abs(curve.slope(1)) < 1e-6, `settles at slope ${slope}`)
+
+    // Monotonic, never past 1, and its slope is the derivative of its value.
+    let last = 0
+    for (let i = 1; i < 200; i += 1) {
+      const p = i / 200
+      const value = curve.value(p)
+      assert.ok(value >= last - 1e-9, `dips at ${p}, slope ${slope}`)
+      assert.ok(value <= 1, `overshoots at ${p}, slope ${slope}`)
+      last = value
+      const h = 1e-5
+      const numeric = (curve.value(p + h) - curve.value(p - h)) / (2 * h)
+      assert.ok(
+        Math.abs(numeric - curve.slope(p)) < 1e-3,
+        `slope(${p}) ${curve.slope(p)} vs numeric ${numeric}, slope ${slope}`,
+      )
+    }
+  }
+
+  // Negative slopes are a stop, not a reversal.
+  assert.ok(Math.abs(easeMoveFrom(-2).value(0.3) - easeMove(0.3)) < 1e-6)
 })
 
 /**

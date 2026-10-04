@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.5.1
+
+**The figures can be read again from outside.** The redrawn cell figure marks
+its panel labels for a sweep, and no figure uses a retired word. A deployment
+whose gate reads the installed package's figures goes green on this pin where
+2.5.0 turned it red.
+
+### Upgrading a deployment
+
+- **Bump the pin from 2.5.0, or take 2.5.1 in place of it.** Nothing else
+  moves: no reconciled file changes, and the figures are read out of the
+  package. The 2.5.0 notes below still apply to a deployment coming from
+  2.4.0 or earlier.
+
+### Patch Changes
+
+- a32f4b9: The cell figure marks its panel labels again. The redrawn `cell-anatomy` drew Owner, Leads to, Enabled by and the rest as plain captions, so a repository that sweeps the figures' panel labels out of the installed package by `class="uiLabel"` found none and failed on an empty subject. Both files now mark the nine labels, the cover-page art direction states the marker, and a test fails if the cell figure marks fewer than five, marks different labels in light and dark, or marks one the interface-to-schema map does not name. `blueprint-anatomy` and the README now say a cell "starts" the next rather than "sets off" it.
+- a32f4b9: The initialiser's manifest states its `bin` path as `bin/create-uno-blueprint.mjs`, the form npm normalises to, so a publish no longer warns that it auto-corrected the manifest. The command is unchanged.
+
 ## 2.5.0
 
 **The template reads like its site.** It ships the site's teal and its mono

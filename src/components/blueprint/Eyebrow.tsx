@@ -4,9 +4,9 @@ import { cn } from '@/lib/utils'
  * A small sentence-case word over the thing it names — the EYEBROW register.
  *
  * WHY IT IS A COMPONENT. Twenty-odd places had written this by hand, and they
- * did not agree on the letterspacing, on surfaces a reader meets in the same
- * minute. Each string was legal on its own, which is why nobody caught it in
- * review — the drift is only visible when you count. One spelling, in one
+ * drifted apart on surfaces a reader meets in the same minute. Each string was
+ * legal on its own, which is why nobody caught it in review — the drift is
+ * only visible when you count. One spelling of size, weight and ink, in one
  * file, is what stops the next paste from inventing a twenty-first.
  *
  * HOW IT READS. 12px sans, muted ink, letter-spacing 0, in the case the string

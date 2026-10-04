@@ -31,9 +31,9 @@ appeared.
 - **The case lives in the string.** Write `Line of interaction`, not
   `LINE OF INTERACTION`; nothing in CSS rewrites it. An acronym stays as typed
   for the same reason — no transform flattens it.
-- **No `uppercase`, no wide tracking.** `tracking-wide`, `tracking-wider`,
+- **No `uppercase` or `capitalize`, no wide tracking.** `tracking-wide`, `tracking-wider`,
   `tracking-widest`, a positive arbitrary `tracking-[…]`, an inline
-  `textTransform` or a positive `letterSpacing` are all out.
+  `textTransform` that forces case or a positive `letterSpacing` are all out.
 - **Sans, unless the label is literally code.** Mono stays for identifiers and
   stored values (register 1) and aligned numerals (register 2); a label is
   neither.

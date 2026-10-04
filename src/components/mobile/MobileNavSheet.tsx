@@ -17,6 +17,11 @@ import { getSlideDisplayLabel } from '@/types/nav'
 import { cn } from '@/lib/utils'
 import type { NavItem } from '@/types/nav'
 import type { Slice } from '@/types/database'
+import {
+  SLICE_GROUP_TITLE,
+  SLICE_TYPE_GROUPS,
+  sliceKindGroup,
+} from '@/lib/sliceGroups'
 
 /**
  * The drawer IS the index: a rail + panel, the same IA as the desktop
@@ -45,26 +50,6 @@ const RAIL_SURFACES: Array<{
   { id: 'blueprints', label: 'Blueprints', icon: LayoutGrid },
   { id: 'slices', label: 'Slices', icon: Diamond },
 ]
-
-/** Same group taxonomy and order as the desktop slices sidebar
- * (SlicesSidebarSection) — unknown types fall into Custom. */
-const SLICE_TYPE_GROUPS = ['journey', 'step', 'lane', 'cell', 'custom'] as const
-
-/** The group's heading, in sentence case — the string carries its case. */
-const SLICE_GROUP_TITLE: Record<(typeof SLICE_TYPE_GROUPS)[number], string> = {
-  journey: 'Journey',
-  step: 'Step',
-  lane: 'Lane',
-  cell: 'Cell',
-  custom: 'Custom',
-}
-
-function sliceKindGroup(
-  sliceKind: string,
-): (typeof SLICE_TYPE_GROUPS)[number] {
-  const type = sliceKind.toLowerCase()
-  return SLICE_TYPE_GROUPS.find((group) => group === type) ?? 'custom'
-}
 
 /** The drawer's Slices surface: type groups (open by default), NavRow rows. */
 function SliceGroups({

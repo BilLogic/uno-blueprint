@@ -34,25 +34,11 @@ import { useSupabase } from '@/contexts/SupabaseProvider'
 import { useViewState } from '@/contexts/viewStateStore'
 import { useSlices, type SliceListEntry } from '@/hooks/useSlices'
 import { useActiveServiceId } from '@/contexts/activeService'
-
-/** Sidebar group order — unknown types fall into Custom. */
-const SLICE_TYPE_GROUPS = ['journey', 'step', 'lane', 'cell', 'custom'] as const
-
-/** The group's heading, in sentence case — the string carries its case. */
-const SLICE_GROUP_TITLE: Record<(typeof SLICE_TYPE_GROUPS)[number], string> = {
-  journey: 'Journey',
-  step: 'Step',
-  lane: 'Lane',
-  cell: 'Cell',
-  custom: 'Custom',
-}
-
-type SliceTypeGroup = (typeof SLICE_TYPE_GROUPS)[number]
-
-function sliceKindGroup(sliceKind: string): SliceTypeGroup {
-  const type = sliceKind.toLowerCase()
-  return SLICE_TYPE_GROUPS.find((group) => group === type) ?? 'custom'
-}
+import {
+  SLICE_GROUP_TITLE,
+  SLICE_TYPE_GROUPS,
+  sliceKindGroup,
+} from '@/lib/sliceGroups'
 
 function SliceRow({
   slice,

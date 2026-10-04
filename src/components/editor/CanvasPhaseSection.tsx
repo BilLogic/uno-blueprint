@@ -231,12 +231,11 @@ export function CanvasPhaseSection({
         // that does not navigate (the mobile canvas) is still a phase, and
         // its badge still says so.
         tone="phase"
-        // The time-marker label, `01 · Discover`: sans, sentence case, no
-        // tracking — the rule every small label follows — built by the same
-        // ordinal helper the mobile reader's step eyebrows use, so both
-        // surfaces name time the same way. The aria-label above keeps the
-        // plain title. Legibility at overview zoom is the counter-scale on
-        // `[data-phase-title-badge]`, not capitals.
+        // The time-marker label, `01 · Discover`, built by `ordinalLabel`:
+        // sans, sentence case, no tracking — the rule every small label
+        // follows. The aria-label above keeps the plain title. Legibility at
+        // overview zoom is the counter-scale on `[data-phase-title-badge]`,
+        // not capitals.
         // z-30: zoomed far out the badge counter-scales larger than its
         // inset and must not sink under a neighboring phase's panels.
         className="pointer-events-auto absolute z-30 max-w-[min(100%,28rem)] border-transparent"

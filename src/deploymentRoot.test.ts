@@ -19,6 +19,7 @@ import path from 'node:path'
 import ts from 'typescript'
 import { createServer, resolveConfig } from 'vite'
 import { afterAll, describe, expect, it } from 'vitest'
+import { figureFileName } from '../scripts/sync-cover-assets.mjs'
 import { coverFigures } from '@/components/cover/coverModel'
 import { filesOn, hasSource } from '@/lib/sourceTree'
 import { coverContent } from '@/content/coverContent'
@@ -782,7 +783,7 @@ describe('a deployment’s cover figures', () => {
     return coverFigures(coverContent).flatMap((figure) =>
       [figure.src, figure.srcDark]
         .filter((src): src is string => typeof src === 'string')
-        .map((src) => path.basename(src.split('?')[0])),
+        .map(figureFileName),
     )
   }
 

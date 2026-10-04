@@ -7,10 +7,16 @@
  * are plain vars because Tailwind v4 has no duration
  * namespace — consume them as `duration-(--motion-structural)`.
  *
- * `--ease-structural` and `--ease-camera` are the older names, kept as
- * aliases so stylesheets and deployments that read them keep working:
- * structural was always the arrive curve, and the camera is a move.
- * Product classes use the role names; the motion vocabulary guard holds that.
+ * `--ease-structural` is the older name for arrive, kept as an alias so
+ * stylesheets and deployments that read it keep working.
+ *
+ * `--ease-camera` is still its own curve, and only for CSS that rides the
+ * camera's flight (focus dimming, the compare panel's fade). The JS camera
+ * eases on its own curve in `cameraTransition.ts`; the camera becomes a move
+ * when that flight and this token switch together, so the CSS that rides the
+ * flight never runs on a different curve from it.
+ * Product classes use the role names (plus `ease-camera` for camera-riding
+ * surfaces); the motion vocabulary guard holds that.
  */
 @theme {
   --ease-arrive: cubic-bezier(0.22, 1, 0.36, 1);
@@ -18,7 +24,7 @@
   --ease-move: cubic-bezier(0.65, 0, 0.35, 1);
   --ease-spring: cubic-bezier(0.34, 1.45, 0.5, 1);
   --ease-structural: var(--ease-arrive);
-  --ease-camera: var(--ease-move);
+  --ease-camera: cubic-bezier(0.37, 0, 0.63, 1);
 }
 
 /*
@@ -119,7 +125,9 @@
 /* Presentation exit — the same three in reverse, same durations. The shell
    holds the tab switch for the full 320 ms so this actually plays instead
    of being cut off by the unmount; the band fades last so the dark surface
-   lands on the incoming tab rather than snapping to it. */
+   lands on the incoming tab rather than snapping to it. Its delay is the
+   structural hold minus its own fade (120 ms), so it ends exactly as the
+   hold does. */
 [data-presentation-root][data-leaving] [data-presentation-stage] {
   animation: editor-stage-out var(--motion-fade) var(--ease-leave) both;
 }
@@ -129,7 +137,8 @@
 }
 
 [data-presentation-root][data-leaving] {
-  animation: editor-fade-out var(--motion-fade) var(--ease-leave) 120ms both;
+  animation: editor-fade-out var(--motion-fade) var(--ease-leave)
+    calc(var(--motion-structural) - var(--motion-fade)) both;
 }
 
 /*
@@ -299,8 +308,9 @@
  * Tailwind's `animate-pulse` is `cubic-bezier(0.4,0,0.6,1)` at 2s — a curve
  * that sits at both extremes and snaps between them, which on a panel full of
  * bars reads as flicker rather than as waiting. This holds the same rhythm on
- * the structural ease and a narrower opacity range, so a loading panel is
- * quiet next to the drawer sliding in beside it.
+ * the arrive curve and a narrower opacity range, so a loading panel is
+ * quiet next to the drawer sliding in beside it. The period is eight fade
+ * beats (1.6 s), so it stays on the ladder.
  */
 @keyframes skeleton-breath {
   0%,
@@ -313,12 +323,23 @@
 }
 
 [data-slot='skeleton'] {
-  animation: skeleton-breath 1.6s var(--ease-structural) infinite;
+  animation: skeleton-breath calc(var(--motion-fade) * 8) var(--ease-arrive) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   [data-slot='skeleton'] {
     animation: none;
     opacity: 0.7;
+  }
+}
+
+/*
+ * Prose links ease their colour on hover (typography.config.js). Under
+ * reduced motion the colour simply changes. Unlayered, so it beats the
+ * typography plugin's `.prose :where(a)` without !important.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :is(.prose, .prose-toc, .prose-docs) a {
+    transition: none;
   }
 }

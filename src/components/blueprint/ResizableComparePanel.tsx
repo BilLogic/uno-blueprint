@@ -353,7 +353,7 @@ export function ResizableComparePanel({
   return (
     <div
       className={cn(
-        'relative shrink-0 transition-opacity motion-reduce:transition-none duration-(--motion-camera) ease-move',
+        'relative shrink-0 transition-opacity motion-reduce:transition-none duration-(--motion-camera) ease-camera',
         dimmed && FOCUS_DIM_REST_CLASS,
         dimmed && navigable && FOCUS_DIM_LIFT_CLASS,
         className,

@@ -117,10 +117,11 @@ export const MOTION_FADE_STAGGER_MS = 75
 
 /**
  * Nominal camera reference; actual flights use bounded distance-aware time.
- * The camera is a move — `--ease-camera` aliases `--ease-move`.
+ * Still its own curve: CSS that rides the camera (focus dimming, the compare
+ * fade) has to match the JS flight, so the two move onto `move` together.
  */
 export const MOTION_CAMERA_MS = 420
-export const MOTION_CAMERA_EASE = MOTION_EASE.move
+export const MOTION_CAMERA_EASE = 'cubic-bezier(0.37, 0, 0.63, 1)'
 
 /** Micro-interactions: hover, badges, threshold fades. */
 export const MOTION_MICRO_MS = 150

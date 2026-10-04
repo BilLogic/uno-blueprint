@@ -142,7 +142,8 @@ module.exports = {
             },
             a: {
               position: 'relative',
-              transition: 'all 0.18s ease',
+              transition:
+                'color var(--motion-micro) var(--ease-arrive), text-decoration-color var(--motion-micro) var(--ease-arrive)',
               paddingBottom: '2px',
               fontWeight: '400',
               opacity: 1,

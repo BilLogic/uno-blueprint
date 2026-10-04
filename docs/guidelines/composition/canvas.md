@@ -230,7 +230,7 @@ curve follows from it.
 | --- | --- | --- |
 | **arrive** (`ease-arrive`) | `cubic-bezier(.22,1,.36,1)` | Something enters or is revealed — a panel opening, a popover, a fade-up, hover and focus feedback. Fast off the mark, long settle. |
 | **leave** (`ease-leave`) | `cubic-bezier(.6,0,.85,.25)` | Something exits — a panel closing, a dialog's backdrop on its way out. Pair it with a shorter rung than the entry: arriving is an event, leaving is not. |
-| **move** (`ease-move`) | `cubic-bezier(.65,0,.35,1)` | Something already on screen goes from A to B — a tab indicator sliding, a chevron rotating, a height or width changing, the camera. |
+| **move** (`ease-move`) | `cubic-bezier(.65,0,.35,1)` | Something already on screen goes from A to B — a tab indicator sliding, a chevron rotating, a height or width changing, a progress bar filling. |
 | **spring** (`ease-spring`) | `cubic-bezier(.34,1.45,.5,1)`, a `linear()` spring where supported | A small thing pops — a swatch on hover, a button press. Never on anything panel-sized. |
 
 Durations come from the ladder, never a number: `--motion-micro` (150 ms,
@@ -242,9 +242,12 @@ entries), `--motion-fade-stagger` (75 ms, the gap between an out and its in),
 product transition names its rung, its role and its reduced-motion answer in
 the same string.
 
-- `--ease-structural` and `--ease-camera` remain as aliases of arrive and
-  move for stylesheets that already read them; product classes use the role
-  names.
+- `--ease-structural` remains as an alias of arrive for stylesheets that
+  already read it; product classes use the role names.
+- `--ease-camera` (`ease-camera`) is still the camera's own curve, kept for
+  CSS that rides a camera flight (focus dimming, the compare fade) so it
+  matches the JS flight. The camera becomes a move when the flight and this
+  token switch together.
 - The vendored `ui/` primitives keep their upstream timings. A product surface
   that needs a different feel sets it on its own wrapper's classes.
 - The canvas reveal ladder keeps the plain `ease-out` it documents in
@@ -254,9 +257,12 @@ the same string.
   (`EASE_POINTS`, `cubicBezierEase`, `easeMove`) instead of writing its own.
 
 `lib/motion.ts` and `styles/animations.css` hold the two halves; a drift
-test pins them together, and `components/motionVocabulary.test.ts` fails on a
-stock `duration-*`, `delay-*` or `ease-*` class, or on a product transition
-missing its rung, role or reduced-motion path.
+test compares their token values, and `components/motionVocabulary.test.ts`
+fails on a stock `duration-*`, `delay-*` or `ease-*` class, a product
+transition missing its rung, role or reduced-motion path, a raw time or
+keyword curve in an inline style, a framer-motion option or a stylesheet
+(the reveal chain's `ease-out` is the one exemption), and a named framer
+curve.
 
 ## Camera
 

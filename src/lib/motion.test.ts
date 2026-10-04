@@ -73,11 +73,13 @@ test("the site's four curves, by role", () => {
   })
 })
 
-test('structural is arrive and camera is move, in both files', () => {
+test('structural is arrive, in both files', () => {
   assert.equal(MOTION_STRUCTURAL_EASE, MOTION_EASE.arrive)
-  assert.equal(MOTION_CAMERA_EASE, MOTION_EASE.move)
   assert.equal(cssToken('--ease-structural'), 'var(--ease-arrive)')
-  assert.equal(cssToken('--ease-camera'), 'var(--ease-move)')
+})
+
+test('camera ease matches between motion.ts and the @theme key', () => {
+  assert.equal(squash(cssToken('--ease-camera')), squash(MOTION_CAMERA_EASE))
 })
 
 test('the spring upgrades to linear() only where the browser has it', () => {

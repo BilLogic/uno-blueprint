@@ -2,10 +2,11 @@
  * The dot grid on the canvas ground: where its tiles sit and how strong its
  * dots are, for a given camera.
  *
- * The grid is one CSS background on the viewport (`blueprint.css`), and the
- * transform writer stamps this function's answer onto it on every camera
- * frame, so the dots travel with a pan and spread with a zoom: the ground
- * reads as the surface the board sits on, not a pattern printed on the glass.
+ * The grid is one CSS background on the `[data-zoom-pan-ground]` layer under
+ * the board (`blueprint.css`), and the transform writer stamps this
+ * function's answer onto that layer on every camera frame, so the dots travel
+ * with a pan and spread with a zoom: the ground reads as the surface the
+ * board sits on, not a pattern printed on the glass.
  *
  * WHAT HAPPENS FAR OUT. A grid that only scaled would put its 20px pitch at
  * 1px by the minimum zoom — a solid grey wash on the way, shimmering and

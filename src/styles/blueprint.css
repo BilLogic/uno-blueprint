@@ -1138,9 +1138,10 @@
  *
  * One background on one layer, `[data-zoom-pan-ground]`, under the board —
  * no element per dot. The transform writer (`applyGroundToElement` in
- * `useZoomPanViewport`) stamps the tile size, the overhang and a translate
- * on every camera frame, so the dots pan and zoom with the board, and a pan
- * moves a composited layer without repainting it. The layer stays hidden
+ * `useZoomPanViewport`) writes a translate on every camera frame, and the
+ * tile size and the overhang only when the pitch changes, so the dots pan
+ * and zoom with the board, and a pan moves a composited layer without
+ * repainting it. The layer stays hidden
  * until the first fit has framed the board, so it never snaps from the
  * unfitted camera to the fitted one. Far out, the pitch steps and the alpha
  * below carries the tone across the step — `src/lib/canvasDotGrid.ts` has

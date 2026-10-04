@@ -96,12 +96,22 @@ describe('canvasDotGrid', () => {
   })
 
   it('hangs the layer a whole number of pixels out, at least a pitch, so a translate never uncovers an edge', () => {
+    const W = 1440
     for (const zoom of [0.05, 0.6372, 0.73, 1, 1.37, 4]) {
-      const { pitch, overhang, offsetX } = canvasDotGrid({ x: 33.3, y: 0 }, zoom)
-      expect(Number.isInteger(overhang)).toBe(true)
-      expect(overhang).toBeGreaterThanOrEqual(pitch)
-      // Left edge at or left of the viewport's; the right edge, symmetric.
-      expect(-overhang + offsetX).toBeLessThanOrEqual(0)
+      for (const panX of [33.3, -917.25, 0, 12345.6]) {
+        const { pitch, overhang, offsetX, tileScale } = canvasDotGrid(
+          { x: panX, y: 0 },
+          zoom,
+        )
+        expect(Number.isInteger(overhang)).toBe(true)
+        expect(overhang).toBeGreaterThanOrEqual(pitch)
+        // Left edge at or left of the viewport's left edge…
+        expect(-overhang + offsetX).toBeLessThanOrEqual(0)
+        // …and the scaled right edge at or past the viewport's right edge.
+        expect(
+          -overhang + offsetX + tileScale * (W + 2 * overhang),
+        ).toBeGreaterThanOrEqual(W)
+      }
     }
   })
 

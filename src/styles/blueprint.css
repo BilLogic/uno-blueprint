@@ -192,19 +192,38 @@
    *
    * Brand, never `--ring`: keyboard focus keeps the ring token on the section
    * itself, so a focused phase and a selected one never read as one state.
-   * The transition lives on this rule only, so the ring arrives on the
-   * structural curve and leaves the instant the selection clears.
+   *
+   * The ring is the frame's `::after`, not the frame. The camera flight
+   * writes an inline `transition: none` on the frame while it fades the
+   * frame's opacity, and an inline style beats this rule, so on the frame
+   * itself the ring would snap in under every phase click. The flight never
+   * touches the pseudo-element, which still fades with the frame because it
+   * is painted inside it. The plate exists at rest, transparent, so there is
+   * something to transition from; the transition lives on the selected rule
+   * only, so the ring arrives on the structural curve and leaves the instant
+   * the selection clears.
    */
-  [data-canvas-phase-section][data-phase-selected] > [data-phase-frame] {
+  [data-canvas-phase-section] > [data-phase-frame]::after {
+    position: absolute;
+    inset: -1px;
+    border: 1px solid transparent;
+    border-radius: inherit;
+    content: '';
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  [data-canvas-phase-section][data-phase-selected] > [data-phase-frame]::after {
     border-color: var(--brand);
     box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 16%, transparent);
-    transition-property: border-color, box-shadow;
+    opacity: 1;
+    transition-property: opacity;
     transition-duration: var(--motion-micro);
     transition-timing-function: var(--ease-structural);
   }
 
   @media (prefers-reduced-motion: reduce) {
-    [data-canvas-phase-section][data-phase-selected] > [data-phase-frame] {
+    [data-canvas-phase-section][data-phase-selected] > [data-phase-frame]::after {
       transition: none;
     }
   }

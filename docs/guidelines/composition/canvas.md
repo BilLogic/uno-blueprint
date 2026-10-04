@@ -218,7 +218,9 @@ before the camera has moved anywhere, so the frame answers it at once.
   phases at once and never read as one state.
 - **The ring arrives, it does not leave.** The transition is on the
   selected rule only (`--ease-structural`, `--motion-micro`), so it eases in
-  and clears instantly; under reduced motion it appears instantly too.
+  and clears instantly; under reduced motion it appears instantly too. It is
+  drawn on the frame's `::after`, because the camera flight writes an inline
+  `transition: none` on the frame itself while it fades it.
 
 ## The board's address
 

@@ -1265,8 +1265,9 @@ function ServiceOverviewViewImpl({
                       // The phase is the selection only while it is the
                       // active slide itself; inside it, a focused scenario
                       // is what is selected. Derived from the editor's
-                      // selection, so Escape, the empty canvas and another
-                      // phase all clear it the way they clear every other.
+                      // selection, so Escape, Home, the breadcrumb and
+                      // another phase clear or move it the way they do
+                      // every other.
                       const phaseIsSelected =
                         isDetail && activeSlide?.id === phase.id
 

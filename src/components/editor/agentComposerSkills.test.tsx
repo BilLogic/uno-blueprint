@@ -289,6 +289,45 @@ describe('the composer opens a skill lookup wherever a slash opens a word', () =
     expect(menuOption('/ub:audit')).toBeTruthy()
   })
 
+  it('opens nothing when the caret is moved past a name that already resolves', () => {
+    const composer = openComposer() as HTMLTextAreaElement
+    type(composer, '/ub:map notes')
+    moveCaret(composer, '/ub:map'.length, undefined, 'click')
+    expect(menuOption('/ub:map')).toBeNull()
+    moveCaret(composer, '/ub:map'.length)
+    expect(menuOption('/ub:map')).toBeNull()
+    // So Enter there sends, rather than picking the name a second time.
+    fireEvent.keyDown(composer, { key: 'Enter' })
+    expect(composer.value).toBe('')
+  })
+
+  it('still opens on the full name typed at the tail', () => {
+    const composer = openComposer()
+    type(composer, 'then /ub:map')
+    expect(menuOption('/ub:map')).toBeTruthy()
+  })
+
+  it('leaves an Enter that confirms an IME candidate to the IME', () => {
+    const composer = openComposer() as HTMLTextAreaElement
+    type(composer, 'Hey /au')
+    expect(menuOption('/ub:audit')).toBeTruthy()
+    fireEvent.keyDown(composer, { key: 'Enter', isComposing: true })
+    // Neither a pick nor a send.
+    expect(composer.value).toBe('Hey /au')
+    expect(menuOption('/ub:audit')).toBeTruthy()
+    expect(provider.inputs).toEqual([])
+  })
+
+  it('completes a token whose gap is a newline, with the caret at the head of the next line', () => {
+    const composer = openComposer() as HTMLTextAreaElement
+    type(composer, '/au\nnext')
+    moveCaret(composer, '/au'.length)
+    fireEvent.keyDown(composer, { key: 'Enter' })
+    expect(composer.value).toBe('/ub:audit\nnext')
+    expect(composer.selectionStart).toBe('/ub:audit\n'.length)
+    expect(menuOption('/ub:audit')).toBeNull()
+  })
+
   it('opens nothing while a range is selected', () => {
     const composer = openComposer() as HTMLTextAreaElement
     type(composer, 'Can you /au')

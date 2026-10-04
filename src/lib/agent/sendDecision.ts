@@ -109,10 +109,10 @@ export type SendDecision =
       draft: string
       /**
        * Where the caret belongs in that rewritten draft: just past the name
-       * the reader accepted and the space after it. Null when nothing was rewritten — the first
-       * press of Send asks about a draft it did not touch, and moving the
-       * caret of a draft nobody edited would take the reader out of their
-       * own sentence for nothing.
+       * the reader accepted and the space after it. Null when nothing was
+       * rewritten — the first press of Send asks about a draft it did not
+       * touch, and moving the caret of a draft nobody edited would take the
+       * reader out of their own sentence for nothing.
        *
        * It travels with the draft rather than being derived by the caller,
        * for the reason the draft does: this is the arm that knows WHICH

@@ -163,8 +163,9 @@ export type FieldSelection = { text: string; start: number; end: number }
  * selection seam above, `className` carries the metrics both copies wear,
  * `ref`/`onScroll` and the composition pair are the scroll sync and the IME
  * stand-down, `rows` is the one-line floor the growth starts from, and
- * `aria-label` is the name the focus seam and every reader find the field by. Omitted from the passthrough
- * so overriding one is a compile error rather than a comment nobody reads.
+ * `aria-label` is the name the focus seam and every reader find the field by.
+ * Omitted from the passthrough so overriding one is a compile error rather
+ * than a comment nobody reads.
  */
 type ComposerFieldOwnedProps =
   | 'aria-label'

@@ -102,9 +102,7 @@ export type SkillLookup = { query: string; start: number; end: number }
  * wherever that is in the draft, so a reader who moves back into a sentence
  * and types `/au` between two words gets the same menu as one typing at the
  * tail. The tail is the default and the commonest case: with the caret at the
- * end of the draft this reads exactly what a tail-only rule did. It used to
- * be tail-only, to keep the lookup derived from the text alone, and the cost
- * was that the gesture of editing back into a sentence offered nothing.
+ * end of the draft the lookup is the token the draft ends on.
  *
  * At the END of the token, not merely inside it: the text before the caret
  * has to finish on the slash and its token characters, and the character at
@@ -114,6 +112,13 @@ export type SkillLookup = { query: string; start: number; end: number }
  * half of it. A second slash at the caret counts as a continuation for the
  * same reason the token walk below refuses one: `/ub:audit/notes.md` is a
  * path, wherever the caret stands in it.
+ *
+ * A NAME THAT ALREADY RESOLVES, with prose after the caret, opens nothing. A
+ * reader who clicks or arrows past `/ub:map` in `/ub:map notes` is moving
+ * through a finished sentence, and a menu there would take their next Enter
+ * as a pick instead of a send and their Up and Down as menu moves. At the
+ * tail it still opens, as it always has: a reader who has just typed the full
+ * name is still typing, and the menu is how they accept it.
  *
  * A space after the token closes it, because the space is not in the token's
  * character class and the token has to reach the caret. That is also why a
@@ -156,6 +161,7 @@ export function findSkillLookup(
   const match = LOOKUP_BEFORE_CARET.exec(draft.slice(0, at))
   if (!match) return null
   const token = match[1]
+  if (at < draft.length && findSkillByToken(token)) return null
   // The span starts at the slash rather than at the whitespace that
   // qualified it, so the space the reader typed survives the pick.
   return { query: token.toLowerCase(), start: at - token.length - 1, end: at }

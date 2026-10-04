@@ -140,6 +140,10 @@ describe('the skill lookup under the caret', () => {
     const caret = marked.indexOf('|')
     return { draft: marked.slice(0, caret) + marked.slice(caret + 1), caret }
   }
+  const lookupAt = (marked: string) => {
+    const { draft, caret } = at(marked)
+    return findSkillLookup(draft, caret)
+  }
   const cases: [string, string | null][] = [
     ['Can you /| this part', ''],
     ['Can you /au| this part', 'au'],
@@ -169,6 +173,28 @@ describe('the skill lookup under the caret', () => {
       expect(findSkillLookup(draft, caret)?.query ?? null).toBe(query)
     })
   }
+
+  it('opens nothing on a name that already resolves, with prose after the caret', () => {
+    // Clicking or arrowing past a finished name is moving through a sentence;
+    // a menu there would take the next Enter as a pick instead of a send.
+    expect(lookupAt('/ub:map| notes')).toBeNull()
+    expect(lookupAt('then /ub:audit| it')).toBeNull()
+    // A name that does not resolve yet still opens, mid-sentence or not.
+    expect(lookupAt('/ub:ma| notes')?.query).toBe('ub:ma')
+    // At the tail the full name still opens, as it always has.
+    expect(findSkillLookup('/ub:map')?.query).toBe('ub:map')
+    expect(findSkillLookup('then /ub:audit')?.query).toBe('ub:audit')
+  })
+
+  it('treats a newline after the token as its gap, and lands the caret past it', () => {
+    const audit = AGENT_SKILL_COMMANDS.find((entry) => entry.id === 'ub:audit')!
+    const { draft, caret } = at('/au|\nnext')
+    const completed = completeSkillToken(draft, findSkillLookup(draft, caret)!, audit)
+    // No space added — the newline already closes the token — and the caret
+    // goes over it, to the head of the next line.
+    expect(completed).toEqual({ text: '/ub:audit\nnext', caret: '/ub:audit\n'.length })
+    expect(findSkillLookup(completed.text, completed.caret)).toBeNull()
+  })
 
   it('spans the token before the caret and nothing after it', () => {
     const { draft, caret } = at('Can you /au| this part')

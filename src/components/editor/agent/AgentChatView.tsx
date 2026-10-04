@@ -152,9 +152,9 @@ export function AgentChatView({
   // Where the caret goes once a completion has been written into the field,
   // handed to the field and cleared the moment it lands. A completion that
   // reaches the end of the draft would get the same offset from the value
-  // assignment alone; the near-miss rewrite, which is the one that happens
-  // mid-sentence, would not, and its reader was thrown to the end of a
-  // sentence they were standing in the middle of.
+  // assignment alone; one with prose behind it — a menu pick made back inside
+  // a sentence, or the near-miss rewrite — would not, and its reader would be
+  // thrown to the end of a sentence they were standing in the middle of.
   const [caret, setCaret] = useState<number | null>(null)
   // Where the reader's selection IS, with the text it was read from — the
   // other half of the caret. The request above is where a write puts the
@@ -254,11 +254,15 @@ export function AgentChatView({
   }
 
   // A write from here — a pick, an accepted offer — puts the caret itself, so
-  // the selection it leaves is recorded here too rather than waited for: the
+  // the selection it leaves is recorded with it rather than waited for: the
   // lookup reads it on the very next render, and a stale one would reopen the
-  // menu on the token just written.
-  const placeSelection = (text: string, at: number) =>
+  // menu on the token just written. One helper for the three, so a write
+  // cannot place the caret and forget the selection.
+  const writeDraft = (text: string, at: number) => {
+    setDraft(text)
+    setCaret(at)
     setSelection({ text, start: at, end: at })
+  }
 
   // Accepting a match COMPLETES the token in place — `/ub:aud` becomes
   // `/ub:audit `, exactly where the reader typed it, the way a shell
@@ -270,9 +274,7 @@ export function AgentChatView({
     if (!command.content || !slashLookup) return
     setMisses([])
     const completed = completeSkillToken(draft, slashLookup, command)
-    setDraft(completed.text)
-    setCaret(completed.caret)
-    placeSelection(completed.text, completed.caret)
+    writeDraft(completed.text, completed.caret)
   }
 
   /**
@@ -311,14 +313,12 @@ export function AgentChatView({
       // The rewrite an accepted offer produced, put back in the field with
       // the question it goes with — one update, so the reader never sees a
       // notice describing text the field has already left behind.
-      if (decision.draft !== draft) setDraft(decision.draft)
+      //
       // The accepted token is mid-sentence by construction — it has the rest
       // of the draft behind it — so the caret the rewrite reports is the one
       // thing the field cannot work out for itself.
-      if (decision.caret !== null) {
-        setCaret(decision.caret)
-        placeSelection(decision.draft, decision.caret)
-      }
+      if (decision.caret !== null) writeDraft(decision.draft, decision.caret)
+      else if (decision.draft !== draft) setDraft(decision.draft)
       setMisses(decision.misses)
       return
     }
@@ -692,11 +692,15 @@ export function AgentChatView({
             onSelectionChange={(next) => {
               // A caret moved is a new question about whatever token it now
               // sits at, so a dismissal of the last one does not carry over.
+              // React reports a select on every key-up and mouse-up, moved
+              // or not; an unmoved one is no news and costs a render.
               if (
-                slashDismissed &&
-                (next.start !== selection?.start || next.end !== selection?.end)
+                next.text === selection?.text &&
+                next.start === selection.start &&
+                next.end === selection.end
               )
-                setSlashDismissed(false)
+                return
+              if (slashDismissed) setSlashDismissed(false)
               setSelection(next)
             }}
             onDraftChange={(value) => {
@@ -709,6 +713,10 @@ export function AgentChatView({
               setDraft(value)
             }}
             onKeyDown={(event) => {
+              // While an IME composes, Enter confirms its candidate and the
+              // arrows walk its list: the keystroke is the IME's, and neither
+              // a pick nor a send.
+              if (event.nativeEvent.isComposing) return
               if (slashOpen && event.key === 'ArrowDown') {
                 event.preventDefault()
                 moveSlashHighlight(1)

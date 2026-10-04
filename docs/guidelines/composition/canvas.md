@@ -196,12 +196,14 @@ The inspector already clears the same band via `CELL_DETAIL_PANEL_BOTTOM_GAP_PX`
 
 ## Empty states
 
-Every empty state carries the mini-blueprint (`MiniBlueprintIllustration`):
+The canvas's empty states (`CanvasEmptyState`, in all three variants) and the
+cell drawer's nothing-selected surface (`CellDetailEmptySurface`) carry the
+mini-blueprint (`MiniBlueprintIllustration`):
 three lane rows, each a lane-colour square and a label bar, then cells holding
 one skeleton bar, with some cells dashed. It is the cover figures' shorthand
 for a blueprint, but drawn from tokens rather than printed: the squares and
 cells take `--background-blueprint-cell` and its pressed step from real
-`[data-blueprint-lane]` roles, the label bars and gap edges take
+lane roles (`blueprintLaneAttrs`), the label bars and gap edges take
 `--border-strong`, and the corners come off the radius ladder. So it follows
 the theme and the contrast dial, and a deployment's lane palette reaches it.
 
@@ -212,10 +214,14 @@ the theme and the contrast dial, and a deployment's lane palette reaches it.
   variant) draws it `lg`, with 24px cells; the `panel` and `phase` variants and
   the cell drawer's nothing-selected surface draw it `sm`, because the frame
   around them is already most of the picture.
+- **Only for an empty board.** A read that failed ("The phases could not be
+  loaded") turns it off with `showIllustration={false}`: nobody knows the
+  board is empty, so a picture of an empty one would say more than the copy.
 - **It is decoration.** `aria-hidden`, and still: no pulse, no arrival. The
   copy beside it carries the meaning and stays an invitation to act, naming
-  where the next move is (the paths menu in the header, the `+` on a phase
-  row, a cell on the board).
+  where the next move is, and only where that control exists: the paths menu
+  in the header for a focused scenario, the sidebar on a phase canvas (which
+  has no paths menu), the `+` on a phase row, a cell on the board.
 
 ## Panel as selection
 

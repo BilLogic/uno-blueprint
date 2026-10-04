@@ -1114,11 +1114,28 @@ function ServiceOverviewViewImpl({
                   }
                   // Paths are a filter over a board; there is no board.
                   showRestoreAction={false}
+                  // A read that failed is not an empty board.
+                  showIllustration={!slidesError}
                 />
               </div>
             ) : noPathsSelected ? (
               <div className="absolute inset-0 flex">
-                <CanvasEmptyState />
+                {/*
+                  Focused, the reader turned every path off, and the header's
+                  paths menu is the way back. Unfocused, a phase draws each
+                  scenario's default path, so the only way to draw nothing is
+                  for no scenario in scope to have a path to show — and the
+                  header has no paths menu to point at.
+                */}
+                {focusedScenarioId ? (
+                  <CanvasEmptyState />
+                ) : (
+                  <CanvasEmptyState
+                    title="No paths to show"
+                    summary="None of the scenarios here has a path to draw. Open one from the sidebar."
+                    showRestoreAction={false}
+                  />
+                )}
               </div>
             ) : (
               <ZoomPanViewport

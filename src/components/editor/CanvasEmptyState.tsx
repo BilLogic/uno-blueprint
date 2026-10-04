@@ -15,6 +15,12 @@ type CanvasEmptyStateProps = {
   variant?: 'canvas' | 'panel' | 'phase'
   /** One-click way out of "no paths selected"; canvas variant only by default. */
   showRestoreAction?: boolean
+  /**
+   * Draw the mini-blueprint. Off for a failed read: that is not an empty
+   * board, and a picture of one would say the board is empty when nobody
+   * knows.
+   */
+  showIllustration?: boolean
 }
 
 /**
@@ -46,6 +52,7 @@ export function CanvasEmptyState({
   summary = 'Pick one from the paths menu in the header.',
   variant = 'canvas',
   showRestoreAction,
+  showIllustration = true,
 }: CanvasEmptyStateProps) {
   const isCanvas = variant === 'canvas'
   const isPanel = variant === 'panel'
@@ -79,10 +86,12 @@ export function CanvasEmptyState({
         {/* The picture sits above the copy and stays out of its way: large on
             the open canvas, small inside a frame, where the frame is already
             most of the figure. */}
-        <MiniBlueprintIllustration
-          size={isCanvas ? 'lg' : 'sm'}
-          className={isCanvas ? 'mb-4' : 'mb-2'}
-        />
+        {showIllustration ? (
+          <MiniBlueprintIllustration
+            size={isCanvas ? 'lg' : 'sm'}
+            className={isCanvas ? 'mb-4' : 'mb-2'}
+          />
+        ) : null}
         <p className="text-sm font-medium tracking-tight text-foreground">
           {title}
         </p>

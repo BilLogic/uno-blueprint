@@ -86,6 +86,7 @@ describe('MiniBlueprintIllustration', () => {
       root.querySelector('[data-mini-blueprint-cell]')!.className
     expect(cellHeight(lg)).toContain('h-6')
     expect(cellHeight(sm)).toContain('h-5')
+    expect(cellHeight(sm)).toContain('rounded-lg')
   })
 })
 
@@ -119,6 +120,23 @@ describe('CanvasEmptyState', () => {
       expect(screen.getByText('No scenarios in this phase yet')).toBeDefined()
     },
   )
+})
+
+describe('CanvasEmptyState after a failed read', () => {
+  // A read that never came back is not an empty board, so it draws no
+  // picture of one; the copy carries the failure on its own.
+  it('draws no illustration when told the board is not known to be empty', () => {
+    render(
+      <CanvasEmptyState
+        title="The phases could not be loaded"
+        summary="The sidebar has the error."
+        showRestoreAction={false}
+        showIllustration={false}
+      />,
+    )
+    expect(illustration()).toBeNull()
+    expect(screen.getByText('The phases could not be loaded')).toBeDefined()
+  })
 })
 
 describe('CellDetailEmptySurface', () => {

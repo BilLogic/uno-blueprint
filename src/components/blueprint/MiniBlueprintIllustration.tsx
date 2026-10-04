@@ -1,3 +1,7 @@
+import {
+  blueprintLaneAttrs,
+  type BlueprintLaneRole,
+} from '@/lib/blueprintCellStyle'
 import { cn } from '@/lib/utils'
 
 type CellKind = 'solid' | 'gap'
@@ -8,7 +12,10 @@ type CellKind = 'solid' | 'gap'
  * column is all gap, which keeps the picture reading as "a blueprint with
  * pieces still to come" rather than as a broken grid.
  */
-const ROWS: ReadonlyArray<{ role: string; cells: readonly CellKind[] }> = [
+const ROWS: ReadonlyArray<{
+  role: BlueprintLaneRole
+  cells: readonly CellKind[]
+}> = [
   { role: 'actor', cells: ['solid', 'solid', 'gap', 'solid'] },
   { role: 'frontstage-action', cells: ['solid', 'gap', 'solid', 'solid'] },
   { role: 'backstage-action', cells: ['solid', 'solid', 'solid', 'gap'] },
@@ -37,7 +44,7 @@ const SIZES = {
     square: 'size-3',
     label: 'h-1 w-8',
     cells: 'gap-1',
-    cell: 'h-5 w-10 rounded-md px-2',
+    cell: 'h-5 w-10 rounded-lg px-2',
     bar: 'h-1',
   },
 } as const
@@ -71,7 +78,7 @@ export function MiniBlueprintIllustration({
       {ROWS.map((row, r) => (
         <div
           key={row.role}
-          data-blueprint-lane={row.role}
+          {...blueprintLaneAttrs(row.role)}
           className={cn('flex items-center', s.row)}
         >
           <div className={cn('flex shrink-0 items-center', s.head)}>

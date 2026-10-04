@@ -3,8 +3,15 @@ import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { PATTERNS } from '../../scripts/check-standalone.mjs'
-import { COVER_ASSET_MANIFEST } from '../../scripts/sync-cover-assets.mjs'
-import { coverFigures, coverTabSections } from '@/components/cover/coverModel'
+import {
+  COVER_ASSET_MANIFEST,
+  darkVariantName,
+} from '../../scripts/sync-cover-assets.mjs'
+import {
+  coverFigures,
+  coverTabSections,
+  type CoverFigure,
+} from '@/components/cover/coverModel'
 import { packageCoverFigures } from '@/components/cover/packageCoverFigures'
 import { coverContent } from '@/content/coverContent'
 
@@ -105,6 +112,21 @@ describe('coverContent', () => {
     }
   })
 
+  it('pairs each dark file with its own light file, and carries every one drawn', () => {
+    const figures = Object.values(packageCoverFigures) as CoverFigure[]
+    for (const figure of figures) {
+      const light = basename(figure.src.split('?')[0])
+      const onDisk = existsSync(join(ASSETS_DIR, darkVariantName(light)))
+      if (!figure.srcDark) {
+        // A dark file nobody imports would never be shown.
+        expect(onDisk, `${light} has a dark file the cover does not use`).toBe(false)
+        continue
+      }
+      expect(basename(figure.srcDark.split('?')[0])).toBe(darkVariantName(light))
+      expect(onDisk).toBe(true)
+    }
+  })
+
   it('and the sample blueprint’s frames name those same files', () => {
     // The sample's storyboard frames are database values, so they name a
     // served path and cannot be imports; the copy that serves them is what
@@ -144,9 +166,9 @@ describe('coverContent', () => {
     if (section?.kind !== 'defs') return
     expect(section.items.map((item) => item.term)).toEqual([
       'Onboarding',
-      'Stakeholder Alignment',
-      'Decision Evaluation',
-      'Context Management',
+      'Stakeholder alignment',
+      'Decision evaluation',
+      'Context management',
     ])
     // Each definition expands on the figure's title rather than repeating it.
     for (const item of section.items) {

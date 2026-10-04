@@ -19,12 +19,15 @@
  * out of its own public directory, which is where that responsibility has
  * always sat.
  *
+ * Each figure's dark file (`<name>.dark.svg`) travels with it where one
+ * exists; see `coverAssetFiles`.
+ *
  * Fails loudly, naming every missing source.
  *
  * Usage: node scripts/sync-cover-assets.mjs [srcDir] [destDir]
  * (the optional dirs exist for the test harness; defaults are the real ones)
  */
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -47,6 +50,39 @@ export const COVER_ASSET_MANIFEST = [
   'why-now.svg',
 ]
 
+/**
+ * A figure's dark file: `why-now.svg` → `why-now.dark.svg`. The same drawing
+ * in the dark palette, shown by the cover in the dark theme and by GitHub
+ * through `<picture>`. Optional per figure; a figure without one shows its
+ * light file in both themes.
+ */
+export function darkVariantName(name) {
+  return name.replace(/\.svg$/, '.dark.svg')
+}
+
+/**
+ * Every file the sync copies: each manifest figure, then its dark file where
+ * one exists. A dark file with no light figure in the manifest is an error,
+ * because nothing would ever show it.
+ */
+export function coverAssetFiles(srcDir = join(repoRoot, 'docs', 'assets')) {
+  const darkOnDisk = readdirSync(srcDir).filter((name) => name.endsWith('.dark.svg'))
+  const orphans = darkOnDisk.filter(
+    (dark) => !COVER_ASSET_MANIFEST.some((name) => darkVariantName(name) === dark),
+  )
+  if (orphans.length > 0) {
+    throw new Error(
+      `sync-cover-assets: dark file(s) with no light figure in the manifest: ${orphans.join(', ')}`,
+    )
+  }
+  const files = []
+  for (const name of COVER_ASSET_MANIFEST) {
+    files.push(name)
+    if (darkOnDisk.includes(darkVariantName(name))) files.push(darkVariantName(name))
+  }
+  return files
+}
+
 /** The tree this script runs in: the working directory — never this file's location; `sweep.mjs` says why. */
 const repoRoot = process.cwd()
 
@@ -63,11 +99,12 @@ export function syncCoverAssets(
     )
   }
 
+  const files = coverAssetFiles(srcDir)
   mkdirSync(destDir, { recursive: true })
-  for (const name of COVER_ASSET_MANIFEST) {
+  for (const name of files) {
     copyFileSync(join(srcDir, name), join(destDir, name))
   }
-  return COVER_ASSET_MANIFEST.length
+  return files.length
 }
 
 const isMain =
@@ -76,7 +113,7 @@ const isMain =
 if (isMain) {
   try {
     const count = syncCoverAssets(process.argv[2], process.argv[3])
-    console.log(`sync-cover-assets: copied ${count} figures to public/cover/`)
+    console.log(`sync-cover-assets: copied ${count} figure files to public/cover/`)
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error))
     process.exit(1)

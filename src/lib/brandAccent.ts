@@ -19,14 +19,15 @@ import { hexToRgb, oklchFromSrgb } from '@/lib/oklch'
  * derived from the ring, and — through the harmony pull in `semantic.css` —
  * the status hues, which lean a fraction of the way toward the brand.
  *
- * Every one of those except the last is multiplied by a CHROMA, and THIS TEMPLATE
- * SHIPS EVERY CHROMA AT ZERO. `themes/light.css` and `themes/dark.css` set
- * `--chroma: 0` and `--primary-chroma: 0`, and `--brand` derives from
- * `--primary`, so the identity fill is that same zero. So against the template's
- * own stylesheet, unchanged, setting an accent repaints NOTHING on the brand
- * surfaces. What it does move is `--expressive-chroma: 0.14`: warning,
- * destructive and info rotate 15% of the distance from `--brand-hue-reference`
- * and would drift off their anchors while the brand stayed grey.
+ * Every one of those except the last is multiplied by a CHROMA. The template's
+ * own stylesheet ships the surfaces at `--chroma: 0` and the filled control at
+ * a teal chroma, so against it an accent rotates the filled control, the
+ * identity fill (which derives from it) and the ring onto the accent's hue at
+ * the teal's lightness and chroma, while the canvas stays grey. It also moves
+ * the statuses: warning, destructive and info rotate 15% of the distance from
+ * `--brand-hue-reference`. A deployment whose stylesheet sets
+ * `--primary-chroma: 0` gets only that status drift, with the brand still
+ * grey.
  *
  * That is not a defect in this module, it is the contract the theme files
  * already state: "`--hue` must stay the OKLCH hue of that ramp". An accent is a

@@ -750,7 +750,7 @@ const SCENARIOS = [
         },
       },
 
-      { lane: 'surface', col: 5, content: 'Findings listed in the agent chat\nCited cells boxed on the canvas' },
+      { lane: 'surface', col: 5, content: 'Findings listed in the agent chat\nThe agent can box cited cells on request' },
       {
         lane: 'surface', col: 6,
         content: 'Triage by asking the agent: dismiss, resolve or reopen',

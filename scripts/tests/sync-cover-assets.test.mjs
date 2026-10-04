@@ -119,6 +119,19 @@ describe('dark files', () => {
     expect(pairs).toEqual(expect.arrayContaining(['when-to-use.svg', 'why-now.svg']))
   })
 
+  it('exist for the six method figures', () => {
+    expect(pairs).toEqual(
+      expect.arrayContaining([
+        'blueprint-anatomy.svg',
+        'cell-anatomy.svg',
+        'data-model-hierarchy.svg',
+        'skill-architecture.svg',
+        'slice-concept.svg',
+        'slicing-model.svg',
+      ]),
+    )
+  })
+
   it('differ from their light file only in the palette', () => {
     // The dark file is the light file with its `<style>` block swapped, so a
     // change to the drawing is made in both or this fails.

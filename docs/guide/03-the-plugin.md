@@ -54,7 +54,10 @@ traces to a cited cell.
 
 ## 2. The skills and the agents
 
-![The skill set and agent fleet](../assets/skill-architecture.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/skill-architecture.dark.svg">
+  <img src="../assets/skill-architecture.svg" alt="The skill set and agent fleet — four skills against the shared references each links and the fresh-context agents each hands its reading to">
+</picture>
 
 Each skill carries its own `references/` and, where it needs them,
 `scripts/`. It links only the shared references its task needs rather than

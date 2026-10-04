@@ -331,6 +331,32 @@ test('a folder beside the initialiser is kept', async () => {
   assert.deepEqual(readdirSync(join(cwd, 'my-blueprint/packages')), ['other'])
 })
 
+// The template ships the skills a second time under `.agents/skills/`, where
+// other coding agents look for them. A copy that walked the tree the way a
+// shell glob does would drop that folder without a word.
+test('a folder whose name starts with a dot arrives whole', async () => {
+  const skill = '---\nname: map\n---\n\n# Map\n'
+  const { code } = await create(['my-blueprint'], {
+    entries: [
+      ...TEMPLATE,
+      { path: '.agents/', type: '5' },
+      { path: '.agents/skills/', type: '5' },
+      { path: '.agents/skills/map/', type: '5' },
+      { path: '.agents/skills/map/SKILL.md', data: skill },
+      { path: '.gitignore', data: '.env\n' },
+    ],
+  })
+
+  assert.equal(code, 0)
+  assert.equal(readFileSync(join(cwd, 'my-blueprint/.agents/skills/map/SKILL.md'), 'utf8'), skill)
+  assert.deepEqual(readdirSync(join(cwd, 'my-blueprint/.agents'), { recursive: true }).map(String).sort(), [
+    'skills',
+    join('skills', 'map'),
+    join('skills', 'map', 'SKILL.md'),
+  ])
+  assert.equal(readFileSync(join(cwd, 'my-blueprint/.gitignore'), 'utf8'), '.env\n')
+})
+
 test.skipIf(process.platform === 'win32')('a file that was executable stays executable', async () => {
   await create(['my-blueprint'])
 

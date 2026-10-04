@@ -16,10 +16,8 @@
     .trace-head { fill: #3ecfb0; }
     .skel { fill: #ebf0ee; fill-opacity: 0.22; }
     .skel-teal { fill: #3ecfb0; }
-    .cell { stroke: #ebf0ee; stroke-opacity: 0.09; }
-    .cell-dash { fill: none; stroke: #ebf0ee; stroke-opacity: 0.34; stroke-dasharray: 3 3; }
-    .cell-focus { stroke: #3ecfb0; stroke-opacity: 1; stroke-width: 1.5; }
-    .cell-focus-dash { stroke: #3ecfb0; stroke-opacity: 1; stroke-width: 1.5; stroke-dasharray: 3 3; }
+    .cell, .cell-dash { fill: none; stroke-width: 1.25; }
+    .cell-dash { stroke-dasharray: 3 3; }
     .cell-stale { fill: #33260f; stroke: #fbbf6a; stroke-width: 1.25; }
     .skel-stale { fill: #fbbf6a; fill-opacity: 0.55; }
     .flag { fill: #3ecfb0; stroke: #181d1b; stroke-width: 2; }
@@ -30,10 +28,13 @@
     .raised { fill: #181d1b; stroke: #ebf0ee; stroke-opacity: 0.17; }
     .term { fill: #232a28; stroke: #ebf0ee; stroke-opacity: 0.17; }
     .term-key { font-family: 'Ubuntu Sans Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; font-weight: 500; fill: #7fe3cc; }
-    .lane-c { fill: #16302a; } .sq-c { fill: #235043; }
-    .lane-f { fill: #35290f; } .sq-f { fill: #5a451c; }
-    .lane-b { fill: #371b27; } .sq-b { fill: #5a2d40; }
-    .lane-s { fill: #24223d; } .sq-s { fill: #3b3866; }
+    .lane-c { stroke: #4cc38a; } .sq-c { fill: #4cc38a; }
+    .lane-f { stroke: #f65cb6; } .sq-f { fill: #f65cb6; }
+    .lane-b { stroke: #ff8b3e; } .sq-b { fill: #ff8b3e; }
+    .lane-s { stroke: #f1a10d; } .sq-s { fill: #f1a10d; }
+    .cell-focus, .cell-focus-dash { fill: none; stroke: #3ecfb0; stroke-width: 2; }
+    .cell-focus-dash { stroke-dasharray: 3 3; }
+    .halo { fill: none; stroke: #3ecfb0; stroke-opacity: 0.28; stroke-width: 3; }
   </style>
   <defs>
     <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">

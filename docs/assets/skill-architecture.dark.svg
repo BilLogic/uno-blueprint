@@ -9,6 +9,8 @@
     .label { font-size: 14.5px; fill: #a6acaa; }
     .label-teal { font-size: 14.5px; font-weight: 600; fill: #3ecfb0; }
     .strong { font-size: 14.5px; font-weight: 600; fill: #ebf0ee; }
+    .code { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 14.5px; fill: #a6acaa; }
+    .code-strong { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 14.5px; font-weight: 600; fill: #ebf0ee; }
     .num { font-size: 14.5px; font-weight: 600; fill: #0f1412; }
     .axis { stroke: #ebf0ee; stroke-opacity: 0.09; }
     .line { stroke: #a6acaa; stroke-width: 1.25; }
@@ -47,13 +49,13 @@
   <rect width="880" height="670" rx="16" fill="url(#grid)" mask="url(#fadeMask)"/>
   <rect class="card" x="24.5" y="24.5" width="831" height="621" rx="16"/>
   <rect class="well" x="366.5" y="44.5" width="99" height="31" rx="8"/>
-  <text class="strong" x="416" y="65" text-anchor="middle">ub:map</text>
+  <text class="code-strong" x="416" y="65" text-anchor="middle">ub:map</text>
   <rect class="well" x="486.5" y="44.5" width="99" height="31" rx="8"/>
-  <text class="strong" x="536" y="65" text-anchor="middle">ub:slice</text>
+  <text class="code-strong" x="536" y="65" text-anchor="middle">ub:slice</text>
   <rect class="well" x="606.5" y="44.5" width="99" height="31" rx="8"/>
-  <text class="strong" x="656" y="65" text-anchor="middle">ub:audit</text>
+  <text class="code-strong" x="656" y="65" text-anchor="middle">ub:audit</text>
   <rect class="well" x="726.5" y="44.5" width="99" height="31" rx="8"/>
-  <text class="strong" x="776" y="65" text-anchor="middle">ub:whatif</text>
+  <text class="code-strong" x="776" y="65" text-anchor="middle">ub:whatif</text>
   <text class="strong" x="48" y="116">Its own references</text>
   <circle class="tick" cx="416" cy="111" r="5"/>
   <circle class="tick" cx="536" cy="111" r="5"/>
@@ -61,42 +63,42 @@
   <circle class="tick" cx="776" cy="111" r="5"/>
   <line class="axis" x1="48" y1="138.5" x2="832" y2="138.5"/>
   <text class="strong" x="48" y="170">Shared references it links</text>
-  <text class="label" x="72" y="204">adapter-contract.md</text>
+  <text class="code" x="72" y="204">adapter-contract.md</text>
   <circle class="hit" cx="416" cy="199" r="5"/>
   <circle class="hit" cx="536" cy="199" r="5"/>
   <circle class="hit" cx="656" cy="199" r="5"/>
   <circle class="hit" cx="776" cy="199" r="5"/>
-  <text class="label" x="72" y="232">audit-playbook.md</text>
+  <text class="code" x="72" y="232">audit-playbook.md</text>
   <circle class="miss" cx="416" cy="227" r="2.5"/>
   <circle class="miss" cx="536" cy="227" r="2.5"/>
   <circle class="hit" cx="656" cy="227" r="5"/>
   <circle class="hit" cx="776" cy="227" r="5"/>
-  <text class="label" x="72" y="260">canvas-adapter.md</text>
+  <text class="code" x="72" y="260">canvas-adapter.md</text>
   <circle class="miss" cx="416" cy="255" r="2.5"/>
   <circle class="miss" cx="536" cy="255" r="2.5"/>
   <circle class="hit" cx="656" cy="255" r="5"/>
   <circle class="hit" cx="776" cy="255" r="5"/>
-  <text class="label" x="72" y="288">customization.md</text>
+  <text class="code" x="72" y="288">customization.md</text>
   <circle class="hit" cx="416" cy="283" r="5"/>
   <circle class="hit" cx="536" cy="283" r="5"/>
   <circle class="hit" cx="656" cy="283" r="5"/>
   <circle class="hit" cx="776" cy="283" r="5"/>
-  <text class="label" x="72" y="316">data-model.md</text>
+  <text class="code" x="72" y="316">data-model.md</text>
   <circle class="hit" cx="416" cy="311" r="5"/>
   <circle class="hit" cx="536" cy="311" r="5"/>
   <circle class="hit" cx="656" cy="311" r="5"/>
   <circle class="hit" cx="776" cy="311" r="5"/>
-  <text class="label" x="72" y="344">ir-schema.json</text>
+  <text class="code" x="72" y="344">ir-schema.json</text>
   <circle class="hit" cx="416" cy="339" r="5"/>
   <circle class="miss" cx="536" cy="339" r="2.5"/>
   <circle class="miss" cx="656" cy="339" r="2.5"/>
   <circle class="miss" cx="776" cy="339" r="2.5"/>
-  <text class="label" x="72" y="372">lane-roles.md</text>
+  <text class="code" x="72" y="372">lane-roles.md</text>
   <circle class="hit" cx="416" cy="367" r="5"/>
   <circle class="miss" cx="536" cy="367" r="2.5"/>
   <circle class="miss" cx="656" cy="367" r="2.5"/>
   <circle class="miss" cx="776" cy="367" r="2.5"/>
-  <text class="label" x="72" y="400">lane-vocabulary.md</text>
+  <text class="code" x="72" y="400">lane-vocabulary.md</text>
   <circle class="hit" cx="416" cy="395" r="5"/>
   <circle class="hit" cx="536" cy="395" r="5"/>
   <circle class="hit" cx="656" cy="395" r="5"/>
@@ -104,27 +106,27 @@
   <line class="axis" x1="48" y1="422.5" x2="832" y2="422.5"/>
   <text class="strong" x="48" y="454">Agents it hands reading to</text>
   <text class="label" x="48" y="476">Fresh context, a summary back</text>
-  <text class="label" x="72" y="510">document-reader</text>
+  <text class="code" x="72" y="510">document-reader</text>
   <circle class="hit" cx="416" cy="505" r="5"/>
-  <circle class="miss" cx="536" cy="505" r="2.5"/>
+  <circle class="hit" cx="536" cy="505" r="5"/>
   <circle class="miss" cx="656" cy="505" r="2.5"/>
   <circle class="miss" cx="776" cy="505" r="2.5"/>
-  <text class="label" x="72" y="538">blueprint-reviewer</text>
+  <text class="code" x="72" y="538">blueprint-reviewer</text>
   <circle class="hit" cx="416" cy="533" r="5"/>
   <circle class="hit" cx="536" cy="533" r="5"/>
   <circle class="miss" cx="656" cy="533" r="2.5"/>
   <circle class="hit" cx="776" cy="533" r="5"/>
-  <text class="label" x="72" y="566">render-checker</text>
+  <text class="code" x="72" y="566">render-checker</text>
   <circle class="hit" cx="416" cy="561" r="5"/>
   <circle class="hit" cx="536" cy="561" r="5"/>
   <circle class="miss" cx="656" cy="561" r="2.5"/>
   <circle class="miss" cx="776" cy="561" r="2.5"/>
-  <text class="label" x="72" y="594">auditor</text>
+  <text class="code" x="72" y="594">auditor</text>
   <circle class="miss" cx="416" cy="589" r="2.5"/>
   <circle class="miss" cx="536" cy="589" r="2.5"/>
   <circle class="hit" cx="656" cy="589" r="5"/>
   <circle class="miss" cx="776" cy="589" r="2.5"/>
-  <text class="label" x="72" y="622">impact-tracer</text>
+  <text class="code" x="72" y="622">impact-tracer</text>
   <circle class="miss" cx="416" cy="617" r="2.5"/>
   <circle class="miss" cx="536" cy="617" r="2.5"/>
   <circle class="hit" cx="656" cy="617" r="5"/>

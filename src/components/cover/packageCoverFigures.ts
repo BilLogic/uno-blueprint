@@ -80,7 +80,7 @@ export const packageCoverFigures = {
   cellAnatomy: {
     src: cellAnatomy,
     srcDark: cellAnatomyDark,
-    alt: 'One cell on the board opened into its record — where it sits and its lane, what it does, owner and perceived owner, function, form and value proposition, then its evidence, resources, dependencies and the slices that quote it',
+    alt: 'One cell on the board opened into its record — where it sits and its lane, what it does, owner and perceived owner, function, form and value proposition, then its evidence, resources, dependencies and the slices that cite it',
     width: 880,
     height: 580,
   },
@@ -131,14 +131,14 @@ export const packageCoverFigures = {
   sliceConcept: {
     src: sliceConcept,
     srcDark: sliceConceptDark,
-    alt: 'A slice quoting cells — numbered cells stay where they are on the path, and four ordered slides point at them',
+    alt: 'A slice citing cells — numbered cells stay where they are on the path, and four ordered slides point at them',
     width: 880,
     height: 312,
   },
   slicingModel: {
     src: slicingModel,
     srcDark: slicingModelDark,
-    alt: 'The five slice types as shapes cut from one grid — journey, one actor end to end; step, every lane at one moment; lane, one actor at every step; cell, one cell in full; custom, whatever the question needs',
+    alt: 'The five slice types as shapes cut from one grid — journey, one actor and what they touch; step, every lane at one moment; lane, one row at every step; cell, one cell in full; custom, whatever the question needs',
     width: 880,
     height: 260,
   },

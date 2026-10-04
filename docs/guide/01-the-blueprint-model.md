@@ -61,7 +61,7 @@ lanes they separate.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/cell-anatomy.dark.svg">
-  <img src="../assets/cell-anatomy.svg" alt="One cell on the board opened into its record — placement, content, owner and perceived owner, function, form and value proposition, evidence, resources, dependencies and the slices that quote it">
+  <img src="../assets/cell-anatomy.svg" alt="One cell on the board opened into its record — placement, content, owner and perceived owner, function, form and value proposition, evidence, resources, dependencies and the slices that cite it">
 </picture>
 
 A cell is what one actor does at one step. Beyond its content it carries:

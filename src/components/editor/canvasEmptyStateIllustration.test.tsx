@@ -46,7 +46,59 @@ describe('MiniBlueprintIllustration', () => {
     for (const lane of lanes) {
       const square = lane.querySelector('[data-mini-blueprint-lane-square]')
       expect(square).not.toBeNull()
-      expect(square!.className).toContain('var(--background-blueprint-cell')
+      // The swatch is the lane's line colour, the same step the cells are
+      // outlined in, so a row reads as one colour from square to last cell.
+      expect(square!.className).toContain('var(--ring-blueprint-cell)')
+    }
+  })
+
+  it('draws present cells as lane-coloured outlines, not lane-tinted fills', () => {
+    // The board's own ring token, so the picture follows the theme and a
+    // deployment's lane palette exactly as the cells it stands for do.
+    render(<MiniBlueprintIllustration size="lg" />)
+    const solid = [
+      ...document.querySelectorAll<HTMLElement>(
+        '[data-mini-blueprint-cell="solid"]',
+      ),
+    ]
+    expect(solid.length).toBeGreaterThan(0)
+    for (const cell of solid) {
+      expect(cell.className).toContain('border-[color:var(--ring-blueprint-cell)]')
+      expect(cell.className).toContain('bg-transparent')
+      expect(cell.className).not.toMatch(/bg-\[color:var\(--background-blueprint-cell/)
+      expect(cell.className).not.toMatch(/\bborder-border\b/)
+    }
+  })
+
+  it('draws gaps as dashed outlines in the lane colour, at the cell weight', () => {
+    // A gap is a cell missing from this lane, so it dashes in the lane's
+    // line colour, as a missing cell does on the cover figures.
+    render(<MiniBlueprintIllustration size="lg" />)
+    const gaps = [
+      ...document.querySelectorAll<HTMLElement>(
+        '[data-mini-blueprint-cell="gap"]',
+      ),
+    ]
+    expect(gaps.length).toBeGreaterThan(0)
+    for (const gap of gaps) {
+      expect(gap.className).toContain('border-dashed')
+      expect(gap.className).toContain('border-[color:var(--ring-blueprint-cell)]')
+      expect(gap.className).not.toMatch(/\bborder-strong\b/)
+      expect(gap.className).toMatch(/(^|\s)border(\s|$)/)
+    }
+  })
+
+  it('draws skeleton bars in translucent ink, not a lane fill', () => {
+    // With no cell fill behind it, a lane-coloured bar sits on the page at
+    // under 2:1; translucent ink is what the figures' bars are.
+    render(<MiniBlueprintIllustration size="lg" />)
+    const bars = [
+      ...document.querySelectorAll<HTMLElement>('[data-mini-blueprint-bar]'),
+    ]
+    expect(bars.length).toBeGreaterThan(0)
+    for (const bar of bars) {
+      expect(bar.className).toContain('bg-foreground/15')
+      expect(bar.className).not.toContain('--background-blueprint-cell')
     }
   })
 

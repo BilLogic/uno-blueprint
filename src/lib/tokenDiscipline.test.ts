@@ -703,12 +703,12 @@ test('layout-token pixel exports sit on the 4px grid', async () => {
 /**
  * Radius by kind. Controls sit on md; containment (cells, popovers, small
  * tiles, canvas corner chrome, boxes inline in a surface) on lg; surfaces —
- * cards, panels, dialogs, sheets and plates — on xl, never a small tile; rounded-full stays; sm is for kbd,
- * inline code, marks under 12px and a corner nested one padding step inside
- * a control. The composition overview carries the ladder.
- * A file listed here may not pick up another rung. The list covers every
- * primitive, editor and blueprint file that carries more than one rung or
- * sits on a rung the kind table reserves.
+ * cards, panels, dialogs, sheets and plates — on xl, never a small tile;
+ * rounded-full stays; sm is for kbd, inline code, marks under 12px and a
+ * corner nested one padding step inside a control. The composition overview
+ * carries the ladder. A file listed here may not pick up another rung. The
+ * list covers every primitive, editor and blueprint file that carries more
+ * than one rung or sits on a rung the kind table reserves.
  */
 const RADIUS_KIND_ALLOWLIST: Record<string, readonly string[]> = {
   'components/ui/button.tsx': ['md', 'none', 'full'],

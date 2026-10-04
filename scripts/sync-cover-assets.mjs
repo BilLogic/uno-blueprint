@@ -28,7 +28,7 @@
  * (the optional dirs exist for the test harness; defaults are the real ones)
  */
 import { copyFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { basename, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /** Every SVG served under `/cover/`, by basename. A test holds this list to
@@ -58,6 +58,15 @@ export const COVER_ASSET_MANIFEST = [
  */
 export function darkVariantName(name) {
   return name.replace(/\.svg$/, '.dark.svg')
+}
+
+/**
+ * The file a figure's `src` names, as it sits in `docs/assets/`: the last
+ * path segment with any query dropped. A dev server appends `?import`, and a
+ * build hashes the URL; only the basename is the authored file's.
+ */
+export function figureFileName(src) {
+  return basename(src.split('?')[0])
 }
 
 /**

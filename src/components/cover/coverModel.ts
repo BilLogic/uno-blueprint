@@ -216,8 +216,8 @@ export type CoverContent = {
  */
 export function coverFigures(
   content: CoverContent,
-): Array<{ src: string; srcDark?: string; alt: string }> {
-  const images: Array<{ src: string; srcDark?: string; alt: string }> = []
+): Array<Pick<CoverFigure, 'src' | 'srcDark' | 'alt'>> {
+  const images: Array<Pick<CoverFigure, 'src' | 'srcDark' | 'alt'>> = []
   for (const tab of content.tabs) {
     for (const section of coverTabSections(tab)) {
       if ('figure' in section && section.figure) images.push(section.figure)

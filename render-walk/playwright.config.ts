@@ -21,7 +21,7 @@ import { defineConfig, devices } from '@playwright/test'
  *
  * `render-walk/` is a published path (`docs/adr/0004-reference-paths-are-a-
  * published-interface.md`, and `CONSUMER_IMPORTS` in
- * `scripts/check-reference-paths.mjs` lists all seven of its files). A
+ * `scripts/check-reference-paths.mjs` lists all nine of its files). A
  * deployment that installs this package enrols by running `run.mjs` beside
  * this file, from its own root:
  *

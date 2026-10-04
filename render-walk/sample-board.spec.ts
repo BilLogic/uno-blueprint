@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
+import { test } from './remote-images'
 import { VIEW_SCREENSHOT_DIR } from './playwright.config'
 
 /**
@@ -328,6 +329,7 @@ async function expectBoardRendered(page: Page, view: View): Promise<void> {
 test.describe('the bundled sample board', () => {
   test('renders every phase, scenario, path and layout without a console error', async ({
     page,
+    remoteRequests,
   }) => {
     mkdirSync(VIEW_SCREENSHOT_DIR, { recursive: true })
 
@@ -450,5 +452,9 @@ test.describe('the bundled sample board', () => {
         `${phases.reduce((total, phase) => total + phase.scenarios.length, 0)} scenarios; ` +
         `screenshots in ${VIEW_SCREENSHOT_DIR}`,
     )
+    // And what it did not fetch: every image bound for another origin was
+    // answered in the runner, so a board exported from a live one spends none
+    // of its bucket's egress — see `remote-images.ts`.
+    console.log(remoteRequests.summary())
   })
 })

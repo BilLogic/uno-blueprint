@@ -37,8 +37,9 @@ test('the list is eighteen references, four skill bodies, the render walk and th
   // The runner a deployment names on the command line, the config it stages
   // and hands to Playwright, and the specs that travel beside it — the view
   // walk, the annotation-drag case, the phone cover walk, the phone
-  // agent-jump case, and the served-from-a-path case.
-  assert.equal(renderWalk.length, 7)
+  // agent-jump case, and the served-from-a-path case — plus the remote-image
+  // route every spec takes its `test` from, and the case that watches it.
+  assert.equal(renderWalk.length, 9)
   assert.equal(composition.length, 10)
   assert.equal(
     CONSUMER_IMPORTS.length - skills.length - renderWalk.length - composition.length,

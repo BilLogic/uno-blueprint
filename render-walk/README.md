@@ -138,6 +138,40 @@ of the walk also catches a stored image path that lost the prefix: the request
 A deployment served from a path enrols the same way. It runs the walk with its
 own `BASE_PATH` set, over a build made with it.
 
+## No image from a live bucket
+
+A walk that runs on every push must not spend a deployment's storage egress.
+A no-database build draws a board exported from the live one, and that
+board's attachment and frame image URLs still point at the bucket they were
+uploaded to, so a walk that fetched them would download every one of them from
+the deployment's storage on every run. Measured on one deployment, that was
+about 13,000 image requests a day from CI runners against about 250 from
+people reading the board, enough on a free plan to use up the storage egress
+quota. The walk asserts that a board renders without a console error; it
+asserts nothing about the pixels of an attachment.
+
+So every spec takes its `test` from `remote-images.ts`, which routes the
+browser context before the first navigation:
+
+- **An image bound for another origin** is answered in the runner with a 1×1
+  PNG built into that file. It is answered rather than aborted, because a
+  failed image load is a console error and the walk counts those.
+- **Anything else bound for another origin** goes through untouched, and its
+  host is recorded.
+- **The served origin** is never touched, so the app's own assets load as
+  themselves.
+
+The view walk ends by printing how many image requests it answered locally
+and any other cross-origin hosts it saw, so a new outside dependency shows up
+in the log. `remote-images.spec.ts` puts remote images on the served page
+itself and asserts they arrive as the placeholder with no request reaching the
+network, beside an icon of the app's own that loads as itself. That proves the
+route works even when a board has no remote image, like this repository's
+sample board. `scripts/tests/the-walk-draws-no-remote-image.test.mjs` holds
+the decision, the placeholder's bytes, and the rule that every spec imports
+`test` from `remote-images.ts` rather than from `@playwright/test`. A spec
+added later follows that rule.
+
 ## What it catches, and what it does not
 
 It catches an error in the console, a page that threw, an error boundary, and a

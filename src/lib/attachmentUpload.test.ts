@@ -52,7 +52,7 @@ describe('uploadAttachment', () => {
     expect(upload).toHaveBeenCalledWith(
       `cells/${CELL}/${OBJECT}.png`,
       file,
-      { contentType: 'image/png', upsert: false },
+      { contentType: 'image/png', upsert: false, cacheControl: '31536000' },
     )
     expect(row).toEqual({
       kind: 'attachment',

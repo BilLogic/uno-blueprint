@@ -190,7 +190,8 @@ export function SlideImagesField({
       const path = illustrationPath(sliceId, itemId, file.type)
       const upload = await client.storage
         .from(ILLUSTRATION_BUCKET)
-        .upload(path, file, { upsert: false, contentType: file.type })
+        // A year: the path is unique per upload and never overwritten.
+        .upload(path, file, { upsert: false, contentType: file.type, cacheControl: '31536000' })
       if (upload.error) throw new Error(upload.error.message)
 
       const {

@@ -75,9 +75,26 @@ export function invalidateQueries(prefix: string): void {
   })
 }
 
-/** Every cache a structural write can change — see `STRUCTURE_KEYS`. */
+/** How long `invalidateStructure` waits for the burst it belongs to to end. */
+export const STRUCTURE_DEBOUNCE_MS = 250
+
+let structureTimer: ReturnType<typeof setTimeout> | undefined
+
+/**
+ * Every cache a structural write can change — see `STRUCTURE_KEYS`.
+ *
+ * Trailing-debounced: an agent turn of N writes would otherwise refetch
+ * every open scenario N times, each invalidation cancelling the last one's
+ * refetch mid-flight. A burst sweeps once, a quarter second after its last
+ * write. Nothing reads the cache imperatively after a write, so the delay
+ * only postpones what the mounted views show.
+ */
 export function invalidateStructure(): void {
-  for (const prefix of STRUCTURE_KEYS) invalidateQueries(prefix)
+  clearTimeout(structureTimer)
+  structureTimer = setTimeout(() => {
+    structureTimer = undefined
+    for (const prefix of STRUCTURE_KEYS) invalidateQueries(prefix)
+  }, STRUCTURE_DEBOUNCE_MS)
 }
 
 /** The rows one canvas query caches: paths with their cells. */

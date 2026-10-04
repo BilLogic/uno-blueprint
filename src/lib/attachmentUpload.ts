@@ -63,6 +63,8 @@ export async function uploadAttachment(
   const { error } = await bucket.upload(objectKey, input.file, {
     contentType: input.file.type || undefined,
     upsert: false,
+    // A year: the key is minted per upload and never overwritten.
+    cacheControl: '31536000',
   })
   if (error) throw new Error(`The file could not be uploaded: ${error.message}`)
   const { data } = bucket.getPublicUrl(objectKey)

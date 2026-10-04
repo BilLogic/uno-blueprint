@@ -13,36 +13,78 @@ import { strippedSourcesOn, surfaceOf } from '@/lib/sourceTree'
  * The case lives in the STRING. An acronym stays as typed because nothing
  * rewrites it; a label that wants a capital has one in its source. So the rule
  * is enforceable as an absence: no product file may ask CSS to transform case
- * or to open the tracking out.
+ * or to open the tracking out. "Product" is the authored components, the dev
+ * pages, the class-string constants in `lib/`, `contexts/` and the app root.
  *
  * The vendored tree under `components/ui` belongs to the component CLI and is
  * never edited by hand. Where a primitive capitalises — the command group heading
- * does — the wrapper that renders it restates the label rule; the second test
+ * does — the wrapper that renders it restates the label rule; a test below
  * holds that.
  */
 
+/** One rule: a name for the failure and a test of one line. */
+type Rule = { name: string; test: (line: string) => boolean }
+
+/** A tracking utility not itself negated (`-tracking-…` tightens). */
+const TRACKING = '(?:^|[^\\w-])tracking-'
+
+/** Is any captured number in `line` (by `pattern`, group 1) above zero? */
+const anyPositive = (pattern: RegExp) => (line: string) =>
+  [...line.matchAll(pattern)].some((match) => Number.parseFloat(match[1]) > 0)
+
 /** Utilities and inline styles that capitalise or letterspace a label. */
-const FORBIDDEN: readonly { name: string; pattern: RegExp }[] = [
-  { name: 'uppercase', pattern: /\buppercase\b/ },
-  { name: 'wide tracking', pattern: /\btracking-(?:wide|wider|widest)\b/ },
-  { name: 'arbitrary positive tracking', pattern: /\btracking-\[\d/ },
+const FORBIDDEN: readonly Rule[] = [
+  { name: 'uppercase', test: (line) => /\buppercase\b/.test(line) },
+  {
+    name: 'wide tracking',
+    test: (line) => new RegExp(`${TRACKING}(?:wide|wider|widest)\\b`).test(line),
+  },
+  {
+    name: 'arbitrary positive tracking',
+    test: anyPositive(new RegExp(`${TRACKING}\\[\\s*\\+?(\\d*\\.?\\d+)`, 'g')),
+  },
   {
     name: 'positive inline letter-spacing',
-    pattern: /letterSpacing\s*:\s*['"]?0?\.\d*[1-9]\d*(?:em|rem|px)/,
+    test: anyPositive(/letterSpacing\s*:\s*['"`]?\s*\+?(\d*\.?\d+)/g),
   },
 ]
 
 /** The same rule, in a stylesheet. */
-const FORBIDDEN_CSS: readonly { name: string; pattern: RegExp }[] = [
-  { name: 'text-transform: uppercase', pattern: /text-transform\s*:\s*uppercase/ },
-  { name: '@apply uppercase', pattern: /@apply[^;]*\buppercase\b/ },
-  { name: '@apply wide tracking', pattern: /@apply[^;]*\btracking-(?:wide|wider|widest)\b/ },
+const FORBIDDEN_CSS: readonly Rule[] = [
+  { name: 'text-transform: uppercase', test: (line) => /text-transform\s*:\s*uppercase/.test(line) },
+  { name: '@apply uppercase', test: (line) => /@apply[^;]*\buppercase\b/.test(line) },
+  {
+    name: '@apply wide tracking',
+    test: (line) => /@apply[^;]*(?:^|[^\w-])tracking-(?:wide|wider|widest)\b/.test(line),
+  },
+  {
+    name: 'positive letter-spacing',
+    test: anyPositive(/letter-spacing\s*:\s*\+?(\d*\.?\d+)/g),
+  },
 ]
 
-/** Product source: authored components and the dev pages, never `ui/`. */
+/**
+ * Files that name a casing utility as DATA rather than apply it.
+ *
+ * The class-list reader keeps a table of unhyphenated utilities so it can
+ * recognise them; `uppercase` is one entry in that table, not a label.
+ */
+const NAMES_UTILITIES_AS_DATA = new Set(['lib/classList.ts'])
+
+/**
+ * Product source: authored components, the dev pages, the class-string
+ * constants and context providers under `lib/` and `contexts/`, and the app
+ * root — never the vendored `ui/` tree, never a test.
+ */
 const productSources = () =>
-  [...strippedSourcesOn('components'), ...strippedSourcesOn('dev')].filter(
-    ({ file }) => surfaceOf(file) !== 'ui',
+  strippedSourcesOn('app').filter(
+    ({ file }) =>
+      !NAMES_UTILITIES_AS_DATA.has(file) &&
+      surfaceOf(file) !== 'ui' &&
+      (file === 'App.tsx' ||
+        ['components/', 'dev/', 'lib/', 'contexts/'].some((prefix) =>
+          file.startsWith(prefix),
+        )),
   )
 
 /** Every stylesheet under `src/styles`, comments blanked. */
@@ -63,20 +105,44 @@ function stylesheets(): { file: string; code: string }[] {
 }
 
 /** `file:line: rule` for every line of `code` a rule matches. */
-function offendersIn(
-  file: string,
-  code: string,
-  rules: readonly { name: string; pattern: RegExp }[],
-): string[] {
+function offendersIn(file: string, code: string, rules: readonly Rule[]): string[] {
   return code.split('\n').flatMap((line, index) =>
     rules
-      .filter(({ pattern }) => pattern.test(line))
+      .filter(({ test }) => test(line))
       .map(({ name }) => `${file}:${index + 1}: ${name} — ${line.trim().slice(0, 100)}`),
   )
 }
 
+/**
+ * Each `<CommandGroup … heading=…>` element in `code` whose own className
+ * does not restate the label rule over the primitive's capitals.
+ *
+ * Per element, not per file: one wrapped group does not excuse its sibling.
+ * A `className={NAME}` resolves against a string constant in the same file.
+ */
+function unwrappedCommandGroups(code: string): string[] {
+  const constants = new Map(
+    [...code.matchAll(/const\s+(\w+)\s*(?::[^=]+)?=\s*['"`]([^'"`]*)['"`]/g)].map(
+      (match) => [match[1], match[2]] as const,
+    ),
+  )
+  return [...code.matchAll(/<CommandGroup\b([^>]*)>/g)]
+    .filter((match) => /\bheading=/.test(match[1]))
+    .filter((match) => {
+      const attrs = match[1]
+      const literal = /className=\s*["'`{]\s*['"`]?([^"'`}]*)/.exec(attrs)
+      const named = /className=\{\s*(\w+)\s*\}/.exec(attrs)
+      const classes = named ? (constants.get(named[1]) ?? '') : (literal?.[1] ?? '')
+      return !(
+        /\[\[cmdk-group-heading\]\]:normal-case\b/.test(classes) &&
+        /\[\[cmdk-group-heading\]\]:tracking-normal\b/.test(classes)
+      )
+    })
+    .map((match) => match[0].replace(/\s+/g, ' ').slice(0, 100))
+}
+
 describe('small labels are sentence case', () => {
-  it('no product component capitalises or letterspaces a label', () => {
+  it('no product source capitalises or letterspaces a label', () => {
     const offenders = productSources().flatMap(({ file, code }) =>
       offendersIn(file, code, FORBIDDEN),
     )
@@ -93,34 +159,71 @@ describe('small labels are sentence case', () => {
     expect(offenders, offenders.join('\n')).toEqual([])
   })
 
-  it('a wrapper restates the rule over a primitive that capitalises', () => {
+  it('a wrapper restates the rule over each primitive that capitalises', () => {
     // `CommandGroup` sets its heading in mono capitals with wide tracking.
-    const offenders = productSources()
-      .filter(({ code }) => /<CommandGroup\b[^>]*\bheading=/.test(code))
-      .filter(
-        ({ code }) =>
-          !/\[\[cmdk-group-heading\]\]:normal-case/.test(code) ||
-          !/\[\[cmdk-group-heading\]\]:tracking-normal/.test(code),
-      )
-      .map(({ file }) => file)
+    const offenders = productSources().flatMap(({ file, code }) =>
+      unwrappedCommandGroups(code).map((element) => `${file}: ${element}`),
+    )
     expect(
       offenders,
-      `A CommandGroup heading here must restate normal-case and tracking-normal:\n${offenders.join('\n')}`,
+      `Each CommandGroup heading must restate normal-case and tracking-normal:\n${offenders.join('\n')}`,
     ).toEqual([])
   })
 
   it('reads a forced-case label when there is one, so the guard is not vacuous', () => {
-    const flagged = (line: string) =>
-      FORBIDDEN.some(({ pattern }) => pattern.test(line))
+    const flagged = (line: string) => FORBIDDEN.some(({ test }) => test(line))
     expect(flagged(`className="text-xs font-medium tracking-wide uppercase"`)).toBe(true)
     expect(flagged(`cn('font-mono', 'tracking-wider')`)).toBe(true)
-    expect(flagged(`className="tracking-[0.2em]"`)).toBe(true)
     expect(flagged(`style={{ textTransform: 'uppercase' }}`)).toBe(true)
-    expect(flagged(`style={{ letterSpacing: '0.04em' }}`)).toBe(true)
     expect(flagged(`className="text-xs font-medium text-muted-foreground"`)).toBe(false)
     expect(flagged(`className="tracking-tight tracking-normal normal-case"`)).toBe(false)
+  })
+
+  it('flags positive arbitrary tracking only', () => {
+    const flagged = (line: string) => FORBIDDEN.some(({ test }) => test(line))
+    expect(flagged(`className="tracking-[0.2em]"`)).toBe(true)
+    expect(flagged(`className="tracking-[.1em]"`)).toBe(true)
+    expect(flagged(`className="md:tracking-[1px]"`)).toBe(true)
+    expect(flagged(`className="tracking-[0em]"`)).toBe(false)
+    expect(flagged(`className="-tracking-[0.02em]"`)).toBe(false)
+    expect(flagged(`className="tracking-[-0.02em]"`)).toBe(false)
+  })
+
+  it('flags any positive inline letter-spacing', () => {
+    const flagged = (line: string) => FORBIDDEN.some(({ test }) => test(line))
+    expect(flagged(`style={{ letterSpacing: '0.04em' }}`)).toBe(true)
+    expect(flagged(`style={{ letterSpacing: '1px' }}`)).toBe(true)
+    expect(flagged(`style={{ letterSpacing: '2px' }}`)).toBe(true)
+    expect(flagged(`style={{ letterSpacing: 2 }}`)).toBe(true)
+    expect(flagged(`style={{ letterSpacing: '.1rem' }}`)).toBe(true)
+    expect(flagged(`style={{ letterSpacing: 0 }}`)).toBe(false)
+    expect(flagged(`style={{ letterSpacing: '0em' }}`)).toBe(false)
+    expect(flagged(`style={{ letterSpacing: '-0.01em' }}`)).toBe(false)
+  })
+
+  it('reads a forced-case stylesheet rule', () => {
+    const flagged = (line: string) => FORBIDDEN_CSS.some(({ test }) => test(line))
+    expect(flagged('  text-transform: uppercase;')).toBe(true)
+    expect(flagged('  letter-spacing: 0.05em;')).toBe(true)
+    expect(flagged('  letter-spacing: -0.01em;')).toBe(false)
+    expect(flagged('  letter-spacing: 0;')).toBe(false)
+  })
+
+  it('checks each CommandGroup, not the file', () => {
+    const wrapped = `const H = '**:[[cmdk-group-heading]]:normal-case **:[[cmdk-group-heading]]:tracking-normal'`
     expect(
-      FORBIDDEN_CSS.some(({ pattern }) => pattern.test('  text-transform: uppercase;')),
-    ).toBe(true)
+      unwrappedCommandGroups(`${wrapped}\n<CommandGroup className={H} heading="A">`),
+    ).toEqual([])
+    expect(
+      unwrappedCommandGroups(
+        `${wrapped}\n<CommandGroup className={H} heading="A">\n<CommandGroup heading="B">`,
+      ),
+    ).toHaveLength(1)
+    expect(
+      unwrappedCommandGroups(
+        `<CommandGroup className="**:[[cmdk-group-heading]]:normal-case" heading="C">`,
+      ),
+    ).toHaveLength(1)
+    expect(unwrappedCommandGroups(`<CommandGroup>`)).toEqual([])
   })
 })

@@ -8,6 +8,7 @@ import {
 } from '@/components/mobile/MobileNavSheet'
 import { MobileAgentSheet } from '@/components/mobile/MobileAgentSheet'
 import { MobileAgentFab } from '@/components/mobile/MobileAgentFab'
+import { usePhoneSettingsAsk } from '@/components/mobile/usePhoneSettingsAsk'
 import { MobilePathSelector } from '@/components/mobile/MobilePathSelector'
 import { MobileScenarioTransition } from '@/components/mobile/MobileScenarioTransition'
 import { CanvasModeProvider } from '@/components/editor/CanvasModeProvider'
@@ -39,10 +40,6 @@ import {
   makeMobileAgentBridge,
 } from '@/components/mobile/mobileAgentBridge'
 import { focusAgentComposer } from '@/lib/agent/composerFocus'
-import {
-  onAgentSettingsAsked,
-  setAgentSettingsOpen,
-} from '@/lib/agent/settings'
 import { describeSelection, selectionOf } from '@/lib/shellContext'
 import { getMainSlides, getSlideDisplayLabel, getSubslides } from '@/types/nav'
 import type { NavItem } from '@/types/nav'
@@ -249,55 +246,15 @@ export function MobileShell() {
     agentOpenRef.current = agentOpen
   }, [agentOpen])
 
-  /*
-    "Show the key settings" — the ask the agent's Add API key… makes without
-    knowing which layout is on screen. The desktop answers it with the rail's
-    ⚙ popover; the phone has no rail, and its key fields are the drawer's
-    Settings surface. So the drawer opens there, and the agent sheet steps
-    aside first: two modal sheets stacked would leave the drawer behind the
-    agent's scrim.
-
-    The phone treats the ask as an event and clears it at once — the drawer's
-    own open state is what stays up — so it never latches and a second tap
-    asks again. When the reader dismisses that drawer they go back to where
-    the ask came from: the agent sheet if it was up, and the surface the
-    drawer was last left on.
-  */
-  const returnFromSettings = useRef<{
-    agentOpen: boolean
-    surface: MobileNavSurface
-  } | null>(null)
-  const navSurfaceRef = useRef(navSurface)
-  useEffect(() => {
-    navSurfaceRef.current = navSurface
-  }, [navSurface])
-  useEffect(
-    () =>
-      onAgentSettingsAsked(() => {
-        setAgentSettingsOpen(false)
-        returnFromSettings.current ??= {
-          agentOpen: agentOpenRef.current,
-          surface: navSurfaceRef.current,
-        }
-        setAgentOpen(false)
-        setNavSurface('settings')
-        setNavOpen(true)
-      }),
-    [],
-  )
-  // Only a dismissal goes back. A drawer closed by navigating — a scenario
-  // or a slice picked from it — has taken the reader somewhere new.
-  const changeNavOpen = (next: boolean) => {
-    setNavOpen(next)
-    const back = returnFromSettings.current
-    if (next || !back) return
-    returnFromSettings.current = null
-    setNavSurface(back.surface)
-    if (back.agentOpen) setAgentOpen(true)
-  }
-  useEffect(() => {
-    if (!navOpen) returnFromSettings.current = null
-  }, [navOpen])
+  // Add API key… on a phone: the drawer's Settings surface answers it.
+  const changeNavOpen = usePhoneSettingsAsk({
+    navOpen,
+    setNavOpen,
+    navSurface,
+    setNavSurface,
+    agentOpen,
+    setAgentOpen,
+  })
   const watchCameraFlight = useMemo(
     () =>
       makeAgentCameraFlightWatcher({

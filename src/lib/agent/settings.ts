@@ -184,38 +184,56 @@ export function hasKey(settings: AgentSettings): boolean {
 }
 
 /**
- * "Show the key settings" as a callable, so the chat view's no-key hint can
- * ask without knowing which layout is mounted. The desktop rail's ⚙ popover
- * holds this flag as its open state; the phone shell, which has no rail,
- * answers by opening its drawer on Settings and clears the flag at once.
+ * "Show the key settings": one ask, two stores that each say one thing.
+ *
+ * The chat view's no-key hint asks without knowing which layout is mounted.
+ * A layout that answers with a surface of its own — the phone shell, whose
+ * key fields are its drawer's Settings surface — subscribes with
+ * `onAgentSettingsAsked`, and while one is subscribed the ask goes to it and
+ * to nothing else. Otherwise the ask opens the desktop rail's ⚙ popover,
+ * whose open state is `settingsOpenFlag` and nothing but that.
+ *
+ * An ask that no subscriber was there to hear is kept as pending until it is
+ * answered: either the popover it opened closes, or a subscriber arrives and
+ * takes it. That is what lets a phone shell mounting after the ask (a window
+ * narrowed with the popover up) still show the settings.
+ *
  * Lives here (not a component file) so fast refresh keeps working there.
  */
 let settingsOpenFlag = false
 const settingsOpenListeners = new Set<() => void>()
+const askListeners = new Set<() => void>()
+let askPending = false
 
 export function openAgentSettings(): void {
-  settingsOpenFlag = true
-  settingsOpenListeners.forEach((listener) => listener())
+  if (askListeners.size > 0) {
+    askListeners.forEach((listener) => listener())
+    return
+  }
+  askPending = true
+  setAgentSettingsOpen(true)
 }
 
+/** The desktop popover's open state. Closing it answers any pending ask. */
 export function setAgentSettingsOpen(next: boolean): void {
+  if (!next) askPending = false
   settingsOpenFlag = next
   settingsOpenListeners.forEach((listener) => listener())
 }
 
 /**
- * Call `handler` whenever the key settings are asked for — now, if they
- * already are, and on every later ask. For a layout that answers the ask
- * with a surface of its own rather than holding the flag as its open state.
+ * Answer every ask for the key settings with `handler`, from now on — and a
+ * pending one at once. While subscribed, an ask no longer opens the desktop
+ * popover.
  */
 export function onAgentSettingsAsked(handler: () => void): () => void {
-  const listener = () => {
-    if (settingsOpenFlag) handler()
+  askListeners.add(handler)
+  if (askPending) {
+    askPending = false
+    handler()
   }
-  settingsOpenListeners.add(listener)
-  listener()
   return () => {
-    settingsOpenListeners.delete(listener)
+    askListeners.delete(handler)
   }
 }
 

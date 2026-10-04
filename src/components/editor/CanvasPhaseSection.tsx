@@ -56,6 +56,12 @@ type CanvasPhaseSectionProps = {
   dimmed?: boolean
   /** When true, this phase is the camera focus target — no hover chrome. */
   focusActive?: boolean
+  /**
+   * When true, this phase itself is the selection — not a scenario inside it.
+   * The frame takes a brand edge and ring (`blueprint.css`); keyboard focus
+   * keeps the ring token, so the two never read as one state.
+   */
+  selected?: boolean
 }
 
 function useAlignedFlowArrowLeft(
@@ -116,6 +122,7 @@ export function CanvasPhaseSection({
   onNavigate,
   dimmed = false,
   focusActive = false,
+  selected = false,
   variant = 'default',
 }: CanvasPhaseSectionProps) {
   const sectionRef = useRef<HTMLElement>(null)
@@ -189,6 +196,7 @@ export function CanvasPhaseSection({
       data-phase-id={phaseId}
       data-canvas-focus-dimmed={dimmed ? '' : undefined}
       {...(focusActive ? { 'data-canvas-focus-active': '' } : {})}
+      {...(selected ? { 'data-phase-selected': '' } : {})}
       data-phase-section-inset={sectionInset}
       {...(navigable ? { 'data-canvas-phase-interactive': '' } : {})}
       {...(isFlowArrowAnchor ? { 'data-flow-arrow-anchor': '' } : {})}

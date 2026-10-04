@@ -201,6 +201,25 @@ same `closePanel`; nothing else holds an "is it open" fact. Any new
 affordance that opens or closes the panel calls the owner — a second source
 of truth here is the bug class this rule killed.
 
+## The selected phase
+
+A phase the reader has opened is **selected**, and its frame says so: a
+brand edge and a soft brand ring (`0 0 0 3px` of `--brand` at 16%), the
+site's selected state, keyed on `data-phase-selected`. The click lands
+before the camera has moved anywhere, so the frame answers it at once.
+
+- **The editor's selection is the only source.** The phase is selected while
+  it is the active slide itself; a scenario focused inside it is the
+  selection instead. Escape, Home, the breadcrumb and another phase clear or
+  move it the way they clear every other canvas selection — there is no
+  second "selected phase" fact to fall out of step.
+- **Focus is not selection.** Keyboard focus keeps the `--ring` token on the
+  section; selection is brand on the frame. The two can sit on different
+  phases at once and never read as one state.
+- **The ring arrives, it does not leave.** The transition is on the
+  selected rule only (`--ease-structural`, `--motion-micro`), so it eases in
+  and clears instantly; under reduced motion it appears instantly too.
+
 ## The board's address
 
 A board is a place, and the address bar says which one. Phase, scenario, path

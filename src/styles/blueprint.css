@@ -186,6 +186,30 @@
   }
 
   /*
+   * The selected phase: a brand edge and a soft brand ring, the site's
+   * selected state. A click selects the phase before the camera has moved,
+   * so the frame has to answer it at once.
+   *
+   * Brand, never `--ring`: keyboard focus keeps the ring token on the section
+   * itself, so a focused phase and a selected one never read as one state.
+   * The transition lives on this rule only, so the ring arrives on the
+   * structural curve and leaves the instant the selection clears.
+   */
+  [data-canvas-phase-section][data-phase-selected] > [data-phase-frame] {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 16%, transparent);
+    transition-property: border-color, box-shadow;
+    transition-duration: var(--motion-micro);
+    transition-timing-function: var(--ease-structural);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-canvas-phase-section][data-phase-selected] > [data-phase-frame] {
+      transition: none;
+    }
+  }
+
+  /*
    * A phase out of focus dims its children, not itself.
    *
    * Opacity on the section would composite its whole subtree into one

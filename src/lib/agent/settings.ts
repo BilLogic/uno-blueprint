@@ -184,9 +184,11 @@ export function hasKey(settings: AgentSettings): boolean {
 }
 
 /**
- * "Open the ⚙ popover" as a callable, shared between the rail button and
- * the chat view's no-key hint. Lives here (not the component file) so fast
- * refresh keeps working there.
+ * "Show the key settings" as a callable, so the chat view's no-key hint can
+ * ask without knowing which layout is mounted. The desktop rail's ⚙ popover
+ * holds this flag as its open state; the phone shell, which has no rail,
+ * answers by opening its drawer on Settings and clears the flag at once.
+ * Lives here (not a component file) so fast refresh keeps working there.
  */
 let settingsOpenFlag = false
 const settingsOpenListeners = new Set<() => void>()
@@ -199,6 +201,22 @@ export function openAgentSettings(): void {
 export function setAgentSettingsOpen(next: boolean): void {
   settingsOpenFlag = next
   settingsOpenListeners.forEach((listener) => listener())
+}
+
+/**
+ * Call `handler` whenever the key settings are asked for — now, if they
+ * already are, and on every later ask. For a layout that answers the ask
+ * with a surface of its own rather than holding the flag as its open state.
+ */
+export function onAgentSettingsAsked(handler: () => void): () => void {
+  const listener = () => {
+    if (settingsOpenFlag) handler()
+  }
+  settingsOpenListeners.add(listener)
+  listener()
+  return () => {
+    settingsOpenListeners.delete(listener)
+  }
 }
 
 export function useAgentSettingsOpen(): boolean {

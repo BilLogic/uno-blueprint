@@ -143,8 +143,8 @@ The first figure decodes eagerly; the rest are lazy.
 
 ## Art direction
 
-How the figures look and how they argue. `why-now` and `when-to-use` are drawn to
-it; the rest follow as they are redrawn.
+How the figures look and how they argue. Every figure under `docs/assets/` is
+drawn to it, light and dark.
 
 - **One idea per figure.** Decide the one sentence the figure proves, then cut
   everything that does not help prove it. The prose around the figure carries
@@ -198,7 +198,6 @@ it; the rest follow as they are redrawn.
 
   A lane the table leaves out takes its role's step-11 colour the same way
   (`colors.css`, `--color-{family}-1100`), measured before it ships.
-  `blueprint-anatomy` and `why-now` are drawn to this recipe.
 
 - **Borders are translucent ink** on everything that is not a cell — cards,
   wells, chips: about 9% at rest, 17% for emphasis.

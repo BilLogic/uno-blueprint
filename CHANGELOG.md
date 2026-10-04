@@ -5,11 +5,10 @@
 **Every cover figure draws cells as outlines.** A cell in every cover figure
 that draws one, and in the empty-state picture, is now a coloured outline in
 its lane's line colour, not a pastel box; the stale cell is the one filled
-cell. The
-hierarchy figure is back to its staircase, `why-now` counts in quarters, and
-the browser tab shows the Uno mark. Other coding agents (Cursor, Codex) now
-find the four skills under `.agents/skills/`, and a `BASE_PATH` build leaves a
-clean root.
+cell. The hierarchy figure is back to its staircase, `why-now` counts in
+quarters, and the browser tab shows the Uno mark. Other coding agents (Cursor,
+Codex) now find the four skills under `.agents/skills/`, and a `BASE_PATH`
+build leaves a clean root.
 
 ### Upgrading a deployment
 

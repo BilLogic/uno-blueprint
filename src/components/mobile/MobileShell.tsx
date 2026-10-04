@@ -8,6 +8,7 @@ import {
 } from '@/components/mobile/MobileNavSheet'
 import { MobileAgentSheet } from '@/components/mobile/MobileAgentSheet'
 import { MobileAgentFab } from '@/components/mobile/MobileAgentFab'
+import { usePhoneSettingsAsk } from '@/components/mobile/usePhoneSettingsAsk'
 import { MobilePathSelector } from '@/components/mobile/MobilePathSelector'
 import { MobileScenarioTransition } from '@/components/mobile/MobileScenarioTransition'
 import { CanvasModeProvider } from '@/components/editor/CanvasModeProvider'
@@ -244,6 +245,16 @@ export function MobileShell() {
   useEffect(() => {
     agentOpenRef.current = agentOpen
   }, [agentOpen])
+
+  // Add API key… on a phone: the drawer's Settings surface answers it.
+  const changeNavOpen = usePhoneSettingsAsk({
+    navOpen,
+    setNavOpen,
+    navSurface,
+    setNavSurface,
+    agentOpen,
+    setAgentOpen,
+  })
   const watchCameraFlight = useMemo(
     () =>
       makeAgentCameraFlightWatcher({
@@ -344,7 +355,7 @@ export function MobileShell() {
         <MobileTopBar
           title={title}
           navOpen={navOpen}
-          onToggleNav={() => setNavOpen((open) => !open)}
+          onToggleNav={() => changeNavOpen(!navOpen)}
           rightSlot={
             !viewingSliceId && selectedScenarioId && paths.length > 0 ? (
               <MobilePathSelector
@@ -449,7 +460,7 @@ export function MobileShell() {
 
       <MobileNavSheet
         open={navOpen}
-        onOpenChange={setNavOpen}
+        onOpenChange={changeNavOpen}
         surface={navSurface}
         onSurfaceChange={setNavSurface}
         slices={slices}

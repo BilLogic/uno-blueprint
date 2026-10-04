@@ -184,21 +184,57 @@ export function hasKey(settings: AgentSettings): boolean {
 }
 
 /**
- * "Open the ⚙ popover" as a callable, shared between the rail button and
- * the chat view's no-key hint. Lives here (not the component file) so fast
- * refresh keeps working there.
+ * "Show the key settings": one ask, two stores that each say one thing.
+ *
+ * The chat view's no-key hint asks without knowing which layout is mounted.
+ * A layout that answers with a surface of its own — the phone shell, whose
+ * key fields are its drawer's Settings surface — subscribes with
+ * `onAgentSettingsAsked`, and while one is subscribed the ask goes to it and
+ * to nothing else. Otherwise the ask opens the desktop rail's ⚙ popover,
+ * whose open state is `settingsOpenFlag` and nothing but that.
+ *
+ * An ask that no subscriber was there to hear is kept as pending until it is
+ * answered: either the popover it opened closes, or a subscriber arrives and
+ * takes it. That is what lets a phone shell mounting after the ask (a window
+ * narrowed with the popover up) still show the settings.
+ *
+ * Lives here (not a component file) so fast refresh keeps working there.
  */
 let settingsOpenFlag = false
 const settingsOpenListeners = new Set<() => void>()
+const askListeners = new Set<() => void>()
+let askPending = false
 
 export function openAgentSettings(): void {
-  settingsOpenFlag = true
+  if (askListeners.size > 0) {
+    askListeners.forEach((listener) => listener())
+    return
+  }
+  askPending = true
+  setAgentSettingsOpen(true)
+}
+
+/** The desktop popover's open state. Closing it answers any pending ask. */
+export function setAgentSettingsOpen(next: boolean): void {
+  if (!next) askPending = false
+  settingsOpenFlag = next
   settingsOpenListeners.forEach((listener) => listener())
 }
 
-export function setAgentSettingsOpen(next: boolean): void {
-  settingsOpenFlag = next
-  settingsOpenListeners.forEach((listener) => listener())
+/**
+ * Answer every ask for the key settings with `handler`, from now on — and a
+ * pending one at once. While subscribed, an ask no longer opens the desktop
+ * popover.
+ */
+export function onAgentSettingsAsked(handler: () => void): () => void {
+  askListeners.add(handler)
+  if (askPending) {
+    askPending = false
+    handler()
+  }
+  return () => {
+    askListeners.delete(handler)
+  }
 }
 
 export function useAgentSettingsOpen(): boolean {

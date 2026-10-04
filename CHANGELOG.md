@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.6.4
+
+**A burst of agent writes refetches the board once.** A lone structural edit
+still refreshes the board at once; writes that follow inside a quarter second
+are folded into one refresh when they stop. New image uploads are stored with a
+one-year cache lifetime, since their names are never reused.
+
+### Upgrading a deployment
+
+- **Bump the pin; nothing else moves.** Images already stored keep their
+  one-hour lifetime.
+
+### Patch Changes
+
+- b92cb26: A burst of agent writes refetches the board once. The first structural write still refreshes the board at once; further writes within a quarter second of each other collapse into one more refresh when they stop, so an agent turn of several writes no longer refetches every open scenario once per write. Attachment and slide image uploads are stored with a one-year cache lifetime, since their keys are unique and never overwritten.
+
+  Upgrading a deployment: no action; it comes with the pin. Images already stored keep their one-hour lifetime.
+
 ## 2.6.3
 
 **Add API key opens the key settings on a phone.** The agent chat's no-key

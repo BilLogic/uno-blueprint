@@ -198,9 +198,7 @@ it; the rest follow as they are redrawn.
 
   A lane the table leaves out takes its role's step-11 colour the same way
   (`colors.css`, `--color-{family}-1100`), measured before it ships.
-  `blueprint-anatomy` and `why-now` are drawn to this recipe. Figures
-  still carrying lane pastel fills move to it as they are redrawn; their
-  stale cells already match it.
+  `blueprint-anatomy` and `why-now` are drawn to this recipe.
 
 - **Borders are translucent ink** on everything that is not a cell — cards,
   wells, chips: about 9% at rest, 17% for emphasis.
@@ -213,8 +211,10 @@ it; the rest follow as they are redrawn.
 - **Dashed means not yet, missing or proposed**; solid means it exists. A
   proposed change, a pattern nobody has built. On a cell it is the outline
   that dashes, `stroke-dasharray: 3 3` at the same 1.25px, in the lane's
-  colour (or teal, if it is the cell the figure explains). A cell that no
-  longer holds is amber, not dashed.
+  colour (or teal, if it is the cell the figure explains). A dashed teal
+  cell keeps the teal weight and halo — 2px, dashed `3 3` — since the halo
+  is what separates it from the Customer green. A cell that no longer holds
+  is amber, not dashed.
 - **The mini-blueprint** is the shorthand for a blueprint: rows of a small
   lane-colour square and a label bar, then cells 24px tall, outlined in the
   lane's line colour, each holding one skeleton bar. Highlight cells in teal

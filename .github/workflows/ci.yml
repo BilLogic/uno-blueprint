@@ -605,7 +605,8 @@ jobs:
   #
   # WHAT IT PROVES IS INSTALL AND BUILD, under the version of each manager
   # pinned below, with `CI` set as the runner sets it — the unattended path,
-  # in a workspace that has npm's lock file and none of the manager's own.
+  # in a workspace that has npm's lock file and none of the manager's own —
+  # and that the workspace carries the skills mirror other agents read.
   # Three things it does not: that a manager is DETECTED, which is the unit
   # tests' claim, made against the user-agent strings the managers really
   # send (the one set below only selects the leg); that `<manager> create`
@@ -672,3 +673,15 @@ jobs:
           set -euo pipefail
           test -s dist/index.html
           test -s dist/cover/blueprint-anatomy.svg
+
+      # Other coding agents find the skills under `.agents/skills/`, a copy of
+      # each `skills/*/SKILL.md`. The initialiser writes every path the
+      # tarball holds, dot-folders included, but a workspace without the
+      # copies still builds — so ask the mirror itself, from inside the
+      # workspace: `--check` fails on a copy that is missing or has drifted.
+      - name: The workspace carries the skills where other agents look
+        working-directory: ${{ runner.temp }}/workspace
+        run: |
+          set -euo pipefail
+          test -d .agents/skills
+          node scripts/sync-agent-skills.mjs --check

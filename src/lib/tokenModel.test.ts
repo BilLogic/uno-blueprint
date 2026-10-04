@@ -144,6 +144,26 @@ describe('the cascade', () => {
     expect(resolveValue('--primary', 'light')).toBe('oklch( 0.205 0 159 )')
     expect(resolveValue('--primary', 'dark')).toBe('oklch( 0.922 0 159 )')
   })
+
+  it('chases a nested fallback arm, as the browser does', () => {
+    // `var(--a, var(--b, x))` with `--a` unset reads `--b`; with both unset it
+    // reads `x`. A pattern-matching reader stopped at the inner call and left
+    // the outer one standing in the result.
+    const seam = { '--seam': 'var(--outer, var(--inner, calc(1px + 2px)))' }
+    expect(resolveValue('--seam', 'light', 'screen', [], seam)).toBe(
+      'calc(1px + 2px)',
+    )
+    expect(
+      resolveValue('--seam', 'light', 'screen', [], { ...seam, '--inner': '7px' }),
+    ).toBe('7px')
+    expect(
+      resolveValue('--seam', 'light', 'screen', [], {
+        ...seam,
+        '--inner': '7px',
+        '--outer': '9px',
+      }),
+    ).toBe('9px')
+  })
 })
 
 /**

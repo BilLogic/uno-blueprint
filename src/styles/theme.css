@@ -556,10 +556,11 @@
   --text-5xl: 2.875rem;
   --text-5xl--line-height: 1;
   /*
-   * Recorded under the decision that a rung owns size and leading. The reference sets sans `--font-weight-normal` to 450 because
-   * Inter reads light at 400, and leaves the mono scope at 400 because
-   * its mono face does not need the bump. Ubuntu Sans and Ubuntu Sans Mono
-   * hold their colour at 400 down to 12px, so both scopes stay at 400. The two-scope
+   * Recorded under the decision that a rung owns size and leading. The
+   * reference sets sans `--font-weight-normal` to 450 because Inter reads
+   * light at 400, and leaves the mono scope at 400 because its mono face
+   * does not need the bump. Ubuntu Sans and Ubuntu Sans Mono hold their
+   * colour at 400 down to 12px, so both scopes stay at 400. The two-scope
    * mechanism is taken so the knob exists; the 450 is not.
    */
   --font-weight-normal: 400;

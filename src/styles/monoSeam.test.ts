@@ -1,48 +1,27 @@
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
-import { declarationsIn } from '@/lib/tokenModel'
+import { resolveValue } from '@/lib/tokenModel'
 
 /**
  * The mono stack has two override seams: `--app-font-mono`, and the
- * deprecated `--font-source-code-pro` an embedder may still set. This
- * resolves the declared `--font-mono` the way a browser substitutes `var()`
- * — a defined variable replaces the whole call, an undefined one takes its
- * fallback arm — and reads which face lands first.
+ * deprecated `--font-source-code-pro` an embedder may still set. Each case
+ * asks the token model what `--font-mono` resolves to with the given seams
+ * filled, the way an embedding app's own `:root` would fill them, and reads
+ * which face lands first.
+ *
+ * `--font-mono` is declared in theme.css's `@theme inline` block, which the
+ * model does not count as the root on its own; Tailwind emits the key at
+ * `:root`, so the block is named as the scope the reading applies in.
  */
-function substitute(value: string, defined: Record<string, string>): string {
-  const at = value.indexOf('var(')
-  if (at === -1) return value
-  let depth = 0
-  let end = at + 4
-  for (; end < value.length; end += 1) {
-    if (value[end] === '(') depth += 1
-    if (value[end] === ')') {
-      if (depth === 0) break
-      depth -= 1
-    }
-  }
-  const inner = value.slice(at + 4, end)
-  const comma = inner.indexOf(',')
-  const name = (comma === -1 ? inner : inner.slice(0, comma)).trim()
-  const fallback = comma === -1 ? '' : inner.slice(comma + 1).trim()
-  const replacement =
-    name in defined ? defined[name] : substitute(fallback, defined)
-  return substitute(
-    value.slice(0, at) + replacement + value.slice(end + 1),
-    defined,
-  )
-}
-
-const fontMono = declarationsIn('theme.css').find(
-  (entry) => entry.name === '--font-mono',
-)
-const firstFace = (defined: Record<string, string>) =>
-  substitute(fontMono?.value ?? '', defined).split(',')[0].trim()
+const THEME = ['@theme inline'] as const
+const resolveMono = (defined: Record<string, string> = {}) =>
+  resolveValue('--font-mono', 'light', 'screen', THEME, defined)
+const firstFace = (defined: Record<string, string> = {}) =>
+  resolveMono(defined)?.split(',')[0].trim()
 
 test('the mono stack defaults to Ubuntu Sans Mono and ends generic', () => {
-  assert.ok(fontMono, 'theme.css should declare --font-mono')
-  assert.equal(firstFace({}), "'Ubuntu Sans Mono Variable'")
-  assert.match(fontMono.value, /monospace$/)
+  assert.equal(firstFace(), "'Ubuntu Sans Mono Variable'")
+  assert.match(resolveMono() ?? '', /monospace$/)
 })
 
 test('--app-font-mono overrides the mono face', () => {

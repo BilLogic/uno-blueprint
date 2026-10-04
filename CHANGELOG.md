@@ -2,16 +2,12 @@
 
 ## 2.5.0
 
-**The template reads like its site.** The brand is teal, the mono face is
-Ubuntu Sans Mono, and small labels are sentence case. The canvas sits on a dot
-grid, a selected phase shows a brand ring, and empty states draw a small
-blueprint. Surfaces round to 16px, neutral edges come in three translucent
-steps, and only what floats keeps a shadow. Motion has one vocabulary of four
-role curves (arrive, leave, move, spring), and camera flights ride the move
-curve without stalling when retargeted mid-air. All thirteen cover figures are
-redrawn to one art direction, each with a dark file that follows the theme in
-the app and on GitHub. Separately, `BASE_PATH` alone now serves a build from a
-path.
+**The template reads like its site.** It ships the site's teal and its mono
+face, sits the canvas on the site's dot grid, and moves on four named curves,
+so a camera flight retargeted mid-air neither stalls nor jumps. All thirteen
+cover figures are redrawn to one art direction, each with a dark file that
+follows the theme in the app and on GitHub. Separately, `BASE_PATH` alone now
+serves a build from a path.
 
 ### Upgrading a deployment
 
@@ -19,20 +15,25 @@ path.
   the prefixed hosting rules into `dist/_redirects` and `dist/_headers` under
   `BASE_PATH`, and it is held byte-identical, so the reconciled-files gate is
   red until the copy matches. A root build is unchanged. A deployment with its
-  own `public/_redirects` should read the `BASE_PATH` entry below for the
-  three lines a prefixed build now treats differently.
+  own `public/_redirects` no longer needs the prefixed 404 and fallback, and
+  should read the `BASE_PATH` entry below for the three kinds of line a
+  prefixed build now treats differently; `npm run check:hosting` reports a
+  conflicting line before a build does.
 - **The brand turns teal unless the deployment states its own.** A
   deployment that declares `--hue`, `--primary-lightness` and
   `--primary-chroma` in both theme blocks is unaffected. One that declares
   none turns teal; the teal entry below has the block that keeps it neutral,
   print included. One that sets `brand.accent` without dials gets its hue at
-  the teal's lightness and chroma, and one that declares only some of the
-  three inherits the rest, `--primary-chroma` included.
+  the teal's lightness and chroma, which at many hues is past what sRGB shows
+  and is reduced silently; declare both dials in both blocks, tuned for the
+  accent. One that declares only some of the three inherits the rest,
+  `--primary-chroma` included.
 - **`--border` stops being the only edge.** The three neutral steps are set
   by `--border-alpha-*` dials and still scale with `--contrast`. A stylesheet
   that overrode `--border` directly keeps working, but `--border-strong` and
-  `--border-stronger` will not follow it; set the dials instead. `xl` corners
-  are now `--radius` ×2, so check dialogs and sheets if the base was tuned for
+  `--border-stronger` will not follow it; set the dials instead, in both theme
+  files and in the print block if light's values change. `xl` corners are
+  now `--radius` ×2, so check dialogs and sheets if the base was tuned for
   them.
 - **Rewrite figure alt overrides.** Every one of the thirteen cover figures
   is redrawn. A deployment that spreads one from `packageCoverFigures` and
@@ -41,8 +42,8 @@ path.
   `width` and `height` with it; drop any hand-restated `height`.
 - **The mono seam is `--app-font-mono`.** The old `--font-source-code-pro`
   still swaps the face, and the new name wins when both are set.
-- **Labels passed to `Eyebrow` should be written in sentence case.** The
-  component no longer capitalises.
+- **Pass `Eyebrow` labels in sentence case.** The component no longer
+  capitalises.
 - **Camera and focus-dimming timing reads `--ease-move`.** `--ease-camera`
   is now an alias of it and `MOTION_CAMERA_EASE` is `MOTION_EASE.move`. Code
   that imported `easeCameraTransition` from `lib/cameraTransition.ts` reads
@@ -50,10 +51,10 @@ path.
 - **Re-seeding moves four sample cells.** The audit scenario's step is
   renamed, so a database re-seeded from `supabase/seed.sql` treats its four
   cells as new rows.
-- **Nothing else needs a change.** The dot-grid ground, the phase ring, the
-  empty-state picture and the motion tokens read theme tokens a deployment
-  already sets. To keep a flat canvas ground, hide
-  `[data-zoom-pan-ground]` in the deployment's stylesheet.
+- **Nothing else needs a change.** The dot-grid ground, the phase ring and
+  the empty-state picture read theme tokens a deployment already sets. To
+  keep a flat canvas ground, hide `[data-zoom-pan-ground]` in the
+  deployment's stylesheet.
 
 ### Minor Changes
 
@@ -78,7 +79,7 @@ path.
   - Chevrons, the cover tab indicator, the canvas load bar and image zoom ease on move.
   - Prose links ease only their colour, at 150 ms rather than 180 ms, and not at all under reduced motion; cell hover and the slice badges gain a reduced-motion path. The delayed spinner holds 320 ms instead of 300 ms.
 
-  `--ease-structural` stays as an alias of arrive and `--ease-camera` keeps its current curve, so a deployment that reads either needs no change.
+  `--ease-structural` stays as an alias of arrive, so a deployment that reads it needs no change. `--ease-camera` moves to the move curve; see the camera entry above.
 
 - f74c6f8: Shape, edge and elevation follow the site. The surface rung `rounded-xl` (cards, panels, dialogs, sheets, cover figure frames, canvas phase frames) moves from 12px to 16px. Cells stay at 8px (`rounded-lg`), controls stay at 6px (`rounded-md`), and small tiles stay on `lg` (the annotation toolbars, the load-progress tile, the canvas corner stack). Neutral edges now come in three translucent-ink steps set by new per-theme dials `--border-alpha-resting`, `--border-alpha-hover` and `--border-alpha-hot`. At the shipped contrast they render at 9% / 17% / 42% in light and 8% / 15% / 45% in dark. `--border` is the resting step. The new `--border-strong` and `--border-stronger` tokens (utilities `border-strong`, `border-stronger`) are the hover and hot steps, and `--border-strong` is also the step for anything drawn on the canvas ground. The floating agent dock and the full-page error card move onto the surface rung. These resting surfaces drop their decorative shadows: the full-page error card, the compare panel, the sticky slide header, the walkthrough modal's override, and the presentation's popover trigger and nav buttons. Only what floats keeps a shadow. The vendored outline button and the segmented control's pressed segment are named exceptions. The filter toolbar button marks its checked state with the hot edge instead of a shadow and a black hairline. The composition overview now states the radius ladder, the border steps, the elevation rule and the dashed-versus-solid rule.
 
@@ -10257,8 +10258,8 @@ accent: BRAND.accent }, content: { workspaceTitle: coverContent.title } }`. The
   constraint violation rather than as anything the authoring tools had said
   (#204):
 
-                                                                                                                                                                                                                                            ERROR: new row for relation "lanes" violates check constraint
-                                                                                                                                                                                                                                            "lanes_lane_role_check" … compliance_review
+                                                                                                                                                                                                                                          ERROR: new row for relation "lanes" violates check constraint
+                                                                                                                                                                                                                                          "lanes_lane_role_check" … compliance_review
 
   That error at least names the value. Meeting it after validation has passed is
   the wrong moment.

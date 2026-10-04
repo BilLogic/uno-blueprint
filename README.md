@@ -65,15 +65,14 @@ Each is walked, with its own figure, in [guide/03 — The plugin](./docs/guide/0
 
 ### In other coding agents
 
-Cursor, Codex, Gemini CLI, Copilot and Windsurf discover skills under `.agents/skills/`, and the repo ships all four there, so a checkout or a workspace needs no plugin install. The skills keep their `ub:` names, and a bare `map` is not registered:
+The repo ships the four skills under `.agents/skills/` as well, so a checkout or a workspace works in coding agents that read that folder, with no plugin install. Checked by hand:
 
 | Agent | How you call a skill |
 | --- | --- |
 | Cursor | `ub:map`, or describe a map task |
 | Codex | `$ub:map` |
-| Gemini CLI, Copilot, Windsurf | describe the task; each skill's description is what the agent matches on |
 
-`.agents/skills/` is a copy. Edit the skill under `skills/`, then run `npm run sync:skills`; why, in [guide/03 § In other coding agents](./docs/guide/03-the-plugin.md#5-in-other-coding-agents).
+Gemini CLI, Copilot and Windsurf document the same `.agents/skills/` convention and are expected to find the skills too. What the mirror is, and why you edit `skills/` and sync: [guide/03 § In other coding agents](./docs/guide/03-the-plugin.md#5-in-other-coding-agents).
 
 ## Where the blueprint is used
 
@@ -207,7 +206,7 @@ All three are generated. Edit a migration and run `npm run generate:portable-cor
 
 ### Connect your agents
 
-- **In the IDE** — install this repo as a Claude Code plugin (manifest: [.claude-plugin/plugin.json](./.claude-plugin/plugin.json)). That loads the four skills, five agents, and the hooks: Claude can then build, review, import, and update blueprints in your workspace. Cursor, Codex and the other coding agents find the four skills in a checkout on their own: [In other coding agents](#in-other-coding-agents).
+- **In the IDE** — install this repo as a Claude Code plugin (manifest: [.claude-plugin/plugin.json](./.claude-plugin/plugin.json)). That loads the four skills, five agents, and the hooks: Claude can then build, review, import, and update blueprints in your workspace. Cursor and Codex find the four skills in a checkout on their own: [In other coding agents](#in-other-coding-agents).
 - **Everywhere else (a Slack bot you build, an assistant, any agent you run)** — the template ships none of these, but a deployed blueprint publishes its rows for reading, so an agent holding only the publishable key can query them and answer with links back to individual cells. What a backend has to satisfy to work this way is the adapter contract: [references/adapter-contract.md](./references/adapter-contract.md), walked in [guide/03](./docs/guide/03-the-plugin.md).
 
 ## Reference

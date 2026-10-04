@@ -108,17 +108,18 @@ implement the contract against your stack.
 
 ## 5. In other coding agents
 
-Cursor, Codex, Gemini CLI, Copilot and Windsurf discover skills under
-`.agents/skills/<name>/SKILL.md`, and none of them scans a top-level
-`skills/`. So the repo carries a mirror: each skill's `SKILL.md`, copied
-byte for byte into `.agents/skills/map/`, `slice/`, `audit/` and `whatif/`.
-Open a checkout or a workspace in one of those tools and the four skills
-are there, with no plugin to install.
+Several coding agents look for skills under `.agents/skills/<name>/SKILL.md`
+rather than in a top-level `skills/`. So the repo carries a mirror: each
+skill's `SKILL.md`, copied byte for byte into `.agents/skills/map/`,
+`slice/`, `audit/` and `whatif/`. Open a checkout or a workspace in one of
+those tools and the four skills are there, with no plugin to install.
 
-They keep their `ub:` names. In Cursor a skill is `ub:map`, or you describe
-a map task; in Codex it is `$ub:map`. A bare `map` is not registered in
-either. The other tools read the same folder and pick a skill by matching
-your request against its description.
+Cursor and Codex were checked by hand, and both showed the skills under
+their `ub:` names. In Cursor a skill is `ub:map`, or you describe a map
+task; in Codex it is `$ub:map`. A bare `map` is not registered in either.
+Gemini CLI, Copilot and Windsurf document the same `.agents/skills/`
+convention, so they are expected to find the skills as well; how each one
+names and calls them has not been checked.
 
 `skills/` stays the source, for two reasons. Its paths are a published
 interface: the deployment imports them by fixed path from a pinned tag, so

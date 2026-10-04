@@ -3,9 +3,10 @@
 This repo is the `ub` plugin. In Claude Code it installs as a plugin
 (`claude plugin marketplace add <this repo>` → `claude plugin install
 ub@ub-marketplace`) and the skills load themselves. Cursor, Codex and other
-coding agents discover them under `.agents/skills/`, a copy of `skills/`
-walked in `docs/guide/03-the-plugin.md` § 5; any other agent reads this file
-as the router — the skills are plain markdown and work anywhere.
+agents that read `.agents/skills/` find them there, a copy of `skills/`
+walked in `docs/guide/03-the-plugin.md` § 5. In other coding agents — any
+other agent reads this file as the router: the skills are plain markdown and
+work anywhere.
 
 Short by design. This file is the whole always-loaded tier, and every routing
 item in it is a **pointer** — a trigger word, then the document carrying the

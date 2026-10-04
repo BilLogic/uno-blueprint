@@ -20,6 +20,30 @@ a person can name**, one document each:
 | [cover-page](cover-page.md) | the shell's landing view and its content model |
 | [mobile-shell](mobile-shell.md) | the mobile shell and its chrome — the one forked surface |
 
+## Small labels are sentence case
+
+One rule across every surface below. A badge, a tag, an eyebrow, a phase
+marker, a divider caption, a group heading: **12px sans, muted ink,
+letter-spacing 0, never under 11px, in the case the string was written in.**
+This overrides the earlier capitals-and-wide-tracking label style everywhere it
+appeared.
+
+- **The case lives in the string.** Write `Line of interaction`, not
+  `LINE OF INTERACTION`; nothing in CSS rewrites it. An acronym stays as typed
+  for the same reason — no transform flattens it.
+- **No `uppercase` or `capitalize`, no wide tracking.** `tracking-wide`, `tracking-wider`,
+  `tracking-widest`, a positive arbitrary `tracking-[…]`, an inline
+  `textTransform` that forces case or a positive `letterSpacing` are all out.
+- **Sans, unless the label is literally code.** Mono stays for identifiers and
+  stored values (register 1) and aligned numerals (register 2); a label is
+  neither.
+- **The vendored primitives are not edited.** Where one capitalises — the
+  command group heading does — the wrapper that renders it restates the rule.
+
+`src/components/sentenceCaseLabels.test.ts` holds this across the authored
+components, the dev pages, `lib/`, `contexts/`, the app root and the
+stylesheets, and fails naming the line.
+
 ## Shape, edge and elevation
 
 Four rules every surface shares, so they live here rather than in any one

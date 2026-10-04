@@ -982,7 +982,7 @@ describe('path badges', () => {
  * elsewhere.
  *
  * The floor is 4.5:1 because both of these are text, and small text: the
- * divider caption is an uppercase badge at the bottom of the type scale.
+ * divider caption is a 12px badge at the bottom of the type scale.
  * Neither is anywhere near the large-text threshold.
  */
 describe.each(['light', 'dark'] as const)('board chrome: %s', (theme) => {

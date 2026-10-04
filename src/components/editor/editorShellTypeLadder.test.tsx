@@ -269,9 +269,11 @@ describe('the agent panel reseats chrome below UI text', () => {
       sourceOf('components/blueprint/Eyebrow.tsx'),
       'components/blueprint/Eyebrow.tsx',
     )
-    const register = primitive.find((site) => classListHas(site.classes, ['uppercase']))
+    const register = primitive.find((site) =>
+      classListHas(site.classes, ['text-xs', 'text-muted-foreground']),
+    )
     expect(register, 'the eyebrow register').toBeDefined()
-    expect(register?.classes).toContain('text-xs')
+    expect(register?.classes).not.toContain('uppercase')
     expect(register?.classes).not.toContain('text-sm')
 
     const rowFile = 'components/editor/agent/SessionRow.tsx'

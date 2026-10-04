@@ -110,6 +110,22 @@ query per scenario and an unopened palette should cost nothing; Escape empties
 the field before it closes the dialog; and ⌘K is ignored while a text field has
 focus, so the chord never eats a character.
 
+## Labels on the board
+
+Every small label on the board follows the sentence-case rule in
+[overview](overview.md#small-labels-are-sentence-case). Two are worth naming:
+
+- **The phase badge** reads `01 · Discover` — the zero-padded ordinal from
+  `ordinalLabel`, then the phase's name as written. It is sans at letter-spacing
+  0, not mono capitals. It stays legible at overview zoom because
+  `[data-phase-title-badge]` is counter-scaled by the camera (the semantic
+  label boost), not because it is set in capitals.
+- **The divider captions** — `Line of interaction`, `Line of visibility`,
+  `Line of internal interaction` — are sentence case in their source strings.
+
+The **Jump to…** dialog's group headings (Scenarios, Cells, Actions) restate the
+rule over the vendored command group, which ships them in mono capitals.
+
 ## The click grammar
 
 One grammar for cells, everywhere (the authoritative comment lives in
@@ -200,6 +216,27 @@ owner**: the ✕, Escape, a toggling click, and the agent all go through the
 same `closePanel`; nothing else holds an "is it open" fact. Any new
 affordance that opens or closes the panel calls the owner — a second source
 of truth here is the bug class this rule killed.
+
+## The selected phase
+
+A phase the reader has opened is **selected**, and its frame says so: a
+brand edge and a soft brand ring (`0 0 0 3px` of `--brand` at 16%), the
+site's selected state, keyed on `data-phase-selected`. The click lands
+before the camera has moved anywhere, so the frame answers it at once.
+
+- **The editor's selection is the only source.** The phase is selected while
+  it is the active slide itself; a scenario focused inside it is the
+  selection instead. Escape, Home, the breadcrumb and another phase clear or
+  move it the way they clear every other canvas selection — there is no
+  second "selected phase" fact to fall out of step.
+- **Focus is not selection.** Keyboard focus keeps the `--ring` token on the
+  section; selection is brand on the frame. The two can sit on different
+  phases at once and never read as one state.
+- **The ring arrives, it does not leave.** The transition is on the
+  selected rule only (`--ease-structural`, `--motion-micro`), so it eases in
+  and clears instantly; under reduced motion it appears instantly too. It is
+  drawn on the frame's `::after`, because the camera flight writes an inline
+  `transition: none` on the frame itself while it fades it.
 
 ## The board's address
 

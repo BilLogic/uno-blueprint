@@ -1,100 +1,92 @@
-<svg viewBox="0 -44 880 214" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<svg viewBox="0 0 880 260" xmlns="http://www.w3.org/2000/svg" font-family="'Ubuntu Sans', system-ui, sans-serif">
   <style>
-    .badge { font-size: 10px; font-weight: 600; fill: #273036; }
-    .sub { font-size: 9.5px; fill: #9ca3af; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .pick { stroke: #9aadbe; stroke-width: 1.6; fill: none; }
+    .plate { fill: #f6f8f7; }
+    .dot { fill: #151a18; fill-opacity: 0.17; }
+    .card { fill: #ffffff; stroke: #151a18; stroke-opacity: 0.09; }
+    .well { fill: #f6f8f7; stroke: #151a18; stroke-opacity: 0.09; }
+    .well-focus { stroke: #00806a; stroke-opacity: 1; stroke-width: 1.5; }
+    .title { font-size: 15px; font-weight: 600; fill: #151a18; }
+    .label { font-size: 14.5px; fill: #565c5a; }
+    .label-teal { font-size: 14.5px; font-weight: 600; fill: #00806a; }
+    .strong { font-size: 14.5px; font-weight: 600; fill: #151a18; }
+    .code { font-family: 'Ubuntu Sans Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14.5px; fill: #565c5a; }
+    .code-strong { font-family: 'Ubuntu Sans Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14.5px; font-weight: 600; fill: #151a18; }
+    .num { font-size: 14.5px; font-weight: 600; fill: #ffffff; }
+    .axis { stroke: #151a18; stroke-opacity: 0.09; }
+    .line { stroke: #565c5a; stroke-width: 1.25; }
+    .flow { stroke: #565c5a; stroke-width: 1.5; fill: none; }
+    .flow-head { fill: #565c5a; }
+    .trace { stroke: #00806a; stroke-width: 1.5; fill: none; }
+    .trace-head { fill: #00806a; }
+    .zoom { stroke: #00806a; stroke-width: 1; stroke-opacity: 0.55; fill: none; }
+    .skel { fill: #151a18; fill-opacity: 0.16; }
+    .skel-teal { fill: #00806a; }
+    .cell { stroke: #151a18; stroke-opacity: 0.09; }
+    .cell-focus { stroke: #00806a; stroke-opacity: 1; stroke-width: 1.5; }
+    .hit { fill: #00806a; }
+    .tick { fill: #565c5a; }
+    .miss { fill: #151a18; fill-opacity: 0.16; }
+    .badge { fill: #00806a; stroke: #ffffff; stroke-width: 2; }
+    .faded { opacity: 0.4; }
+    .lane-c { fill: #e8f3ed; } .sq-c { fill: #cfe6d9; }
+    .lane-f { fill: #fdf1e3; } .sq-f { fill: #f6e0bd; }
+    .lane-b { fill: #fbe9f0; } .sq-b { fill: #f2cfdf; }
+    .lane-s { fill: #ecebf5; } .sq-s { fill: #d9d6ec; }
   </style>
-
-  <rect x="0" y="-44" width="880" height="214" rx="14" fill="#eef1f5" stroke="#e2e4e9"/>
-
-  <text x="16" y="-18" font-size="15" font-weight="700" fill="#273036">Types of slices</text>
-
-  <g transform="translate(0,-12)">
-
-  <!-- journey -->
-  <g>
-    <g opacity="0.55">
-      <rect x="16" y="30" width="152" height="22" fill="#e8f3ed"/>
-      <rect x="16" y="52" width="152" height="22" fill="#fdf1e3"/>
-      <rect x="16" y="74" width="152" height="22" fill="#fbe9f0"/>
-      <rect x="16" y="96" width="152" height="22" fill="#ecebf5"/>
-      <rect x="16" y="30" width="152" height="88" fill="none" stroke="#d4d4da"/>
-      <line x1="54" y1="30" x2="54" y2="118" stroke="#e2e4e9"/>
-      <line x1="92" y1="30" x2="92" y2="118" stroke="#e2e4e9"/>
-      <line x1="130" y1="30" x2="130" y2="118" stroke="#e2e4e9"/>
-    </g>
-    <path class="pick" d="M24,41 L46,41 L62,63 L84,63 L100,85 L122,85 L138,107 L160,107"/>
-  </g>
-  <text x="16" y="140" class="badge mono">journey</text>
-  <text x="16" y="155" class="sub">one actor's path, summarized</text>
-
-  <!-- step -->
-  <g>
-    <g opacity="0.55">
-      <rect x="190" y="30" width="152" height="22" fill="#e8f3ed"/>
-      <rect x="190" y="52" width="152" height="22" fill="#fdf1e3"/>
-      <rect x="190" y="74" width="152" height="22" fill="#fbe9f0"/>
-      <rect x="190" y="96" width="152" height="22" fill="#ecebf5"/>
-      <rect x="190" y="30" width="152" height="88" fill="none" stroke="#d4d4da"/>
-      <line x1="228" y1="30" x2="228" y2="118" stroke="#e2e4e9"/>
-      <line x1="266" y1="30" x2="266" y2="118" stroke="#e2e4e9"/>
-      <line x1="304" y1="30" x2="304" y2="118" stroke="#e2e4e9"/>
-    </g>
-    <rect class="pick" x="266" y="30" width="38" height="88"/>
-  </g>
-  <text x="190" y="140" class="badge mono">step</text>
-  <text x="190" y="155" class="sub">one step, top to bottom</text>
-
-  <!-- lane -->
-  <g>
-    <g opacity="0.55">
-      <rect x="364" y="30" width="152" height="22" fill="#e8f3ed"/>
-      <rect x="364" y="52" width="152" height="22" fill="#fdf1e3"/>
-      <rect x="364" y="74" width="152" height="22" fill="#fbe9f0"/>
-      <rect x="364" y="96" width="152" height="22" fill="#ecebf5"/>
-      <rect x="364" y="30" width="152" height="88" fill="none" stroke="#d4d4da"/>
-      <line x1="402" y1="30" x2="402" y2="118" stroke="#e2e4e9"/>
-      <line x1="440" y1="30" x2="440" y2="118" stroke="#e2e4e9"/>
-      <line x1="478" y1="30" x2="478" y2="118" stroke="#e2e4e9"/>
-    </g>
-    <rect class="pick" x="364" y="52" width="152" height="22"/>
-  </g>
-  <text x="364" y="140" class="badge mono">lane</text>
-  <text x="364" y="155" class="sub">one lane, left to right</text>
-
-  <!-- cell -->
-  <g>
-    <g opacity="0.55">
-      <rect x="538" y="30" width="152" height="22" fill="#e8f3ed"/>
-      <rect x="538" y="52" width="152" height="22" fill="#fdf1e3"/>
-      <rect x="538" y="74" width="152" height="22" fill="#fbe9f0"/>
-      <rect x="538" y="96" width="152" height="22" fill="#ecebf5"/>
-      <rect x="538" y="30" width="152" height="88" fill="none" stroke="#d4d4da"/>
-      <line x1="576" y1="30" x2="576" y2="118" stroke="#e2e4e9"/>
-      <line x1="614" y1="30" x2="614" y2="118" stroke="#e2e4e9"/>
-      <line x1="652" y1="30" x2="652" y2="118" stroke="#e2e4e9"/>
-    </g>
-    <rect class="pick" x="614" y="52" width="38" height="22"/>
-  </g>
-  <text x="538" y="140" class="badge mono">cell</text>
-  <text x="538" y="155" class="sub">one cell, in full</text>
-
-  <!-- custom -->
-  <g>
-    <g opacity="0.55">
-      <rect x="712" y="30" width="152" height="22" fill="#e8f3ed"/>
-      <rect x="712" y="52" width="152" height="22" fill="#fdf1e3"/>
-      <rect x="712" y="74" width="152" height="22" fill="#fbe9f0"/>
-      <rect x="712" y="96" width="152" height="22" fill="#ecebf5"/>
-      <rect x="712" y="30" width="152" height="88" fill="none" stroke="#d4d4da"/>
-      <line x1="750" y1="30" x2="750" y2="118" stroke="#e2e4e9"/>
-      <line x1="788" y1="30" x2="788" y2="118" stroke="#e2e4e9"/>
-      <line x1="826" y1="30" x2="826" y2="118" stroke="#e2e4e9"/>
-    </g>
-    <path class="pick" stroke-dasharray="4 3" d="M726,44 L822,38 L840,88 L774,110 L722,82 Z"/>
-  </g>
-  <text x="712" y="140" class="badge mono">custom</text>
-  <text x="712" y="155" class="sub">whatever the question needs</text>
-  </g>
+  <defs>
+    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle class="dot" cx="10" cy="10" r="0.8"/>
+    </pattern>
+    <radialGradient id="fade" cx="50%" cy="50%" r="70%">
+      <stop offset="0.35" stop-color="#fff"/>
+      <stop offset="1" stop-color="#000"/>
+    </radialGradient>
+    <mask id="fadeMask"><rect width="880" height="260" fill="url(#fade)"/></mask>
+    <marker id="headMuted" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="flow-head" d="M0,0.5 L7,4 L0,7.5 Z"/></marker>
+    <marker id="headTeal" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path class="trace-head" d="M0,0.5 L7,4 L0,7.5 Z"/></marker>
+  </defs>
+  <rect class="plate" width="880" height="260" rx="16"/>
+  <rect width="880" height="260" rx="16" fill="url(#grid)" mask="url(#fadeMask)"/>
+  <rect class="card" x="24.5" y="24.5" width="155" height="211" rx="16"/>
+  <rect class="sq-c" x="41" y="50.5" width="10" height="10" rx="3"/><rect class="lane-c cell-focus" x="56.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="62.5" y="54" width="8" height="4" rx="2"/><rect class="lane-c cell-focus" x="83.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="89.5" y="54" width="8" height="4" rx="2"/><rect class="lane-c cell-focus" x="110.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="116.5" y="54" width="8" height="4" rx="2"/><rect class="lane-c cell-focus" x="137.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="143.5" y="54" width="8" height="4" rx="2"/>
+    <rect class="sq-f" x="41" y="78.5" width="10" height="10" rx="3"/><g class="faded"><rect class="lane-f cell" x="56.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel" x="62.5" y="82" width="8" height="4" rx="2"/></g><rect class="lane-f cell-focus" x="83.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="89.5" y="82" width="8" height="4" rx="2"/><g class="faded"><rect class="lane-f cell" x="110.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel" x="116.5" y="82" width="8" height="4" rx="2"/></g><rect class="lane-f cell-focus" x="137.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="143.5" y="82" width="8" height="4" rx="2"/>
+    <rect class="sq-b" x="41" y="106.5" width="10" height="10" rx="3"/><g class="faded"><rect class="lane-b cell" x="56.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel" x="62.5" y="110" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-b cell" x="83.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel" x="89.5" y="110" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-b cell" x="110.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel" x="116.5" y="110" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-b cell" x="137.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel" x="143.5" y="110" width="8" height="4" rx="2"/></g>
+    <rect class="sq-s" x="41" y="134.5" width="10" height="10" rx="3"/><g class="faded"><rect class="lane-s cell" x="56.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel" x="62.5" y="138" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-s cell" x="83.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel" x="89.5" y="138" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-s cell" x="110.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel" x="116.5" y="138" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-s cell" x="137.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel" x="143.5" y="138" width="8" height="4" rx="2"/></g>
+  <path class="trace" d="M94.5,68 V72.5"/>
+  <path class="trace" d="M148.5,68 V72.5"/>
+  <text class="title" x="41" y="176">Journey</text>
+  <text class="label" x="41" y="198">One actor and</text>
+  <text class="label" x="41" y="217">what they touch</text>
+  <rect class="card" x="193.5" y="24.5" width="155" height="211" rx="16"/>
+  <rect class="sq-c" x="210" y="50.5" width="10" height="10" rx="3"/><g class="faded"><rect class="lane-c cell" x="225.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel" x="231.5" y="54" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-c cell" x="252.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel" x="258.5" y="54" width="8" height="4" rx="2"/></g><rect class="lane-c cell-focus" x="279.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="285.5" y="54" width="8" height="4" rx="2"/><g class="faded"><rect class="lane-c cell" x="306.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel" x="312.5" y="54" width="8" height="4" rx="2"/></g>
+    <rect class="sq-f" x="210" y="78.5" width="10" height="10" rx="3"/><g class="faded"><rect class="lane-f cell" x="225.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel" x="231.5" y="82" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-f cell" x="252.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel" x="258.5" y="82" width="8" height="4" rx="2"/></g><rect class="lane-f cell-focus" x="279.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="285.5" y="82" width="8" height="4" rx="2"/><g class="faded"><rect class="lane-f cell" x="306.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel" x="312.5" y="82" width="8" height="4" rx="2"/></g>
+    <rect class="sq-b" x="210" y="106.5" width="10" height="10" rx="3"/><g class="faded"><rect class="lane-b cell" x="225.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel" x="231.5" y="110" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-b cell" x="252.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel" x="258.5" y="110" width="8" height="4" rx="2"/></g><rect class="lane-b cell-focus" x="279.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="285.5" y="110" width="8" height="4" rx="2"/><g class="faded"><rect class="lane-b cell" x="306.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel" x="312.5" y="110" width="8" height="4" rx="2"/></g>
+    <rect class="sq-s" x="210" y="134.5" width="10" height="10" rx="3"/><g class="faded"><rect class="lane-s cell" x="225.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel" x="231.5" y="138" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-s cell" x="252.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel" x="258.5" y="138" width="8" height="4" rx="2"/></g><rect class="lane-s cell-focus" x="279.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="285.5" y="138" width="8" height="4" rx="2"/><g class="faded"><rect class="lane-s cell" x="306.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel" x="312.5" y="138" width="8" height="4" rx="2"/></g>
+  <text class="title" x="210" y="176">Step</text>
+  <text class="label" x="210" y="198">Every lane,</text>
+  <text class="label" x="210" y="217">one moment</text>
+  <rect class="card" x="362.5" y="24.5" width="155" height="211" rx="16"/>
+  <rect class="sq-c" x="379" y="50.5" width="10" height="10" rx="3"/><g class="faded"><rect class="lane-c cell" x="394.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel" x="400.5" y="54" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-c cell" x="421.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel" x="427.5" y="54" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-c cell" x="448.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel" x="454.5" y="54" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-c cell" x="475.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel" x="481.5" y="54" width="8" height="4" rx="2"/></g>
+    <rect class="sq-f" x="379" y="78.5" width="10" height="10" rx="3"/><rect class="lane-f cell-focus" x="394.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="400.5" y="82" width="8" height="4" rx="2"/><rect class="lane-f cell-focus" x="421.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="427.5" y="82" width="8" height="4" rx="2"/><rect class="lane-f cell-focus" x="448.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="454.5" y="82" width="8" height="4" rx="2"/><rect class="lane-f cell-focus" x="475.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="481.5" y="82" width="8" height="4" rx="2"/>
+    <rect class="sq-b" x="379" y="106.5" width="10" height="10" rx="3"/><g class="faded"><rect class="lane-b cell" x="394.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel" x="400.5" y="110" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-b cell" x="421.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel" x="427.5" y="110" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-b cell" x="448.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel" x="454.5" y="110" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-b cell" x="475.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel" x="481.5" y="110" width="8" height="4" rx="2"/></g>
+    <rect class="sq-s" x="379" y="134.5" width="10" height="10" rx="3"/><g class="faded"><rect class="lane-s cell" x="394.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel" x="400.5" y="138" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-s cell" x="421.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel" x="427.5" y="138" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-s cell" x="448.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel" x="454.5" y="138" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-s cell" x="475.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel" x="481.5" y="138" width="8" height="4" rx="2"/></g>
+  <text class="title" x="379" y="176">Lane</text>
+  <text class="label" x="379" y="198">One row,</text>
+  <text class="label" x="379" y="217">every step</text>
+  <rect class="card" x="531.5" y="24.5" width="155" height="211" rx="16"/>
+  <rect class="sq-c" x="548" y="50.5" width="10" height="10" rx="3"/><g class="faded"><rect class="lane-c cell" x="563.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel" x="569.5" y="54" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-c cell" x="590.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel" x="596.5" y="54" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-c cell" x="617.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel" x="623.5" y="54" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-c cell" x="644.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel" x="650.5" y="54" width="8" height="4" rx="2"/></g>
+    <rect class="sq-f" x="548" y="78.5" width="10" height="10" rx="3"/><g class="faded"><rect class="lane-f cell" x="563.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel" x="569.5" y="82" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-f cell" x="590.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel" x="596.5" y="82" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-f cell" x="617.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel" x="623.5" y="82" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-f cell" x="644.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel" x="650.5" y="82" width="8" height="4" rx="2"/></g>
+    <rect class="sq-b" x="548" y="106.5" width="10" height="10" rx="3"/><g class="faded"><rect class="lane-b cell" x="563.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel" x="569.5" y="110" width="8" height="4" rx="2"/></g><rect class="lane-b cell-focus" x="590.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="596.5" y="110" width="8" height="4" rx="2"/><g class="faded"><rect class="lane-b cell" x="617.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel" x="623.5" y="110" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-b cell" x="644.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel" x="650.5" y="110" width="8" height="4" rx="2"/></g>
+    <rect class="sq-s" x="548" y="134.5" width="10" height="10" rx="3"/><g class="faded"><rect class="lane-s cell" x="563.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel" x="569.5" y="138" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-s cell" x="590.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel" x="596.5" y="138" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-s cell" x="617.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel" x="623.5" y="138" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-s cell" x="644.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel" x="650.5" y="138" width="8" height="4" rx="2"/></g>
+  <text class="title" x="548" y="176">Cell</text>
+  <text class="label" x="548" y="198">One cell,</text>
+  <text class="label" x="548" y="217">in full</text>
+  <rect class="card" x="700.5" y="24.5" width="155" height="211" rx="16"/>
+  <rect class="sq-c" x="717" y="50.5" width="10" height="10" rx="3"/><rect class="lane-c cell-focus" x="732.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="738.5" y="54" width="8" height="4" rx="2"/><g class="faded"><rect class="lane-c cell" x="759.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel" x="765.5" y="54" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-c cell" x="786.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel" x="792.5" y="54" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-c cell" x="813.5" y="44.5" width="22" height="23" rx="8"/><rect class="skel" x="819.5" y="54" width="8" height="4" rx="2"/></g>
+    <rect class="sq-f" x="717" y="78.5" width="10" height="10" rx="3"/><g class="faded"><rect class="lane-f cell" x="732.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel" x="738.5" y="82" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-f cell" x="759.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel" x="765.5" y="82" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-f cell" x="786.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel" x="792.5" y="82" width="8" height="4" rx="2"/></g><rect class="lane-f cell-focus" x="813.5" y="72.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="819.5" y="82" width="8" height="4" rx="2"/>
+    <rect class="sq-b" x="717" y="106.5" width="10" height="10" rx="3"/><g class="faded"><rect class="lane-b cell" x="732.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel" x="738.5" y="110" width="8" height="4" rx="2"/></g><rect class="lane-b cell-focus" x="759.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="765.5" y="110" width="8" height="4" rx="2"/><g class="faded"><rect class="lane-b cell" x="786.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel" x="792.5" y="110" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-b cell" x="813.5" y="100.5" width="22" height="23" rx="8"/><rect class="skel" x="819.5" y="110" width="8" height="4" rx="2"/></g>
+    <rect class="sq-s" x="717" y="134.5" width="10" height="10" rx="3"/><g class="faded"><rect class="lane-s cell" x="732.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel" x="738.5" y="138" width="8" height="4" rx="2"/></g><g class="faded"><rect class="lane-s cell" x="759.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel" x="765.5" y="138" width="8" height="4" rx="2"/></g><rect class="lane-s cell-focus" x="786.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel-teal" x="792.5" y="138" width="8" height="4" rx="2"/><g class="faded"><rect class="lane-s cell" x="813.5" y="128.5" width="22" height="23" rx="8"/><rect class="skel" x="819.5" y="138" width="8" height="4" rx="2"/></g>
+  <text class="title" x="717" y="176">Custom</text>
+  <text class="label" x="717" y="198">Whatever the</text>
+  <text class="label" x="717" y="217">question needs</text>
 </svg>

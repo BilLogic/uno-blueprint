@@ -61,10 +61,11 @@ describe('canvasDotGrid', () => {
       [{ x: -913, y: 77 }, 0.37],
       [{ x: 12, y: 3000 }, 2.6],
     ] as const) {
-      const { pitch, offsetX, offsetY } = canvasDotGrid(pan, zoom)
-      // The tile's dot sits at its centre; the tile grid starts at offset.
-      const dotX = offsetX + pitch / 2
-      const dotY = offsetY + pitch / 2
+      const { pitch, overhang, offsetX, offsetY } = canvasDotGrid(pan, zoom)
+      // The layer starts `overhang` out from the viewport's corner and is
+      // translated by the offset; each tile's dot sits at the tile's centre.
+      const dotX = -overhang + offsetX + pitch / 2
+      const dotY = -overhang + offsetY + pitch / 2
       const residueX = (((dotX - pan.x) % pitch) + pitch) % pitch
       const residueY = (((dotY - pan.y) % pitch) + pitch) % pitch
       expect(Math.min(residueX, pitch - residueX)).toBeCloseTo(0, 6)
@@ -78,6 +79,30 @@ describe('canvasDotGrid', () => {
     expect(offsetX).toBeLessThan(pitch)
     expect(offsetY).toBeGreaterThanOrEqual(0)
     expect(offsetY).toBeLessThan(pitch)
+  })
+
+  it('draws the tile on a layout unit and scales it back to the exact pitch', () => {
+    for (const zoom of [0.05, 0.37, 0.6372, 0.73, 1, 1.37, 1.5003, 2.6, 4]) {
+      const { pitch, tile, tileScale } = canvasDotGrid(ORIGIN, zoom)
+      // The engine floors a background size to 1/64px; this one is already there.
+      expect((tile * 64) % 1).toBe(0)
+      expect(tile).toBeLessThanOrEqual(pitch)
+      expect(pitch - tile).toBeLessThan(1 / 64)
+      // 70 tiles out — the width of a wide viewport — still lands on the board.
+      expect(Math.abs(70 * tile * tileScale - 70 * pitch)).toBeLessThan(1e-9)
+      expect(tileScale).toBeGreaterThanOrEqual(1)
+      expect(tileScale).toBeLessThan(1.002)
+    }
+  })
+
+  it('hangs the layer a whole number of pixels out, at least a pitch, so a translate never uncovers an edge', () => {
+    for (const zoom of [0.05, 0.6372, 0.73, 1, 1.37, 4]) {
+      const { pitch, overhang, offsetX } = canvasDotGrid({ x: 33.3, y: 0 }, zoom)
+      expect(Number.isInteger(overhang)).toBe(true)
+      expect(overhang).toBeGreaterThanOrEqual(pitch)
+      // Left edge at or left of the viewport's; the right edge, symmetric.
+      expect(-overhang + offsetX).toBeLessThanOrEqual(0)
+    }
   })
 
   it('survives a degenerate zoom without looping forever', () => {

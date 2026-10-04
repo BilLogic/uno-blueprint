@@ -38,10 +38,33 @@ export const CANVAS_DOT_GRID_MIN_SCREEN_PITCH = CANVAS_DOT_GRID_PITCH / 2
 /** Below any zoom the camera can reach; only guards a degenerate input. */
 const ZOOM_FLOOR = 1e-3
 
+/**
+ * The engine's layout unit: Blink floors a `background-size` to 1/64px.
+ * Repeated seventy-odd times across a viewport, that floor walked the far
+ * edge of the grid a pixel and more off the board at fractional zooms
+ * (measured at DPR 1). So the tile is drawn ON the unit, deliberately, and
+ * the layer's transform scales it back up to the exact pitch — a scale of
+ * at most 1.0016, invisible on a pixel-wide dot.
+ */
+const LAYOUT_UNIT = 1 / 64
+
 export type CanvasDotGrid = {
-  /** On-screen tile size in px — `background-size` on both axes. */
+  /** On-screen pitch in px: the distance between dots as the board has it. */
   pitch: number
-  /** `background-position`, reduced into one tile, in px. */
+  /** `background-size` on both axes: the pitch floored to a layout unit. */
+  tile: number
+  /** The layer's scale, `pitch / tile`, so the tiles land on the pitch. */
+  tileScale: number
+  /**
+   * How far the layer hangs past the viewport on every side, in px: the
+   * pitch, rounded UP to a whole pixel. Whole, because a fractional layer
+   * origin is snapped to the pixel grid when the background paints, which
+   * put the dots up to half a pixel off the board, by an amount that
+   * changed with the zoom. At least a pitch, so a translate inside one pitch
+   * never uncovers an edge.
+   */
+  overhang: number
+  /** The layer's translate, reduced into one pitch, in px. */
   offsetX: number
   offsetY: number
   /** Multiplier on the dot colour's own alpha, 0–1. */
@@ -66,10 +89,15 @@ export function canvasDotGrid(
   while (worldPitch * z < CANVAS_DOT_GRID_MIN_SCREEN_PITCH) worldPitch *= 2
   const pitch = worldPitch * z
   const alpha = Math.min(1, (pitch / CANVAS_DOT_GRID_PITCH) ** 2)
+  const tile = Math.floor(pitch / LAYOUT_UNIT) * LAYOUT_UNIT
+  const overhang = Math.ceil(pitch)
   return {
     pitch,
-    offsetX: wrap(pan.x - pitch / 2, pitch),
-    offsetY: wrap(pan.y - pitch / 2, pitch),
+    tile,
+    tileScale: pitch / tile,
+    overhang,
+    offsetX: wrap(pan.x - pitch / 2 + overhang, pitch),
+    offsetY: wrap(pan.y - pitch / 2 + overhang, pitch),
     alpha,
   }
 }

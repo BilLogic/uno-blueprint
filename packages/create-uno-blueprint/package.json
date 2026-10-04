@@ -4,7 +4,7 @@
   "description": "Start an Uno Blueprint workspace with one command.",
   "type": "module",
   "bin": {
-    "create-uno-blueprint": "./bin/create-uno-blueprint.mjs"
+    "create-uno-blueprint": "bin/create-uno-blueprint.mjs"
   },
   "files": [
     "bin",

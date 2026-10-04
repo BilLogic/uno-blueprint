@@ -428,18 +428,34 @@ function figureUiLabels(name) {
   )
 }
 
+// Five is the floor a consuming sweep holds across every figure before it
+// trusts an empty result; the cell figure alone draws nine, so it clears that
+// floor whatever the other figures do.
+const FIGURE_LABEL_FLOOR = 5
+const CELL_FIGURE = 'docs/assets/cell-anatomy.svg'
+
 test('the cell figure marks the panel labels it draws, in both themes', () => {
   const light = figureUiLabels('cell-anatomy.svg')
   assert.ok(
-    light.length >= 5,
-    `docs/assets/cell-anatomy.svg marks ${light.length} labels with class="uiLabel"; ` +
-      'mark each panel label it draws (docs/guidelines/composition/cover-page.md § Art direction)',
+    light.length >= FIGURE_LABEL_FLOOR,
+    guardFailure(
+      CELL_FIGURE,
+      `marks ${light.length} labels with class="uiLabel"; mark each panel ` +
+        'label it draws (docs/guidelines/composition/cover-page.md § Art direction)',
+    ),
   )
-  assert.deepEqual(figureUiLabels('cell-anatomy.dark.svg'), light)
+  assert.deepEqual(
+    figureUiLabels('cell-anatomy.dark.svg'),
+    light,
+    guardFailure(
+      'docs/assets/cell-anatomy.dark.svg',
+      `marks different labels from ${CELL_FIGURE}; the two differ only in <style>`,
+    ),
+  )
   const named = new Set(documentedRows().map((row) => row.label))
   assert.deepEqual(
     light.filter((label) => !named.has(label)),
     [],
-    'a label the cell figure marks is one references/interface-schema-map.md does not name',
+    guardFailure(CELL_FIGURE, `marks a label ${DOCUMENT_FILE} does not name`),
   )
 })

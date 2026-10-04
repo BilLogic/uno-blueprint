@@ -41,7 +41,7 @@ export const CANVAS_HEADER_BOX = 'rounded-md px-2 py-2 gap-2'
  * `aria-pressed` stays on the button that actually toggles.
  */
 export const CANVAS_HEADER_STATE = [
-  'relative transition-colors duration-(--motion-micro)',
+  'relative transition-colors ease-arrive motion-reduce:transition-none duration-(--motion-micro)',
   'hover:bg-foreground/5',
   // Neutral, not the brand colour. A header is chrome — it names an axis; it
   // is not one of the coloured objects on the board. Borrowing the CELL's
@@ -117,7 +117,7 @@ export const CANVAS_HEADER_OPENER =
  */
 export const CANVAS_HEADER_INFO = [
   'z-10 inline-grid size-4 place-items-center rounded-full text-muted-foreground',
-  'opacity-0 outline-none transition-opacity duration-(--motion-micro)',
+  'opacity-0 outline-none transition-opacity ease-arrive motion-reduce:transition-none duration-(--motion-micro)',
   'focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50',
   '[@media(pointer:coarse)]:opacity-100',
   // Invisible must also mean untouchable. On a fine pointer the glyph is

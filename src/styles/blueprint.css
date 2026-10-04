@@ -219,7 +219,7 @@
     opacity: 1;
     transition-property: opacity;
     transition-duration: var(--motion-micro);
-    transition-timing-function: var(--ease-structural);
+    transition-timing-function: var(--ease-arrive);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -325,6 +325,15 @@
   [data-blueprint-cell-anchor] {
     transition-property: box-shadow, transform, opacity, background-color;
     transition-duration: var(--motion-micro);
+    transition-timing-function: var(--ease-arrive);
+  }
+
+  /* Reduced motion: hover, press and dim land at once. The reveal chain is
+     skipped in JS under reduced motion, so nothing waits on these ending. */
+  @media (prefers-reduced-motion: reduce) {
+    [data-blueprint-cell-anchor] {
+      transition-property: none;
+    }
   }
 
   /*
@@ -398,7 +407,14 @@
      crossing it now costs one 150 ms opacity animation, not a relayout. */
   [data-slice-sequence-badge],
   [data-slice-pick-badge] {
-    transition: opacity var(--motion-micro) ease-out;
+    transition: opacity var(--motion-micro) var(--ease-arrive);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-slice-sequence-badge],
+    [data-slice-pick-badge] {
+      transition: none;
+    }
   }
 
   [data-canvas-zoom-far] [data-slice-sequence-badge] {
@@ -692,7 +708,7 @@
    * motion keeps a static ring for the same window instead of animating.
    */
   [data-blueprint-cell-pulse] {
-    animation: blueprint-cell-pulse calc(var(--motion-camera) * 3) ease-out both;
+    animation: blueprint-cell-pulse calc(var(--motion-camera) * 3) var(--ease-arrive) both;
   }
 
   @keyframes blueprint-cell-pulse {
@@ -1146,7 +1162,7 @@
 
   [data-canvas-reveal-chrome]
     :is([data-annotation-toolbar], [data-zoom-indicator], [data-canvas-nav]) {
-    transition: opacity var(--motion-fade) ease-out;
+    transition: opacity var(--motion-fade) var(--ease-arrive);
   }
 
   [data-canvas-reveal='0']

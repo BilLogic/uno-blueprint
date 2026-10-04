@@ -131,7 +131,7 @@ function PathNotionToggle({
       type="button"
       onClick={() => onToggle(path.id)}
       className={cn(
-        'inline-flex items-center gap-2 rounded-full px-2 py-1 text-sm transition-colors',
+        'inline-flex items-center gap-2 rounded-full px-2 py-1 text-sm transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
         checked
           ? 'bg-accent font-medium text-foreground'
           : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
@@ -209,7 +209,7 @@ function PathCheckbox({
     <label
       htmlFor={inputId}
       className={cn(
-        'inline-flex cursor-pointer items-center rounded-md transition-colors',
+        'inline-flex cursor-pointer items-center rounded-md transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
         dense ? 'gap-1 px-0 py-0 text-xs' : 'gap-2 text-sm',
         compact && !dense ? 'px-1 py-1' : !dense ? 'px-1 py-1' : undefined,
         checked && 'font-medium text-foreground',

@@ -94,7 +94,7 @@ function EvidenceRow({ row }: { row: Evidence }) {
                   href={segment.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline underline-offset-2 transition-colors hover:text-foreground"
+                  className="underline underline-offset-2 transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:text-foreground"
                 >
                   {segment.text}
                 </a>

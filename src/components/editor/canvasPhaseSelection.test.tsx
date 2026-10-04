@@ -72,9 +72,9 @@ describe('the selected phase frame', () => {
     )
   })
 
-  it('arrives on the structural curve, and at once under reduced motion', () => {
+  it('arrives on the arrive curve, and at once under reduced motion', () => {
     expect(selectedRing('transition-timing-function')).toBe(
-      'var(--ease-structural)',
+      'var(--ease-arrive)',
     )
     expect(selectedRing('transition-duration')).toBe('var(--motion-micro)')
     expect(selectedRing('transition', [REDUCED_MOTION])).toBe('none')

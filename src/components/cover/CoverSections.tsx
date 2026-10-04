@@ -227,7 +227,7 @@ function GuideLink({ link, repoUrl }: { link: CoverGuideLink; repoUrl: string })
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="text-sm text-text-brand underline underline-offset-4 transition-colors duration-(--motion-structural) ease-structural hover:text-foreground sm:text-base"
+      className="text-sm text-text-brand underline underline-offset-4 transition-colors motion-reduce:transition-none duration-(--motion-structural) ease-arrive hover:text-foreground sm:text-base"
     >
       {link.label}
     </a>
@@ -315,7 +315,7 @@ function SkillTabs({
             aria-selected={index === active}
             onClick={() => setActive(index)}
             className={cn(
-              'rounded-full px-4 py-2 font-mono text-sm transition-colors duration-(--motion-structural) ease-structural',
+              'rounded-full px-4 py-2 font-mono text-sm transition-colors motion-reduce:transition-none duration-(--motion-structural) ease-arrive',
               index === active
                 ? 'bg-background text-foreground'
                 : 'text-muted-foreground hover:text-foreground',

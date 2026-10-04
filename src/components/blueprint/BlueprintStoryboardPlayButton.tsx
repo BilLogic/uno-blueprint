@@ -48,7 +48,7 @@ export function BlueprintStoryboardPlayButton({
       <button
         type="button"
         className={cn(
-          'tap-target-24 inline-flex size-5 shrink-0 items-center justify-center text-foreground transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-30',
+          'tap-target-24 inline-flex size-5 shrink-0 items-center justify-center text-foreground transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-30',
           className,
         )}
         aria-label={playLabel}

@@ -27,7 +27,7 @@ export function LaneCollapseToggle({
       <button
         type="button"
         className={cn(
-          'inline-flex shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground',
+          'inline-flex shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:bg-muted/80 hover:text-foreground',
           className,
         )}
         data-print-hide

@@ -58,7 +58,7 @@ const FRAME_SHAPE_CLASS = 'rounded-xl'
 const VIEWER_CHROME_CLASS =
   'z-10 rounded-full bg-foreground/70 text-background backdrop-blur-sm'
 const STEP_BUTTON_CLASS =
-  'absolute top-1/2 flex size-9 -translate-y-1/2 cursor-pointer items-center justify-center transition-colors duration-(--motion-micro) hover:bg-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
+  'absolute top-1/2 flex size-9 -translate-y-1/2 cursor-pointer items-center justify-center transition-colors ease-arrive motion-reduce:transition-none duration-(--motion-micro) hover:bg-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
 
 /**
  * One member of a sibling group: an image the viewer can step to.
@@ -239,7 +239,7 @@ export function ZoomableImage({
         <DialogPrimitive.Backdrop
           forceRender
           data-image-zoom-scrim
-          className="fixed inset-0 z-50 bg-black/70 transition-opacity duration-(--motion-fade) data-ending-style:opacity-0 data-starting-style:opacity-0"
+          className="fixed inset-0 z-50 bg-black/70 transition-opacity ease-arrive motion-reduce:transition-none duration-(--motion-fade) data-ending-style:ease-leave data-ending-style:opacity-0 data-starting-style:opacity-0"
         />
         {/*
           Full-bleed rather than inset, so the wheel reaches every pixel a
@@ -250,7 +250,7 @@ export function ZoomableImage({
           ref={popupRef}
           aria-label={shown.alt}
           onKeyDown={onKeyDown}
-          className="fixed inset-0 z-50 outline-none transition-opacity duration-(--motion-fade) data-ending-style:opacity-0 data-starting-style:opacity-0"
+          className="fixed inset-0 z-50 outline-none transition-opacity ease-arrive motion-reduce:transition-none duration-(--motion-fade) data-ending-style:ease-leave data-ending-style:opacity-0 data-starting-style:opacity-0"
         >
           {/*
             Fills the popup behind everything else, and closes on a click.
@@ -302,7 +302,7 @@ export function ZoomableImage({
                 'touch-none',
                 CURSOR_CLASS[cursor],
                 animated &&
-                  'transition-transform duration-(--motion-micro) ease-out',
+                  'transition-transform motion-reduce:transition-none duration-(--motion-micro) ease-move',
               )}
             />
           </div>
@@ -356,7 +356,7 @@ export function ZoomableImage({
             aria-label="Close"
             className={cn(
               VIEWER_CHROME_CLASS,
-              'absolute top-4 right-4 flex size-9 cursor-pointer items-center justify-center transition-colors duration-(--motion-micro) hover:bg-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+              'absolute top-4 right-4 flex size-9 cursor-pointer items-center justify-center transition-colors ease-arrive motion-reduce:transition-none duration-(--motion-micro) hover:bg-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
             )}
             render={<button type="button" />}
           >

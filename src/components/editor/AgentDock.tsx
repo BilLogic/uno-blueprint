@@ -376,7 +376,7 @@ export function AgentDockDivider({ columnRef }: { columnRef: React.RefObject<HTM
         setResizing(true)
       }}
       className={cn(
-        'h-1 shrink-0 cursor-row-resize touch-none transition-colors',
+        'h-1 shrink-0 cursor-row-resize touch-none transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
         resizing ? 'bg-border' : 'hover:bg-border/80',
       )}
     />

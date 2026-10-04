@@ -503,7 +503,7 @@ function FontSizeControl({
               setOpen(false)
             }}
             className={cn(
-              'flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-left text-sm text-(--foreground-annotation-chrome) transition-colors hover:bg-(--wash-annotation-chrome)',
+              'flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-left text-sm text-(--foreground-annotation-chrome) transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:bg-(--wash-annotation-chrome)',
               fontSize === size && 'bg-(--wash-annotation-chrome)',
             )}
           >
@@ -593,7 +593,7 @@ function AlignControl({
               setOpen(false)
             }}
             className={cn(
-              'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-(--foreground-annotation-chrome) transition-colors hover:bg-(--wash-annotation-chrome)',
+              'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-(--foreground-annotation-chrome) transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:bg-(--wash-annotation-chrome)',
               align === id && 'bg-(--wash-annotation-chrome)',
             )}
           >

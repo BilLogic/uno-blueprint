@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
  *
  * No plate, no border, no padding — deliberately. Every figure is authored
  * with a full-bleed rounded background rect across its whole viewBox
- * (`fill="#fafbfc" rx="14"`), so the artwork already IS its own container.
+ * (`fill="#eef1f5" rx="14"`), so the artwork already IS its own container.
  * Wrapping it in a second bordered, padded, white box drew a frame around a
  * frame, which is what made the page read as boxes inside boxes.
  *

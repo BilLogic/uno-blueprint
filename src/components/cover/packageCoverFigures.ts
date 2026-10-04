@@ -97,14 +97,14 @@ export const packageCoverFigures = {
   ubAudit: {
     src: ubAudit,
     srcDark: ubAuditDark,
-    alt: 'ub:audit flags cells without changing the blueprint — a missing cell, two channels that disagree, a cell nobody owns — and records each as a finding for you to triage',
+    alt: 'ub:audit flags cells without changing the blueprint — a step with no cell, two cells competing for one channel, two owners who disagree — and records each as a finding for you to triage',
     width: 880,
     height: 300,
   },
   ubMap: {
     src: ubMap,
     srcDark: ubMapDark,
-    alt: 'ub:map reads what you already have — interview notes, a runbook, a journey map — and places what it finds into cells, held as a draft until you sign it off',
+    alt: 'ub:map reads what you already have — interview notes, support tickets, a journey map — and places what it finds into cells, held as a draft until you sign it off',
     width: 880,
     height: 300,
   },

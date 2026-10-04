@@ -28,7 +28,6 @@
     .tile { fill: #f6f8f7; stroke: #151a18; stroke-opacity: 0.09; }
     .glyph { fill: none; stroke: #565c5a; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
     .raised { fill: #ffffff; stroke: #151a18; stroke-opacity: 0.17; }
-    .tag { fill: #ffffff; stroke: #151a18; stroke-opacity: 0.17; }
     .term { fill: #101417; stroke: #101417; }
     .term-key { font-family: 'Ubuntu Sans Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; font-weight: 500; fill: #7fe3cc; }
     .lane-c { fill: #e8f3ed; } .sq-c { fill: #cfe6d9; }

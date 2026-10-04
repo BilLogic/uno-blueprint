@@ -17,7 +17,7 @@ board, trace a change through it, then cut the view an audience asked for.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/ub-map.dark.svg">
-  <img src="../assets/ub-map.svg" alt="ub:map reads what you already have — interview notes, a runbook, a journey map — and places what it finds into cells, held as a draft until you sign it off">
+  <img src="../assets/ub-map.svg" alt="ub:map reads what you already have — interview notes, support tickets, a journey map — and places what it finds into cells, held as a draft until you sign it off">
 </picture>
 
 Fires when you ask for a blueprint to be created, imported, translated or
@@ -34,7 +34,7 @@ to a content hash.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/ub-audit.dark.svg">
-  <img src="../assets/ub-audit.svg" alt="ub:audit flags cells without changing the blueprint — a missing cell, two channels that disagree, a cell nobody owns — and records each as a finding for you to triage">
+  <img src="../assets/ub-audit.svg" alt="ub:audit flags cells without changing the blueprint — a step with no cell, two cells competing for one channel, two owners who disagree — and records each as a finding for you to triage">
 </picture>
 
 Runs the check roster. Each check is dispatched to its own agent that sees

@@ -579,6 +579,11 @@ version together; `blueprint-workspace.json` records the workspace's
    template remote, or re-clone + copy `blueprint/`, `.env`, `HANDOFF.md`,
    `blueprint-workspace.json` forward). Resolve conflicts in favor of the
    template for app code — workspace-local app edits are unsupported.
+   Take `skills/`, `references/`, `agents/`, `scripts/` and `.agents/` from
+   the new template whole. `.agents/skills/` is the copy of each skill that
+   other coding agents read, and a copy by glob (`cp -r template/* .`) skips
+   it because its name starts with a dot. Confirm it with
+   `node scripts/sync-agent-skills.mjs --check`.
 4. Carry the IR across the bump — do **not** hand-edit `schema_version`:
 
    ```

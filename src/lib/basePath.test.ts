@@ -39,6 +39,10 @@ describe('normalizeBasePath', () => {
     expect(() => normalizeBasePath('/demo?x=1')).toThrow(/path/)
     expect(() => normalizeBasePath('../demo')).toThrow(/path/)
     expect(() => normalizeBasePath('/demo#top')).toThrow(/path/)
+    expect(() => normalizeBasePath('/../x/')).toThrow(/path/)
+    expect(() => normalizeBasePath('/a/../b/')).toThrow(/path/)
+    expect(() => normalizeBasePath('/./x/')).toThrow(/path/)
+    expect(() => normalizeBasePath('/a/..')).toThrow(/path/)
   })
 })
 

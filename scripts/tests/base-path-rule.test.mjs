@@ -32,7 +32,19 @@ const ACCEPTED = {
   '/a/b': '/a/b/',
 }
 
-const REFUSED = ['https://example.com/demo/', './demo', '../demo', '/demo?x=1', '/demo#top']
+const REFUSED = [
+  'https://example.com/demo/',
+  './demo',
+  '../demo',
+  '/demo?x=1',
+  '/demo#top',
+  // A `.` or `..` anywhere: the build clears the root of `dist/` down to the
+  // prefix, and a segment that climbs would clear outside it.
+  '/../x/',
+  '/a/../b/',
+  '/./x/',
+  '/a/..',
+]
 
 test('the build and the check normalise a path to the same answer', () => {
   for (const [value, expected] of Object.entries(ACCEPTED)) {

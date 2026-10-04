@@ -25,7 +25,7 @@ What that buys you:
 
 ## See it live
 
-- **Run it yourself** — `npm install && npm run dev` boots the stock renderer over the bundled sample blueprint, no database needed: phases, path comparisons on one shared step axis, dependency arrows, and cell detail panels. Click any phase, then flip between paths. See [Run locally](#run-locally) below.
+- **Run it yourself** — `npm create uno-blueprint@latest` writes a workspace and installs it, and `npm run dev` inside it boots the stock renderer over the bundled sample blueprint, no database needed: phases, path comparisons on one shared step axis, dependency arrows, and cell detail panels. Click any phase, then flip between paths. See [Run locally](#run-locally) below.
 
 Demos of the blueprint in use (recordings coming soon):
 
@@ -109,9 +109,31 @@ Hand this section to your agent — it can run all of it. Each subsection also w
 
 ### Run locally
 
-No database needed — this renders the bundled sample blueprint so you can see the frontend working before wiring anything up:
+One command writes a workspace — the whole template, at the release that matches the command's own version — installs its dependencies, and prints the lines that start the canvas. Use the package manager you already have:
 
 ```bash
+npm create uno-blueprint@latest
+pnpm create uno-blueprint
+yarn create uno-blueprint   # Yarn 1
+bun create uno-blueprint
+```
+
+Then start it, in the same manager's words:
+
+```bash
+cd uno-blueprint
+npm run dev                 # or: pnpm dev · yarn dev · bun dev
+```
+
+No database needed — this renders the bundled sample blueprint so you can see the frontend working before wiring anything up.
+
+It needs Node 22 or later. Which package managers work, what each installs, and the command's options are in [SETUP.md § 1](./SETUP.md#1-start-a-workspace).
+
+To work on the template itself, clone it instead:
+
+```bash
+git clone https://github.com/BilLogic/uno-blueprint.git
+cd uno-blueprint
 npm install
 npm run dev
 ```

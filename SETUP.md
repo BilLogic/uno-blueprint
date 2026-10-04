@@ -1,6 +1,6 @@
 # Setup
 
-Getting this repository running on your machine, for someone who has not read
+Getting Uno Blueprint running on your machine, for someone who has not read
 anything else in it. Adopting the package rather than working on it? The
 README's [Get set up](./README.md#get-set-up) is the shorter road.
 
@@ -9,19 +9,53 @@ README's [Get set up](./README.md#get-set-up) is the shorter road.
 | | |
 | --- | --- |
 | Node | 22 or later (CI runs 22) |
+| A package manager | npm, pnpm, Yarn 1 or Bun. Yarn 2 and later are refused |
 | Python | 3.10 or later, standard library only — no packages to install |
 | Docker | only for a local database; the app runs without one |
 | Supabase CLI | only for a local database; installed as a dev dependency |
 
-## From clone to your own content
+## From an empty folder to your own content
 
-Five steps, in order. Each one is a command and a thing you should see. If a
+Five steps, in order. Step 1 is either the one-line create command or a clone
+of the repository. Each one is a command and a thing you should see. If a
 step does not show you its result, stop on that step — every later step will
 look like it worked anyway, because this app renders bundled content whenever
 it cannot reach a database. That is the one trap on this path, and it is why
 each step below ends in something to *check* rather than something to look at.
 
-### 1. Clone it and install
+### 1. Start a workspace
+
+One command writes the whole template, at the release that matches the
+command's own version, into a new folder and installs its dependencies with
+the package manager that ran it:
+
+```bash
+npm create uno-blueprint@latest
+pnpm create uno-blueprint
+yarn create uno-blueprint   # Yarn 1
+bun create uno-blueprint
+```
+
+```bash
+cd uno-blueprint
+```
+
+The folder is `uno-blueprint` unless you name one after the command, and it
+has to be empty or new. `--no-install` writes the files and skips the install
+(with npm, after a `--`); the rest of the options are in
+[the initialiser's README](./packages/create-uno-blueprint/README.md).
+
+Yarn 2 and later are refused, because they skip the `pre` scripts that `dev`
+and `build` rely on: the files are written and nothing is installed. The
+release's exact dependency set is in its `package-lock.json`. npm installs from
+it, and Bun converts it into a lock file of its own on the first install. pnpm
+and Yarn read no `package-lock.json` and resolve the dependency ranges afresh,
+so a workspace they install can differ from the release's set.
+
+**Success:** the command ends with `Next steps:` and the line that starts the
+canvas.
+
+To work on the template itself, clone it instead:
 
 ```bash
 git clone https://github.com/BilLogic/uno-blueprint.git
@@ -30,6 +64,9 @@ npm install
 ```
 
 **Success:** `npm install` finishes without an `npm ERR!` line.
+
+The steps below are written with npm. Under another manager, `npm run <script>`
+is `pnpm run <script>`, `yarn run <script>` or `bun run <script>`.
 
 ### 2. Run it with no database at all
 
@@ -117,6 +154,16 @@ the check names the file, the line and the reason, grouped so the one root
 cause is not buried under the forty rows that failed because of it.
 
 ## Before you push
+
+A workspace written by `create uno-blueprint` starts without a git repository,
+and the guards below walk the files git tracks. Give it one first:
+
+```bash
+git init
+git add -A
+```
+
+A clone already has one. Then:
 
 ```bash
 npm test

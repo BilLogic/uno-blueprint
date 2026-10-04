@@ -53,8 +53,11 @@ const SIZES = {
  * The mini-blueprint: the shorthand for a blueprint the cover figures use,
  * drawn here from theme tokens so it follows the theme instead of being a
  * printed plate. Each row is a lane — a lane-colour square and a label bar —
- * then cells holding one skeleton bar each. A dashed cell is a gap, because
- * dashed means not yet; it holds no bar, since nothing is there to label.
+ * then cells holding one skeleton bar each. A cell is an outline, not a fill,
+ * as on the cover figures: the line is the lane's ring token, the step the
+ * board draws a cell's ring in, so it follows light and dark and a
+ * deployment's own lane palette. A dashed cell is a gap, because dashed means
+ * not yet; it holds no bar, since nothing is there to label.
  *
  * Decoration only: hidden from assistive tech, and still, so it never pulls
  * the eye from the copy beside it that says what to do next.
@@ -85,7 +88,7 @@ export function MiniBlueprintIllustration({
             <span
               data-mini-blueprint-lane-square=""
               className={cn(
-                'shrink-0 rounded-sm bg-[color:var(--background-blueprint-cell-pressed)]',
+                'shrink-0 rounded-sm bg-[color:var(--ring-blueprint-cell)]',
                 s.square,
               )}
             />
@@ -103,7 +106,7 @@ export function MiniBlueprintIllustration({
                   key={i}
                   data-mini-blueprint-cell="solid"
                   className={cn(
-                    'flex items-center border border-border bg-[color:var(--background-blueprint-cell)]',
+                    'flex items-center border border-[color:var(--ring-blueprint-cell)] bg-transparent',
                     s.cell,
                   )}
                 >

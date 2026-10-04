@@ -46,7 +46,44 @@ describe('MiniBlueprintIllustration', () => {
     for (const lane of lanes) {
       const square = lane.querySelector('[data-mini-blueprint-lane-square]')
       expect(square).not.toBeNull()
-      expect(square!.className).toContain('var(--background-blueprint-cell')
+      // The swatch is the lane's line colour, the same step the cells are
+      // outlined in, so a row reads as one colour from square to last cell.
+      expect(square!.className).toContain('var(--ring-blueprint-cell)')
+    }
+  })
+
+  it('draws present cells as lane-coloured outlines, not lane-tinted fills', () => {
+    // The board's own ring token, so the picture follows the theme and a
+    // deployment's lane palette exactly as the cells it stands for do.
+    render(<MiniBlueprintIllustration size="lg" />)
+    const solid = [
+      ...document.querySelectorAll<HTMLElement>(
+        '[data-mini-blueprint-cell="solid"]',
+      ),
+    ]
+    expect(solid.length).toBeGreaterThan(0)
+    for (const cell of solid) {
+      expect(cell.className).toContain('border-[color:var(--ring-blueprint-cell)]')
+      expect(cell.className).toContain('bg-transparent')
+      expect(cell.className).not.toMatch(/bg-\[color:var\(--background-blueprint-cell/)
+      expect(cell.className).not.toMatch(/\bborder-border\b/)
+    }
+  })
+
+  it('leaves gaps dashed and skeleton bars as they were', () => {
+    render(<MiniBlueprintIllustration size="lg" />)
+    for (const gap of document.querySelectorAll<HTMLElement>(
+      '[data-mini-blueprint-cell="gap"]',
+    )) {
+      expect(gap.className).toContain('border-dashed')
+      expect(gap.className).toContain('border-strong')
+    }
+    for (const bar of document.querySelectorAll<HTMLElement>(
+      '[data-mini-blueprint-bar]',
+    )) {
+      expect(bar.className).toContain(
+        'bg-[color:var(--background-blueprint-cell-pressed)]',
+      )
     }
   })
 

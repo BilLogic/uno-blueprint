@@ -11,7 +11,7 @@ summary: What you are looking at when you open a blueprint — the hierarchy fro
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/data-model-hierarchy.dark.svg">
-  <img src="../assets/data-model-hierarchy.svg" alt="How a blueprint is organized — a service holds phases in order, a phase holds scenarios, a scenario holds paths side by side, and a path is a grid of lanes and steps">
+  <img src="../assets/data-model-hierarchy.svg" alt="How a blueprint is organized, as a staircase stepping down and to the right — a service holds phases in order and may loop back; one phase opens into a deck of scenarios; one scenario branches into paths (happy, variants, exceptions); and the happy path opens into a grid of lanes and steps">
 </picture>
 
 A **service** holds ordered **phases**. A phase can loop back to an

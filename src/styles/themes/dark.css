@@ -22,7 +22,7 @@
   /* Same dial, same value as light — see the BRAND SEAM note in
      themes/light.css. The brand hue is mode-invariant, so these two must
      move together. */
-  --hue: 159;
+  --hue: 175;
   /* The warm 34 from themes/light.css, restated rather than inherited.
      Restating changes nothing about what renders: this dial had no
      declaration here, and what that MEANT was already 34 — not semantic.css's
@@ -47,13 +47,15 @@
   --muted-foreground-level: 0.8;
   --tertiary-foreground-level: 0.65;
 
-  /* BRAND SEAM, dark half. The neutral filled control inverts: near-white
-     fill, dark ink on it (semantic.css derives the flip). No brand dial here
-     either — see the note beside the pair in themes/light.css. The identity
-     follows this fill, so it inverts with it, and a fork that wants an
-     identity which does not sets a dial in BOTH theme files. */
-  --primary-lightness: 0.922;
-  --primary-chroma: 0;
+  /* BRAND SEAM, dark half. The site's dark teal, `#3ecfb0`, to within one
+     sRGB channel step (`#3fcfb0`, held to light's hue): OKLCH 0.771 /
+     0.129, lighter and a little more saturated than light's so it carries
+     on the charcoal canvas. Past the 0.62 flip, so semantic.css puts dark ink on
+     it — 9.15:1. No brand dial here either — see the note beside the pair in
+     themes/light.css. The identity follows this fill, and a fork that wants
+     an identity which does not sets a dial in BOTH theme files. */
+  --primary-lightness: 0.771;
+  --primary-chroma: 0.129;
   /*
    * Two-layer shadows restated so dark actually applies: higher alpha plus
    * a 1px inset highlight along the top edge. These win over the light

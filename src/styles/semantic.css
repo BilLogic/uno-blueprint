@@ -232,22 +232,22 @@
    * on-colour, ring, sidebar selection — follows without another edit.
    *
    * A neutral primary HAS to invert with the theme. At `--primary-chroma: 0`
-   * nothing but lightness separates the fill from the canvas, so `--primary`
-   * is near-black ink in light and near-white in dark, and it is
-   * `--primary-lightness` flipping per theme that makes that work. A
-   * mode-invariant fill only becomes possible once the fill carries chroma.
-   * Keep that in mind when rebranding — a light brand fill wants the
-   * light-theme lightness in BOTH theme files, and the `--primary-foreground`
-   * flip below will follow it.
+   * nothing but lightness separates the fill from the canvas, so a fork that
+   * turns the template's teal off wants near-black ink in light and
+   * near-white in dark, with `--primary-lightness` flipping per theme to make
+   * that work. A mode-invariant fill only becomes possible once the fill
+   * carries chroma. The template's teal sits between: lighter in dark than
+   * in light, on one hue, and the `--primary-foreground` flip below picks
+   * the ink for each.
    *
    * `--primary` stays a computed triple rather than an alias of a step in a
    * stepped family: such a family inverts between themes while the on-colour
    * must stay legible against whatever the fill resolves to, and the flip
    * below is what buys that. (`--brand-*` is not that alias and never was —
    * it spells the three optional per-channel dials over this fill now, which
-   * is the opposite direction of travel.) `--hue` is pinned to the neutral
-   * ramp's own hue in themes/light.css, so the fill can never drift off the
-   * brand the rest of the app wears.
+   * is the opposite direction of travel.) `--hue` is the brand hue dial in
+   * themes/light.css, so the fill can never drift off the brand the rest of
+   * the app wears.
    *
    * Derived tokens, both measured after CSS Color 4 gamut mapping:
    *   --primary-border  a flat one-shade-darker hairline. The edge is carried

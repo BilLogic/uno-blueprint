@@ -2,10 +2,15 @@ import blueprintAnatomy from '../../../docs/assets/blueprint-anatomy.svg'
 import cellAnatomy from '../../../docs/assets/cell-anatomy.svg'
 import dataModelHierarchy from '../../../docs/assets/data-model-hierarchy.svg'
 import fourWaysIn from '../../../docs/assets/four-ways-in.svg'
+import fourWaysInDark from '../../../docs/assets/four-ways-in.dark.svg'
 import ubAudit from '../../../docs/assets/ub-audit.svg'
+import ubAuditDark from '../../../docs/assets/ub-audit.dark.svg'
 import ubMap from '../../../docs/assets/ub-map.svg'
+import ubMapDark from '../../../docs/assets/ub-map.dark.svg'
 import ubSlice from '../../../docs/assets/ub-slice.svg'
+import ubSliceDark from '../../../docs/assets/ub-slice.dark.svg'
 import ubWhatif from '../../../docs/assets/ub-whatif.svg'
+import ubWhatifDark from '../../../docs/assets/ub-whatif.dark.svg'
 import skillArchitecture from '../../../docs/assets/skill-architecture.svg'
 import sliceConcept from '../../../docs/assets/slice-concept.svg'
 import slicingModel from '../../../docs/assets/slicing-model.svg'
@@ -84,33 +89,38 @@ export const packageCoverFigures = {
   },
   fourWaysIn: {
     src: fourWaysIn,
-    alt: 'Ways into the blueprint — the app, the in-app agent, agentic tools, and a Slack bot you could build — over one shared context layer',
+    srcDark: fourWaysInDark,
+    alt: 'Four ways into one shared context — the app, the in-app agent and agentic tools read and write it; a Slack bot you build, dashed because the template does not ship it, only reads',
     width: 880,
-    height: 334,
+    height: 324,
   },
   ubAudit: {
     src: ubAudit,
-    alt: 'How ub:audit runs its check roster and records findings for triage',
+    srcDark: ubAuditDark,
+    alt: 'ub:audit flags cells without changing the blueprint — a missing cell, two channels that disagree, a cell nobody owns — and records each as a finding for you to triage',
     width: 880,
-    height: 292,
+    height: 300,
   },
   ubMap: {
     src: ubMap,
-    alt: 'How ub:map turns documents, sessions, or a foreign diagram into a validated blueprint',
+    srcDark: ubMapDark,
+    alt: 'ub:map reads what you already have — interview notes, a runbook, a journey map — and places what it finds into cells, held as a draft until you sign it off',
     width: 880,
-    height: 292,
+    height: 300,
   },
   ubSlice: {
     src: ubSlice,
-    alt: 'How ub:slice selects and orders cells into a stakeholder view',
+    srcDark: ubSliceDark,
+    alt: 'ub:slice takes one cut of the blueprint — a journey, step, lane, cell or custom set; here one lane — and orders it into slides that each cite the cell they show',
     width: 880,
-    height: 292,
+    height: 276,
   },
   ubWhatif: {
     src: ubWhatif,
-    alt: 'How ub:whatif traces a proposed change downstream on a copy',
+    srcDark: ubWhatifDark,
+    alt: 'ub:whatif traces a proposed change on a copy, to the cells it reaches and an assumption it breaks; the blueprint changes only after you accept, through ub:map',
     width: 880,
-    height: 292,
+    height: 348,
   },
   skillArchitecture: {
     src: skillArchitecture,

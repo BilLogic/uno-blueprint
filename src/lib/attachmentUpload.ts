@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { UPLOAD_CACHE_CONTROL } from '@/lib/uploadCacheControl'
 
 type Client = SupabaseClient<Database>
 
@@ -63,8 +64,7 @@ export async function uploadAttachment(
   const { error } = await bucket.upload(objectKey, input.file, {
     contentType: input.file.type || undefined,
     upsert: false,
-    // A year: the key is minted per upload and never overwritten.
-    cacheControl: '31536000',
+    cacheControl: UPLOAD_CACHE_CONTROL,
   })
   if (error) throw new Error(`The file could not be uploaded: ${error.message}`)
   const { data } = bucket.getPublicUrl(objectKey)

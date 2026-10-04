@@ -17,6 +17,7 @@ import {
   type SlideImageMemberInput,
 } from '@/lib/sliceMutations'
 import { servedUrl } from '@/lib/basePath'
+import { UPLOAD_CACHE_CONTROL } from '@/lib/uploadCacheControl'
 import { isRenderableImageSrc } from '@/lib/sliceCells'
 import { framesOfCitedCells, imagesThisSlideShows } from '@/lib/slideImages'
 import { cn, errorMessage } from '@/lib/utils'
@@ -190,8 +191,11 @@ export function SlideImagesField({
       const path = illustrationPath(sliceId, itemId, file.type)
       const upload = await client.storage
         .from(ILLUSTRATION_BUCKET)
-        // A year: the path is unique per upload and never overwritten.
-        .upload(path, file, { upsert: false, contentType: file.type, cacheControl: '31536000' })
+        .upload(path, file, {
+          upsert: false,
+          contentType: file.type,
+          cacheControl: UPLOAD_CACHE_CONTROL,
+        })
       if (upload.error) throw new Error(upload.error.message)
 
       const {

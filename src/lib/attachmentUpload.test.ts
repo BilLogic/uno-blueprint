@@ -4,6 +4,7 @@ import {
   attachmentObjectKey,
   uploadAttachment,
 } from '@/lib/attachmentUpload'
+import { UPLOAD_CACHE_CONTROL } from '@/lib/uploadCacheControl'
 
 const CELL = '11111111-1111-4111-8111-111111111111'
 const OBJECT = '22222222-2222-4222-8222-222222222222'
@@ -52,7 +53,7 @@ describe('uploadAttachment', () => {
     expect(upload).toHaveBeenCalledWith(
       `cells/${CELL}/${OBJECT}.png`,
       file,
-      { contentType: 'image/png', upsert: false, cacheControl: '31536000' },
+      { contentType: 'image/png', upsert: false, cacheControl: UPLOAD_CACHE_CONTROL },
     )
     expect(row).toEqual({
       kind: 'attachment',

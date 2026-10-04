@@ -75,26 +75,53 @@ export function invalidateQueries(prefix: string): void {
   })
 }
 
-/** How long `invalidateStructure` waits for the burst it belongs to to end. */
+/**
+ * How long a burst of structural writes stays open. Sized between two
+ * rhythms: the writes inside one agent turn arrive back to back, each well
+ * inside a quarter second of the last, while a person's next structural
+ * edit comes later than that. So a turn coalesces, and a person's edits
+ * each stay instant.
+ */
 export const STRUCTURE_DEBOUNCE_MS = 250
 
-let structureTimer: ReturnType<typeof setTimeout> | undefined
+let structureWindow: ReturnType<typeof setTimeout> | undefined
+let structureOwed = false
+
+function sweepStructure(): void {
+  for (const prefix of STRUCTURE_KEYS) invalidateQueries(prefix)
+}
+
+function closeStructureWindow(): void {
+  structureWindow = undefined
+  if (!structureOwed) return
+  structureOwed = false
+  sweepStructure()
+}
 
 /**
  * Every cache a structural write can change — see `STRUCTURE_KEYS`.
  *
- * Trailing-debounced: an agent turn of N writes would otherwise refetch
+ * Leading and trailing: the first call sweeps at once, so a lone edit is
+ * instant; calls inside the window that opens behind it collapse into one
+ * sweep when it closes. Without that, an agent turn of N writes refetched
  * every open scenario N times, each invalidation cancelling the last one's
- * refetch mid-flight. A burst sweeps once, a quarter second after its last
- * write. Nothing reads the cache imperatively after a write, so the delay
- * only postpones what the mounted views show.
+ * refetch mid-flight. Nothing reads the cache imperatively after a write,
+ * so the trailing delay only postpones what the mounted views show.
  */
 export function invalidateStructure(): void {
-  clearTimeout(structureTimer)
-  structureTimer = setTimeout(() => {
-    structureTimer = undefined
-    for (const prefix of STRUCTURE_KEYS) invalidateQueries(prefix)
-  }, STRUCTURE_DEBOUNCE_MS)
+  if (structureWindow === undefined) sweepStructure()
+  else {
+    structureOwed = true
+    clearTimeout(structureWindow)
+  }
+  structureWindow = setTimeout(closeStructureWindow, STRUCTURE_DEBOUNCE_MS)
+}
+
+/** Test seam — no caller in the app. */
+export function resetStructureInvalidation(): void {
+  clearTimeout(structureWindow)
+  structureWindow = undefined
+  structureOwed = false
 }
 
 /** The rows one canvas query caches: paths with their cells. */

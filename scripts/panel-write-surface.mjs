@@ -450,9 +450,9 @@ ${rows.join(',\n')}
       if n = 0 then verdict := 'zero'; end if;
       -- Undo the write whether or not it worked. A probe that left its row
       -- behind would be answering the next probe's question, not its own.
-      raise exception 'write-surface probe' using errcode = 'ASB01';
+      raise exception 'write-surface probe' using errcode = 'UB001';
     exception
-      when sqlstate 'ASB01' then null;
+      when sqlstate 'UB001' then null;
       when insufficient_privilege then
         verdict := 'refused';
         detail := replace(sqlerrm, '|', '/');

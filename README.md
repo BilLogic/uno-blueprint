@@ -65,7 +65,10 @@ Each is walked, with its own figure, in [guide/03 — The plugin](./docs/guide/0
 
 ## Where the blueprint is used
 
-![Ways into the blueprint — the app, the in-app agent, agentic tools, and a Slack bot you could build, over one shared context layer](./docs/assets/four-ways-in.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/four-ways-in.dark.svg">
+  <img src="./docs/assets/four-ways-in.svg" alt="Four ways into one shared context — the app, the in-app agent and agentic tools read and write it; a Slack bot you build, dashed because the template does not ship it, only reads">
+</picture>
 
 The app is where people read, compare, and present. The in-app agent drafts changes in place; it asks you to sign in and bring your own model key. Your agentic tools reach the same rows from your IDE or CLI. The template ships those three, and all of them work from one shared context layer, so what any of them reads is what the others wrote. The fourth, dashed, is a pattern rather than a component: nothing here is a Slack bot. A chat surface over the blueprint can read what a deployment publishes, holding only the publishable key, and answer with links back to the exact cell; what it has to honour is the read-consumer section of the adapter contract, [references/adapter-contract.md](./references/adapter-contract.md#read-consumers-bots-agent-tools-external-integrations), and [guide/02](./docs/guide/02-using-it-in-practice.md) describes the shape. Who may do what follows from the account each one uses: see [guide/04 — Operations](./docs/guide/04-operations.md).
 

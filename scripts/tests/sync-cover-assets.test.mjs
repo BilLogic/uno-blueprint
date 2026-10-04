@@ -143,6 +143,18 @@ describe('dark files', () => {
     }
   })
 
+  it('exist for the five site-overlap figures', () => {
+    expect(pairs).toEqual(
+      expect.arrayContaining([
+        'four-ways-in.svg',
+        'ub-audit.svg',
+        'ub-map.svg',
+        'ub-slice.svg',
+        'ub-whatif.svg',
+      ]),
+    )
+  })
+
   it('keep every colour in the palette, none in the drawing', () => {
     for (const name of pairs) {
       for (const file of [name, darkVariantName(name)]) {

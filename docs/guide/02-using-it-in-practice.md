@@ -35,7 +35,10 @@ two documents that were true on different days.
 
 ## 2. Ways in
 
-![Ways into the blueprint](../assets/four-ways-in.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/four-ways-in.dark.svg">
+  <img src="../assets/four-ways-in.svg" alt="Four ways into one shared context — the app, the in-app agent and agentic tools read and write it; a Slack bot you build, dashed because the template does not ship it, only reads">
+</picture>
 
 | Way in | Who it is for | What it can do |
 | --- | --- | --- |

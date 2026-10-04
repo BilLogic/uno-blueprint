@@ -162,7 +162,7 @@ export const packageCoverFigures = {
   whyNow: {
     src: whyNow,
     srcDark: whyNowDark,
-    alt: 'A blueprint read at a few workshops a year drifts out of date; one read every week, by people and agents, stays true',
+    alt: 'A blueprint checked at a quarterly, twice-yearly or yearly review drifts out of date between reviews; one checked almost daily, by people and agents, stays true',
     width: 880,
     height: 392,
   },

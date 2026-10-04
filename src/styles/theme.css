@@ -469,13 +469,18 @@
    * and it would silently discard an embedder's own `--font-sans` whenever
    * this sheet sorts later in the cascade. A distinctly named seam
    * (`--app-font-mono` on the mono side) cannot cycle.
+   *
+   * `--font-source-code-pro` is the deprecated name of the mono seam, from
+   * when Source Code Pro was the default face. It is still read, nested in
+   * `--app-font-mono`'s fallback arm, so an embedder that sets it keeps its
+   * face; `--app-font-mono` wins when both are set.
    */
   --font-sans:
     var(--app-font-sans, 'Ubuntu Sans Variable'), 'Ubuntu Sans', Ubuntu,
     'Helvetica Neue', Helvetica, Arial, sans-serif;
   --font-mono:
-    var(--app-font-mono, 'Ubuntu Sans Mono Variable'), 'Ubuntu Sans Mono',
-    'Ubuntu Mono', Menlo, monospace;
+    var(--app-font-mono, var(--font-source-code-pro, 'Ubuntu Sans Mono Variable')),
+    'Ubuntu Sans Mono', 'Ubuntu Mono', Menlo, monospace;
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);

@@ -78,7 +78,7 @@ The app is where people read, compare, and present. The in-app agent drafts chan
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/data-model-hierarchy.dark.svg">
-  <img src="./docs/assets/data-model-hierarchy.svg" alt="How a blueprint is organized, as a staircase stepping down and to the right — a service holds phases in order and may loop back; one phase opens into a deck of scenarios, one scenario into a deck of paths side by side, and one path into a grid of lanes and steps">
+  <img src="./docs/assets/data-model-hierarchy.svg" alt="How a blueprint is organized, as a staircase stepping down and to the right — a service holds phases in order and may loop back; one phase opens into a deck of scenarios; one scenario branches into paths (happy, variants, exceptions); and the happy path opens into a grid of lanes and steps">
 </picture>
 
 *Read down the staircase — each level opens the one marked in teal before it: a **service** holds ordered **phases** (which can loop back via `loops_to_phase_id`); a phase holds **scenarios**; a scenario holds **path** variants; each path is a lanes × steps grid of **cells**.*

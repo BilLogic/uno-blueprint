@@ -79,10 +79,10 @@
   <text class="label" x="501" y="336">Variant</text>
   <rect class="halo" x="472.5" y="339.5" width="125" height="101" rx="11"/>
   <rect class="front" x="475.5" y="342.5" width="119" height="95" rx="8"/>
-  <text class="label-teal" x="487" y="365">Happy</text>
+  <text class="label-teal" x="487" y="365">Happy path</text>
   <text class="title" x="549" y="484" text-anchor="middle">Scenario</text>
-  <text class="label" x="549" y="506" text-anchor="middle">Paths side by side:</text>
-  <text class="label" x="549" y="526" text-anchor="middle">happy and the rest</text>
+  <text class="label" x="549" y="506" text-anchor="middle">Branches into paths:</text>
+  <text class="label" x="549" y="526" text-anchor="middle">happy, variant, exception</text>
   <path class="zoom" d="M595,342 L680,344"/>
   <path class="zoom" d="M595,438 L680,538"/>
   <rect class="tab-focus" x="680.5" y="344.5" width="111" height="27" rx="6"/>

@@ -92,7 +92,7 @@ export const packageCoverFigures = {
   dataModelHierarchy: {
     src: dataModelHierarchy,
     srcDark: dataModelHierarchyDark,
-    alt: 'How a blueprint is organized, as a staircase stepping down and to the right — a service holds phases in order and may loop back; one phase opens into a deck of scenarios, one scenario into a deck of paths side by side, and one path into a grid of lanes and steps',
+    alt: 'How a blueprint is organized, as a staircase stepping down and to the right — a service holds phases in order and may loop back; one phase opens into a deck of scenarios; one scenario branches into paths (happy, variants, exceptions); and the happy path opens into a grid of lanes and steps',
     width: 880,
     height: 634,
   },

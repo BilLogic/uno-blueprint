@@ -15,16 +15,8 @@
 export type BezierPoints = readonly [number, number, number, number]
 
 /**
- * The four curves, named by what the motion is FOR rather than by its shape.
- *
- * - **arrive** — something enters or is revealed, or answers a hover. Fast
- *   off the mark, long settle.
- * - **leave** — something exits. Holds, then clears out; exits are quicker
- *   than entries and should not trail.
- * - **move** — something already on screen goes from A to B: a position, a
- *   size, a rotation, the camera.
- * - **spring** — a small thing pops: a press, a swatch, a badge. Overshoots
- *   and settles; never on anything large.
+ * The four curves' control points, by role. When to use each role:
+ * the canvas guideline, under Motion.
  */
 export const EASE_POINTS = {
   arrive: [0.22, 1, 0.36, 1],

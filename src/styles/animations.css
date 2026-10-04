@@ -1,8 +1,8 @@
 /*
  * Motion tokens — the CSS half of the vocabulary in src/lib/motion.ts.
- * Four curves named by role (arrive, leave, move, spring) and a short
- * duration ladder; the motion drift test pins the TypeScript and CSS files
- * together so they cannot drift apart silently.
+ * Four role curves and a short duration ladder — when to use each role:
+ * the canvas guideline, under Motion. The motion drift test
+ * compares the values here with the TypeScript ones.
  * The `--ease-*` Tailwind theme keys become `ease-*` utilities; durations
  * are plain vars because Tailwind v4 has no duration
  * namespace — consume them as `duration-(--motion-structural)`.

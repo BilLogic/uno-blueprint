@@ -11,8 +11,9 @@ import { rulesDeclaring } from '@/lib/tokenModel'
  * ONE MOTION VOCABULARY FOR THE PRODUCT LAYER.
  *
  * Every transition a product surface declares says three things out loud: how
- * long (a `--motion-*` rung), which way it eases (one of the four roles —
- * arrive, leave, move, spring) and what happens under reduced motion. A stock
+ * long (a `--motion-*` rung), which way it eases (a role curve — the roles
+ * are defined in the canvas guideline, under Motion) and what
+ * happens under reduced motion. A stock
  * Tailwind `duration-200` or `ease-out` is a number nobody chose, and a bare
  * `transition-colors` inherits Tailwind's default curve and 150 ms without
  * saying so — which is how a product ends up with a dozen near-identical
@@ -36,9 +37,10 @@ import { rulesDeclaring } from '@/lib/tokenModel'
  *   `ease-out`, because its beats run serially and a long-tailed curve makes
  *   each handoff land late.
  *
- * Reduced-motion coverage of stylesheet ANIMATIONS is `lib/motion.test.ts`'s
- * job; the drift test there compares the token values between the two files
- * and nothing more.
+ * This guard checks reduced-motion paths for CLASS STRINGS only. In
+ * stylesheets, `lib/motion.test.ts` checks that every `animation:` rule has a
+ * reduced-motion branch; a stylesheet `transition:` gets its reduced-motion
+ * branch by review, not by either test.
  *
  * NOT read: the vendored `ui/` layer, which keeps its upstream timings
  * (vendored primitives stay pristine — a product surface that wants a
@@ -194,6 +196,13 @@ function valueFindings(value: string, allowKeyword = false): string[] {
 const INLINE =
   /\b(?:transition|animation)(?:Duration|TimingFunction|Delay)?\s*[:=]\s*(['"`])((?:(?!\1)[\s\S])*)\1/g
 
+/**
+ * A framer-motion transition or animation prop/key and its object, one level
+ * of nesting deep: `transition={{ … }}`, `animate={{ x: 1, transition: { … } }}`.
+ */
+const FRAMER_BLOCK =
+  /\b(?:transition|animate|initial|exit|while[A-Z]\w*)\s*[=:]\s*\{\{?[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g
+
 /** Inline-style and framer-motion timings in one file. */
 function scriptFindings(code: string): { line: number; problem: string }[] {
   const found: { line: number; problem: string }[] = []
@@ -208,12 +217,17 @@ function scriptFindings(code: string): { line: number; problem: string }[] {
       problem: `framer curve \`${match[2]}\` — use EASE_POINTS`,
     })
   }
-  for (const match of code.matchAll(/\bduration\s*:\s*(\d*\.?\d+)(?![\w.])/g)) {
-    if (parseFloat(match[1]) === 0) continue
-    found.push({
-      line: lineOf(code, match.index),
-      problem: `literal duration \`${match[1]}\` — use a MOTION_*_MS constant`,
-    })
+  // Durations only inside a framer transition or animation object
+  // (`transition={{…}}`, `animate={{ …, transition: {…} }}`), never any
+  // object key that happens to be called `duration`.
+  for (const block of code.matchAll(FRAMER_BLOCK)) {
+    for (const match of block[0].matchAll(/\bduration\s*:\s*(\d*\.?\d+)(?![\w.])/g)) {
+      if (parseFloat(match[1]) === 0) continue
+      found.push({
+        line: lineOf(code, block.index + match.index),
+        problem: `literal duration \`${match[1]}\` — use a MOTION_*_MS constant`,
+      })
+    }
   }
   return found
 }
@@ -285,6 +299,9 @@ describe('the product layer speaks one motion vocabulary', () => {
     )
     expect(at("el.style.transition = 'none'")).toEqual([])
     expect(at("transition={{ duration: 0.3, ease: 'easeOut' }}")).toHaveLength(2)
+    expect(at('animate={{ opacity: 1, transition: { duration: 0.2 } }}')).toHaveLength(1)
+    // Any other object key called `duration` is data, not a timing.
+    expect(at('const step = { label: "Wait", duration: 5 }')).toEqual([])
     expect(
       at('transition={{ duration: reduced ? 0 : MOTION_MICRO_MS / 1000, ease: EASE_POINTS.arrive }}'),
     ).toEqual([])

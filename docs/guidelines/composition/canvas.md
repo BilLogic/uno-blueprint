@@ -253,16 +253,14 @@ the same string.
 - The canvas reveal ladder keeps the plain `ease-out` it documents in
   `blueprint.css`: its beats run serially, and a long-tailed arrive curve
   makes each handoff land late. It is a separate clock from the shell's.
-- JS that animates on frames reads the same curves from `lib/motion.ts`
-  (`EASE_POINTS`, `cubicBezierEase`, `easeMove`) instead of writing its own.
+- `lib/motion.ts` carries the curves for JS that animates on frames
+  (`EASE_POINTS`, `cubicBezierEase`, `easeMove`). The camera flight does not
+  use them yet: it still eases on its own hermite curve in
+  `lib/cameraTransition.ts`.
 
-`lib/motion.ts` and `styles/animations.css` hold the two halves; a drift
-test compares their token values, and `components/motionVocabulary.test.ts`
-fails on a stock `duration-*`, `delay-*` or `ease-*` class, a product
-transition missing its rung, role or reduced-motion path, a raw time or
-keyword curve in an inline style, a framer-motion option or a stylesheet
-(the reveal chain's `ease-out` is the one exemption), and a named framer
-curve.
+`lib/motion.ts` and `styles/animations.css` hold the two halves, and a drift
+test compares their token values. What the product layer may not write is
+enforced, and listed, by `components/motionVocabulary.test.ts`.
 
 ## Camera
 

@@ -1168,8 +1168,10 @@ describe('a role tint stands off its ground', () => {
 /* ------------------------------------------------------------------ *
  * The default brand. The template ships teal rather than a chroma-0 ink, at
  * the two colours the Uno Blueprint site wears: `#00806a` on light and
- * `#3ecfb0` on dark. Read off the cascade's own answer, so the rule holds
- * the colour on screen rather than the dials that make it.
+ * `#3ecfb0` on dark, each to within one sRGB channel step. Read off the
+ * cascade's own answer, so the rule holds the colour on screen rather than
+ * the dials that make it. The ink on the fill and the identity following it
+ * are measured in `lib/palette.test.ts`, not restated here.
  * ------------------------------------------------------------------ */
 
 const SITE_TEAL = { light: '#00806a', dark: '#3ecfb0' } as const
@@ -1186,27 +1188,6 @@ describe('the default brand', () => {
       fill.forEach((channel, at) =>
         expect(Math.abs(channel - target[at])).toBeLessThanOrEqual(CHANNEL),
       )
-    },
-  )
-
-  it.each(['light', 'dark'] as const)(
-    'keeps the identity on the action fill under %s',
-    (theme) => {
-      expect(resolveColor('--brand', theme)).toEqual(
-        resolveColor('--primary', theme),
-      )
-    },
-  )
-
-  it.each(['light', 'dark'] as const)(
-    'clears AA for body text on the fill under %s',
-    (theme) => {
-      expect(
-        contrast(
-          resolveColor('--primary-foreground', theme),
-          resolveColor('--primary', theme),
-        ),
-      ).toBeGreaterThanOrEqual(4.5)
     },
   )
 })

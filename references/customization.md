@@ -43,14 +43,15 @@ the set is a deliberate multi-file act, listed in `references/lane-roles.md`
   radii, fonts, light/dark), split across a file per concern. The blocks an
   adopter edits are marked **BRAND SEAM**, and there are two of them:
   `src/styles/themes/light.css` and `src/styles/themes/dark.css`. The
-  template ships a teal accent — `#00806a` in light and `#3ecfb0` in dark,
-  at `--hue: 175` — on neutral surfaces (`--chroma: 0`). **To rebrand:** set
-  `--hue` to your brand's OKLCH hue and `--primary-lightness` and
-  `--primary-chroma` (the filled control) to your fill, in both theme
-  blocks; raise `--chroma` too if the surfaces should carry a tint. To keep
-  the app neutral instead, set `--primary-chroma: 0` in both blocks, with
-  `--primary-lightness` at 0.205 in light and 0.922 in dark. Everything else derives — the border, the foreground flip
-  and the focus ring follow from `src/styles/semantic.css` on their own.
+  template ships a teal accent — `#00806a` in light and, within one channel
+  step, `#3ecfb0` in dark, at `--hue: 175` — on neutral surfaces
+  (`--chroma: 0`). **To rebrand:** set `--hue` to your brand's OKLCH hue and
+  `--primary-lightness` and `--primary-chroma` (the filled control) to your
+  fill, in both theme blocks; raise `--chroma` too if the surfaces should
+  carry a tint. To keep the app neutral instead, set `--primary-chroma: 0` in
+  both blocks, with `--primary-lightness` at 0.205 in light and 0.922 in
+  dark. Everything else derives — the border, the foreground flip and the
+  focus ring follow from `src/styles/semantic.css` on their own.
   Restyle by editing tokens, not components; the shadcn components read the
   tokens.
 
@@ -76,14 +77,15 @@ the set is a deliberate multi-file act, listed in `references/lane-roles.md`
   | `--brand-lightness` | Moves the fill lighter or darker. |
 
   **Chroma has a ceiling, and it is lower than it looks.** The most chroma
-  sRGB can hold depends on the lightness it sits at, so a brand chroma
-  declared once for both modes has to clear the ceiling at *both* lightnesses
-  the identity inherits. At the pair this template ships — L 0.536 in light
-  and L 0.771 in dark — that is about **0.101** at hue 175 (the ceilings are
-  0.101 and 0.145, and the lower one governs; the light fill already sits on
-  it), and about **0.119** if you also rotate to hue 280. Declare more than that and the browser chroma-reduces it
-  silently, which makes the number in your theme file a lie and freezes the
-  next retune. A strong tint therefore needs `--brand-lightness` as well,
+  sRGB can hold depends on the lightness it sits at, so each mode's chroma
+  has to sit under that mode's own ceiling — a brand chroma declared in a
+  theme block is measured at the lightness the identity has in that mode. At
+  the pair this template ships, the ceiling at hue 175 is about **0.101** in
+  light (L 0.536, where the light fill already sits on it) and about
+  **0.145** in dark (L 0.771); rotated to hue 280 they are about **0.264**
+  and **0.119**. Declare more than a mode's ceiling and the browser
+  chroma-reduces it silently, which makes the number in your theme file a
+  lie and freezes the next retune. A strong tint therefore needs `--brand-lightness` as well,
   moving the fill to a lightness that can carry the chroma you want.
   `src/lib/palette.test.ts` holds the ceiling on `--brand`'s *resolved*
   values, so it fails on a dial that overshoots rather than letting it ship

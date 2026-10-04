@@ -20,10 +20,11 @@
    * BRAND SEAM — the block an adopter edits to rebrand the app chrome.
    *
    * The template ships teal: the filled control, and the identity fill that
-   * derives from it, are the Uno Blueprint site's `#00806a` here and
-   * `#3ecfb0` in the dark file. `--hue` is that teal's OKLCH hue, 175.0 off
-   * the light colour and 175.1 off the dark one, written once at 175 because
-   * the dial is mode-invariant. The surfaces stay neutral — `--chroma` is 0,
+   * derives from it, are the Uno Blueprint site's `#00806a` here and, within
+   * one sRGB channel step, its `#3ecfb0` in the dark file (`#3fcfb0`: the
+   * site's dark teal sits at hue 175.1, and the dial is one hue for both
+   * modes). `--hue` is written once at 175 because the dial is
+   * mode-invariant. The surfaces stay neutral — `--chroma` is 0,
    * so the canvas, text and borders are exact greys whatever the hue says.
    *
    * The status hues lean a fraction of the way toward this hue (the harmony
@@ -36,10 +37,10 @@
    * if the surfaces should carry a tint. To go neutral, set
    * `--primary-chroma: 0` in both files with `--primary-lightness` at 0.205
    * here and 0.922 in dark — the near-black and near-white fill the template
-   * shipped before the teal. Every role in the semantic layer follows, the identity
-   * fill included: `--brand` derives from `--primary`, so an app with one
-   * accent has nothing more to set here. Giving the identity a colour of its
-   * own is one dial per channel, added to this block and to the dark one —
+   * shipped before the teal. Every role in the semantic layer follows, the
+   * identity fill included: `--brand` derives from `--primary`, so an app
+   * with one accent has nothing more to set here. Giving the identity a
+   * colour of its own is one dial per channel, added to this block and to the dark one —
    * `references/customization.md` is the recipe. There is no ramp to re-type
    * here: a stepped family is named for its hue and lives in colors.css, and
    * the app chrome derives from these dials rather than from steps.

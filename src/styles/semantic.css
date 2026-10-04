@@ -245,7 +245,7 @@
    * must stay legible against whatever the fill resolves to, and the flip
    * below is what buys that. (`--brand-*` is not that alias and never was —
    * it spells the three optional per-channel dials over this fill now, which
-   * is the opposite direction of travel.) `--hue` is the one hue dial in
+   * is the opposite direction of travel.) `--hue` is the brand hue dial in
    * themes/light.css, so the fill can never drift off the brand the rest of
    * the app wears.
    *

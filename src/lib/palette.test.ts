@@ -160,9 +160,9 @@ describe('brand fill', () => {
      * What replaces it is the claim the number was standing in for. A brand
      * that changes saturation when the lights go out is two brands, exactly as
      * a brand that changes hue is — and the hue half of that is asserted
-     * directly above. Held as a relation, it is true of the neutral template
-     * (0 and 0) and of a branded deployment (0.135 and 0.135) alike, and it
-     * fails for the thing either of them would get wrong.
+     * directly above. Held as a relation, it is true of a neutral fork (0 and
+     * 0) and of a branded one alike, and it fails for the thing either of
+     * them would get wrong.
      *
      * The brand half is now asked of the RESOLVED colour, because brand has no
      * dials of its own to compare: it reads whatever `--primary` computed to,
@@ -178,14 +178,26 @@ describe('brand fill', () => {
      * chroma before it reads as louder, and sRGB has more room for it there.
      * Equality would force one of the two off the site's colour. What is
      * still two brands is a mode that drops to grey while the other wears a
-     * colour, and that is what this holds.
+     * colour, and that is the first thing this holds.
+     *
+     * The second is the half equality used to catch for free: a fork that
+     * sets `--brand-chroma` in one theme file and forgets the other. Brand's
+     * chroma either follows the accent's in both modes or leaves it in both;
+     * following in one and leaving in the other is the forgotten file.
      */
     expect(THEME_DIALS.dark.C === 0).toBe(THEME_DIALS.light.C === 0)
     const brand = {
       light: resolveColorValue('--brand', 'light'),
       dark: resolveColorValue('--brand', 'dark'),
     }
+    const primary = {
+      light: resolveColorValue('--primary', 'light'),
+      dark: resolveColorValue('--primary', 'dark'),
+    }
     expect(brand.dark.c === 0).toBe(brand.light.c === 0)
+    const follows = (theme: 'light' | 'dark') =>
+      Math.abs(brand[theme].c - primary[theme].c) < 1e-9
+    expect(follows('dark')).toBe(follows('light'))
     expect(brand.dark.h).toBeCloseTo(brand.light.h, 6)
   })
 
@@ -1316,12 +1328,12 @@ describe.each(['light', 'dark'] as const)('brand fill: %s', (theme) => {
    * test carried, which is the second-copy shape the token model exists to
    * end.
    *
-   * Both pairs hold 4.5:1, the AA floor for the size of label they carry —
+   * `--brand` holds 4.5:1, the AA floor for the size of label it carries —
    * the default button's and the cover CTA's are both `text-sm`. `--primary`
-   * held 7:1 while the template shipped a near-black fill, because that fill
-   * demonstrably did; the site's teal on light measures 4.69:1 under its
-   * near-white ink, and holding 7:1 would mean darkening it to about L 0.45,
-   * off the site's colour. The brand-coloured switch is UI-only and
+   * holds 7:1 in dark, where the teal measures 9.15:1, and 4.5:1 in light,
+   * where it measures 4.69:1 under its near-white ink: holding 7:1 there would
+   * mean darkening it to about L 0.45, off the site's colour. One pair, one
+   * floor per theme, stated beside it. The brand-coloured switch is UI-only and
    * would sit at 3:1, but it shares the token with the CTA and a token holds
    * the strictest ground it is painted on, so nothing here is asserted at 3:1.
    * Nothing measured either pair before, which is how a 3.89:1 identity fill
@@ -1333,7 +1345,11 @@ describe.each(['light', 'dark'] as const)('brand fill: %s', (theme) => {
    */
   const INK_PAIRS = [
     { fill: '--brand', ink: '--brand-foreground', floor: 4.5 },
-    { fill: '--primary', ink: '--primary-foreground', floor: 4.5 },
+    {
+      fill: '--primary',
+      ink: '--primary-foreground',
+      floor: theme === 'dark' ? 7 : 4.5,
+    },
   ] as const
 
   it.each(INK_PAIRS)(

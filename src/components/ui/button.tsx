@@ -23,8 +23,8 @@ const buttonVariants = cva(
         // shade-darker 1px edge, tighter radius, no drop shadow — the border
         // carries the weight the muted fill gave up. The fill is whatever the
         // accent dials resolve to, which in this template is its teal. Hover
-        // still rides alpha on the
-        // resting token; no `--*-hover` state token exists.
+        // still rides alpha on the resting token; no `--*-hover` state token
+        // exists.
         default:
           "rounded-md border-primary-border bg-primary text-primary-foreground shadow-none hover:bg-primary/90",
         // Identity fill, and one of the four brand jobs pinned in

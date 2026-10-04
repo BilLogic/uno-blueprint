@@ -142,7 +142,7 @@
      * The divider band's caption, and the plate it sits on.
      *
      * The caption is a TEXT step for a reason. It was step 900 — Radix's
-     * low-contrast *solid* step — on an uppercase caption at the bottom of the
+     * low-contrast *solid* step — on a 12px caption at the bottom of the
      * type scale, measuring 2.64:1 in light and 2.74:1 in dark against the
      * 4.5:1 type this size requires. Step 1100 does not clear it either
      * (4.11:1 in light). Step 1200 is the smallest rung that clears AA in both

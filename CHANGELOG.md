@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.5.2
+
+**A failed initialiser publish says why.** The release tag's publish run now
+logs npm's trusted-publishing exchange, so a registry that does not trust the
+workflow shows up as that rather than as a bare `404`.
+
+### Upgrading a deployment
+
+- **Bump the pin or skip this release; nothing else moves.** The change is to
+  the publish workflow, which publishes nothing outside this repository.
+
+### Patch Changes
+
+- adda039: A failed initialiser publish says why. The publish step in `publish-initialiser.yml` now runs with `--loglevel verbose`, so the run's log keeps npm's trusted-publishing exchange. When the registry does not trust the workflow, npm falls back to a placeholder token and the registry answers only `404 Not Found`; the verbose lines show that the exchange is what failed.
+
 ## 2.5.1
 
 **The figures can be read again from outside.** The redrawn cell figure marks

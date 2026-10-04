@@ -121,6 +121,7 @@ and the run's log says which in one line.
 | Red | The tagged commit is not on `main`. | Tag the release commit on `main`, as § 4 says. |
 | Red | The npm the job has is older than 11.5.1, the first that can publish without a token, or could not be asked its version. | Raise `node-version` in the workflow. Nothing is installed over the npm that Node carries. |
 | Red | The registry could not be asked whether the version exists. | Re-run the run. Nothing is wrong with the release, and changing a version would not help. |
+| Red at *Publish with provenance*, `404 Not Found - PUT` | The registry does not trust this run, so npm publishes with the placeholder token `setup-node` writes. Provenance still signs, because that uses the job's own token. | Read the `npm verbose oidc` line above the 404, then check the trusted publisher's fields against step 3 of *Once, by the owner* below and re-run. A version that publishes can take a few minutes to show on the registry. |
 
 **Renaming or moving this repository without updating the manifest gives a
 green run that publishes nothing.** Every release lands in the "not the

@@ -2,7 +2,7 @@
 'uno-blueprint': patch
 ---
 
-The cover's Overview, Blueprints, Slices and Skills tabs read in plainer language. `src/content/coverContent.ts` keeps the same sections, figures, terms and links; only the wording changes. Em-dash asides become full sentences, the four skill summaries say what each skill does before what it produces, and the slice-type table reads off the slicing figure: a journey is one actor and the cells theirs connect to, a step is one moment across every lane, a lane is one row across every step.
+The cover's Overview, Blueprints, Slices and Skills tabs read in plainer language. `src/content/coverContent.ts` keeps the same sections, figures, terms and links; only the wording changes. Em-dash asides become full sentences, the four skill summaries say what each skill does before what it produces, and the slice types say what each one selects: a journey is one actor and the cells theirs connect to, a step is one moment across every lane, a lane is one lane across every step, and a custom slice is built around a question the other four types do not already name.
 
 Upgrading a deployment:
 

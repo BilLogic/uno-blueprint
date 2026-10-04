@@ -109,7 +109,7 @@ export const coverContent: CoverContent = {
           id: 'blueprints-organized',
           heading: 'How a blueprint is organized',
           paragraphs: [
-            'A **service** is organized into **phases**, and phases can loop back to earlier ones to model repeat visits or renewals without duplicating the journey. Each phase contains **scenarios** that represent the different situations an actor might be in, and each scenario contains **paths** that show the different ways that situation can unfold, including the expected path and variations where something changes or goes wrong. Each path is shown as a grid.',
+            'A **service** is organized into **phases**, and phases can loop back to earlier ones to model repeat visits or renewals without duplicating the journey. Each phase contains **scenarios** that represent the different situations an actor might be in, and each scenario contains **paths** that show the different ways that situation can unfold, including the expected path and variations where something changes or goes wrong.',
           ],
           figure: packageCoverFigures.dataModelHierarchy,
         },
@@ -119,7 +119,7 @@ export const coverContent: CoverContent = {
           heading: 'Inside one path',
           paragraphs: [
             'Each path is a grid. Lanes are rows, with one actor per lane, and steps are columns, moving from left to right over time. A **cell** is where a lane and step meet, showing what that actor does at that moment. Arrows show **dependencies** between cells.',
-            'The **line of interaction**, **line of visibility**, and **line of internal interaction** are generated from the roles of the lanes, so they always stay aligned with the actors they separate. Steps are defined at the scenario level, and each path uses the relevant steps in its own order, making different paths easier to compare precisely.',
+            'The **line of interaction**, **line of visibility**, and **line of internal interaction** are derived from the roles of the lanes, so they cannot drift out of agreement with the actors they separate. Steps are defined at the scenario level, and each path uses the relevant steps in its own order, making different paths easier to compare precisely.',
           ],
           figure: packageCoverFigures.blueprintAnatomy,
         },
@@ -172,7 +172,7 @@ export const coverContent: CoverContent = {
             { term: 'cell', definition: 'One cell in full.' },
             {
               term: 'custom',
-              definition: 'A view built around a question the other four shapes do not already name.',
+              definition: 'A view built around a question the other four types do not already name.',
             },
           ],
           figure: packageCoverFigures.slicingModel,
@@ -192,7 +192,7 @@ export const coverContent: CoverContent = {
           id: 'skills-set',
           heading: 'The skill set',
           paragraphs: [
-            'Four Claude Code skills help maintain the blueprint without relying on someone to keep it updated by hand. Each skill has its own playbooks, scripts, and references, and each ends with a clear validation step, such as a validator check, sign-off, or matching read-back.',
+            'Four Claude Code skills help maintain the blueprint without relying on someone to keep it updated by hand. Each skill has its own playbooks and scripts and links the shared references its task needs, and each ends at a deterministic gate, such as a validator exit, a sign-off, or a read-back that matches.',
             'More intensive analysis runs in fresh-context agents that return a summary rather than carrying all of the source material forward. This helps catch issues the original drafting context may be too anchored on.',
           ],
           figure: packageCoverFigures.skillArchitecture,
@@ -202,7 +202,7 @@ export const coverContent: CoverContent = {
           id: 'skills-map',
           command: '/ub:map',
           summary:
-            'Builds a blueprint from what you already have (such as existing documents, a working session, or another service diagram). Each scenario is reviewed and signed off before the finished blueprint is imported into the workspace.',
+            'Builds a blueprint from what you already have (such as existing documents, a working session, or another service diagram). It produces a validated blueprint file, and each scenario is reviewed and signed off before that file is imported into the workspace.',
           figure: packageCoverFigures.ubMap,
         },
         {

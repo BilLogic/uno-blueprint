@@ -47,7 +47,7 @@ export const coverContent: CoverContent = {
           id: 'overview-why',
           heading: 'Why a blueprint that stays true',
           paragraphs: [
-            'Service blueprints have always been worth having and have always gone stale. They were strategic artifacts — commissioned, workshopped, opened at a quarterly or yearly review — because reading one took facilitation and context you had to rebuild every time. The map decayed quietly, and nothing in the week depended on it enough to force a correction.',
+            'Service blueprints have always been worth having and have always gone stale. They were strategic artifacts — commissioned, workshopped, opened at a quarterly, twice-yearly or yearly review — because reading one took facilitation and context you had to rebuild every time. The map decayed quietly, and nothing in the week depended on it enough to force a correction.',
             'This project makes one bet: put the blueprint in a structure an agent can query, and the cost of reading it collapses. Interpretation stops being the expensive part, so the map gets consulted in ordinary work rather than at reviews — and because something now depends on it daily, keeping it accurate has a practical reason rather than a virtuous one.',
           ],
           figure: packageCoverFigures.whyNow,

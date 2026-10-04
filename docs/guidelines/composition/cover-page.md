@@ -198,9 +198,9 @@ it; the rest follow as they are redrawn.
 
   A lane the table leaves out takes its role's step-11 colour the same way
   (`colors.css`, `--color-{family}-1100`), measured before it ships.
-  `blueprint-anatomy` and `why-now` are drawn to this recipe. Figures still carrying lane
-  pastel fills move to it as they are redrawn; their stale cells already
-  match it.
+  `blueprint-anatomy` and `why-now` are drawn to this recipe. Figures
+  still carrying lane pastel fills move to it as they are redrawn; their
+  stale cells already match it.
 
 - **Borders are translucent ink** on everything that is not a cell — cards,
   wells, chips: about 9% at rest, 17% for emphasis.

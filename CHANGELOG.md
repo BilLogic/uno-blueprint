@@ -1,5 +1,105 @@
 # Changelog
 
+## 2.6.0
+
+**Every cover figure draws cells as outlines.** A cell in the thirteen cover
+figures and in the empty-state picture is now a coloured outline in its lane's
+line colour, not a pastel box; the stale cell is the one filled cell. The
+hierarchy figure is back to its staircase, `why-now` counts in quarters, and
+the browser tab shows the Uno mark. Other coding agents (Cursor, Codex) now
+find the four skills under `.agents/skills/`, and a `BASE_PATH` build leaves a
+clean root.
+
+### Upgrading a deployment
+
+- **Bump the pin, and take the template's `vite.config.ts`.** It is held
+  byte-identical. Under `BASE_PATH` the build now clears stale files at the
+  root of `dist/`, and a `.` or `..` segment in the prefix stops the build.
+- **Apply the new migration** (`supabase db push`). `21000228000000` only
+  re-issues a column comment; on a database that already holds the current
+  text it changes nothing.
+- **Rewrite two figure overrides if the deployment has them.** An `alt` for
+  `dataModelHierarchy` should describe the staircase, and a restated `height`
+  should be 634 or dropped. An `alt` for `whyNow`, or a copy of the
+  Overview's `overview-why` text, should speak of quarterly, twice-yearly or
+  yearly reviews against near-daily checks.
+- **Take the new cover-tab wording if the deployment copied it.** The
+  Overview, Blueprints, Slices and Skills tabs in `src/content/coverContent.ts`
+  read in plainer language; keep the deployment's own names where they differ.
+- **Copy the favicon to show the Uno mark.** A deployment keeps its own
+  `public/` and `index.html`; copy `favicon.svg`, `favicon.png` and
+  `apple-touch-icon.png`, and the three `<link>` lines.
+- **Nothing else needs a change.** The empty-state picture reads theme tokens
+  a deployment already sets, and the `.agents/skills/` mirror is not imported
+  by a deployment.
+
+### Minor Changes
+
+- e7b6cc5: Cover figures draw a cell as a coloured outline rather than a filled box. The cover-page art direction states the recipe: a cell is `fill: none` with a 1.25px stroke in its lane's line colour, which is the board's own lane family at step 11 (the step the board draws a cell's ring in), measured at 4.72:1 or better against the plate and card in light and 5.79:1 or better in dark. The lane stroke table replaces the lane pastel table. Teal emphasis is a 2px teal outline with a faint teal halo, the app's selection ring, because teal against the Customer line's green is about 1.1:1 without it. A cell that no longer holds is the one filled cell: a faint amber wash under an amber outline, with its amber skeleton bar, because an amber outline alone is about 1.0:1 against the Support and Backstage lines. A dashed outline (`3 3`) means not yet, missing or proposed. Cards and wells keep their translucent-ink borders. `blueprint-anatomy` is redrawn to it, light and dark, with its layout and panel-label markers unchanged, and the other twelve figures follow in this release.
+- 978f6af: Other coding agents find the four skills. Cursor, Codex, Gemini CLI, Copilot and Windsurf discover skills under `.agents/skills/<name>/SKILL.md` and none of them scans a top-level `skills/`, so each skill's `SKILL.md` is now copied, byte for byte, to `.agents/skills/{map,slice,audit,whatif}/SKILL.md`. `skills/` stays the source, because its paths are a published interface; only `SKILL.md` is mirrored, since skill text resolves every path from the repository or workspace root. `scripts/sync-agent-skills.mjs` writes the mirror and, with `--check`, fails on a drifted or missing copy and on any file under the mirror that no skill produced, naming it; it needs no git, so it runs in a workspace. `npm run check:skills` runs that check beside the canvas one, `npm test` runs it first, and `npm run sync:skills` refreshes both copies after a skill edit. A frontmatter `name` that is not a lowercase slug is refused, and an empty folder left under the mirror is an orphan. The four path-root sentences now read correctly outside Claude Code: the plugin root is `${CLAUDE_PLUGIN_ROOT}` there, and the repository or workspace root anywhere else.
+
+  Upgrading a deployment: no action. The deployment imports nothing from `.agents/`, and every path it imports is where it was.
+
+- 1319737: The hierarchy figure returns to its staircase. `data-model-hierarchy` is the v2.4.0 layout again, restyled to the cover art direction: four panels stepping down and to the right — service, phase, scenario, path — each under a tab naming the item it opens, phases and scenarios as fanned decks of cards, and two thin projection lines running from the focused item to the next panel. The stacked redraw lost that zoom, and the zoom is what carries the levelling. The focused item is a teal outline with its halo, the projection lines and the tabs they land on are teal, captions are sentence case at 14.5 units or more, and the path panel is a small mini-blueprint whose cells are outlines in their lanes' colours. The light and dark files differ only in their `<style>` block. The figure is now 880×634, its alt text in `packageCoverFigures` describes the staircase, and the README and guide/01 embeds carry the same alt.
+
+  Upgrading a deployment:
+
+  - A deployment that overrides `packageCoverFigures.dataModelHierarchy.alt` should rewrite its alt to describe the staircase: four levels stepping down and to the right, each opening the one before it.
+  - A deployment that overrides its `height` should set 634 (the viewBox is now `0 0 880 634`), or drop the override and take the package's.
+  - A deployment that uses the figure as the package supplies it needs no change.
+
+### Patch Changes
+
+- 8f6e6f3: A base-path build leaves only the host files at the root. Under `BASE_PATH`, Vite empties only `dist/<prefix>/`, so files an earlier root build wrote at the root of `dist/` stayed there, left locally or restored by a host's build cache. A host serves a file that is there before a rule that is not forced, so a stale root `index.html` answered `/` with the old app instead of sending it on to the prefix. The build now clears the root of `dist/` when it starts, keeping only the path down to the prefix, and ends with nothing there but the prefix's folder, `_headers` and `_redirects`. It refuses to clear anything outside `dist/`, and never follows a symlink in the prefix's path. `npm run check:hosting -- --built` holds the root to exactly that under a prefix, and names anything else it finds there. A root build is unchanged.
+
+  `BASE_PATH` now refuses a `.` or `..` segment anywhere in the value (`/../x/`, `/a/../b/`, `/./x/`), the same way in the build, the hosting check, the application and the render walk. Before, only a leading `.` was refused.
+
+  **Upgrading a deployment**
+
+  - Take the new bytes of `vite.config.ts`, which a deployment holds byte-identical, with the pin bump. `render-walk/playwright.config.ts` changes the same way and comes with the package.
+  - A `BASE_PATH` with a `.` or `..` segment now stops the build. Set the prefix as a plain path, such as `/demo/`.
+  - A host that keeps its build directory between deploys may hand the first build after the upgrade a stale root. The build clears it, and `npm run check:hosting -- --built` confirms it.
+
+- ec9ece4: A new workspace carries the skills where other coding agents look for them, and CI proves it. The initialiser already wrote `.agents/skills/` into every workspace, since it writes every path the release tarball holds; nothing held it to that. The workspace job now runs `node scripts/sync-agent-skills.mjs --check` inside the workspace it wrote, so a missing or drifted copy of any skill fails the build, and the initialiser's tests pin that a folder whose name starts with a dot arrives whole. The template upgrade recipe in `references/customization.md` now names `.agents/` beside `skills/`, `references/`, `agents/` and `scripts/`, because a copy by glob skips it.
+
+  **Upgrading a deployment**
+
+  - Nothing to do. A workspace upgraded by copying the template forward takes `.agents/` with the rest, and `node scripts/sync-agent-skills.mjs --check` confirms the copies.
+
+- 5ebd1f9: The cover-page art direction says every figure follows it. It used to name the figures already drawn to it (`why-now`, `when-to-use`, `blueprint-anatomy`) and say the rest would follow as they were redrawn; now that all thirteen are, the section says so and drops the lists.
+- 4718560: The cover's Overview, Blueprints, Slices and Skills tabs read in plainer language. `src/content/coverContent.ts` keeps the same sections, figures, terms and links; only the wording changes. Em-dash asides become full sentences, the four skill summaries say what each skill does before what it produces, and the slice types say what each one selects: a journey is one actor and the cells theirs connect to, a step is one moment across every lane, a lane is one lane across every step, and a custom slice is built around a question the other four types do not already name.
+
+  Upgrading a deployment:
+
+  - A deployment that copies these four tabs verbatim into its own cover content should take the new text from `src/content/coverContent.ts`, keeping its own names where it already differs (for example a fourth surface it actually runs). A deployment that wrote its own tabs needs no change.
+
+- 1dda0ec: The database layer carries no pre-rename name. A new migration, `21000228000000`, issues the comment on `touchpoints.icon_url` again with the text its migration file now holds, and asserts that it landed. A database that applied the earlier wording kept it in `pg_description`, so `schema_comments()` handed agents a column meaning the files no longer state. The custom SQLSTATE that the proof blocks and the write-surface probe raise to roll themselves back is now `UB001`. Each block raises and catches it inside itself, so nothing outside one block ever sees it, and no behaviour changes. The generated recipe follows.
+
+  Upgrading a deployment:
+
+  - Apply the new migration (`supabase db push`). It changes only a column comment, and on a database that already carries the current text it changes nothing.
+  - The four migrations whose proofs used the old SQLSTATE have already run everywhere and do not run again; only their text changed. A deployment that holds the generated recipe or `panel-write-surface.mjs` byte-identical takes the new copies with the pin.
+
+- bdea0d1: The docs say how other coding agents call the skills. The README's "The plugin" section gains an "In other coding agents" entry: the invocation per tool as checked by hand (`ub:map` in Cursor, `$ub:map` in Codex, under their `ub:` names), and a link to the guide for the rest; Gemini CLI, Copilot and Windsurf are named as tools that document the same `.agents/skills/` convention, not as checked. Guide 03 gains a section on the mirror: why `skills/` stays the source (its paths are a published interface, and only `SKILL.md` needs copying because every path a skill names resolves from the repository or workspace root), why it is a copy rather than a link, and that `npm run sync:skills` is the step after a skill edit. The AGENTS.md intro names `.agents/skills/` as how other agents discover the skills and points at that section by its heading.
+
+  Upgrading a deployment: no action. Only documentation changed.
+
+- e86ba57: The empty-state picture draws its cells as lane-coloured outlines, matching the cover figures. A present cell is now an outline in its lane's ring colour, the step the board draws a cell's ring in, with no fill, and each row's square takes the same colour. A gap is a dashed outline in that same lane colour, so it reads as a cell missing from that lane. Skeleton bars are translucent ink, as the figures' bars are, because a lane-coloured bar with no fill behind it sat on the page at under 2:1. The colours still come from theme tokens, so the picture follows light and dark and a deployment's own lane palette.
+- 176dc2e: The method figures draw cells as outlines. `slicing-model`, `when-to-use`, `slice-concept` and `cell-anatomy` move from lane pastel fills to the outline recipe in the cover-page art direction, light and dark: a cell is `fill: none` with a 1.25px stroke in its lane's line colour, the row swatch takes the same colour, and a teal cell is a 2px teal outline with its faint teal halo. The stale cells in `when-to-use` keep their amber wash, the one filled cell; its proposed cell is a dashed teal outline rather than a dashed card. The lane chip in `cell-anatomy` is an ink-bordered chip carrying the lane's swatch, since a chip is not a cell. Layouts, wording and the nine panel-label markers in `cell-anatomy` are unchanged.
+- e9ce3df: The README and the setup guide start with one command. Both now open their run-it-yourself steps with `create uno-blueprint` in its four forms (npm, pnpm, Yarn 1 and Bun), with the clone path kept below it for working on the template. The setup guide names the package managers that work and says Yarn 2 and later are refused, that pnpm and Yarn resolve dependencies afresh instead of reading npm's lock file, and that a new workspace needs `git init` and `git add -A` before the guards run.
+- 66e7344: The four skill figures (`ub-map`, `ub-slice`, `ub-audit`, `ub-whatif`) and `four-ways-in` draw their cells as coloured outlines, light and dark, to the recipe `blueprint-anatomy` set: `fill: none` with a 1.25px stroke in the lane's line colour, teal cells as a 2px teal outline with its faint halo, and the lane swatches in the same line colours. A missing cell in `ub-audit` dashes in its lane's colour rather than in ink, and the proposed cell in `ub-whatif` is a dashed teal outline with the halo. The stale cell in `ub-whatif` keeps its amber wash, the one filled cell. Layouts, words and alt text are unchanged.
+- e866735: The tab shows the Uno mark. `public/favicon.svg` is no longer Vite's bolt: it draws the Uno mark, a black tile in a light tab strip and a white one in a dark strip, switching on `prefers-color-scheme` inside the file, with the teal dot in both. `index.html` links it after a plain `favicon.png` (192px, the black tile) for a browser that does not take an SVG icon, and an `apple-touch-icon.png` (180px) for a home screen.
+
+  Upgrading a deployment:
+
+  - A deployment keeps its own `public/` and `index.html`, so its tab is unchanged. To show the Uno mark, copy `public/favicon.svg`, `public/favicon.png` and `public/apple-touch-icon.png` from the template and add the three `<link>` lines from its `index.html`. A deployment with its own icon needs no change.
+
+- 6f729b1: `why-now` counts the year in quarters. Its top card is checking at reviews: one row each for a quarterly, a twice-yearly and a yearly review, ticked on a Q1–Q4 axis, ending on a board that has drifted. Its bottom card is checking almost daily, one dense row of daily ticks, ending on a board that is still true. The "Reads per week" scale and the month axis are gone, because the contrast is how often a blueprint gets checked, not a weekly count. Cells are drawn to the outline recipe, light and dark. The figure's `alt`, the README's `alt` and the Overview's framing paragraphs say the same thing: a blueprint opened at a quarterly, twice-yearly or yearly review drifts between reviews, and one checked in ordinary work stays true.
+
+  Upgrading a deployment:
+
+  - A deployment that overrides the `whyNow` figure's `alt`, or restates the Overview's `overview-why` copy, rewrites it to match: reviews that are quarterly, twice-yearly or yearly rather than "a few workshops a year", and checks that are almost daily rather than "every week". A deployment that uses the package's figure and copy as they are needs no change.
+
 ## 2.5.2
 
 **A failed initialiser publish says why.** The release tag's publish run now

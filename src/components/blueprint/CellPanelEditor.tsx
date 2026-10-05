@@ -24,6 +24,7 @@ import {
 } from '@/lib/cellContentLimits'
 import {
   cellEditsFromCell,
+  changedCellFields,
   EDITABLE_CELL_FIELDS,
   type CellEditKey,
   type CellEdits,
@@ -364,13 +365,37 @@ function CellPanelEditorForm({
   const budgetKind = budgetKindForEditor(cellId, draft, detail?.blueprints)
   const lengthGuidance = getCellContentLengthGuidance(form.content, budgetKind)
 
-  const placementChanged =
-    Boolean(placement) &&
-    (form.placement.summary !== baseline.placement.summary ||
-      form.placement.role !== baseline.placement.role)
+  // The summary Save would write: only a deliberate edit persists the seeded
+  // fallback prose, so an untouched field still says what the DB held.
+  const persistedSummary =
+    cellId && !summaryTouched ? baseline.summary : form.summary
+
+  const placementChanges = placement
+    ? Number(form.placement.summary !== baseline.placement.summary) +
+      Number(form.placement.role !== baseline.placement.role)
+    : 0
+  const placementChanged = placementChanges > 0
+
+  /*
+    How far the form has moved from the baseline it froze at mount, counted
+    per field: the cell's, as Save would write them, and the placement's two.
+    Against the frozen baseline and not the live query, for the same reason
+    the baseline is frozen — a refetch mid-edit must not make an edit look
+    saved, or a revert look like one.
+
+    An existing cell saves only when this is above zero. Save on an unchanged
+    form wrote nothing and closed the editor as if it had saved, which is a
+    button promising work it was not going to do. A draft keeps its own rule:
+    there is no row yet, so any content at all is a change.
+  */
+  const unsaved = cellId
+    ? changedCellFields({ ...form, summary: persistedSummary }, baseline).length +
+      placementChanges
+    : 0
+  const unchanged = cellId !== null && unsaved === 0
 
   const handleSave = async () => {
-    if (!client || busy || blocked) return
+    if (!client || busy || blocked || unchanged) return
     setBusy(true)
     setError(null)
     try {
@@ -390,8 +415,7 @@ function CellPanelEditorForm({
           : { cellId: null, slot: { pathId: draft!.pathId, laneId: draft!.laneId, stepId: draft!.stepId } }),
         values: {
           ...cellEdits,
-          // Only a deliberate edit persists the seeded fallback prose.
-          summary: cellId && !summaryTouched ? cellBaseline.summary : cellEdits.summary,
+          summary: persistedSummary,
         },
         baseline: cellBaseline,
         // The create already logs "Added a cell"; its field fill-in — and a
@@ -588,7 +612,7 @@ function CellPanelEditorForm({
             <Button
               type="button"
               size="sm"
-              disabled={busy || blocked}
+              disabled={busy || blocked || unchanged}
               onClick={handleSave}
             >
               {busy ? 'Saving…' : cellId ? 'Save' : 'Create cell'}
@@ -602,6 +626,17 @@ function CellPanelEditorForm({
             >
               Cancel
             </Button>
+            {/*
+              Beside Cancel, so the reason Save is off sits next to it. An
+              edit only: a draft has no baseline worth counting against.
+            */}
+            {cellId ? (
+              <span aria-live="polite" className="text-xs text-muted-foreground">
+                {unsaved === 0
+                  ? 'No changes'
+                  : `${unsaved} unsaved ${unsaved === 1 ? 'change' : 'changes'}`}
+              </span>
+            ) : null}
           </div>
         )
         // Pinned to the drawer bottom when the host exists — shared footing

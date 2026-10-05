@@ -20,6 +20,7 @@ import {
 } from '@/hooks/useRegistryTouchpoints'
 import { uploadTouchpointIcon } from '@/lib/attachmentUpload'
 import { servedUrl } from '@/lib/basePath'
+import { validateResourceUrl } from '@/lib/resourceUrl'
 import { TOUCHPOINT_KIND_OPTIONS } from '@/lib/touchpointKind'
 import {
   updateTouchpoint,
@@ -150,6 +151,26 @@ function sameEntry(a: TouchpointEntry, b: TouchpointEntry): boolean {
   )
 }
 
+/** A link as the write would take it, or why it would not. */
+type LinkCheck = { url: string | null; problem: string | null }
+
+/**
+ * One of the entry's two links, checked by the rule a resource link meets.
+ *
+ * Only a value that differs from what the dialog opened with is checked. An
+ * entry written before the rule — an http link, a seeded icon path — has to
+ * stay editable in its other fields, and saving it does not rewrite what it
+ * already holds; `update_touchpoint` makes the same exception. Empty is not a
+ * problem either: it is how the field is cleared.
+ */
+function checkLink(value: string | null, opened: string | null): LinkCheck {
+  if (value === null || value === opened) return { url: value, problem: null }
+  const result = validateResourceUrl(value)
+  return result.ok
+    ? { url: result.url, problem: null }
+    : { url: value, problem: result.problem }
+}
+
 /** "all 4 steps", or the one step there is — never "all 1 steps". */
 function reachSentence(count: number, name: string): string {
   return count === 1
@@ -181,15 +202,28 @@ function TouchpointEditForm({
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }))
 
-  const next = stored(draft)
   const before = stored(opened)
+  const typed = stored(draft)
+  // The URL is saved as the validator spells it, so a bare `figma.com/…` is
+  // stored with its https. The icon is never typed — it is an upload's URL or
+  // nothing — so it is checked, and saved as it came.
+  const link = checkLink(typed.url, before.url)
+  const icon = checkLink(typed.iconUrl, before.iconUrl)
+  const next: TouchpointEntry = { ...typed, url: link.url }
   const changed = !sameEntry(next, before)
   const renaming = next.name !== before.name
   // A rename the panel cannot follow is refused before it is sent. The other
   // four fields reach no cell's text, so they save whatever the panel holds.
   const refused = renaming ? renameRefusal : null
   const canSave =
-    client !== null && changed && !refused && next.name !== '' && !busy && !uploading
+    client !== null &&
+    changed &&
+    !refused &&
+    !link.problem &&
+    !icon.problem &&
+    next.name !== '' &&
+    !busy &&
+    !uploading
 
   const handleSave = async () => {
     if (!client || !canSave) return
@@ -269,6 +303,7 @@ function TouchpointEditForm({
             onChange={(event) => set('url', event.target.value)}
           />
         </Field>
+        {link.problem ? <p className="text-xs text-destructive">{link.problem}</p> : null}
         <Field label="Icon">
           <div className="flex flex-wrap items-center gap-2">
             {draft.iconUrl ? (
@@ -311,6 +346,7 @@ function TouchpointEditForm({
             </Button>
           </div>
         </Field>
+        {icon.problem ? <p className="text-xs text-destructive">{icon.problem}</p> : null}
         {error ? (
           <Alert variant="destructive">
             <AlertTriangle className="size-4" aria-hidden />

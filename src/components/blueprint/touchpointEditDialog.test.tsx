@@ -6,9 +6,10 @@
  * What it promises, held here at the component: it says how far an edit
  * reaches before anything is typed; Save is lit only by a real change, in the
  * shape the write stores; every way out but Save writes nothing; a rename the
- * panel cannot follow is refused before it is sent; and an icon that is not
- * a raster is turned away with the reason. The panel's side of a rename is
- * `cellPanelEditorTouchpointEdit.test.tsx`.
+ * panel cannot follow is refused before it is sent; an icon that is not
+ * a raster is turned away with the reason; and a link or an icon that is not
+ * https keeps Save dark and says why, before the write is asked. The panel's
+ * side of a rename is `cellPanelEditorTouchpointEdit.test.tsx`.
  */
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -28,6 +29,12 @@ vi.mock('@/hooks/useRegistryTouchpoints', () => ({
     id && entry.current ? { status: 'ready', data: entry.current } : { status: 'loading' },
 }))
 vi.mock('@/lib/touchpointMutations', () => ({ updateTouchpoint }))
+// The real upload, so its own type check still runs, behind a spy a test can
+// point at a finished upload without a storage client.
+vi.mock('@/lib/attachmentUpload', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/attachmentUpload')>()
+  return { ...actual, uploadTouchpointIcon: vi.fn(actual.uploadTouchpointIcon) }
+})
 // Served from under a prefix, so a root-relative icon path has to be asked
 // for through `servedUrl` — the build under test is served from the root,
 // where the call would be invisible.
@@ -37,6 +44,7 @@ vi.mock('@/lib/basePath', async (importOriginal) => {
 })
 
 import { TouchpointEditDialog } from '@/components/blueprint/TouchpointEditDialog'
+import { uploadTouchpointIcon } from '@/lib/attachmentUpload'
 import { panelEditorBusy } from '@/lib/panelEditorBusy'
 
 const PORTAL: TouchpointEntryRead = {
@@ -232,5 +240,77 @@ describe('the touchpoint editor', () => {
       'https://example.com/portal.png',
     )
     expect(saveButton().disabled).toBe(true)
+  })
+
+  it.each([
+    ['javascript:alert(1)', 'Links must start with https — “javascript:” is not allowed.'],
+    ['http://example.com', 'Use an https link — this one is http, which is not secure.'],
+    ['not a link', '“not a link” is not a link.'],
+  ])('keeps Save dark on a URL of %s and says why', (url, problem) => {
+    open()
+
+    fireEvent.change(field('URL'), { target: { value: url } })
+
+    expect(screen.getByText(problem)).toBeTruthy()
+    expect(saveButton().disabled).toBe(true)
+    fireEvent.click(saveButton())
+    expect(updateTouchpoint).not.toHaveBeenCalled()
+  })
+
+  it('saves a bare host as the https link it names', async () => {
+    updateTouchpoint.mockResolvedValue(saved())
+    open()
+
+    fireEvent.change(field('URL'), { target: { value: 'figma.com/file/x' } })
+    expect(saveButton().disabled).toBe(false)
+    fireEvent.click(saveButton())
+
+    await waitFor(() => expect(updateTouchpoint).toHaveBeenCalledTimes(1))
+    expect(updateTouchpoint.mock.calls[0][2].url).toBe('https://figma.com/file/x')
+  })
+
+  it('leaves a link it opened with alone, so an older http entry can still be edited', async () => {
+    updateTouchpoint.mockResolvedValue(saved())
+    entry.current = { ...PORTAL, url: 'http://legacy.example/portal' }
+    open()
+
+    fireEvent.change(field('Summary'), { target: { value: 'Where a report starts.' } })
+    expect(saveButton().disabled).toBe(false)
+    fireEvent.click(saveButton())
+
+    await waitFor(() => expect(updateTouchpoint).toHaveBeenCalledTimes(1))
+    expect(updateTouchpoint.mock.calls[0][2].url).toBe('http://legacy.example/portal')
+  })
+
+  it('saves an uploaded icon, and keeps Save dark on one that is not https', async () => {
+    updateTouchpoint.mockResolvedValue(saved())
+    const png = new File(['png'], 'logo.png', { type: 'image/png' })
+    vi.mocked(uploadTouchpointIcon).mockResolvedValueOnce({
+      url: 'http://storage.example/touchpoints/tp-1/a.png',
+      objectKey: 'touchpoints/tp-1/a.png',
+    })
+    open()
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Icon file'), { target: { files: [png] } })
+    })
+    expect(
+      screen.getByText('Use an https link — this one is http, which is not secure.'),
+    ).toBeTruthy()
+    expect(saveButton().disabled).toBe(true)
+
+    const uploaded = 'https://storage.example/touchpoints/tp-1/b.png'
+    vi.mocked(uploadTouchpointIcon).mockResolvedValueOnce({
+      url: uploaded,
+      objectKey: 'touchpoints/tp-1/b.png',
+    })
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Icon file'), { target: { files: [png] } })
+    })
+    expect(saveButton().disabled).toBe(false)
+    fireEvent.click(saveButton())
+
+    await waitFor(() => expect(updateTouchpoint).toHaveBeenCalledTimes(1))
+    expect(updateTouchpoint.mock.calls[0][2].iconUrl).toBe(uploaded)
   })
 })

@@ -42,6 +42,26 @@ const KINDS = new Set(['app', 'document', 'physical', 'channel', 'service', 'oth
 const blankToNull = (value: unknown) =>
   typeof value === 'string' && value.trim() ? value.trim() : null
 
+/**
+ * The function's two link rules: absolute https, checked only where the value
+ * changes. Its sentences, word for word, so the test also proves they reach
+ * the person rather than the console's fallback.
+ */
+const HTTPS = /^https:\/\/[^\s/?#]+([/?#]\S*)?$/i
+const LINK_REFUSED = 'A touchpoint’s link has to be a full address that starts with https.'
+const LINK_HTTP = 'A touchpoint’s link has to be https — that one is http, which is not secure.'
+const ICON_REFUSED = 'A touchpoint’s icon has to be an https address, or nothing at all.'
+function refuseLinks(args: Record<string, unknown>, row: Row) {
+  const url = blankToNull(args.p_url)
+  if (url !== null && url !== row.url && !HTTPS.test(url)) {
+    throw new Error(/^http:/i.test(url) ? LINK_HTTP : LINK_REFUSED)
+  }
+  const icon = blankToNull(args.p_icon_url)
+  if (icon !== null && icon !== row.icon_url && !HTTPS.test(icon)) {
+    throw new Error(ICON_REFUSED)
+  }
+}
+
 /** `update_touchpoint`, ported — all of it, or an exception and nothing. */
 function updateTouchpointRpc(db: Db, args: Record<string, unknown>) {
   const name = String(args.p_name ?? '').trim()
@@ -53,6 +73,7 @@ function updateTouchpointRpc(db: Db, args: Record<string, unknown>) {
     throw new Error('duplicate key value violates unique constraint "touchpoints_name_key"')
   }
   if (!KINDS.has(kind)) throw new Error('violates check constraint "touchpoints_kind_check"')
+  refuseLinks(args, row)
 
   const previous = { ...row }
   const unchanged =
@@ -280,6 +301,23 @@ test('a refused rename writes nothing and records nothing', async () => {
   await expect(
     updateTouchpoint(clientFor(db), 'tp-zoom', { ...NEXT, name: 'Zoom Recording' }),
   ).rejects.toThrow()
+  expect(db.touchpoints).toEqual(before.touchpoints)
+  expect(db.cells).toEqual(before.cells)
+  expect(sessionSnapshot()).toHaveLength(0)
+})
+
+test('a refused link or icon writes nothing and records nothing', async () => {
+  const db = fixture()
+  const before = structuredClone(db)
+  await expect(
+    updateTouchpoint(clientFor(db), 'tp-zoom', { ...NEXT, url: 'javascript:alert(1)' }),
+  ).rejects.toThrow(LINK_REFUSED)
+  await expect(
+    updateTouchpoint(clientFor(db), 'tp-zoom', { ...NEXT, url: 'http://zoom.example.com' }),
+  ).rejects.toThrow(LINK_HTTP)
+  await expect(
+    updateTouchpoint(clientFor(db), 'tp-zoom', { ...NEXT, iconUrl: 'http://cdn.example.com/x.png' }),
+  ).rejects.toThrow(ICON_REFUSED)
   expect(db.touchpoints).toEqual(before.touchpoints)
   expect(db.cells).toEqual(before.cells)
   expect(sessionSnapshot()).toHaveLength(0)

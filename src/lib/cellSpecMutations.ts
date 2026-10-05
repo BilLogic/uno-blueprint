@@ -1,5 +1,5 @@
 import { specWriter, type SpecLevel } from '@/lib/specMutations'
-import type { ValueProp } from '@/lib/valueProps'
+import { normalizeValueProps, type ValueProp } from '@/lib/valueProps'
 import { invalidateCellBoard, invalidateQueries } from '@/lib/queryClient'
 import { queryKeys } from '@/lib/queryKeys'
 
@@ -28,9 +28,7 @@ const CELL_SPEC: SpecLevel<'cells', string, CellSpecUpdate> = {
   columns: (update) => ({
     function: update.function.trim() || null,
     form: update.form.trim() || null,
-    value_props: update.valueProps
-      .map((entry) => ({ for: entry.for.trim(), value: entry.value.trim() }))
-      .filter((entry) => entry.for || entry.value),
+    value_props: normalizeValueProps(update.valueProps),
   }),
   // The grid draws the spec's presence, and the audiences are read off it.
   invalidate: (cellId) => {

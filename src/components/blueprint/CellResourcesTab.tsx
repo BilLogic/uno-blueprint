@@ -37,8 +37,8 @@ type CellResourcesTabProps = {
 }
 
 /**
- * The rows the cell's list edits: its own, with a url. A placement's are read
- * here and edited from the touchpoint.
+ * The rows the cell's list edits: its own, with a url. A placement's are only
+ * listed here; nothing in the panel edits them until they join this list.
  */
 function ownRows(resources: CellResource[]): CellResource[] {
   return resources.filter(
@@ -140,8 +140,8 @@ function InheritedLogos({
  *
  * A placement's rows arrive in the same list now that every resource knows its
  * own cell, a placement's included — the cell reads everything it points at,
- * through its touchpoints too — and are listed here without controls: the
- * touchpoint's own editor is where they change.
+ * through its touchpoints too — and are listed here read-only. Nothing in the
+ * panel edits them until they become part of the tab's own list.
  *
  * A row nobody linked is a row nobody linked. The tab used to grow a synthetic
  * "Figma" entry for whatever url a vendor-name regex two files away had
@@ -227,8 +227,8 @@ export function CellResourcesTab({
  * The cell's own list, and the two writes that make it the cell's.
  *
  * `sync_cell_resources` refuses a placement's ids, so the list is handed the
- * cell's own rows only; a placement's are listed beside them, unedited,
- * because the touchpoint's own editor is where they change.
+ * cell's own rows only; a placement's are listed beside them, read-only, and
+ * nothing in the panel edits them until they become part of this list.
  */
 function CellResourcesEditor({
   cellId,
@@ -281,7 +281,7 @@ function CellResourcesEditor({
         <>
           {fromPlacements.length > 0 ? (
             // Listed, not edited: these rows belong to a touchpoint placed here,
-            // and the touchpoint's own editor is where they change.
+            // and nothing in the panel edits them until they join this list.
             <ul className="flex flex-col" aria-label="From this cell's touchpoints">
               {fromPlacements.map((resource) => (
                 <li

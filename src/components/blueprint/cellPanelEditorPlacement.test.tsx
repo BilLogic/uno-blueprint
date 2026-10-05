@@ -67,24 +67,46 @@ vi.mock('@/contexts/SupabaseProvider', () => ({
 }))
 // The editor reads the whole cell off the board it was opened from, so the
 // board is where the cell's text and owner pair have to be for these to run.
+//
+// Held in a hoisted object rather than inline so a test can stand in for a
+// refetch: replace the board, re-render, and see what the open form makes of
+// it.
+const { board } = vi.hoisted(() => ({
+  board: { blueprints: null as unknown },
+}))
 vi.mock('@/contexts/BlueprintCellDetailContext', () => ({
   useBlueprintCellDetailOptional: () => ({
-    blueprints: [
-      {
-        cells: [
-          {
-            id: 'cell-1',
-            content: 'Intake portal',
-            summary: 'Where a report is filed.',
-            owner: null,
-            perceived_owner: null,
-            resources: [],
-          },
-        ],
-      },
-    ],
+    blueprints: board.blueprints ?? INITIAL_BLUEPRINTS,
   }),
 }))
+const INITIAL_BLUEPRINTS = [
+  {
+    cells: [
+      {
+        id: 'cell-1',
+        content: 'Intake portal',
+        summary: 'Where a report is filed.',
+        owner: null,
+        perceived_owner: null,
+        value_props: [{ for: 'Residents', value: 'A report reaches the desk.' }],
+        resources: [],
+      },
+      /*
+        A cell whose summary column is empty, so the editor seeds the
+        field with the prose the panel displayed instead. Opening it
+        changes nothing, and the Save state has to agree.
+      */
+      {
+        id: 'cell-2',
+        content: 'Duty phone',
+        summary: null,
+        owner: null,
+        perceived_owner: null,
+        resources: [],
+      },
+    ],
+  },
+]
 vi.mock('@/hooks/useValueAudiences', () => ({
   useValueAudiences: () => ({ status: 'ready', data: [] }),
 }))
@@ -114,7 +136,38 @@ vi.mock('@/components/blueprint/OwnerTagSelect', () => ({
   ),
 }))
 
-import { CellPanelEditor } from '@/components/blueprint/CellPanelEditor'
+/*
+  A plain labelled `<select>` in place of the real role control, for the same
+  reason the status test swaps its own: what the control does is asserted in
+  optionSelect.test.tsx, and a listbox in a portal would make "did the form
+  see the change" hard to ask.
+*/
+vi.mock('@/components/blueprint/RoleSelect', () => ({
+  RoleSelect: ({
+    value,
+    onChange,
+    'aria-label': ariaLabel,
+  }: {
+    value: string | null
+    onChange: (next: string | null) => void
+    'aria-label'?: string
+  }) => (
+    <select
+      aria-label={ariaLabel}
+      value={value ?? ''}
+      onChange={(event) => onChange(event.target.value || null)}
+    >
+      <option value="">Unmarked</option>
+      <option value="core">Core</option>
+      <option value="peripheral">Peripheral</option>
+    </select>
+  ),
+}))
+
+import {
+  CellPanelEditor,
+  type DraftCellTarget,
+} from '@/components/blueprint/CellPanelEditor'
 
 function placement(over: Partial<CellTouchpoint> = {}): CellTouchpoint {
   return {
@@ -171,6 +224,7 @@ function save() {
 }
 
 beforeEach(() => {
+  board.blueprints = null
   calls.length = 0
   updateCellContent.mockClear()
   updateCellSpec.mockClear()
@@ -260,5 +314,209 @@ describe('one Save over a cell and one of its placements', () => {
     )
 
     expect(screen.queryByLabelText('Role')).toBeNull()
+  })
+})
+
+/*
+  Save is a promise that something will be written. A Save pressed on a form
+  that matches what it opened with writes nothing and closes the editor as if
+  it had saved, so the button stays off until the form differs from the
+  baseline it froze at mount — and turns off again when every edit is taken
+  back — with a line beside Cancel that says how far apart the two are.
+*/
+describe('Save, only when something changed', () => {
+  const saveButton = () =>
+    screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement
+
+  function openOnPlacement() {
+    render(
+      <CellPanelEditor
+        cellId="cell-1"
+        placement={placement()}
+        onDone={() => {}}
+      />,
+    )
+  }
+
+  it('is off on open, and says there is nothing to save', () => {
+    openOnPlacement()
+    expect(saveButton().disabled).toBe(true)
+    expect(screen.getByText('No changes')).toBeTruthy()
+  })
+
+  it('turns on with an edit and off again when the edit is taken back', () => {
+    openOnPlacement()
+    fireEvent.change(contentInput(), { target: { value: 'Intake portal, kiosk' } })
+    expect(saveButton().disabled).toBe(false)
+    expect(screen.getByText('1 unsaved change')).toBeTruthy()
+
+    fireEvent.change(contentInput(), { target: { value: 'Intake portal' } })
+    expect(saveButton().disabled).toBe(true)
+    expect(screen.getByText('No changes')).toBeTruthy()
+  })
+
+  it('counts each field that differs', () => {
+    openOnPlacement()
+    fireEvent.change(screen.getByRole('textbox', { name: 'Owner' }), {
+      target: { value: 'Field operations' },
+    })
+    fireEvent.change(cellSummary(), {
+      target: { value: 'The moment a report reaches the desk.' },
+    })
+    expect(screen.getByText('2 unsaved changes')).toBeTruthy()
+  })
+
+  it("turns on for the placement's summary alone", () => {
+    openOnPlacement()
+    fireEvent.change(placementSummary(), {
+      target: { value: 'The screen a report is filed on.' },
+    })
+    expect(saveButton().disabled).toBe(false)
+    expect(screen.getByText('1 unsaved change')).toBeTruthy()
+  })
+
+  it("turns on for the placement's role alone", () => {
+    openOnPlacement()
+    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'core' } })
+    expect(saveButton().disabled).toBe(false)
+    expect(screen.getByText('1 unsaved change')).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText('Role'), { target: { value: '' } })
+    expect(saveButton().disabled).toBe(true)
+  })
+
+  it('stays off for whitespace the placement write would trim away', () => {
+    openOnPlacement()
+    fireEvent.change(placementSummary(), {
+      target: { value: 'Where a report is filed.   ' },
+    })
+    // The write trims, so Save would put back the same row and log a change
+    // with nothing in it to take back.
+    expect(saveButton().disabled).toBe(true)
+    expect(screen.getByText('No changes')).toBeTruthy()
+  })
+
+  it("turns off again when the placement's summary is taken back", () => {
+    openOnPlacement()
+    fireEvent.change(placementSummary(), {
+      target: { value: 'The screen a report is filed on.' },
+    })
+    expect(saveButton().disabled).toBe(false)
+    fireEvent.change(placementSummary(), {
+      target: { value: 'Where a report is filed.' },
+    })
+    expect(saveButton().disabled).toBe(true)
+    expect(screen.getByText('No changes')).toBeTruthy()
+  })
+
+  it('counts against what the form opened with, not a refetch mid-edit', () => {
+    const view = render(
+      <CellPanelEditor
+        cellId="cell-1"
+        placement={placement()}
+        onDone={() => {}}
+      />,
+    )
+    fireEvent.change(screen.getByRole('textbox', { name: 'Owner' }), {
+      target: { value: 'Field operations' },
+    })
+    expect(screen.getByText('1 unsaved change')).toBeTruthy()
+
+    // A revert elsewhere refetches the board: the cell and the placement now
+    // hold different values than when editing began.
+    board.blueprints = [
+      {
+        cells: [
+          {
+            id: 'cell-1',
+            content: 'Intake portal',
+            summary: 'A summary someone else restored.',
+            owner: 'Field operations',
+            perceived_owner: 'The council',
+            resources: [],
+          },
+        ],
+      },
+    ]
+    view.rerender(
+      <CellPanelEditor
+        cellId="cell-1"
+        placement={placement({ summary: 'Restored elsewhere.', role: 'core' })}
+        onDone={() => {}}
+      />,
+    )
+
+    expect(screen.getByText('1 unsaved change')).toBeTruthy()
+    expect(saveButton().disabled).toBe(false)
+  })
+
+  it("does not count the placement's edits once the text no longer names it", () => {
+    openOnPlacement()
+    fireEvent.change(placementSummary(), {
+      target: { value: 'The screen a report is filed on.' },
+    })
+    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'core' } })
+    expect(screen.getByText('2 unsaved changes')).toBeTruthy()
+
+    // The sync deletes this placement on Save, so its two edits are not
+    // going to be written; only the content change is.
+    fireEvent.change(contentInput(), { target: { value: 'Duty phone' } })
+    expect(screen.getByText('1 unsaved change')).toBeTruthy()
+  })
+
+  it('stays off for a value proposition row added and left blank', () => {
+    openOnPlacement()
+    fireEvent.click(screen.getByRole('button', { name: 'Add value proposition' }))
+    // The write drops a row blank on both sides, so the list it would store
+    // is the list it read.
+    expect(saveButton().disabled).toBe(true)
+    expect(screen.getByText('No changes')).toBeTruthy()
+  })
+
+  it('stays off for whitespace on a value proposition, and on for a real edit', () => {
+    openOnPlacement()
+    const value = screen.getByDisplayValue('A report reaches the desk.')
+    fireEvent.change(value, { target: { value: 'A report reaches the desk.  ' } })
+    expect(saveButton().disabled).toBe(true)
+    expect(screen.getByText('No changes')).toBeTruthy()
+
+    fireEvent.change(value, { target: { value: 'A reply within the day.' } })
+    expect(saveButton().disabled).toBe(false)
+    expect(screen.getByText('1 unsaved change')).toBeTruthy()
+  })
+
+  it('stays off when the summary was seeded with displayed prose and left alone', () => {
+    render(
+      <CellPanelEditor
+        cellId="cell-2"
+        fallbackSummary="Prose the panel showed in place of an empty column."
+        onDone={() => {}}
+      />,
+    )
+    // The field shows the prose, but nothing persists it until the author
+    // edits it — so nothing has changed.
+    expect(
+      screen.getByDisplayValue('Prose the panel showed in place of an empty column.'),
+    ).toBeTruthy()
+    expect(saveButton().disabled).toBe(true)
+    expect(screen.getByText('No changes')).toBeTruthy()
+  })
+
+  it('keeps the create rule for a cell that does not exist yet', () => {
+    const draft: DraftCellTarget = {
+      pathId: 'path-1',
+      laneId: 'lane-1',
+      stepId: 'step-1',
+      laneName: 'Customer actions',
+      laneRole: null,
+      stepName: 'Arrives',
+      stepIndex: 0,
+    }
+    render(<CellPanelEditor cellId={null} draft={draft} onDone={() => {}} />)
+    const create = () =>
+      screen.getByRole('button', { name: 'Create cell' }) as HTMLButtonElement
+    expect(create().disabled).toBe(true)
+    fireEvent.change(contentInput(), { target: { value: 'Walks up to the desk' } })
+    expect(create().disabled).toBe(false)
   })
 })

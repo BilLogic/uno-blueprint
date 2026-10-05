@@ -246,6 +246,24 @@ describe('Edit touchpoint in the cell panel', () => {
     )
   })
 
+  it('counts a followed rename as no edit: the status says No changes and Save is off', async () => {
+    updateTouchpoint.mockResolvedValue(RENAMED)
+    editor()
+    const dialog = openEditor()
+    rename(dialog, 'Report portal')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save touchpoint' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+    expect(content().value).toBe('Report portal, Case file')
+    expect(screen.getByText('No changes')).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true)
+
+    // And a placement edit after it counts, under the name the text now lists.
+    fireEvent.change(placementSummary(), { target: { value: 'The screen a report starts on.' } })
+    expect(screen.getByText('1 unsaved change')).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
   it('leaves Content alone when the rename did not rewrite this cell', async () => {
     updateTouchpoint.mockResolvedValue({ ...RENAMED, cellIds: ['cell-9'] })
     editor()

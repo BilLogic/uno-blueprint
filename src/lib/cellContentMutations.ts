@@ -8,8 +8,7 @@ import type { Database, Json } from '@/types/database'
 import { recordChange } from '@/lib/authoringSession'
 import { toAuthoringError } from '@/lib/authoringErrors'
 import { requireRowsWritten } from '@/lib/optimisticConcurrency'
-import { validateResourceUrl } from '@/lib/resourceUrl'
-import { hostOf } from '@/lib/cellResources'
+import { rowsForSync } from '@/lib/resourceDrafts'
 import { parseCellContentItems } from '@/lib/parseCellContent'
 import { invalidateCellBoard, invalidateQueries } from '@/lib/queryClient'
 import { queryKeys } from '@/lib/queryKeys'
@@ -321,24 +320,12 @@ export async function updateCellResources(
   cellId: string,
   /** The rows being replaced — captured so the change can be reverted. */
   existing: readonly CellResource[],
-  drafts: ResourceDraft[],
+  drafts: readonly ResourceDraft[],
 ): Promise<void> {
-  const rows: ResourceRowInput[] = []
-  for (const draft of drafts) {
-    const checked =
-      draft.kind === 'attachment'
-        ? { ok: true as const, url: draft.url.trim() }
-        : validateResourceUrl(draft.url)
-    if (!checked.ok) throw new Error(checked.problem)
-    rows.push({
-      id: draft.id ?? null,
-      kind: draft.kind ?? 'link',
-      // The one place a nameless resource gets a name. The database refuses
-      // a row without one rather than inventing a second answer.
-      name: draft.name.trim() || hostOf(checked.url),
-      url: checked.url,
-    })
-  }
+  // The one place a nameless resource gets a name, and the same
+  // normalisation the panel compares its draft by. The database refuses a
+  // row without a name rather than inventing a second answer.
+  const rows: ResourceRowInput[] = rowsForSync(drafts)
 
   await writeCellResources(client, cellId, rows)
   recordChange(

@@ -14,6 +14,7 @@ import {
 import { usePanelFooterHost } from '@/hooks/usePanelFooterHost'
 import { useSupabase } from '@/contexts/SupabaseProvider'
 import { useBlueprintCellDetailOptional } from '@/contexts/BlueprintCellDetailContext'
+import { useResourceDraftsOptional } from '@/contexts/ResourceDraftsContext'
 import { useBlueprintCell } from '@/hooks/useBlueprintCell'
 import { useValueAudiences } from '@/hooks/useValueAudiences'
 import { useNameOnlyPlacements } from '@/hooks/useRegistryTouchpoints'
@@ -47,6 +48,11 @@ import {
 } from '@/lib/touchpointMutations'
 import { renameContentItem } from '@/lib/renameContentItem'
 import { cellTouchpoints } from '@/lib/cellTouchpoints'
+import {
+  assertPlanWritable,
+  planResourceSave,
+  resourceChangeCount,
+} from '@/lib/resourceDrafts'
 import { errorMessage } from '@/lib/utils'
 import type { BlueprintData, CellTouchpoint } from '@/types/blueprint'
 import { parseCellContentItems } from '@/lib/parseCellContent'
@@ -349,6 +355,10 @@ function CellPanelEditorForm({
     Content in the database. The baseline then has to say what the database
     now holds, or the diff would find a content edit nobody made — see
     `handleTouchpointSaved`, and the undo check after the `rename` state.
+
+    A save moves it too: one that wrote the cell and then failed on a later
+    write takes what it wrote as the new starting point, so the retry sends
+    only what is left.
   */
   const [baseline, setBaseline] = useState(baselineProp)
   const [form, setForm] = useState<FormState>({
@@ -531,9 +541,36 @@ function CellPanelEditorForm({
     placement !== null &&
     placementName !== undefined &&
     placementSurvivesContent(form.content, placementName)
+
+  /*
+    The Resources tab's draft, which lives beside this form rather than in
+    it — the tabs are not inside the form — and joins it here: its changes
+    count toward this Save and are written by it. One per write Save would
+    send: a changed list, a moved featured flag, a moved featured image.
+    A placement whose name the text no longer holds is deleted by the save,
+    so its list is neither counted nor written, the same rule as its fields.
+  */
+  const resourceDrafts = useResourceDraftsOptional()
+  const survives = (owner: string) => {
+    // The opened placement by the name it has now, which a rename saved
+    // from this panel moves before the board does.
+    const name =
+      owner === placement?.id
+        ? placementName
+        : resourceDrafts?.owners.find((entry) => entry.id === owner)?.name
+    return name !== undefined && placementSurvivesContent(form.content, name)
+  }
+  const resourceCount =
+    cellId && resourceDrafts
+      ? resourceChangeCount(
+          planResourceSave(resourceDrafts.state.baseline, resourceDrafts.state.drafts, survives),
+        )
+      : 0
+
   const unsavedCount = cellId
     ? changedCellFields({ ...form, summary: persistedSummary }, baseline).length +
-      (placementWillWrite ? changedPlacement.length : 0)
+      (placementWillWrite ? changedPlacement.length : 0) +
+      resourceCount
     : 0
   const unchanged = cellId !== null && unsavedCount === 0
 
@@ -542,6 +579,14 @@ function CellPanelEditorForm({
     setBusy(true)
     setError(null)
     try {
+      // Every list this Save will write is checked before the first write,
+      // so a row the sync would refuse stops the save with nothing written
+      // rather than after the cell and the lists before it had landed.
+      if (cellId && resourceDrafts) {
+        assertPlanWritable(
+          planResourceSave(resourceDrafts.state.baseline, resourceDrafts.state.drafts, survives),
+        )
+      }
       const { placement: placementEdits, ...cellEdits } = form
       const { placement: placementBaseline, ...cellBaseline } = baseline
       // The one save: it creates the cell when there is none — the draft
@@ -570,6 +615,9 @@ function CellPanelEditorForm({
         // on retry instead of upserting a second time.
         onCreated: setCreatedId,
       })
+      if (cellId) {
+        setBaseline((current) => ({ ...current, ...cellEdits, summary: persistedSummary }))
+      }
 
       /*
         The placement, after the cell — and after the sync the cell's save
@@ -594,6 +642,18 @@ function CellPanelEditorForm({
           placementEdits,
           placementColumns(placementBaseline),
         )
+        setBaseline((current) => ({ ...current, placement: placementEdits }))
+      }
+
+      /*
+        The resources last, for the same reason the placement follows the
+        cell: the content write may have deleted a placement, and its list
+        is not written onto nothing. Inside, the order is the cell's list,
+        each placement's, the featured flags, then the featured image — and
+        each settles as it lands, so a failure keeps only what is unwritten.
+      */
+      if (cellId && resourceDrafts) {
+        await resourceDrafts.store.save(client, { cellId: saved.cellId, survives })
       }
 
       // Each write above refetched what it changed — the grid, the board
@@ -628,7 +688,7 @@ function CellPanelEditorForm({
     A name-only placement's registry card sits in the Touchpoint field,
     under the name it is about, since linking it is the decision that field
     is waiting on. The placement's resources are not here: the Resources tab
-    lists them beside the cell's own, read-only.
+    holds them, in a group under the touchpoint's name, saved by this Save.
   */
   const placementGroup = placement ? (
     <div

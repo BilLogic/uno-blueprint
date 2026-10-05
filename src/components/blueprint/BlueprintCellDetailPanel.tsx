@@ -35,6 +35,7 @@ import {
   type BlueprintPanelSurface,
 } from '@/contexts/BlueprintCellDetailContext'
 import { useCanvasModeValue } from '@/contexts/canvasModeContext'
+import { ResourceDraftsProvider } from '@/contexts/ResourceDraftsContext'
 import { useCanvasTopOffset } from '@/hooks/useCanvasTopOffset'
 import { useMobileShell } from '@/hooks/useMobileShell'
 import { useSupabase } from '@/contexts/SupabaseProvider'
@@ -490,6 +491,22 @@ function BlueprintCellDetailPanelBody() {
               top; the tab row (Dependencies default) sits below it and both
               share one scroll area.
             */}
+            {/*
+              The resource draft, held here because its two halves are not
+              parent and child: the Resources tab edits it, and the form in
+              the overview counts it and writes it on its one Save. Keyed the
+              way the form is — the cell, the touchpoint it was opened on, and
+              whether anybody is editing — so a different cell, a different
+              touchpoint or a trip through View mode starts a clean draft,
+              and Cancel, which closes the panel, discards it with the rest.
+            */}
+            <ResourceDraftsProvider
+              key={`${resolvedCellId ?? 'no-cell'}:${overviewFacts.placement?.id ?? ''}:${editingCell}`}
+              resources={tabsFacts.resources}
+              frame={tabsFacts.frame}
+              touchpoints={tabsFacts.touchpoints}
+              openedPlacementId={overviewFacts.placement?.id ?? null}
+            >
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto blueprint-scroll">
               <div className="flex flex-col gap-5 px-4 pb-5">
                 <CellDetailOverview
@@ -511,6 +528,7 @@ function BlueprintCellDetailPanelBody() {
                 onTechSelect={handleTechSelect}
               />
             </div>
+            </ResourceDraftsProvider>
             {/* The editor portals Save/Cancel here — below the tabs, shared
                 footing for every property the panel holds. */}
             {editingCell ? (

@@ -1,8 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { recordChange } from '@/lib/authoringSession'
 import { toAuthoringError } from '@/lib/authoringErrors'
-import { hostOf } from '@/lib/cellResources'
-import { validateResourceUrl } from '@/lib/resourceUrl'
+import { rowsForSync } from '@/lib/resourceDrafts'
 import type { Database, Json } from '@/types/database'
 import type { CellResource } from '@/types/blueprint'
 import { invalidateCellBoard } from '@/lib/queryClient'
@@ -50,17 +49,7 @@ export async function updatePlacementResources(
   existing: readonly CellResource[],
   drafts: readonly PlacementResourceDraft[],
 ): Promise<void> {
-  const rows: PlacementResourceRowInput[] = []
-  for (const draft of drafts) {
-    const url = draft.kind === 'attachment' ? { ok: true as const, url: draft.url.trim() } : validateResourceUrl(draft.url)
-    if (!url.ok) throw new Error(url.problem)
-    rows.push({
-      id: draft.id ?? null,
-      kind: draft.kind,
-      name: draft.name.trim() || hostOf(url.url),
-      url: url.url,
-    })
-  }
+  const rows: PlacementResourceRowInput[] = rowsForSync(drafts)
 
   await writePlacementResources(client, placement.id, rows, placement.cellId)
   recordChange(

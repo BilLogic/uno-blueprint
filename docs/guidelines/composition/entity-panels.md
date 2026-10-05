@@ -30,7 +30,6 @@ claims:
   - src/components/blueprint/LanePanel.tsx
   - src/components/blueprint/NotionPropertyRow.tsx
   - src/components/blueprint/PanelSectionLabel.tsx
-  - src/components/blueprint/PlacementResourcesList.tsx
   - src/components/blueprint/PanelTextareaField.tsx
   - src/components/blueprint/PhasePanel.tsx
   - src/components/blueprint/ResourcesList.tsx
@@ -253,32 +252,40 @@ and the content sync would delete the renamed placement. The dialog marks
 itself `data-panel-dialog`, which the panel's dismiss paths read, so its Escape
 does not close the panel underneath.
 
-**The resource list is one component with two owners.**
-`ResourcesList` is the list itself; `PlacementResourcesList` and the Resources
-tab's editor are the two owners that hand it rows and a pair of writes, and
-nothing else about them differs. It draws the preview and the buttons its owner
-leads with on top, each with an unset control — and no drag handle, because
-there is at most one preview and the buttons follow the main list's order, so
-that block has no order of its own. Under it sits every resource in order, each
-row carrying a drag handle (`Reorder` from `framer-motion`, with the arrow keys
-on that same handle because the drag is pointer-only) and a row menu that sets
-a preview (an attachment), a button (a link) or unsets one, renames the row in
-place, or drops it. A paste field adds a link named by its host and an upload
-puts a file in the `cell-attachments` bucket before it becomes an attachment row
-carrying the object's public URL — "Replace…" on the preview uploads the same
-way and swaps that row's file. **Nobody is ever required to type a
-name**: a link arrives as its host and a file as its own filename, and the
-rename is a second, optional act. The upload is on screen the whole way — the
-row present and dimmed while the bucket is written, and a `Retry` in its place
-if the write is refused. The URL names the cell's id and a minted one, so
-renaming the placement or the cell moves nothing; a cell owns a preview and
-buttons the way a placement does, because the partial unique index already
-indexes a cell-owned preview and `set_featured_resource` scopes its clear to
-the placement-less owner. The list saves on its own button because a reorder
-is a whole-list fact written in one transaction, and featuring is one row's
-flag the database settles at once — clearing the previous preview in the same
-transaction — so folding either into the four-field Save would make that
-button write things it cannot show as unsaved.
+**A cell's resources are one list, grouped by owner, saved by the panel's
+Save.** `ResourcesList` is the Resources tab's editor: a group for This cell,
+then one per touchpoint placed at the cell, headed by its name. View mode lists
+the same groups without controls. On top sit the links the cell leads with —
+its buttons — each with an unset control and no drag handle, because the
+buttons follow the list's order and have none of their own. Every row carries a
+drag handle (`Reorder` from `framer-motion`, with the arrow keys on that same
+handle because the drag is pointer-only) that moves it within its group, and a
+row menu that sets a picture as the featured image, sets a link as a button or
+unsets one, renames the row in place, moves it to another owner, or drops it.
+A paste field adds a link named by its host, and an upload puts a file in the
+`cell-attachments` bucket before it becomes an attachment row; either goes to
+the owner picked beside it, which starts on the touchpoint the panel was opened
+on, else This cell. **Nobody is ever required to type a name**: a link arrives
+as its host and a file as its own filename, and the rename is a second,
+optional act. The upload is on screen the whole way — the row present and
+dimmed while the bucket is written, and a `Retry` in its place if the write is
+refused.
+
+**None of it writes until the panel's Save.** The tabs sit beside the form,
+not inside it, so the draft is held above both: `ResourceDraftsProvider`
+(`src/contexts/ResourceDraftsContext.tsx`), mounted by the panel and keyed the
+way the form is, holds a small store from `src/lib/resourceDraftStore.ts` with
+the baseline frozen at open and the draft the tab edits. Context and not a
+module store, because there is a tree here — one panel, one draft, gone when
+the panel closes, which is what Cancel does. The form reads it for its count
+and its Save. The count is one per write Save would send: a changed list, a
+moved featured flag, a moved featured image, so a move to another owner is two
+— a removal from one list and an add to the other, which gives the row a new
+id and resets its flag. A list is compared by `rowsForSync`, the normalisation
+the write itself applies, so a no-op is never offered, written or logged. A
+row that differs from the baseline says "Unsaved". The upload is the one thing
+that happens at once: the file goes to the bucket on pick, and only its row
+waits.
 
 Two orderings inside that Save are load-bearing. The placement is written
 **after** the cell, because saving the cell's text runs
@@ -287,6 +294,23 @@ the text deletes its placement along with everything written about it. And the
 write is **skipped** when the name is gone, rather than left to fail on zero
 rows: the author asked for exactly that, and reporting it as an error about a
 missing placement would be the editor blaming them for it.
+
+The resources come **after** both, for the same reason: the content write may
+have deleted a placement, and its list is skipped rather than written onto
+nothing. Inside, the order is the cell's list, each placement's list, the
+featured flags, then the featured image. Flags follow the lists because a link
+added in the draft has no id until its list is written, and both syncs answer
+with nothing, so the save reads the owner's ids back by position. Each write
+**settles** as it lands — its part of the baseline becomes what was written,
+the cell's fields included — so a failure part-way leaves exactly the unwritten
+part as the draft, and the retry sends only that, never inserting a row twice.
+A re-tag's source list is written before its target, so a failure between them
+leaves the row missing until the retry rather than on the board twice. Every
+list the Save will write is checked against `rowsForSync` before the cell is
+written, so a row the sync would refuse stops the Save with nothing written. A
+stored row the check refuses is no change while nobody touches its list. A
+featured link whose new id did not come back is not settled: Save says so, and
+the next one reads the ids again.
 
 The placement editor only ever **updates**, and never inserts. Which cells may
 hold a placement is decided in one place — `sync_cell_touchpoints`, which

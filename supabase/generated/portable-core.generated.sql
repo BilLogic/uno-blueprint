@@ -13182,6 +13182,9 @@ as $function$
 declare
   v_name     text := btrim(coalesce(p_name, ''));
   v_kind     text := btrim(coalesce(p_kind, ''));
+  v_summary  text := nullif(btrim(coalesce(p_summary, '')), '');
+  v_url      text := nullif(btrim(coalesce(p_url, '')), '');
+  v_icon_url text := nullif(btrim(coalesce(p_icon_url, '')), '');
   v_previous public.touchpoints;
   v_renamed  jsonb;
   v_written  int;
@@ -13210,6 +13213,28 @@ begin
     raise exception 'touchpoint % does not exist', p_touchpoint_id;
   end if;
 
+  -- A save that matches the row as it stands is not an edit. Nothing is
+  -- written and `updated_at` is not stamped, and the reply says so, so the
+  -- caller records no ledger entry — an undo of nothing is a row in the sheet
+  -- that does nothing when clicked.
+  if (v_previous.name, v_previous.kind, v_previous.summary, v_previous.url, v_previous.icon_url)
+     is not distinct from (v_name, v_kind, v_summary, v_url, v_icon_url) then
+    return jsonb_build_object(
+      'touchpoint_id', p_touchpoint_id,
+      'name', v_name,
+      'previous_name', v_previous.name,
+      'cell_ids', '[]'::jsonb,
+      'changed', false,
+      'previous', jsonb_build_object(
+        'name', v_previous.name,
+        'kind', v_previous.kind,
+        'summary', v_previous.summary,
+        'url', v_previous.url,
+        'icon_url', v_previous.icon_url
+      )
+    );
+  end if;
+
   -- The name first, through the one function that knows how to move it. If it
   -- raises, nothing below runs and nothing above has been written.
   if v_previous.name <> v_name then
@@ -13218,9 +13243,9 @@ begin
 
   update public.touchpoints
      set kind       = v_kind,
-         summary    = nullif(btrim(coalesce(p_summary, '')), ''),
-         url        = nullif(btrim(coalesce(p_url, '')), ''),
-         icon_url   = nullif(btrim(coalesce(p_icon_url, '')), ''),
+         summary    = v_summary,
+         url        = v_url,
+         icon_url   = v_icon_url,
          updated_at = now()
    where id = p_touchpoint_id;
 
@@ -13236,6 +13261,7 @@ begin
     'name', v_name,
     'previous_name', v_previous.name,
     'cell_ids', coalesce(v_renamed -> 'cell_ids', '[]'::jsonb),
+    'changed', true,
     -- The argument list that undoes this call, as the row stood under the
     -- lock — never as the caller remembered it.
     'previous', jsonb_build_object(
@@ -13253,6 +13279,7 @@ comment on function public.update_touchpoint(uuid, text, text, text, text, text)
   'Edit a touchpoint''s registry entry whole — name, kind, summary, url and '
   'icon_url — in one transaction. A changed name goes through rename_touchpoint, '
   'so every bearing cell''s content moves with it. Blank prose is stored as null. '
+  'A save matching the row writes nothing and returns changed = false. '
   'Returns the previous values, which are the arguments that undo the call.';
 
 

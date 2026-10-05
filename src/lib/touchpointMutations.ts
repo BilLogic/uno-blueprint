@@ -51,8 +51,7 @@ import { requireRowsWritten } from '@/lib/optimisticConcurrency'
 import { parseCellContentItems } from '@/lib/parseCellContent'
 import type { TouchpointRoleValue } from '@/lib/touchpointRole'
 import type { Database } from '@/types/database'
-import { invalidateCellBoard, invalidateQueries } from '@/lib/queryClient'
-import { queryKeys } from '@/lib/queryKeys'
+import { invalidateCellBoard } from '@/lib/queryClient'
 
 type Client = SupabaseClient<Database>
 
@@ -117,12 +116,12 @@ export async function renameTouchpoint(
   })
   if (error) throw toAuthoringError(error)
 
-  const result = readRename(data)
+  const result = readRename(data, 'That touchpoint no longer exists — nothing was renamed.')
 
-  // The registry's name is drawn on every placement of it, and read by the pickers.
-  invalidateCellBoard(null)
-  invalidateQueries(queryKeys.registryTouchpoints.prefix)
-  invalidateQueries(queryKeys.touchpointRegistryTones)
+  // The registry's name is drawn on every placement of it, and read by the
+  // pickers. Refetched through the same table the undo uses, so the forward
+  // write and its inverse cannot disagree about what to re-read.
+  invalidateAfterRpc('rename_touchpoint', {})
   if (options.record !== false) {
     recordChange(
       'rename_touchpoint',
@@ -159,7 +158,7 @@ export async function renameTouchpoint(
  * nothing, which would let the caller record an inverse for a rename that
  * never happened.
  */
-function readRename(data: unknown): TouchpointRename {
+function readRename(data: unknown, failure: string): TouchpointRename {
   const row = data as {
     touchpoint_id?: unknown
     name?: unknown
@@ -173,7 +172,7 @@ function readRename(data: unknown): TouchpointRename {
     typeof row.name !== 'string' ||
     typeof row.previous_name !== 'string'
   ) {
-    throw new Error('That touchpoint no longer exists — nothing was renamed.')
+    throw new Error(failure)
   }
 
   return {
@@ -203,6 +202,12 @@ export type TouchpointEntry = {
 export type TouchpointUpdate = TouchpointRename & {
   /** The five fields as the row stood under the function's lock. */
   previous: TouchpointEntry
+  /**
+   * False when the save matched the row as it stood. The function then writes
+   * nothing and stamps nothing, and the client records nothing — a ledger row
+   * for a save that changed nothing offers an undo of nothing.
+   */
+  changed: boolean
 }
 
 /**
@@ -244,15 +249,18 @@ export async function updateTouchpoint(
     p_touchpoint_id: touchpointId,
     p_name: name,
     p_kind: next.kind.trim(),
-    // Sent as text, never null: the generated argument types are non-null,
-    // and the function reads an empty string as the empty field it is.
-    p_summary: next.summary?.trim() ?? '',
-    p_url: next.url?.trim() ?? '',
-    p_icon_url: next.iconUrl?.trim() ?? '',
+    // Sent as text, never null — here and in the recorded inverse below, so
+    // both directions post the same shape. The generated argument types are
+    // non-null, and the function reads an empty string as the empty field it
+    // is.
+    p_summary: asText(next.summary),
+    p_url: asText(next.url),
+    p_icon_url: asText(next.iconUrl),
   })
   if (error) throw toAuthoringError(error)
 
   const result = readUpdate(data)
+  if (!result.changed) return result
 
   invalidateAfterRpc('update_touchpoint', {})
   if (options.record !== false) {
@@ -270,9 +278,9 @@ export async function updateTouchpoint(
           p_touchpoint_id: touchpointId,
           p_name: result.previous.name,
           p_kind: result.previous.kind,
-          p_summary: result.previous.summary,
-          p_url: result.previous.url,
-          p_icon_url: result.previous.iconUrl,
+          p_summary: asText(result.previous.summary),
+          p_url: asText(result.previous.url),
+          p_icon_url: asText(result.previous.iconUrl),
         },
       },
     )
@@ -285,8 +293,12 @@ export async function updateTouchpoint(
  * Read the edit's answer, or refuse it — the same rule as `readRename`: a
  * response shaped like success that names nothing must not reach the ledger.
  */
+/** A nullable field as the text the function is posted: empty, never null. */
+const asText = (value: string | null): string => value?.trim() ?? ''
+
 function readUpdate(data: unknown): TouchpointUpdate {
-  const rename = readRename(data)
+  const failure = 'That touchpoint no longer exists — nothing was saved.'
+  const rename = readRename(data, failure)
   const previous = (data as { previous?: unknown }).previous as
     | Record<string, unknown>
     | null
@@ -296,7 +308,7 @@ function readUpdate(data: unknown): TouchpointUpdate {
     typeof previous.name !== 'string' ||
     typeof previous.kind !== 'string'
   ) {
-    throw new Error('That touchpoint no longer exists — nothing was saved.')
+    throw new Error(failure)
   }
   const text = (value: unknown) => (typeof value === 'string' ? value : null)
   return {
@@ -308,6 +320,9 @@ function readUpdate(data: unknown): TouchpointUpdate {
       url: text(previous.url),
       iconUrl: text(previous.icon_url),
     },
+    // Only an explicit false skips the ledger. A reply that does not say is
+    // treated as a write, because dropping an undo is the worse mistake.
+    changed: (data as { changed?: unknown }).changed !== false,
   }
 }
 

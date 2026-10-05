@@ -20,6 +20,7 @@ import { updateTouchpoint, type TouchpointEntry } from '@/lib/touchpointMutation
 import { touchpointIconObjectKey, uploadTouchpointIcon } from '@/lib/attachmentUpload'
 import { executeRevert } from '@/lib/revertChange'
 import { clearSession, describeChange, sessionSnapshot } from '@/lib/authoringSession'
+import { renameContentItem } from '@/test/renameContentItem'
 
 type Row = {
   id: string
@@ -38,19 +39,6 @@ type Db = {
 
 const KINDS = new Set(['app', 'document', 'physical', 'channel', 'service', 'other'])
 
-function renameContentItem(content: string, from: string, to: string): string {
-  return content
-    .split(/([\n,])/)
-    .map((part) => {
-      if (part === '\n' || part === ',') return part
-      if (part.trim() !== from) return part
-      const lead = /^[ \t\r\n]*/.exec(part)![0]
-      const tail = /[ \t\r\n]*$/.exec(part)![0]
-      return `${lead}${to}${tail}`
-    })
-    .join('')
-}
-
 const blankToNull = (value: unknown) =>
   typeof value === 'string' && value.trim() ? value.trim() : null
 
@@ -67,6 +55,28 @@ function updateTouchpointRpc(db: Db, args: Record<string, unknown>) {
   if (!KINDS.has(kind)) throw new Error('violates check constraint "touchpoints_kind_check"')
 
   const previous = { ...row }
+  const unchanged =
+    previous.name === name &&
+    previous.kind === kind &&
+    previous.summary === blankToNull(args.p_summary) &&
+    previous.url === blankToNull(args.p_url) &&
+    previous.icon_url === blankToNull(args.p_icon_url)
+  const reply = (changed: boolean, cellIds: string[]) => ({
+    touchpoint_id: row.id,
+    name,
+    previous_name: previous.name,
+    cell_ids: cellIds,
+    changed,
+    previous: {
+      name: previous.name,
+      kind: previous.kind,
+      summary: previous.summary,
+      url: previous.url,
+      icon_url: previous.icon_url,
+    },
+  })
+  if (unchanged) return reply(false, [])
+
   const cellIds: string[] = []
   if (previous.name !== name) {
     for (const cell of db.cells.filter((entry) => entry.bears.includes(row.id))) {
@@ -84,19 +94,7 @@ function updateTouchpointRpc(db: Db, args: Record<string, unknown>) {
     url: blankToNull(args.p_url),
     icon_url: blankToNull(args.p_icon_url),
   })
-  return {
-    touchpoint_id: row.id,
-    name,
-    previous_name: previous.name,
-    cell_ids: cellIds,
-    previous: {
-      name: previous.name,
-      kind: previous.kind,
-      summary: previous.summary,
-      url: previous.url,
-      icon_url: previous.icon_url,
-    },
-  }
+  return reply(true, cellIds)
 }
 
 function clientFor(db: Db) {
@@ -202,7 +200,7 @@ test('the save records one entry whose inverse is what the database returned', a
     cell_ids: ['cell-1', 'cell-2'],
   })
   // Keyed on the id, and every field as the row stood before — the icon the
-  // edit cleared included.
+  // edit cleared included — in the same text shape the forward call posts.
   expect(entry.revert).toEqual({
     fn: 'update_touchpoint',
     args: {
@@ -210,7 +208,7 @@ test('the save records one entry whose inverse is what the database returned', a
       p_name: 'Zoom',
       p_kind: 'other',
       p_summary: 'Where sessions happen',
-      p_url: null,
+      p_url: '',
       p_icon_url: 'https://cdn.example.com/zoom.png',
     },
   })
@@ -241,6 +239,23 @@ test('an edit that keeps the name reads as an edit, not a rename', async () => {
 
   expect(content(db, 'cell-1')).toBe('Zoom,\n  Zoom Recording')
   expect(describeChange(sessionSnapshot()[0])).toBe('Edited touchpoint “Zoom”')
+})
+
+test('a save that changes nothing records nothing', async () => {
+  const db = fixture()
+  const result = await updateTouchpoint(clientFor(db), 'tp-zoom', {
+    name: ' Zoom ',
+    kind: 'other',
+    summary: 'Where sessions happen',
+    url: '',
+    iconUrl: 'https://cdn.example.com/zoom.png',
+  })
+
+  // The function was asked — it is the one that knows what the row holds —
+  // and said nothing changed, so there is nothing to undo.
+  expect(db.calls).toHaveLength(1)
+  expect(result.changed).toBe(false)
+  expect(sessionSnapshot()).toHaveLength(0)
 })
 
 test('record: false writes and logs nothing', async () => {
@@ -275,7 +290,10 @@ test('a response naming nothing is refused rather than recorded', async () => {
     rpc: () => Promise.resolve({ data: null, error: null }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a stand-in
   } as any
-  await expect(updateTouchpoint(client, 'tp-zoom', NEXT)).rejects.toThrow(/no longer exists/)
+  // Its own words: this edit may not have been a rename at all.
+  await expect(updateTouchpoint(client, 'tp-zoom', NEXT)).rejects.toThrow(
+    'That touchpoint no longer exists — nothing was saved.',
+  )
   expect(sessionSnapshot()).toHaveLength(0)
 })
 
@@ -298,7 +316,7 @@ test('an icon upload lands in the resource bucket and hands back its URL', async
   const from = vi.fn(() => ({ upload, getPublicUrl }))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a stand-in
   const client = { storage: { from } } as any
-  const file = new File(['<svg/>'], 'logo.svg', { type: 'image/svg+xml' })
+  const file = new File(['webp'], 'logo.webp', { type: 'image/webp' })
 
   const uploaded = await uploadTouchpointIcon(client, {
     touchpointId: 'tp-1',
@@ -308,24 +326,29 @@ test('an icon upload lands in the resource bucket and hands back its URL', async
 
   expect(from).toHaveBeenCalledWith('cell-attachments')
   expect(upload).toHaveBeenCalledWith(
-    'touchpoints/tp-1/obj-1.svg',
+    'touchpoints/tp-1/obj-1.webp',
     file,
-    expect.objectContaining({ contentType: 'image/svg+xml', upsert: false }),
+    expect.objectContaining({ contentType: 'image/webp', upsert: false }),
   )
   expect(uploaded).toEqual({
-    url: 'https://cdn.example.com/touchpoints/tp-1/obj-1.svg',
-    objectKey: 'touchpoints/tp-1/obj-1.svg',
+    url: 'https://cdn.example.com/touchpoints/tp-1/obj-1.webp',
+    objectKey: 'touchpoints/tp-1/obj-1.webp',
   })
 })
 
-test('a file that is not an image is refused before the upload', async () => {
+test.each([
+  ['a PDF', new File(['%PDF'], 'brief.pdf', { type: 'application/pdf' })],
+  // The bucket admits SVG for resources. An icon must not be one: opened at
+  // its public URL, an SVG's script runs on the storage origin.
+  ['an SVG', new File(['<svg/>'], 'logo.svg', { type: 'image/svg+xml' })],
+  ['a GIF', new File(['GIF89a'], 'logo.gif', { type: 'image/gif' })],
+])('%s is refused before the upload', async (_label, file) => {
   const from = vi.fn()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a stand-in
   const client = { storage: { from } } as any
-  const file = new File(['%PDF'], 'brief.pdf', { type: 'application/pdf' })
   await expect(
     uploadTouchpointIcon(client, { touchpointId: 'tp-1', file }),
-  ).rejects.toThrow(/image/)
+  ).rejects.toThrow(/PNG, JPEG or WebP/)
   expect(from).not.toHaveBeenCalled()
 })
 

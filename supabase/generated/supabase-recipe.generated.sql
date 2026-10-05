@@ -2541,18 +2541,18 @@ create policy "cell_attachments_update" on storage.objects
 
 do $proof$
 declare
-  bad int;
+  admitted int;
 begin
-  select count(*) into bad
+  select count(*) into admitted
     from pg_policies
    where schemaname = 'storage' and tablename = 'objects'
      and policyname in ('cell_attachments_insert', 'cell_attachments_update')
      and coalesce(with_check, '') like '%touchpoints%'
      and coalesce(with_check, '') like '%is_service_account()%'
      and not ('anon' = any(roles) or 'public' = any(roles));
-  if bad <> 2 then
+  if admitted <> 2 then
     raise exception
-      'proof: expected both cell_attachments key policies to admit touchpoints/ behind the service guard, found %', bad;
+      'proof: expected both cell_attachments key policies to admit touchpoints/ behind the service guard, found %', admitted;
   end if;
 
   if has_function_privilege('anon',

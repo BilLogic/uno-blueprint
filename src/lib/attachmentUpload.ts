@@ -98,6 +98,9 @@ export async function uploadAttachment(
   }
 }
 
+/** The image types an icon may be — see `uploadTouchpointIcon` for why SVG is not one. */
+const ICON_TYPES: ReadonlySet<string> = new Set(['image/png', 'image/jpeg', 'image/webp'])
+
 /** What a finished icon upload hands back. */
 export type UploadedTouchpointIcon = {
   /** The object's public URL — the value `icon_url` is saved with. */
@@ -114,16 +117,18 @@ export type UploadedTouchpointIcon = {
  * Clearing the icon is that same save with no URL — there is nothing to
  * delete here, because the bucket keeps objects nobody points at.
  *
- * Images only. The bucket also admits video, audio and PDF for resources, and
- * an icon is drawn in an `<img>`, so anything else would save and then render
- * as a broken mark.
+ * PNG, JPEG and WebP, and nothing else. The bucket also admits video, audio
+ * and PDF for resources, which an `<img>` would draw as a broken mark — and it
+ * admits SVG, which is the one image an icon must not be: an SVG is a
+ * document that can carry script, and opened at its public URL it runs on the
+ * storage origin. A logo loses nothing as a raster.
  */
 export async function uploadTouchpointIcon(
   client: Client,
   input: { touchpointId: string; file: File; objectId?: string },
 ): Promise<UploadedTouchpointIcon> {
-  if (!input.file.type.startsWith('image/')) {
-    throw new Error('A touchpoint icon has to be an image file.')
+  if (!ICON_TYPES.has(input.file.type)) {
+    throw new Error('A touchpoint icon has to be a PNG, JPEG or WebP image.')
   }
   const objectId = input.objectId ?? crypto.randomUUID()
   const objectKey = touchpointIconObjectKey(input.touchpointId, objectId, input.file.name)

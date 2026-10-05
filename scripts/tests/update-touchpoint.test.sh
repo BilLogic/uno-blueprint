@@ -18,7 +18,9 @@
 #      cell;
 #   5. an empty name is refused;
 #   6. the icon can be cleared;
-#   7. a signed-in reader without the service claim changes nothing, and anon
+#   7. a save that matches the row writes nothing, stamps nothing, and says
+#      so, which is how the client knows to record no ledger entry;
+#   8. a signed-in reader without the service claim changes nothing, and anon
 #      cannot call it at all.
 #
 # It replays the migration series behind the shim, loads the sample seed, and
@@ -199,7 +201,19 @@ expect_eq "the icon was not cleared" "∅" \
   "$(owner "select coalesce(icon_url, '∅') from public.touchpoints where id = '$TP'")"
 expect_eq "an edit that kept the name rewrote cell text" "$ORIGINAL_A" "$(content "$CELL_A")"
 
-# ── 7. A reader changes nothing; anon cannot call it ────────────────────────
+# ── 7. A save that changes nothing writes nothing ──────────────────────────
+
+STAMP="$(owner "select updated_at from public.touchpoints where id = '$TP'")"
+UNCHANGED="$(as_author "select public.update_touchpoint('$TP', ' $ORIGINAL_NAME ', 'other', '', null, '')")"
+expect_eq "a save matching the row did not say it changed nothing" "false" \
+  "$(owner "select '$UNCHANGED'::jsonb ->> 'changed'")"
+expect_eq "a save matching the row stamped it anyway" "$STAMP" \
+  "$(owner "select updated_at from public.touchpoints where id = '$TP'")"
+expect_eq "a save matching the row changed it" "$ORIGINAL_ROW" "$(row)"
+expect_eq "a real edit did not say it changed something" "true" \
+  "$(owner "select '$RESULT'::jsonb ->> 'changed'")"
+
+# ── 8. A reader changes nothing; anon cannot call it ────────────────────────
 
 expect_refused "a signed-in reader without the service claim edited the registry" \
   "cannot edit the blueprint" "$READER_CLAIMS" \
@@ -220,4 +234,4 @@ if ! grep -q "permission denied for function update_touchpoint" <<<"$output"; th
 fi
 expect_eq "anon's refused call changed the row" "$ORIGINAL_ROW" "$(row)"
 
-echo "update_touchpoint: 7 claims hold — whole-row write, cell rename, inverse, two rollbacks, empty name, icon clear, guard."
+echo "update_touchpoint: 8 claims hold — whole-row write, cell rename, inverse, two rollbacks, empty name, icon clear, no-op save, guard."

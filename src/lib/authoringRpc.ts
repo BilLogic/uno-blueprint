@@ -259,11 +259,23 @@ const FRESHNESS: Record<string, (args: Record<string, unknown>) => void> = {
   },
   rename_owner_tag: ownerTagWritten,
   rename_owner_tag_scoped: ownerTagWritten,
+  // The registry entry is drawn on every placement of it and read by the
+  // pickers, and a changed name has rewritten cell text on any board. Named
+  // here so the undo of either write refetches what the write itself did —
+  // the structural default re-reads the boards and leaves the registry stale.
+  rename_touchpoint: touchpointRegistryWritten,
+  update_touchpoint: touchpointRegistryWritten,
 }
 
 function dependencyWritten(): void {
   invalidateQueries(queryKeys.servicePhases.prefix)
   invalidateQueries(queryKeys.canvasBlueprints.prefix)
+}
+
+function touchpointRegistryWritten(): void {
+  invalidateCellBoard(null)
+  invalidateQueries(queryKeys.registryTouchpoints.prefix)
+  invalidateQueries(queryKeys.touchpointRegistryTones)
 }
 
 function ownerTagWritten(): void {

@@ -11,6 +11,9 @@
  * That split is the whole of the registry's write story stated as two
  * functions, and it is why they share a module: a reader who finds one has to
  * meet the other, or the next rename will be attempted a cell at a time.
+ * `updateTouchpoint` is the registry half widened to the whole entry — kind,
+ * summary, url and icon beside the name — and it renames through the same
+ * function, so it is the same write with more fields, not a third scope.
  *
  * ── The placement write UPDATES. It never creates one, and that is a gate ──
  *
@@ -41,6 +44,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import { invalidateAfterRpc } from '@/lib/authoringRpc'
 import { recordChange } from '@/lib/authoringSession'
 import { toAuthoringError } from '@/lib/authoringErrors'
 import { requireRowsWritten } from '@/lib/optimisticConcurrency'
@@ -177,6 +181,133 @@ function readRename(data: unknown): TouchpointRename {
     name: row.name,
     previousName: row.previous_name,
     cellIds: Array.isArray(row.cell_ids) ? (row.cell_ids as string[]) : [],
+  }
+}
+
+/**
+ * A registry entry as the editor holds it: the five fields an author edits.
+ *
+ * Empty prose is `null` or `''` interchangeably — the function stores both as
+ * null — and `iconUrl: null` is how the icon is cleared. `kind` is the
+ * table's vocabulary, which the CHECK holds; it is not restated here.
+ */
+export type TouchpointEntry = {
+  name: string
+  kind: string
+  summary: string | null
+  url: string | null
+  iconUrl: string | null
+}
+
+/** What `update_touchpoint` hands back. */
+export type TouchpointUpdate = TouchpointRename & {
+  /** The five fields as the row stood under the function's lock. */
+  previous: TouchpointEntry
+}
+
+/**
+ * Save a registry entry whole — name, kind, summary, url and icon.
+ *
+ * One RPC, for the reason `renameTouchpoint` is one: a changed name has to
+ * move the word in every bearing cell, and PostgREST gives every request its
+ * own transaction. Saving the name and then the rest as two writes could land
+ * one and refuse the other, and leave an undo that has to guess which half
+ * happened. The function does the rename through `rename_touchpoint` and the
+ * other four fields in the same transaction, so a refusal anywhere writes
+ * nothing anywhere.
+ *
+ * The inverse is not built from anything the caller remembers. The function
+ * reads the row under a lock before it writes and returns those five values,
+ * and they are exactly the argument list that puts the row back — the name
+ * in every cell's text included, because the inverse is the same function
+ * and renames the word back the same way. A caller that had to supply the
+ * before-state would supply it wrong somewhere; the same argument
+ * `patchStakeholder` makes.
+ */
+export async function updateTouchpoint(
+  client: Client,
+  touchpointId: string,
+  next: TouchpointEntry,
+  /**
+   * Session-log participation, decided per call — the same reasoning as
+   * `renameTouchpoint`. Reverts do not come through here at all: the
+   * recorded inverse is posted by `executeRevert`'s RPC branch.
+   */
+  options: { record?: boolean } = {},
+): Promise<TouchpointUpdate> {
+  const name = next.name.trim()
+  if (!name) {
+    throw new Error('A touchpoint needs a name — an empty one is a blank cell face.')
+  }
+
+  const { data, error } = await client.rpc('update_touchpoint', {
+    p_touchpoint_id: touchpointId,
+    p_name: name,
+    p_kind: next.kind.trim(),
+    // Sent as text, never null: the generated argument types are non-null,
+    // and the function reads an empty string as the empty field it is.
+    p_summary: next.summary?.trim() ?? '',
+    p_url: next.url?.trim() ?? '',
+    p_icon_url: next.iconUrl?.trim() ?? '',
+  })
+  if (error) throw toAuthoringError(error)
+
+  const result = readUpdate(data)
+
+  invalidateAfterRpc('update_touchpoint', {})
+  if (options.record !== false) {
+    recordChange(
+      'update_touchpoint',
+      {
+        touchpoint_id: touchpointId,
+        name: result.name,
+        previous_name: result.previousName,
+        cell_ids: result.cellIds,
+      },
+      {
+        fn: 'update_touchpoint',
+        args: {
+          p_touchpoint_id: touchpointId,
+          p_name: result.previous.name,
+          p_kind: result.previous.kind,
+          p_summary: result.previous.summary,
+          p_url: result.previous.url,
+          p_icon_url: result.previous.iconUrl,
+        },
+      },
+    )
+  }
+
+  return result
+}
+
+/**
+ * Read the edit's answer, or refuse it — the same rule as `readRename`: a
+ * response shaped like success that names nothing must not reach the ledger.
+ */
+function readUpdate(data: unknown): TouchpointUpdate {
+  const rename = readRename(data)
+  const previous = (data as { previous?: unknown }).previous as
+    | Record<string, unknown>
+    | null
+    | undefined
+  if (
+    !previous ||
+    typeof previous.name !== 'string' ||
+    typeof previous.kind !== 'string'
+  ) {
+    throw new Error('That touchpoint no longer exists — nothing was saved.')
+  }
+  const text = (value: unknown) => (typeof value === 'string' ? value : null)
+  return {
+    ...rename,
+    previous: {
+      name: previous.name,
+      kind: previous.kind,
+      summary: text(previous.summary),
+      url: text(previous.url),
+      iconUrl: text(previous.icon_url),
+    },
   }
 }
 

@@ -1,5 +1,5 @@
 import { asEntityStatus, DEFAULT_ENTITY_STATUS, type EntityStatus } from '@/lib/entityStatus'
-import { parseValueProps, type ValueProp } from '@/lib/valueProps'
+import { normalizeValueProps, parseValueProps, type ValueProp } from '@/lib/valueProps'
 import type { BlueprintCell } from '@/types/blueprint'
 import type { Database, Json } from '@/types/database'
 
@@ -407,14 +407,21 @@ export function cellEditsFromCell(cell: BlueprintCell | null): CellEdits {
  * Whether two edits of one field are the same value — as the write would
  * store them: text is compared trimmed, because the mutations trim before
  * writing and a change of surrounding whitespace would be a write that
- * changes nothing; the list is compared by value.
+ * changes nothing; the list is compared by value, normalised the way the
+ * spec write normalises it, so a blank added row or a trimmed space is not
+ * an edit either.
  */
 export function sameCellEdit<K extends CellEditKey>(
   key: K,
   left: CellEditValue<K>,
   right: CellEditValue<K>,
 ): boolean {
-  if (key === 'value_props') return JSON.stringify(left) === JSON.stringify(right)
+  if (key === 'value_props') {
+    return (
+      JSON.stringify(normalizeValueProps(left as ValueProp[])) ===
+      JSON.stringify(normalizeValueProps(right as ValueProp[]))
+    )
+  }
   return typeof left === 'string' && typeof right === 'string'
     ? left.trim() === right.trim()
     : left === right

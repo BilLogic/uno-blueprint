@@ -88,6 +88,7 @@ const INITIAL_BLUEPRINTS = [
         summary: 'Where a report is filed.',
         owner: null,
         perceived_owner: null,
+        value_props: [{ for: 'Residents', value: 'A report reaches the desk.' }],
         resources: [],
       },
       /*
@@ -470,6 +471,27 @@ describe('Save, only when something changed', () => {
     // The sync deletes this placement on Save, so its two edits are not
     // going to be written; only the content change is.
     fireEvent.change(contentInput(), { target: { value: 'Duty phone' } })
+    expect(screen.getByText('1 unsaved change')).toBeTruthy()
+  })
+
+  it('stays off for a value proposition row added and left blank', () => {
+    openOnPlacement()
+    fireEvent.click(screen.getByRole('button', { name: 'Add value proposition' }))
+    // The write drops a row blank on both sides, so the list it would store
+    // is the list it read.
+    expect(saveButton().disabled).toBe(true)
+    expect(screen.getByText('No changes')).toBeTruthy()
+  })
+
+  it('stays off for whitespace on a value proposition, and on for a real edit', () => {
+    openOnPlacement()
+    const value = screen.getByDisplayValue('A report reaches the desk.')
+    fireEvent.change(value, { target: { value: 'A report reaches the desk.  ' } })
+    expect(saveButton().disabled).toBe(true)
+    expect(screen.getByText('No changes')).toBeTruthy()
+
+    fireEvent.change(value, { target: { value: 'A reply within the day.' } })
+    expect(saveButton().disabled).toBe(false)
     expect(screen.getByText('1 unsaved change')).toBeTruthy()
   })
 

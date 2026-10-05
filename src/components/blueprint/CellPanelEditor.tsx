@@ -37,6 +37,7 @@ import { RegistryLink } from '@/components/blueprint/RegistryLink'
 import { RoleSelect } from '@/components/blueprint/RoleSelect'
 import { PlacementResourcesList } from '@/components/blueprint/PlacementResourcesList'
 import {
+  changedPlacementFields,
   placementSurvivesContent,
   updateTouchpointPlacement,
   type PlacementDetailColumns,
@@ -370,15 +371,19 @@ function CellPanelEditorForm({
   const persistedSummary =
     cellId && !summaryTouched ? baseline.summary : form.summary
 
-  const placementChanges = placement
-    ? Number(form.placement.summary !== baseline.placement.summary) +
-      Number(form.placement.role !== baseline.placement.role)
-    : 0
-  const placementChanged = placementChanges > 0
+  // The placement's edits, compared the way its write stores them. The write
+  // gate and the count share this one rule, so Save never offers to write a
+  // change the write would find identical.
+  const changedPlacement = placement
+    ? changedPlacementFields(form.placement, baseline.placement)
+    : []
+  const placementChanged = changedPlacement.length > 0
 
   /*
     How far the form has moved from the baseline it froze at mount, counted
-    per field: the cell's, as Save would write them, and the placement's two.
+    per field: the cell's, as Save would write them, and the placement's —
+    only while the text still names it, since a save that drops the name
+    deletes the placement and writes none of its edits.
     Against the frozen baseline and not the live query, for the same reason
     the baseline is frozen — a refetch mid-edit must not make an edit look
     saved, or a revert look like one.
@@ -388,11 +393,13 @@ function CellPanelEditorForm({
     button promising work it was not going to do. A draft keeps its own rule:
     there is no row yet, so any content at all is a change.
   */
-  const unsaved = cellId
+  const placementWillWrite =
+    placement !== null && placementSurvivesContent(form.content, placement.name)
+  const unsavedCount = cellId
     ? changedCellFields({ ...form, summary: persistedSummary }, baseline).length +
-      placementChanges
+      (placementWillWrite ? changedPlacement.length : 0)
     : 0
-  const unchanged = cellId !== null && unsaved === 0
+  const unchanged = cellId !== null && unsavedCount === 0
 
   const handleSave = async () => {
     if (!client || busy || blocked || unchanged) return
@@ -632,9 +639,9 @@ function CellPanelEditorForm({
             */}
             {cellId ? (
               <span aria-live="polite" className="text-xs text-muted-foreground">
-                {unsaved === 0
+                {unsavedCount === 0
                   ? 'No changes'
-                  : `${unsaved} unsaved ${unsaved === 1 ? 'change' : 'changes'}`}
+                  : `${unsavedCount} unsaved ${unsavedCount === 1 ? 'change' : 'changes'}`}
               </span>
             ) : null}
           </div>

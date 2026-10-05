@@ -67,37 +67,45 @@ vi.mock('@/contexts/SupabaseProvider', () => ({
 }))
 // The editor reads the whole cell off the board it was opened from, so the
 // board is where the cell's text and owner pair have to be for these to run.
+//
+// Held in a hoisted object rather than inline so a test can stand in for a
+// refetch: replace the board, re-render, and see what the open form makes of
+// it.
+const { board } = vi.hoisted(() => ({
+  board: { blueprints: null as unknown },
+}))
 vi.mock('@/contexts/BlueprintCellDetailContext', () => ({
   useBlueprintCellDetailOptional: () => ({
-    blueprints: [
-      {
-        cells: [
-          {
-            id: 'cell-1',
-            content: 'Intake portal',
-            summary: 'Where a report is filed.',
-            owner: null,
-            perceived_owner: null,
-            resources: [],
-          },
-          /*
-            A cell whose summary column is empty, so the editor seeds the
-            field with the prose the panel displayed instead. Opening it
-            changes nothing, and the Save state has to agree.
-          */
-          {
-            id: 'cell-2',
-            content: 'Duty phone',
-            summary: null,
-            owner: null,
-            perceived_owner: null,
-            resources: [],
-          },
-        ],
-      },
-    ],
+    blueprints: board.blueprints ?? INITIAL_BLUEPRINTS,
   }),
 }))
+const INITIAL_BLUEPRINTS = [
+  {
+    cells: [
+      {
+        id: 'cell-1',
+        content: 'Intake portal',
+        summary: 'Where a report is filed.',
+        owner: null,
+        perceived_owner: null,
+        resources: [],
+      },
+      /*
+        A cell whose summary column is empty, so the editor seeds the
+        field with the prose the panel displayed instead. Opening it
+        changes nothing, and the Save state has to agree.
+      */
+      {
+        id: 'cell-2',
+        content: 'Duty phone',
+        summary: null,
+        owner: null,
+        perceived_owner: null,
+        resources: [],
+      },
+    ],
+  },
+]
 vi.mock('@/hooks/useValueAudiences', () => ({
   useValueAudiences: () => ({ status: 'ready', data: [] }),
 }))
@@ -218,6 +226,7 @@ function save() {
 }
 
 beforeEach(() => {
+  board.blueprints = null
   calls.length = 0
   updateCellContent.mockClear()
   updateCellSpec.mockClear()
@@ -381,6 +390,87 @@ describe('Save, only when something changed', () => {
 
     fireEvent.change(screen.getByLabelText('Role'), { target: { value: '' } })
     expect(saveButton().disabled).toBe(true)
+  })
+
+  it('stays off for whitespace the placement write would trim away', () => {
+    openOnPlacement()
+    fireEvent.change(placementSummary(), {
+      target: { value: 'Where a report is filed.   ' },
+    })
+    // The write trims, so Save would put back the same row and log a change
+    // with nothing in it to take back.
+    expect(saveButton().disabled).toBe(true)
+    expect(screen.getByText('No changes')).toBeTruthy()
+  })
+
+  it("turns off again when the placement's summary is taken back", () => {
+    openOnPlacement()
+    fireEvent.change(placementSummary(), {
+      target: { value: 'The screen a report is filed on.' },
+    })
+    expect(saveButton().disabled).toBe(false)
+    fireEvent.change(placementSummary(), {
+      target: { value: 'Where a report is filed.' },
+    })
+    expect(saveButton().disabled).toBe(true)
+    expect(screen.getByText('No changes')).toBeTruthy()
+  })
+
+  it('counts against what the form opened with, not a refetch mid-edit', () => {
+    const view = render(
+      <CellPanelEditor
+        cellId="cell-1"
+        placement={placement()}
+        placementResources={[]}
+        onDone={() => {}}
+      />,
+    )
+    fireEvent.change(screen.getByRole('textbox', { name: 'Owner' }), {
+      target: { value: 'Field operations' },
+    })
+    expect(screen.getByText('1 unsaved change')).toBeTruthy()
+
+    // A revert elsewhere refetches the board: the cell and the placement now
+    // hold different values than when editing began.
+    board.blueprints = [
+      {
+        cells: [
+          {
+            id: 'cell-1',
+            content: 'Intake portal',
+            summary: 'A summary someone else restored.',
+            owner: 'Field operations',
+            perceived_owner: 'The council',
+            resources: [],
+          },
+        ],
+      },
+    ]
+    view.rerender(
+      <CellPanelEditor
+        cellId="cell-1"
+        placement={placement({ summary: 'Restored elsewhere.', role: 'core' })}
+        placementResources={[]}
+        onDone={() => {}}
+      />,
+    )
+
+    expect(screen.getByText('1 unsaved change')).toBeTruthy()
+    expect(saveButton().disabled).toBe(false)
+  })
+
+  it("does not count the placement's edits once the text no longer names it", () => {
+    openOnPlacement()
+    fireEvent.change(placementSummary(), {
+      target: { value: 'The screen a report is filed on.' },
+    })
+    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'core' } })
+    expect(screen.getByText('2 unsaved changes')).toBeTruthy()
+
+    // The sync deletes this placement on Save, so its two edits are not
+    // going to be written; only the content change is.
+    fireEvent.change(contentInput(), { target: { value: 'Duty phone' } })
+    expect(screen.getByText('1 unsaved change')).toBeTruthy()
   })
 
   it('stays off when the summary was seeded with displayed prose and left alone', () => {

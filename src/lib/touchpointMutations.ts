@@ -242,6 +242,32 @@ export function normalizePlacementDetail(
 }
 
 /**
+ * Which of the placement's columns a Save would change, comparing the two
+ * drafts as the write would store them.
+ *
+ * Through `normalizePlacementDetail` and not a raw `!==`, because the write
+ * trims: a summary that differs only by surrounding whitespace writes the
+ * same row, and treating it as an edit would offer a Save that logs a change
+ * with nothing in it to take back. One equality rule for the editor's count
+ * and its write gate, and it is the write's own.
+ *
+ * A draft the normaliser refuses is compared as it stands, so an invalid
+ * value still reads as changed and reaches the write that explains it.
+ */
+export function changedPlacementFields(
+  after: PlacementDetailDraft,
+  before: PlacementDetailDraft,
+): Array<keyof PlacementDetailColumns> {
+  const stored = (draft: PlacementDetailDraft): PlacementDetailColumns => {
+    const normalized = normalizePlacementDetail(draft)
+    return normalized.ok ? normalized.columns : draft
+  }
+  const next = stored(after)
+  const previous = stored(before)
+  return (['summary', 'role'] as const).filter((key) => next[key] !== previous[key])
+}
+
+/**
  * True when the cell text being saved still names this touchpoint.
  *
  * The panel saves the cell's text and this placement's detail in one action,

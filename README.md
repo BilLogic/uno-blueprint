@@ -24,7 +24,7 @@ yarn create uno-blueprint   # Yarn 1 (Classic); then: cd uno-blueprint && yarn d
 bun create uno-blueprint    # then: cd uno-blueprint && bun dev
 ```
 
-Yarn 2 and later skip the setup scripts the template needs, so they are refused. The folder name, `--no-install` and the other options are in [SETUP.md § 1](./SETUP.md#1-start-a-workspace) and [the initialiser's README](./packages/create-uno-blueprint/README.md).
+Yarn 2 and later, the folder name, `--no-install` and the other options are in [SETUP.md § 1](./SETUP.md#1-start-a-workspace) and [the initialiser's README](./packages/create-uno-blueprint/README.md).
 
 Then add the skills to the coding agent you already use. In Claude Code:
 
@@ -33,7 +33,7 @@ claude plugin marketplace add BilLogic/uno-blueprint
 claude plugin install ub@ub-marketplace
 ```
 
-That installs the skills as slash commands, in any project. Cursor, Codex and other agents read `AGENTS.md` in the workspace, which routes each skill name to its instructions: see [In other coding agents](#in-other-coding-agents).
+That installs the skills as slash commands, in any project. Cursor and Codex find them in `.agents/skills/`, and any other agent routes through `AGENTS.md`: see [In other coding agents](#in-other-coding-agents).
 
 To work on the template itself, clone it instead:
 
@@ -63,7 +63,7 @@ A React app (Vite, [shadcn/ui](https://ui.shadcn.com/), Tailwind v4). See how yo
 
 ### A harness for your agents
 
-Four skills teach your agents to build the map from your docs, keep it accurate, and test changes against it. Agents draft, check and suggest. Drafts need sign-off, and every edit can be undone.
+Four skills teach your agents to build the map from your docs, keep it accurate, and test changes against it. Agents draft, check and suggest. Drafts need sign-off before they land.
 
 | Skill | What it does |
 | --- | --- |
@@ -92,14 +92,14 @@ Uno Blueprint works on top of MCP, not instead of it. `ub:map` reads a FigJam or
 
 ### One blueprint, every place you work
 
-- **In the app.** Ask the built-in agent and watch it point at the blueprint. Bring your own model key.
+- **In the app.** Ask the built-in agent and watch it point at the blueprint. Sign in and bring your own model key.
 - **With your coding agent.** Run the four skills from Claude Code, Cursor, or any agent that reads markdown.
 - **In your team Slack.** Put a bot on the same blueprint, and answers arrive where the questions are asked. You build this one; the template does not ship it. It reads with the publishable key under the [adapter contract's read-consumer rules](./references/adapter-contract.md#read-consumers-bots-agent-tools-external-integrations).
 - **On your phone.** Take the blueprint with you. Read any journey and jump to any step.
 
 ## How a blueprint is laid out
 
-Service > phase > scenario > path. One path is one blueprint: a grid of lanes (User, Frontstage, Backstage, Support) and steps. Where a lane meets a step, one cell holds the detail: owner, status, value, dependencies and the sources behind it. The full model is in [guide/01 — The blueprint model](./docs/guide/01-the-blueprint-model.md); the specification is [references/data-model.md](./references/data-model.md).
+Service > phase > scenario > path. One path is one blueprint: a grid of lanes (one actor each: the customer, frontstage, backstage, support and others) and steps. Where a lane meets a step, one cell holds the detail: owner, status, value, dependencies and the sources behind it. The full model is in [guide/01 — The blueprint model](./docs/guide/01-the-blueprint-model.md); the specification is [references/data-model.md](./references/data-model.md).
 
 ## Get set up
 
@@ -130,7 +130,7 @@ Then run `npm run check:target` once. It asks the database which schema it carri
 
 ### The portable Postgres core
 
-**The portable Postgres core is the contract. Supabase is one conformant reference recipe, fully supported and not required.** Neon, Firebase Data Connect, RDS or a self-hosted Postgres take the core plus a small data layer you write against the adapter contract.
+**The portable Postgres core is the contract. Supabase is one conformant reference recipe, fully supported and not required.** Any other Postgres host takes the core plus a small data layer you write against the adapter contract.
 
 The migrations carry partition marks, [scripts/generate-portable-core.mjs](./scripts/generate-portable-core.mjs) emits both halves from them, and every pull request applies the core to a stock `postgres:17` with no Supabase in front of it, then the recipe on top. If the core stops being portable, the build goes red.
 
@@ -143,7 +143,7 @@ The migrations carry partition marks, [scripts/generate-portable-core.mjs](./scr
 All three are generated. Edit a migration, then run `npm run generate:portable-core` and `npm run generate:portable-schema`; CI reverts a hand-edit.
 
 - **What the app reads and writes through** is the generated database type, [`src/types/database.ts`](./src/types/database.ts): every table, column and RPC signature the core declares, emitted from the migrations and re-checked by CI. Change the core, regenerate the type, and every call site that no longer agrees stops building.
-- **What a store has to answer** to serve the app live is [references/adapter-contract.md](./references/adapter-contract.md) § Live backend surface. The shipped Supabase call sites are the worked example.
+- **What a store has to answer** to serve the app live is [references/adapter-contract.md](./references/adapter-contract.md) § Live backend surface (beyond import). The shipped Supabase call sites are the worked example.
 
 Where your work starts:
 

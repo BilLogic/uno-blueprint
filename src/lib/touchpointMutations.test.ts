@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { clearSession, sessionSnapshot } from '@/lib/authoringSession'
 import {
+  changedPlacementFields,
   normalizePlacementDetail,
   placementSurvivesContent,
   restoreTouchpointPlacement,
@@ -119,6 +120,30 @@ describe('normalizePlacementDetail', () => {
       draft({ role: 'important' as never }),
     )
     expect(result.ok).toBe(false)
+  })
+})
+
+describe('changedPlacementFields', () => {
+  const draft = (over: Partial<PlacementDetailDraft> = {}): PlacementDetailDraft => ({
+    summary: 'Where a report is filed.',
+    role: null,
+    ...over,
+  })
+
+  it('names nothing when the two drafts would write the same columns', () => {
+    // Whitespace the write trims away is not a change: Save would write an
+    // identical row and log a change with nothing to take back.
+    expect(
+      changedPlacementFields(draft({ summary: '  Where a report is filed.  ' }), draft()),
+    ).toEqual([])
+    expect(changedPlacementFields(draft({ summary: '   ' }), draft({ summary: '' }))).toEqual([])
+  })
+
+  it('names each column the write would change', () => {
+    expect(
+      changedPlacementFields(draft({ summary: 'The screen.', role: 'core' }), draft()),
+    ).toEqual(['summary', 'role'])
+    expect(changedPlacementFields(draft({ role: 'peripheral' }), draft())).toEqual(['role'])
   })
 })
 

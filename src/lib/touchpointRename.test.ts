@@ -42,6 +42,7 @@ import { renameTouchpoint } from '@/lib/touchpointMutations'
 import { executeRevert } from '@/lib/revertChange'
 import { clearSession, sessionSnapshot } from '@/lib/authoringSession'
 import { parseCellContentItems } from '@/lib/parseCellContent'
+import { renameContentItem } from '@/test/renameContentItem'
 
 // ---------------------------------------------------------------------------
 // The model
@@ -70,28 +71,6 @@ const TOUCHPOINT_LANES = new Set(['frontstage_touchpoints', 'backstage_touchpoin
 
 let nextId = 0
 const id = (prefix: string) => `${prefix}-${(nextId += 1)}`
-
-/**
- * `rename_content_item`, ported.
- *
- * The match is against a whole ITEM of the delimited list, never a substring:
- * `cells.content` is what `parseCellContentItems` splits on newline or comma
- * and trims, so renaming `Zoom` has to leave `Zoom Recording` alone. Split
- * keeping the delimiters, map the items, join — which puts the author's
- * spacing back verbatim wherever nothing matched.
- */
-function renameContentItem(content: string, from: string, to: string): string {
-  return content
-    .split(/([\n,])/)
-    .map((part) => {
-      if (part === '\n' || part === ',') return part
-      if (part.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, '') !== from) return part
-      const lead = /^[ \t\r\n]*/.exec(part)![0]
-      const tail = /[ \t\r\n]*$/.exec(part)![0]
-      return `${lead}${to}${tail}`
-    })
-    .join('')
-}
 
 /** The name a placement shows: the registry's where it has one, else its own. */
 const nameOf = (db: Db, placement: PlacementRow) =>

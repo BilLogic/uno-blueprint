@@ -2677,6 +2677,116 @@ $$;
 COMMENT ON FUNCTION public.update_scenario_layout(scenario_id uuid, layout text) IS 'The header toggle''s write: how this scenario''s board is drawn, stacked or merged. Its inverse is itself with the previous value.';
 
 --
+-- Name: update_touchpoint(uuid, text, text, text, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_touchpoint(p_touchpoint_id uuid, p_name text, p_kind text, p_summary text, p_url text, p_icon_url text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare
+  v_name     text := btrim(coalesce(p_name, ''));
+  v_kind     text := btrim(coalesce(p_kind, ''));
+  v_summary  text := nullif(btrim(coalesce(p_summary, '')), '');
+  v_url      text := nullif(btrim(coalesce(p_url, '')), '');
+  v_icon_url text := nullif(btrim(coalesce(p_icon_url, '')), '');
+  v_previous public.touchpoints;
+  v_renamed  jsonb;
+  v_written  int;
+begin
+  if not public.is_service_account() then
+    raise exception 'This account cannot edit the blueprint' using errcode = '42501';
+  end if;
+
+  -- Refused here as well as inside the rename, because an unchanged name never
+  -- reaches the rename — and an empty one must never reach the row.
+  if v_name = '' then
+    raise exception 'a touchpoint needs a name — an empty one is a blank pill';
+  end if;
+
+  if v_kind = '' then
+    raise exception 'a touchpoint is one of its kinds — a blank one is none of them';
+  end if;
+
+  -- Locked, and read whole: this is the row the inverse will put back.
+  select * into v_previous
+    from public.touchpoints
+   where id = p_touchpoint_id
+     for update;
+
+  if v_previous.id is null then
+    raise exception 'touchpoint % does not exist', p_touchpoint_id;
+  end if;
+
+  -- A save that matches the row as it stands is not an edit. Nothing is
+  -- written and `updated_at` is not stamped, and the reply says so, so the
+  -- caller records no ledger entry — an undo of nothing is a row in the sheet
+  -- that does nothing when clicked.
+  if (v_previous.name, v_previous.kind, v_previous.summary, v_previous.url, v_previous.icon_url)
+     is not distinct from (v_name, v_kind, v_summary, v_url, v_icon_url) then
+    return jsonb_build_object(
+      'touchpoint_id', p_touchpoint_id,
+      'name', v_name,
+      'previous_name', v_previous.name,
+      'cell_ids', '[]'::jsonb,
+      'changed', false,
+      'previous', jsonb_build_object(
+        'name', v_previous.name,
+        'kind', v_previous.kind,
+        'summary', v_previous.summary,
+        'url', v_previous.url,
+        'icon_url', v_previous.icon_url
+      )
+    );
+  end if;
+
+  -- The name first, through the one function that knows how to move it. If it
+  -- raises, nothing below runs and nothing above has been written.
+  if v_previous.name <> v_name then
+    v_renamed := public.rename_touchpoint(p_touchpoint_id, v_name);
+  end if;
+
+  update public.touchpoints
+     set kind       = v_kind,
+         summary    = v_summary,
+         url        = v_url,
+         icon_url   = v_icon_url,
+         updated_at = now()
+   where id = p_touchpoint_id;
+
+  -- A zero-row write is a failure, not a no-op: the caller is about to record
+  -- an inverse for an edit that never happened.
+  get diagnostics v_written = row_count;
+  if v_written <> 1 then
+    raise exception 'editing touchpoint % wrote % rows', p_touchpoint_id, v_written;
+  end if;
+
+  return jsonb_build_object(
+    'touchpoint_id', p_touchpoint_id,
+    'name', v_name,
+    'previous_name', v_previous.name,
+    'cell_ids', coalesce(v_renamed -> 'cell_ids', '[]'::jsonb),
+    'changed', true,
+    -- The argument list that undoes this call, as the row stood under the
+    -- lock — never as the caller remembered it.
+    'previous', jsonb_build_object(
+      'name', v_previous.name,
+      'kind', v_previous.kind,
+      'summary', v_previous.summary,
+      'url', v_previous.url,
+      'icon_url', v_previous.icon_url
+    )
+  );
+end
+$$;
+
+--
+-- Name: FUNCTION update_touchpoint(p_touchpoint_id uuid, p_name text, p_kind text, p_summary text, p_url text, p_icon_url text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.update_touchpoint(p_touchpoint_id uuid, p_name text, p_kind text, p_summary text, p_url text, p_icon_url text) IS 'Edit a touchpoint''s registry entry whole — name, kind, summary, url and icon_url — in one transaction. A changed name goes through rename_touchpoint, so every bearing cell''s content moves with it. Blank prose is stored as null. A save matching the row writes nothing and returns changed = false. Returns the previous values, which are the arguments that undo the call.';
+
+--
 -- Name: upsert_cell(uuid, uuid, uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 

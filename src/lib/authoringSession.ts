@@ -86,6 +86,7 @@ export type WriteFn =
   | 'remove_placement'
   | 'restore_placement'
   | 'rename_touchpoint'
+  | 'update_touchpoint'
   | 'update_touchpoint_placement'
   | 'update_cell_spec'
   | 'update_lane_spec'
@@ -389,6 +390,19 @@ const DESCRIBERS: Record<WriteFn, (entry: ChangeEntry) => string> = {
     const to = renameTo(entry)
     if (cells === 0) return `Renamed a touchpoint${to}`
     return `Renamed a touchpoint${to} (${cells} ${cells === 1 ? 'cell' : 'cells'})`
+  },
+  // Named by the entry, and by how far the name reached when it moved: the
+  // same edit that changes a summary can rename the tool on every board, and
+  // the row is where a person finds out which of the two it was.
+  update_touchpoint: (entry) => {
+    const name = typeof entry.args.name === 'string' ? entry.args.name.trim() : ''
+    const before =
+      typeof entry.args.previous_name === 'string' ? entry.args.previous_name.trim() : ''
+    if (!name) return 'Edited a touchpoint'
+    if (!before || before === name) return `Edited touchpoint “${name}”`
+    const cells = Array.isArray(entry.args.cell_ids) ? entry.args.cell_ids.length : 0
+    const reach = cells === 0 ? '' : ` (${cells} ${cells === 1 ? 'cell' : 'cells'})`
+    return `Edited touchpoint “${before}”, renamed to “${name}”${reach}`
   },
   // Named by the touchpoint, because a cell can hold several and "edited a
   // touchpoint" beside a run of them tells nobody which. The words belong to

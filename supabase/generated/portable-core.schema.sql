@@ -2683,13 +2683,19 @@ COMMENT ON FUNCTION public.update_scenario_layout(scenario_id uuid, layout text)
 CREATE FUNCTION public.update_touchpoint(p_touchpoint_id uuid, p_name text, p_kind text, p_summary text, p_url text, p_icon_url text) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
-    AS $$
+    AS $_$
 declare
   v_name     text := btrim(coalesce(p_name, ''));
   v_kind     text := btrim(coalesce(p_kind, ''));
   v_summary  text := nullif(btrim(coalesce(p_summary, '')), '');
   v_url      text := nullif(btrim(coalesce(p_url, '')), '');
   v_icon_url text := nullif(btrim(coalesce(p_icon_url, '')), '');
+  -- An absolute https address: scheme, a host, and no whitespace anywhere.
+  v_https    constant text := '^https://[^\s/?#]+([/?#]\S*)?$';
+  -- What an icon may be besides that: a path on this site, or http on a
+  -- loopback host, any port.
+  v_on_site  constant text := '^/[^/\\\s]\S*$';
+  v_loopback constant text := '^http://(localhost|127\.0\.0\.1|\[::1\])(:[0-9]+)?([/?#]\S*)?$';
   v_previous public.touchpoints;
   v_renamed  jsonb;
   v_written  int;
@@ -2716,6 +2722,25 @@ begin
 
   if v_previous.id is null then
     raise exception 'touchpoint % does not exist', p_touchpoint_id;
+  end if;
+
+  -- The two links, checked only where they change: a value the row already
+  -- holds was stored before this rule and is not this save's to refuse.
+  if v_url is not null
+     and v_url is distinct from v_previous.url
+     and v_url !~* v_https then
+    if v_url ~* '^http:' then
+      raise exception 'A touchpoint’s link has to be https — that one is http, which is not secure.';
+    end if;
+    raise exception 'A touchpoint’s link has to be a full address that starts with https.';
+  end if;
+
+  if v_icon_url is not null
+     and v_icon_url is distinct from v_previous.icon_url
+     and v_icon_url !~* v_https
+     and v_icon_url !~ v_on_site
+     and v_icon_url !~* v_loopback then
+    raise exception 'A touchpoint’s icon has to be an https address, a path on this site, or nothing at all.';
   end if;
 
   -- A save that matches the row as it stands is not an edit. Nothing is
@@ -2778,13 +2803,13 @@ begin
     )
   );
 end
-$$;
+$_$;
 
 --
 -- Name: FUNCTION update_touchpoint(p_touchpoint_id uuid, p_name text, p_kind text, p_summary text, p_url text, p_icon_url text); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.update_touchpoint(p_touchpoint_id uuid, p_name text, p_kind text, p_summary text, p_url text, p_icon_url text) IS 'Edit a touchpoint''s registry entry whole — name, kind, summary, url and icon_url — in one transaction. A changed name goes through rename_touchpoint, so every bearing cell''s content moves with it. Blank prose is stored as null. A save matching the row writes nothing and returns changed = false. Returns the previous values, which are the arguments that undo the call.';
+COMMENT ON FUNCTION public.update_touchpoint(p_touchpoint_id uuid, p_name text, p_kind text, p_summary text, p_url text, p_icon_url text) IS 'Edit a touchpoint''s registry entry whole — name, kind, summary, url and icon_url — in one transaction. A changed name goes through rename_touchpoint, so every bearing cell''s content moves with it. Blank prose is stored as null. A changed url must be an absolute https address, or empty; a changed icon_url an https address, a path on this site, an http loopback address, or empty. A value the row already holds is kept as it stands. A save matching the row writes nothing and returns changed = false. Returns the previous values, which are the arguments that undo the call.';
 
 --
 -- Name: upsert_cell(uuid, uuid, uuid, text); Type: FUNCTION; Schema: public; Owner: -

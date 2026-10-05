@@ -2561,3 +2561,21 @@ begin
   end if;
 end
 $proof$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000302000000_a_touchpoint_link_is_https.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- the grants `create or replace` kept, asserted where the roles exist.
+do $posture$
+begin
+  if not has_function_privilege('authenticated',
+       'public.update_touchpoint(uuid, text, text, text, text, text)', 'execute') then
+    raise exception 'proof: authenticated lost execute on update_touchpoint';
+  end if;
+  if has_function_privilege('anon',
+       'public.update_touchpoint(uuid, text, text, text, text, text)', 'execute') then
+    raise exception 'proof: anon can call update_touchpoint';
+  end if;
+end
+$posture$;

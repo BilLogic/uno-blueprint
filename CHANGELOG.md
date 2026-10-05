@@ -1,5 +1,55 @@
 # Changelog
 
+## 2.7.0
+
+**The cell panel has one Save, and it means it.** Save stays off until
+something actually changed, and says how many changes are unsaved. A
+touchpoint cell's editor now shares the regular cell layout, with the
+touchpoint, its Summary and its Role in one block under Content. Edit
+touchpoint opens the registry entry in a dialog: name, kind, summary, URL and
+icon, saved as one undoable write that renames the touchpoint in every cell
+that uses it. A cell's resources are one list in the Resources tab, grouped by
+owner and written by the panel's Save. The second Save button that used to
+sit in each resources list is gone.
+
+### Upgrading a deployment
+
+- **Apply the new migration** (`supabase db push`). `21000301000000` adds
+  `update_touchpoint` and lets the `cell-attachments` storage policies accept
+  `touchpoints/` keys, behind the same service-account guard.
+- **Then bump the pin.** A deployment that holds the generated recipe or
+  `src/types/database.ts` byte-identical takes the new copies with it.
+- **A deployment that imported `PlacementResourcesList`, or used
+  `ResourcesList`'s `onSave` or `onFeature` props**, mounts the Resources tab
+  instead. It now edits every owner's list.
+
+### Minor Changes
+
+- 89ab488: A cell's resources are one list in the Resources tab, grouped by owner and saved by the panel's Save. Edit mode shows This cell, then one group per touchpoint placed at the cell, headed by its name; View mode lists the same groups without controls. Adding a link or uploading a file picks its owner, starting on the touchpoint the panel was opened on, else This cell. A row can be renamed, removed, reordered within its group, set as a button or unset, set as the featured image, or moved to another owner, which removes it from one list and adds it to the other, so it gets a new id and its featured flag resets. None of it writes at once: every change counts in the panel's unsaved changes (one per list, featured flag or featured image Save would write), shows "Unsaved" on the row, and Cancel discards it. Save writes the cell, then the placement, then the cell's list, each placement's list, the featured flags and the featured image, and only the lists that changed. A save that fails part-way keeps what it did not write, and a retry sends only that, without adding a row twice. An upload still stores the file when it is picked; only its row waits for Save. Both "Save resources" buttons are gone, and `PlacementResourcesList` is removed. This completes the touchpoint-block change, which took the placement's list out of the block.
+
+  Upgrading a deployment: no action; it comes with the pin. A deployment that imported `PlacementResourcesList`, or relied on `ResourcesList`'s `onSave` and `onFeature` props, should mount the Resources tab instead, which now edits every owner's list.
+
+- cf9c327: A touchpoint cell's editor shares the regular cell layout. The block under Content now opens with a Touchpoint field, the same one the read-only panel shows, naming the touchpoint as a badge, then the placement's Summary and Role. A name-only placement's Link to registry card sits in that field when the panel was opened on it. The block's heading and explanatory copy are gone, and so is its resources list: a placement's resources stay readable in the Resources tab. When the saved cell holds a touchpoint, Content notes that changing a touchpoint's name there removes its Summary, Role and resources at this step. The interface-schema map now binds Summary to `cell_touchpoints.summary` as well.
+
+  Upgrading a deployment: no action; it comes with the pin. A placement's resources cannot be edited from the panel until they move into the Resources tab, so this ships in the same release as that change.
+
+- 7c6ccf7: Edit touchpoint opens a dialog over the cell panel. A placement the registry holds now has an Edit touchpoint button beside its name; it opens the registry entry's Name, Kind, Summary, URL and Icon (upload a PNG, JPEG or WebP, or clear it), says how many steps the change reaches, and saves through `update_touchpoint` with its own Save touchpoint. Save touchpoint stays disabled until a field changes, and Cancel, Escape and the close button write nothing. The panel's unsaved edits are left as they were. A rename rewrites this cell's text in the database, so untouched Content moves to the new name and the panel's next Save keeps the placement; while Content is edited, the dialog refuses the rename and says to save or cancel the panel first. An open panel keeps the placement it was opened on across a rename, and follows an undo of that rename back: untouched Content returns to the old name, and an edited Content that still says the undone name cannot be saved until it names the placement again. The interface-schema map binds Name, URL and Icon to `touchpoints`, and Kind and Summary to `touchpoints.kind` and `touchpoints.summary` as well.
+
+  Upgrading a deployment: no action; it comes with the pin. It needs the `update_touchpoint` migration from the release that added it.
+
+- 9e925ad: One write updates a touchpoint's registry entry, icon included, and undoes as one. A new migration, `21000301000000`, adds `update_touchpoint`, which saves a touchpoint's name, kind, summary, url and icon in one transaction behind the same service-account guard as every other authoring function. A changed name goes through `rename_touchpoint`, so every cell that places the touchpoint has the word replaced in its text, a refusal on any field writes nothing at all, and a save that matches the row as it stands writes nothing and records no undo. The client gains `updateTouchpoint`, which records one entry in the session ledger whose revert puts back all five fields and the name in cell text, and `uploadTouchpointIcon`, which stores a PNG, JPEG or WebP image (never SVG) in the `cell-attachments` bucket under `touchpoints/<id>/` and returns its URL; saving the entry with no icon URL clears it. Undoing a rename now also refreshes the touchpoint registry and pickers, not only the boards. No UI uses the new write yet.
+
+  Upgrading a deployment:
+
+  - Apply the new migration (`supabase db push`). It adds one function and rewrites the `cell_attachments_insert` and `cell_attachments_update` storage policies to admit `touchpoints/` keys beside `cells/` ones, with the same service-account guard; nothing else about the bucket changes.
+  - A deployment that holds the generated recipe or `src/types/database.ts` byte-identical takes the new copies with the pin.
+
+### Patch Changes
+
+- 2f1a617: The cell panel's Save turns on only when something changed. Editing a cell, Save stays off until a field differs from what the form opened with — any cell field, or the selected touchpoint's Summary or Role — and turns off again when every edit is taken back. A short line beside Cancel says how many changes are unsaved, or "No changes". A summary seeded with the prose the panel displayed counts as a change only once it is edited. Creating a cell keeps its rule: Create cell turns on once Content has text.
+
+  Upgrading a deployment: no action; it comes with the pin.
+
 ## 2.6.4
 
 **A burst of agent writes refetches the board once.** A lone structural edit
@@ -10471,8 +10521,8 @@ accent: BRAND.accent }, content: { workspaceTitle: coverContent.title } }`. The
   constraint violation rather than as anything the authoring tools had said
   (#204):
 
-                                                                                                                                                                                                                                          ERROR: new row for relation "lanes" violates check constraint
-                                                                                                                                                                                                                                          "lanes_lane_role_check" … compliance_review
+                                                                                                                                                                                                                                            ERROR: new row for relation "lanes" violates check constraint
+                                                                                                                                                                                                                                            "lanes_lane_role_check" … compliance_review
 
   That error at least names the value. Meeting it after validation has passed is
   the wrong moment.

@@ -27,9 +27,31 @@ export function attachmentObjectKey(
   objectId: string,
   fileName: string,
 ): string {
+  return `cells/${cellId}/${objectId}.${objectExtension(fileName)}`
+}
+
+/**
+ * Where a touchpoint's icon lives: the same bucket, under its own prefix.
+ *
+ * `touchpoints/<touchpoint id>/<object id>.<ext>` — the registry entry's id,
+ * so a rename moves no URL, and a minted id per upload, so replacing an icon
+ * writes a new object rather than overwriting one a cached page may still be
+ * showing. The bucket's write policies admit this prefix beside `cells/` and
+ * under the same pattern.
+ */
+export function touchpointIconObjectKey(
+  touchpointId: string,
+  objectId: string,
+  fileName: string,
+): string {
+  return `touchpoints/${touchpointId}/${objectId}.${objectExtension(fileName)}`
+}
+
+/** The file's own extension, narrowed to what the write policies' pattern admits. */
+function objectExtension(fileName: string): string {
   const raw = fileName.includes('.') ? fileName.split('.').pop()! : ''
   const extension = raw.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8)
-  return `cells/${cellId}/${objectId}.${extension || 'bin'}`
+  return extension || 'bin'
 }
 
 /** What a finished upload hands back: the row to add, kind already decided. */
@@ -74,4 +96,49 @@ export async function uploadAttachment(
     url: data.publicUrl,
     objectKey,
   }
+}
+
+/** The image types an icon may be — see `uploadTouchpointIcon` for why SVG is not one. */
+const ICON_TYPES: ReadonlySet<string> = new Set(['image/png', 'image/jpeg', 'image/webp'])
+
+/** What a finished icon upload hands back. */
+export type UploadedTouchpointIcon = {
+  /** The object's public URL — the value `icon_url` is saved with. */
+  url: string
+  objectKey: string
+}
+
+/**
+ * Put an icon file in the bucket and hand back the URL to save.
+ *
+ * Only the upload, for the reason `uploadAttachment` gives: the URL reaches
+ * the registry through `updateTouchpoint`, with the rest of the entry, so an
+ * icon chosen and then abandoned leaves an object and no half-saved row.
+ * Clearing the icon is that same save with no URL — there is nothing to
+ * delete here, because the bucket keeps objects nobody points at.
+ *
+ * PNG, JPEG and WebP, and nothing else. The bucket also admits video, audio
+ * and PDF for resources, which an `<img>` would draw as a broken mark — and it
+ * admits SVG, which is the one image an icon must not be: an SVG is a
+ * document that can carry script, and opened at its public URL it runs on the
+ * storage origin. A logo loses nothing as a raster.
+ */
+export async function uploadTouchpointIcon(
+  client: Client,
+  input: { touchpointId: string; file: File; objectId?: string },
+): Promise<UploadedTouchpointIcon> {
+  if (!ICON_TYPES.has(input.file.type)) {
+    throw new Error('A touchpoint icon has to be a PNG, JPEG or WebP image.')
+  }
+  const objectId = input.objectId ?? crypto.randomUUID()
+  const objectKey = touchpointIconObjectKey(input.touchpointId, objectId, input.file.name)
+  const bucket = client.storage.from(ATTACHMENTS_BUCKET)
+  const { error } = await bucket.upload(objectKey, input.file, {
+    contentType: input.file.type,
+    upsert: false,
+    cacheControl: UPLOAD_CACHE_CONTROL,
+  })
+  if (error) throw new Error(`The icon could not be uploaded: ${error.message}`)
+  const { data } = bucket.getPublicUrl(objectKey)
+  return { url: data.publicUrl, objectKey }
 }

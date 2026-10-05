@@ -11,6 +11,9 @@
  * That split is the whole of the registry's write story stated as two
  * functions, and it is why they share a module: a reader who finds one has to
  * meet the other, or the next rename will be attempted a cell at a time.
+ * `updateTouchpoint` is the registry half widened to the whole entry — kind,
+ * summary, url and icon beside the name — and it renames through the same
+ * function, so it is the same write with more fields, not a third scope.
  *
  * ── The placement write UPDATES. It never creates one, and that is a gate ──
  *
@@ -41,14 +44,14 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import { invalidateAfterRpc } from '@/lib/authoringRpc'
 import { recordChange } from '@/lib/authoringSession'
 import { toAuthoringError } from '@/lib/authoringErrors'
 import { requireRowsWritten } from '@/lib/optimisticConcurrency'
 import { parseCellContentItems } from '@/lib/parseCellContent'
 import type { TouchpointRoleValue } from '@/lib/touchpointRole'
 import type { Database } from '@/types/database'
-import { invalidateCellBoard, invalidateQueries } from '@/lib/queryClient'
-import { queryKeys } from '@/lib/queryKeys'
+import { invalidateCellBoard } from '@/lib/queryClient'
 
 type Client = SupabaseClient<Database>
 
@@ -113,12 +116,12 @@ export async function renameTouchpoint(
   })
   if (error) throw toAuthoringError(error)
 
-  const result = readRename(data)
+  const result = readRename(data, 'That touchpoint no longer exists — nothing was renamed.')
 
-  // The registry's name is drawn on every placement of it, and read by the pickers.
-  invalidateCellBoard(null)
-  invalidateQueries(queryKeys.registryTouchpoints.prefix)
-  invalidateQueries(queryKeys.touchpointRegistryTones)
+  // The registry's name is drawn on every placement of it, and read by the
+  // pickers. Refetched through the same table the undo uses, so the forward
+  // write and its inverse cannot disagree about what to re-read.
+  invalidateAfterRpc('rename_touchpoint', {})
   if (options.record !== false) {
     recordChange(
       'rename_touchpoint',
@@ -155,7 +158,7 @@ export async function renameTouchpoint(
  * nothing, which would let the caller record an inverse for a rename that
  * never happened.
  */
-function readRename(data: unknown): TouchpointRename {
+function readRename(data: unknown, failure: string): TouchpointRename {
   const row = data as {
     touchpoint_id?: unknown
     name?: unknown
@@ -169,7 +172,7 @@ function readRename(data: unknown): TouchpointRename {
     typeof row.name !== 'string' ||
     typeof row.previous_name !== 'string'
   ) {
-    throw new Error('That touchpoint no longer exists — nothing was renamed.')
+    throw new Error(failure)
   }
 
   return {
@@ -177,6 +180,149 @@ function readRename(data: unknown): TouchpointRename {
     name: row.name,
     previousName: row.previous_name,
     cellIds: Array.isArray(row.cell_ids) ? (row.cell_ids as string[]) : [],
+  }
+}
+
+/**
+ * A registry entry as the editor holds it: the five fields an author edits.
+ *
+ * Empty prose is `null` or `''` interchangeably — the function stores both as
+ * null — and `iconUrl: null` is how the icon is cleared. `kind` is the
+ * table's vocabulary, which the CHECK holds; it is not restated here.
+ */
+export type TouchpointEntry = {
+  name: string
+  kind: string
+  summary: string | null
+  url: string | null
+  iconUrl: string | null
+}
+
+/** What `update_touchpoint` hands back. */
+export type TouchpointUpdate = TouchpointRename & {
+  /** The five fields as the row stood under the function's lock. */
+  previous: TouchpointEntry
+  /**
+   * False when the save matched the row as it stood. The function then writes
+   * nothing and stamps nothing, and the client records nothing — a ledger row
+   * for a save that changed nothing offers an undo of nothing.
+   */
+  changed: boolean
+}
+
+/**
+ * Save a registry entry whole — name, kind, summary, url and icon.
+ *
+ * One RPC, for the reason `renameTouchpoint` is one: a changed name has to
+ * move the word in every bearing cell, and PostgREST gives every request its
+ * own transaction. Saving the name and then the rest as two writes could land
+ * one and refuse the other, and leave an undo that has to guess which half
+ * happened. The function does the rename through `rename_touchpoint` and the
+ * other four fields in the same transaction, so a refusal anywhere writes
+ * nothing anywhere.
+ *
+ * The inverse is not built from anything the caller remembers. The function
+ * reads the row under a lock before it writes and returns those five values,
+ * and they are exactly the argument list that puts the row back — the name
+ * in every cell's text included, because the inverse is the same function
+ * and renames the word back the same way. A caller that had to supply the
+ * before-state would supply it wrong somewhere; the same argument
+ * `patchStakeholder` makes.
+ */
+export async function updateTouchpoint(
+  client: Client,
+  touchpointId: string,
+  next: TouchpointEntry,
+  /**
+   * Session-log participation, decided per call — the same reasoning as
+   * `renameTouchpoint`. Reverts do not come through here at all: the
+   * recorded inverse is posted by `executeRevert`'s RPC branch.
+   */
+  options: { record?: boolean } = {},
+): Promise<TouchpointUpdate> {
+  const name = next.name.trim()
+  if (!name) {
+    throw new Error('A touchpoint needs a name — an empty one is a blank cell face.')
+  }
+
+  const { data, error } = await client.rpc('update_touchpoint', {
+    p_touchpoint_id: touchpointId,
+    p_name: name,
+    p_kind: next.kind.trim(),
+    // Sent as text, never null — here and in the recorded inverse below, so
+    // both directions post the same shape. The generated argument types are
+    // non-null, and the function reads an empty string as the empty field it
+    // is.
+    p_summary: asText(next.summary),
+    p_url: asText(next.url),
+    p_icon_url: asText(next.iconUrl),
+  })
+  if (error) throw toAuthoringError(error)
+
+  const result = readUpdate(data)
+  if (!result.changed) return result
+
+  invalidateAfterRpc('update_touchpoint', {})
+  if (options.record !== false) {
+    recordChange(
+      'update_touchpoint',
+      {
+        touchpoint_id: touchpointId,
+        name: result.name,
+        previous_name: result.previousName,
+        cell_ids: result.cellIds,
+      },
+      {
+        fn: 'update_touchpoint',
+        args: {
+          p_touchpoint_id: touchpointId,
+          p_name: result.previous.name,
+          p_kind: result.previous.kind,
+          p_summary: asText(result.previous.summary),
+          p_url: asText(result.previous.url),
+          p_icon_url: asText(result.previous.iconUrl),
+        },
+      },
+    )
+  }
+
+  return result
+}
+
+/**
+ * Read the edit's answer, or refuse it — the same rule as `readRename`: a
+ * response shaped like success that names nothing must not reach the ledger.
+ */
+/** A nullable field as the text the function is posted: empty, never null. */
+const asText = (value: string | null): string => value?.trim() ?? ''
+
+function readUpdate(data: unknown): TouchpointUpdate {
+  const failure = 'That touchpoint no longer exists — nothing was saved.'
+  const rename = readRename(data, failure)
+  const previous = (data as { previous?: unknown }).previous as
+    | Record<string, unknown>
+    | null
+    | undefined
+  if (
+    !previous ||
+    typeof previous.name !== 'string' ||
+    typeof previous.kind !== 'string'
+  ) {
+    throw new Error(failure)
+  }
+  const text = (value: unknown) => (typeof value === 'string' ? value : null)
+  return {
+    ...rename,
+    previous: {
+      name: previous.name,
+      kind: previous.kind,
+      summary: text(previous.summary),
+      url: text(previous.url),
+      iconUrl: text(previous.icon_url),
+    },
+    // Only an explicit false skips the ledger. A reply that does not say is
+    // treated as a write, because dropping an undo is the worse mistake.
+    changed: (data as { changed?: unknown }).changed !== false,
   }
 }
 
@@ -239,6 +385,32 @@ export function normalizePlacementDetail(
       role: draft.role,
     },
   }
+}
+
+/**
+ * Which of the placement's columns a Save would change, comparing the two
+ * drafts as the write would store them.
+ *
+ * Through `normalizePlacementDetail` and not a raw `!==`, because the write
+ * trims: a summary that differs only by surrounding whitespace writes the
+ * same row, and treating it as an edit would offer a Save that logs a change
+ * with nothing in it to take back. One equality rule for the editor's count
+ * and its write gate, and it is the write's own.
+ *
+ * A draft the normaliser refuses is compared as it stands, so an invalid
+ * value still reads as changed and reaches the write that explains it.
+ */
+export function changedPlacementFields(
+  after: PlacementDetailDraft,
+  before: PlacementDetailDraft,
+): Array<keyof PlacementDetailColumns> {
+  const stored = (draft: PlacementDetailDraft): PlacementDetailColumns => {
+    const normalized = normalizePlacementDetail(draft)
+    return normalized.ok ? normalized.columns : draft
+  }
+  const next = stored(after)
+  const previous = stored(before)
+  return (['summary', 'role'] as const).filter((key) => next[key] !== previous[key])
 }
 
 /**

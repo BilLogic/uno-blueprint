@@ -3,6 +3,7 @@ import {
   CELL_FIELDS,
   cellFieldsFromRow,
   cellSelectColumns,
+  sameCellEdit,
   type AnyCellField,
   type RawCellColumns,
 } from '@/lib/cellFields'
@@ -155,5 +156,29 @@ describe('the cell field list', () => {
     for (const descriptor of CELL_FIELDS) {
       if ('agentArg' in descriptor) expect(descriptor.agentArg).toBe(descriptor.key)
     }
+  })
+})
+
+/*
+  The value propositions compared as the spec write stores them: each entry
+  trimmed, a row blank on both sides dropped. Anything looser offers a Save
+  that writes the list it read and logs a change with nothing in it.
+*/
+describe('sameCellEdit over the value propositions', () => {
+  const stored = [{ for: 'Residents', value: 'A report reaches the desk.' }]
+
+  it('treats an added blank row as no change', () => {
+    expect(sameCellEdit('value_props', [...stored, { for: '', value: '  ' }], stored)).toBe(true)
+  })
+
+  it('treats whitespace the write trims as no change', () => {
+    expect(
+      sameCellEdit('value_props', [{ for: 'Residents ', value: ' A report reaches the desk.' }], stored),
+    ).toBe(true)
+  })
+
+  it('still sees a real edit', () => {
+    expect(sameCellEdit('value_props', [{ for: 'Residents', value: 'A reply.' }], stored)).toBe(false)
+    expect(sameCellEdit('value_props', [{ for: '', value: 'Half a row' }], [])).toBe(false)
   })
 })

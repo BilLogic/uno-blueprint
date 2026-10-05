@@ -59,3 +59,48 @@ export function validateResourceUrl(raw: string): ResourceUrlResult {
 export function isStorableResourceUrl(raw: string): boolean {
   return validateResourceUrl(raw).ok
 }
+
+/** Why an icon address is refused — one sentence, whatever was wrong with it. */
+export const ICON_URL_PROBLEM =
+  'An icon has to be an https address or a path on this site.'
+
+/** Hosts whose http is the developer's own machine, never the network. */
+const LOOPBACK_HOSTS: ReadonlySet<string> = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+/**
+ * Check one touchpoint icon address, kept exactly as it came.
+ *
+ * The resource rule with two widenings, each owed to where an icon comes
+ * from. A path on this site (`/touchpoint-logos/…`, never `//…`, which a
+ * browser reads as another host) is how a deployment seeds its logos, and the
+ * renderer resolves it under the base path. An http address on a loopback
+ * host is what the local stack's storage hands back for an upload, so
+ * refusing it would refuse every icon uploaded in development; on any other
+ * host http is refused as a link would be. Nothing is upgraded or rewritten:
+ * an icon is uploaded or seeded, not typed, so there is no typing to forgive.
+ *
+ * Empty is the caller's business — it is how an icon is cleared — so it is
+ * not this function's question. `update_touchpoint` holds the same rule.
+ */
+export function validateIconUrl(raw: string): ResourceUrlResult {
+  const url = raw.trim()
+  const refused = { ok: false, problem: ICON_URL_PROBLEM } as const
+  if (/\s/.test(url)) return refused
+  if (/^\/[^/\\]/.test(url)) return { ok: true, url }
+
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return refused
+  }
+  // The slashes are checked as written as well as parsed: the parser reads
+  // `https:cdn.example.com/x.png` as an address, and the function this rule
+  // mirrors does not.
+  if (!/^https?:\/\//i.test(url) || !parsed.hostname) return refused
+  if (parsed.protocol === 'https:') return { ok: true, url }
+  if (parsed.protocol === 'http:' && LOOPBACK_HOSTS.has(parsed.hostname)) {
+    return { ok: true, url }
+  }
+  return refused
+}

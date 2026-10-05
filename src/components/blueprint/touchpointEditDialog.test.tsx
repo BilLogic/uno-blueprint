@@ -7,8 +7,9 @@
  * reaches before anything is typed; Save is lit only by a real change, in the
  * shape the write stores; every way out but Save writes nothing; a rename the
  * panel cannot follow is refused before it is sent; an icon that is not
- * a raster is turned away with the reason; and a link or an icon that is not
- * https keeps Save dark and says why, before the write is asked. The panel's
+ * a raster is turned away with the reason; and a link that is not https, or
+ * an icon that is not one the icon rule takes, keeps Save dark and says why,
+ * before the write is asked. The panel's
  * side of a rename is `cellPanelEditorTouchpointEdit.test.tsx`.
  */
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -45,6 +46,7 @@ vi.mock('@/lib/basePath', async (importOriginal) => {
 
 import { TouchpointEditDialog } from '@/components/blueprint/TouchpointEditDialog'
 import { uploadTouchpointIcon } from '@/lib/attachmentUpload'
+import { ICON_URL_PROBLEM } from '@/lib/resourceUrl'
 import { panelEditorBusy } from '@/lib/panelEditorBusy'
 
 const PORTAL: TouchpointEntryRead = {
@@ -282,8 +284,7 @@ describe('the touchpoint editor', () => {
     expect(updateTouchpoint.mock.calls[0][2].url).toBe('http://legacy.example/portal')
   })
 
-  it('saves an uploaded icon, and keeps Save dark on one that is not https', async () => {
-    updateTouchpoint.mockResolvedValue(saved())
+  it('keeps Save dark on an uploaded icon at a plain http host, and says why', async () => {
     const png = new File(['png'], 'logo.png', { type: 'image/png' })
     vi.mocked(uploadTouchpointIcon).mockResolvedValueOnce({
       url: 'http://storage.example/touchpoints/tp-1/a.png',
@@ -294,16 +295,24 @@ describe('the touchpoint editor', () => {
     await act(async () => {
       fireEvent.change(screen.getByLabelText('Icon file'), { target: { files: [png] } })
     })
-    expect(
-      screen.getByText('Use an https link — this one is http, which is not secure.'),
-    ).toBeTruthy()
+    expect(screen.getByText(ICON_URL_PROBLEM)).toBeTruthy()
     expect(saveButton().disabled).toBe(true)
+  })
 
-    const uploaded = 'https://storage.example/touchpoints/tp-1/b.png'
+  it.each([
+    ['an https object URL', 'https://storage.example/touchpoints/tp-1/b.png'],
+    // What the local stack's storage hands back for the same upload.
+    ['the local stack’s loopback URL', 'http://127.0.0.1:54321/storage/v1/object/public/cell-attachments/touchpoints/tp-1/b.png'],
+    ['a path on this site', '/touchpoint-logos/portal.png'],
+  ])('saves an uploaded icon at %s', async (_label, uploaded) => {
+    updateTouchpoint.mockResolvedValue(saved())
+    const png = new File(['png'], 'logo.png', { type: 'image/png' })
     vi.mocked(uploadTouchpointIcon).mockResolvedValueOnce({
       url: uploaded,
       objectKey: 'touchpoints/tp-1/b.png',
     })
+    open()
+
     await act(async () => {
       fireEvent.change(screen.getByLabelText('Icon file'), { target: { files: [png] } })
     })

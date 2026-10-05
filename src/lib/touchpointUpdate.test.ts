@@ -43,21 +43,25 @@ const blankToNull = (value: unknown) =>
   typeof value === 'string' && value.trim() ? value.trim() : null
 
 /**
- * The function's two link rules: absolute https, checked only where the value
- * changes. Its sentences, word for word, so the test also proves they reach
- * the person rather than the console's fallback.
+ * The function's two link rules, checked only where the value changes: a link
+ * is absolute https; an icon is that, a path on this site, or http on a
+ * loopback host. Its sentences, word for word, so the test also proves they
+ * survive the client's translation rather than becoming the console fallback.
  */
 const HTTPS = /^https:\/\/[^\s/?#]+([/?#]\S*)?$/i
+const ICON =
+  /^(https:\/\/[^\s/?#]+([/?#]\S*)?|\/[^/\\\s]\S*|http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:[0-9]+)?([/?#]\S*)?)$/i
 const LINK_REFUSED = 'A touchpoint’s link has to be a full address that starts with https.'
 const LINK_HTTP = 'A touchpoint’s link has to be https — that one is http, which is not secure.'
-const ICON_REFUSED = 'A touchpoint’s icon has to be an https address, or nothing at all.'
+const ICON_REFUSED =
+  'A touchpoint’s icon has to be an https address, a path on this site, or nothing at all.'
 function refuseLinks(args: Record<string, unknown>, row: Row) {
   const url = blankToNull(args.p_url)
   if (url !== null && url !== row.url && !HTTPS.test(url)) {
     throw new Error(/^http:/i.test(url) ? LINK_HTTP : LINK_REFUSED)
   }
   const icon = blankToNull(args.p_icon_url)
-  if (icon !== null && icon !== row.icon_url && !HTTPS.test(icon)) {
+  if (icon !== null && icon !== row.icon_url && !ICON.test(icon)) {
     throw new Error(ICON_REFUSED)
   }
 }
@@ -321,6 +325,24 @@ test('a refused link or icon writes nothing and records nothing', async () => {
   expect(db.touchpoints).toEqual(before.touchpoints)
   expect(db.cells).toEqual(before.cells)
   expect(sessionSnapshot()).toHaveLength(0)
+})
+
+test('undoing a replaced seeded logo puts the path back', async () => {
+  const db = fixture()
+  zoom(db).icon_url = '/touchpoint-logos/zoom.png'
+  const client = clientFor(db)
+  await updateTouchpoint(client, 'tp-zoom', {
+    name: 'Zoom',
+    kind: 'other',
+    summary: 'Where sessions happen',
+    url: null,
+    iconUrl: 'https://cdn.example.com/touchpoints/tp-zoom/new.png',
+  })
+  const [entry] = sessionSnapshot()
+
+  await executeRevert(client, entry)
+
+  expect(zoom(db).icon_url).toBe('/touchpoint-logos/zoom.png')
 })
 
 test('a response naming nothing is refused rather than recorded', async () => {

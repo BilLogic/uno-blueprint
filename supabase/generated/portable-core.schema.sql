@@ -2692,6 +2692,10 @@ declare
   v_icon_url text := nullif(btrim(coalesce(p_icon_url, '')), '');
   -- An absolute https address: scheme, a host, and no whitespace anywhere.
   v_https    constant text := '^https://[^\s/?#]+([/?#]\S*)?$';
+  -- What an icon may be besides that: a path on this site, or http on a
+  -- loopback host, any port.
+  v_on_site  constant text := '^/[^/\\\s]\S*$';
+  v_loopback constant text := '^http://(localhost|127\.0\.0\.1|\[::1\])(:[0-9]+)?([/?#]\S*)?$';
   v_previous public.touchpoints;
   v_renamed  jsonb;
   v_written  int;
@@ -2733,8 +2737,10 @@ begin
 
   if v_icon_url is not null
      and v_icon_url is distinct from v_previous.icon_url
-     and v_icon_url !~* v_https then
-    raise exception 'A touchpoint’s icon has to be an https address, or nothing at all.';
+     and v_icon_url !~* v_https
+     and v_icon_url !~ v_on_site
+     and v_icon_url !~* v_loopback then
+    raise exception 'A touchpoint’s icon has to be an https address, a path on this site, or nothing at all.';
   end if;
 
   -- A save that matches the row as it stands is not an edit. Nothing is
@@ -2803,7 +2809,7 @@ $_$;
 -- Name: FUNCTION update_touchpoint(p_touchpoint_id uuid, p_name text, p_kind text, p_summary text, p_url text, p_icon_url text); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.update_touchpoint(p_touchpoint_id uuid, p_name text, p_kind text, p_summary text, p_url text, p_icon_url text) IS 'Edit a touchpoint''s registry entry whole — name, kind, summary, url and icon_url — in one transaction. A changed name goes through rename_touchpoint, so every bearing cell''s content moves with it. Blank prose is stored as null. A changed url or icon_url must be an absolute https address, or empty; a value the row already holds is kept as it stands. A save matching the row writes nothing and returns changed = false. Returns the previous values, which are the arguments that undo the call.';
+COMMENT ON FUNCTION public.update_touchpoint(p_touchpoint_id uuid, p_name text, p_kind text, p_summary text, p_url text, p_icon_url text) IS 'Edit a touchpoint''s registry entry whole — name, kind, summary, url and icon_url — in one transaction. A changed name goes through rename_touchpoint, so every bearing cell''s content moves with it. Blank prose is stored as null. A changed url must be an absolute https address, or empty; a changed icon_url an https address, a path on this site, an http loopback address, or empty. A value the row already holds is kept as it stands. A save matching the row writes nothing and returns changed = false. Returns the previous values, which are the arguments that undo the call.';
 
 --
 -- Name: upsert_cell(uuid, uuid, uuid, text); Type: FUNCTION; Schema: public; Owner: -

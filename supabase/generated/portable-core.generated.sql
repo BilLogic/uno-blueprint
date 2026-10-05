@@ -13311,7 +13311,8 @@ $proof$;
 -- 21000302000000_a_touchpoint_link_is_https.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
--- A touchpoint's link and its icon are https before they are stored.
+-- A touchpoint's link is https, and its icon an address it can draw, before
+-- either is stored.
 --
 -- Authored 2026-10-05.
 --
@@ -13320,12 +13321,13 @@ $proof$;
 -- address, a relative path or a sentence that is not a link at all all went
 -- into the registry, and the panel draws the one as a link and the other as
 -- an image source. A resource link has met a stricter bar on the way in for
--- some time — https only, refused with a reason — and a touchpoint's two
--- links now meet the same one.
+-- some time — https only, refused with a reason — and a touchpoint's link
+-- now meets the same one; its icon meets a near relative of it.
 --
--- The dialog refuses first, so a person sees why Save is dark. This is the
--- other half, for the same reason resources have one: the map skill, the
--- agent and a seed reach the function without passing the dialog.
+-- The dialog refuses first, with its own validator's sentence, so a person
+-- sees why Save is dark. This is the other half, for the same reason
+-- resources have one: the map skill, the agent and a seed reach the function
+-- without passing the dialog.
 --
 -- ── The rule ───────────────────────────────────────────────────────────────
 --
@@ -13334,10 +13336,19 @@ $proof$;
 -- https before it posts, because typing the scheme is not something anyone
 -- should have to remember; the function does not, because a caller that
 -- skipped the dialog can spell the scheme itself, and guessing at what an
--- agent meant is how a link ends up pointing somewhere nobody chose. An icon
--- is the same, or empty, which is how it is cleared. The upload path already
--- yields an https object URL, so this bites only a value written by hand or
--- by an agent.
+-- agent meant is how a link ends up pointing somewhere nobody chose. So an
+-- agent or map-skill write sends the scheme: a bare host is refused here.
+--
+-- An icon is empty, which is how it is cleared, or one of three shapes, each
+-- owed to where an icon comes from. An https address, which is what an upload
+-- yields on a hosted project. A path on this site — `/…`, never `//…` or
+-- `/\…`, which a browser reads as another host — which is how a deployment
+-- seeds its logos, and which the renderer resolves under the base path. And
+-- http on a loopback host (`localhost`, `127.0.0.1`, `[::1]`, any port),
+-- because an upload's public URL is http on the local stack, and refusing it
+-- would refuse every icon uploaded in development. http on any other host,
+-- `javascript:`, `data:`, a protocol-relative or a bare-host address is
+-- refused. The dialog's `validateIconUrl` holds the same rule.
 --
 -- ── Only a value that changes is checked ──────────────────────────────────
 --
@@ -13349,17 +13360,21 @@ $proof$;
 -- — a save matching the row returns `changed: false` and writes nothing — is
 -- unchanged. Rendering keeps its own guard for whatever was stored before.
 --
--- The cost is narrow and stated: an undo that puts such a value BACK after it
--- was replaced is a new value to this function, and is refused with the same
--- sentence. That is the rule doing its job on a value it never chose.
+-- A seeded logo path is an icon the rule takes, so undoing its replacement
+-- puts it back. The cost that remains is the link's: an undo that puts back a
+-- pre-existing `http:` or other non-https URL after it was replaced is a new
+-- value to this function, and is refused with the same sentence. That is the
+-- rule doing its job on a value it never chose.
 --
 -- ── Why the sentences read the way they do ────────────────────────────────
 --
--- They are what the dialog shows. The client passes a raised message through
--- only when it reads as a sentence — capitalised, no identifier punctuation,
--- nothing shaped like `host.tld` — and replaces anything else with a line
--- pointing at the console. So they name no value back; the dialog already
--- shows the one that was typed.
+-- They are for the writes that never pass the dialog — the agent, the map
+-- skill, a seed — and for a dialog whose own check was somehow bypassed; a
+-- person in the dialog sees its validator's sentence first. The client passes
+-- a raised message through only when it reads as a sentence — capitalised, no
+-- identifier punctuation, nothing shaped like `host.tld` — and replaces
+-- anything else with a line pointing at the console. So they name no value
+-- back.
 --
 -- ── What else is kept exactly ─────────────────────────────────────────────
 --
@@ -13395,6 +13410,10 @@ declare
   v_icon_url text := nullif(btrim(coalesce(p_icon_url, '')), '');
   -- An absolute https address: scheme, a host, and no whitespace anywhere.
   v_https    constant text := '^https://[^\s/?#]+([/?#]\S*)?$';
+  -- What an icon may be besides that: a path on this site, or http on a
+  -- loopback host, any port.
+  v_on_site  constant text := '^/[^/\\\s]\S*$';
+  v_loopback constant text := '^http://(localhost|127\.0\.0\.1|\[::1\])(:[0-9]+)?([/?#]\S*)?$';
   v_previous public.touchpoints;
   v_renamed  jsonb;
   v_written  int;
@@ -13436,8 +13455,10 @@ begin
 
   if v_icon_url is not null
      and v_icon_url is distinct from v_previous.icon_url
-     and v_icon_url !~* v_https then
-    raise exception 'A touchpoint’s icon has to be an https address, or nothing at all.';
+     and v_icon_url !~* v_https
+     and v_icon_url !~ v_on_site
+     and v_icon_url !~* v_loopback then
+    raise exception 'A touchpoint’s icon has to be an https address, a path on this site, or nothing at all.';
   end if;
 
   -- A save that matches the row as it stands is not an edit. Nothing is
@@ -13506,8 +13527,9 @@ comment on function public.update_touchpoint(uuid, text, text, text, text, text)
   'Edit a touchpoint''s registry entry whole — name, kind, summary, url and '
   'icon_url — in one transaction. A changed name goes through rename_touchpoint, '
   'so every bearing cell''s content moves with it. Blank prose is stored as null. '
-  'A changed url or icon_url must be an absolute https address, or empty; a value '
-  'the row already holds is kept as it stands. '
+  'A changed url must be an absolute https address, or empty; a changed icon_url '
+  'an https address, a path on this site, an http loopback address, or empty. '
+  'A value the row already holds is kept as it stands. '
   'A save matching the row writes nothing and returns changed = false. '
   'Returns the previous values, which are the arguments that undo the call.';
 
@@ -13537,10 +13559,13 @@ $proof$;
 --      can still have its summary edited, and keeps both as they stand;
 --   2. a save matching the row still returns changed = false;
 --   3. a `javascript:`, `http:`, relative or non-link URL is refused with the
---      sentence the dialog shows, and leaves the row as it stood;
---   4. a non-https icon is refused the same way;
---   5. an https link and an uploaded icon's object URL are stored, and an
---      empty icon and an empty link still clear.
+--      function's sentence, and leaves the row as it stood;
+--   4. an icon outside the rule — http on a real host, `javascript:`,
+--      `data:`, protocol-relative, a bare host — is refused the same way;
+--   5. each icon shape the rule takes is stored: https, a path on this site,
+--      and http on each loopback host;
+--   6. undoing the replacement of a seeded logo path puts it back;
+--   7. an https link is stored, and an empty icon and an empty link clear.
 do $touchpoint_links$
 declare
   entry uuid;
@@ -13551,7 +13576,8 @@ declare
     || '00000000-0000-4000-8000-000000000001/00000000-0000-4000-8000-000000000002.png';
   link_http    constant text := 'A touchpoint’s link has to be https — that one is http, which is not secure.';
   link_refused constant text := 'A touchpoint’s link has to be a full address that starts with https.';
-  icon_refused constant text := 'A touchpoint’s icon has to be an https address, or nothing at all.';
+  icon_refused constant text :=
+    'A touchpoint’s icon has to be an https address, a path on this site, or nothing at all.';
   reply jsonb;
   now_row public.touchpoints;
   candidate text;
@@ -13610,10 +13636,12 @@ begin
       end;
     end loop;
 
-    -- 4. AN ICON THAT IS NOT HTTPS IS REFUSED.
+    -- 4. AN ICON OUTSIDE THE RULE IS REFUSED.
     foreach candidate in array array[
       'http://cdn.example/x.png', 'data:image/png;base64,AAAA', 'javascript:alert(1)',
-      '/another-logo.png'
+      '//evil.example/x.png', '/\evil.example/x.png', 'cdn.example/x.png',
+      'http://localhost.evil.example/x.png', 'http://localhost@evil.example/x.png',
+      'https://', '/'
     ] loop
       begin
         perform public.update_touchpoint(
@@ -13632,7 +13660,37 @@ begin
       raise exception 'proof: a refused link changed the row: % %', now_row.url, now_row.icon_url;
     end if;
 
-    -- 5. HTTPS IS STORED, AND EMPTY STILL CLEARS.
+    -- 5. EVERY SHAPE THE ICON RULE TAKES IS STORED.
+    foreach candidate in array array[
+      uploaded,
+      '/touchpoint-logos/another-logo.png',
+      'http://127.0.0.1:54321/storage/v1/object/public/cell-attachments/touchpoints/a/b.png',
+      'http://localhost/x.png',
+      'http://[::1]:8080/x.png'
+    ] loop
+      perform public.update_touchpoint(
+        entry, 'touchpoint-link fixture', 'app', 'edited', legacy_url, candidate);
+      select * into now_row from public.touchpoints where id = entry;
+      if now_row.icon_url is distinct from candidate then
+        raise exception 'proof: the icon % was stored as %', candidate, now_row.icon_url;
+      end if;
+    end loop;
+
+    -- 6. UNDOING A REPLACED SEEDED LOGO PUTS THE PATH BACK.
+    perform public.update_touchpoint(
+      entry, 'touchpoint-link fixture', 'app', 'edited', legacy_url, legacy_icon);
+    reply := public.update_touchpoint(
+      entry, 'touchpoint-link fixture', 'app', 'edited', legacy_url, uploaded);
+    perform public.update_touchpoint(
+      entry, reply -> 'previous' ->> 'name', reply -> 'previous' ->> 'kind',
+      reply -> 'previous' ->> 'summary', reply -> 'previous' ->> 'url',
+      reply -> 'previous' ->> 'icon_url');
+    select * into now_row from public.touchpoints where id = entry;
+    if now_row.icon_url is distinct from legacy_icon then
+      raise exception 'proof: undoing a replaced seeded logo left %', now_row.icon_url;
+    end if;
+
+    -- 7. AN HTTPS LINK IS STORED, AND EMPTY STILL CLEARS.
     perform public.update_touchpoint(
       entry, 'touchpoint-link fixture', 'app', 'edited', ' https://figma.com/file/x ', uploaded);
     select * into now_row from public.touchpoints where id = entry;

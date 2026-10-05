@@ -5,7 +5,7 @@
  *
  * A touchpoint cell opens the same editor as any other cell, with one block
  * directly under Content for the placement it was opened on: the touchpoint as
- * a badge with Edit touchpoint beside it, then the placement's Summary and Role.
+ * a badge, then the placement's Summary and Role.
  * Every label is the one the interface-schema map binds to its column, so the
  * block carries no heading or copy of its own to explain whose fields they are.
  *
@@ -102,7 +102,7 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('the touchpoint block', () => {
-  it('names the touchpoint as a badge with Edit touchpoint, then Summary and Role', () => {
+  it('names the touchpoint as a badge, then Summary and Role', () => {
     board.touchpoints = [placement()]
     render(
       <CellPanelEditor cellId="cell-1" placement={placement()} onDone={() => {}} />,
@@ -111,13 +111,14 @@ describe('the touchpoint block', () => {
     const inBlock = within(block())
     const label = inBlock.getByText('Touchpoint')
     const badge = inBlock.getByTitle('Intake portal')
-    const edit = inBlock.getByRole('button', { name: 'Edit touchpoint' })
     const summary = inBlock.getByText('Summary')
     const role = inBlock.getByText('Role')
 
     expect(precedes(label, badge)).toBe(true)
-    expect(precedes(edit, summary)).toBe(true)
+    expect(precedes(badge, summary)).toBe(true)
     expect(precedes(summary, role)).toBe(true)
+    // The touchpoint editor arrives with its own button; nothing stands in for it.
+    expect(screen.queryByRole('button', { name: 'Edit touchpoint' })).toBeNull()
   })
 
   it('sits directly under Content, ahead of the cell’s own Summary', () => {
@@ -141,34 +142,45 @@ describe('the touchpoint block', () => {
       <CellPanelEditor cellId="cell-1" placement={placement()} onDone={() => {}} />,
     )
 
-    expect(screen.queryByText(/at this step/)).toBeNull()
+    expect(screen.queryByText(/” at this step/)).toBeNull()
     expect(screen.queryByText(/own words here/)).toBeNull()
     expect(screen.queryByText('Save resources')).toBeNull()
     expect(screen.queryByText('Portal guide')).toBeNull()
   })
 
-  it('offers Link to registry, not Edit touchpoint, for a name-only placement', () => {
+  it('puts the opened name-only placement’s registry card in its block', () => {
     const named = placement({ touchpointId: null, kind: null, name: 'Duty phone' })
     board.touchpoints = [named]
-    nameOnly.data = [{ id: 'ct-1', name: 'Duty phone' }]
+    nameOnly.data = [
+      { id: 'ct-1', name: 'Duty phone' },
+      { id: 'ct-2', name: 'Radio' },
+    ]
     render(<CellPanelEditor cellId="cell-1" placement={named} onDone={() => {}} />)
 
-    expect(document.querySelector('[data-registry-link]')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Edit touchpoint' })).toBeNull()
+    const opened = document.querySelector('[data-name-only-placement="Duty phone"]')
+    const other = document.querySelector('[data-name-only-placement="Radio"]')
     expect(within(block()).getByTitle('Duty phone')).toBeTruthy()
+    expect(block().contains(opened)).toBe(true)
+    // Every other name-only card keeps its place above the form.
+    expect(other).toBeTruthy()
+    expect(block().contains(other)).toBe(false)
+    expect(precedes(other!, block())).toBe(true)
   })
 })
 
 describe('the Content hint about renaming a touchpoint', () => {
-  const hint = /Rename a touchpoint from Edit touchpoint/
+  const hint = /Changing a touchpoint’s name here removes its Summary, Role and resources at this step/
 
-  it('shows when the cell holds a touchpoint', () => {
+  it('shows when the cell holds a touchpoint, and describes the Content control', () => {
     board.touchpoints = [placement()]
     render(
       <CellPanelEditor cellId="cell-1" placement={placement()} onDone={() => {}} />,
     )
 
-    expect(screen.getByText(hint)).toBeTruthy()
+    const note = screen.getByText(hint)
+    const content = document.querySelector('[data-panel-editor] input')
+    expect(note.id).toBeTruthy()
+    expect(content?.getAttribute('aria-describedby')).toBe(note.id)
   })
 
   it('shows on a cell holding a touchpoint even when opened on the cell itself', () => {
@@ -182,5 +194,8 @@ describe('the Content hint about renaming a touchpoint', () => {
     render(<CellPanelEditor cellId="cell-1" onDone={() => {}} />)
 
     expect(screen.queryByText(hint)).toBeNull()
+    expect(
+      document.querySelector('[data-panel-editor] input')?.hasAttribute('aria-describedby'),
+    ).toBe(false)
   })
 })

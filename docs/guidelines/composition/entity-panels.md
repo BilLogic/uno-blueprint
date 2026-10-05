@@ -38,6 +38,7 @@ claims:
   - src/components/blueprint/ServicePanel.tsx
   - src/components/blueprint/StepHeaderAffordance.tsx
   - src/components/blueprint/StepPanel.tsx
+  - src/components/blueprint/TouchpointField.tsx
   - src/components/blueprint/panelLoading.tsx
   - src/components/blueprint/panelShell.tsx
 ---

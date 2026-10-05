@@ -3,6 +3,7 @@ import { CellOverviewSpec } from '@/components/blueprint/CellOverviewSpec'
 import { CellPanelEditor } from '@/components/blueprint/CellPanelEditor'
 import { Field, PanelIdentity, PanelKindBadge } from '@/components/blueprint/panelShell'
 import { FeaturedButtons } from '@/components/blueprint/FeaturedResources'
+import { TouchpointField } from '@/components/blueprint/TouchpointField'
 import { ZoomableImage } from '@/components/blueprint/ZoomableImage'
 import {
   TOUCHPOINT_ROLE_DEFINITION,
@@ -11,8 +12,6 @@ import {
 import { servedUrl } from '@/lib/basePath'
 import { shouldUseTouchpointCellContent } from '@/lib/blueprintLayout'
 import { isBlueprintStepStoryboardPlaceholder } from '@/lib/blueprintStoryboardPlaceholder'
-import { useTouchpointToneResolver } from '@/hooks/useTouchpointToneResolver'
-import { PANEL_TERMS } from '@/lib/panelTerms'
 import type { CellOverviewFacts } from '@/components/blueprint/cellDetailFacts'
 import type { BlueprintCellSelection } from '@/types/blueprintCellDetail'
 import type { ReactNode } from 'react'
@@ -57,11 +56,6 @@ export function CellDetailOverview({
     touchpointDetail,
     featured,
   } = facts
-  /*
-    The touchpoint badge's colour. A resolver rather than a value because the
-    label it is about is worked out below, from the placement and the lane.
-  */
-  const resolveTouchpointTone = useTouchpointToneResolver()
   const cellContent =
     selection.paths[0]?.content.trim() ||
     selection.techItem ||
@@ -179,14 +173,10 @@ export function CellDetailOverview({
     with the same field, and one name shown twice reads as two touchpoints.
   */
   const touchpointField = showTouchpoint && !(editingCell && hasRealPlacement) ? (
-    <Field label="Touchpoint" hint={PANEL_TERMS.touchpoint}>
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <PanelKindBadge
-          label={techDetailLabel!}
-          tone={resolveTouchpointTone(techDetailLabel!)}
-          title={techDetailLabel!}
-        />
-        {/*
+    <TouchpointField
+      name={techDetailLabel!}
+      beside={
+        /*
           ROLE, beside the name it qualifies, and ONLY when somebody set it.
 
           Nothing renders for the unmarked case — no badge, no dash, no
@@ -200,16 +190,16 @@ export function CellDetailOverview({
           Nor while EDITING: the form below carries the same fact as a
           control, and a badge beside a select for one value is two mechanisms
           for one fact.
-        */}
-        {!editingCell && touchpointDetail?.role ? (
+        */
+        !editingCell && touchpointDetail?.role ? (
           <PanelKindBadge
             label={TOUCHPOINT_ROLE_LABEL[touchpointDetail.role]}
             title={TOUCHPOINT_ROLE_LABEL[touchpointDetail.role]}
             description={TOUCHPOINT_ROLE_DEFINITION[touchpointDetail.role]}
           />
-        ) : null}
-      </div>
-    </Field>
+        ) : null
+      }
+    />
   ) : null
 
   return (

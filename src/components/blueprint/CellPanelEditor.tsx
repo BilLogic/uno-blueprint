@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,6 @@ import {
   CELL_PANEL_FOOTER_ID,
   Field,
   PANEL_TEXTAREA_CLASS,
-  PanelKindBadge,
 } from '@/components/blueprint/panelShell'
 import { usePanelFooterHost } from '@/hooks/usePanelFooterHost'
 import { useSupabase } from '@/contexts/SupabaseProvider'
@@ -18,7 +17,6 @@ import { useBlueprintCellDetailOptional } from '@/contexts/BlueprintCellDetailCo
 import { useBlueprintCell } from '@/hooks/useBlueprintCell'
 import { useValueAudiences } from '@/hooks/useValueAudiences'
 import { useNameOnlyPlacements } from '@/hooks/useRegistryTouchpoints'
-import { useTouchpointToneResolver } from '@/hooks/useTouchpointToneResolver'
 import {
   cellBudgetKindForLane,
   getCellContentLengthGuidance,
@@ -35,6 +33,7 @@ import {
 import { saveCell } from '@/lib/cellSave'
 import type { EntityStatus } from '@/lib/entityStatus'
 import { RegistryLink } from '@/components/blueprint/RegistryLink'
+import { TouchpointField } from '@/components/blueprint/TouchpointField'
 import { RoleSelect } from '@/components/blueprint/RoleSelect'
 import {
   placementSurvivesContent,
@@ -43,7 +42,6 @@ import {
   type PlacementDetailDraft,
 } from '@/lib/touchpointMutations'
 import { cellTouchpoints } from '@/lib/cellTouchpoints'
-import { PANEL_TERMS } from '@/lib/panelTerms'
 import { errorMessage } from '@/lib/utils'
 import type { BlueprintData, CellTouchpoint } from '@/types/blueprint'
 import { parseCellContentItems } from '@/lib/parseCellContent'
@@ -291,7 +289,7 @@ function CellPanelEditorForm({
   /** Non-null only when it carries a row id — see CellPanelEditor. */
   placement: CellTouchpoint | null
   /**
-   * Whether the cell's text names any placement, the opened one or another.
+   * Whether the saved cell holds any placement, the opened one or another.
    * A rename in Content is what removes one, so that is where the hint goes.
    */
   holdsTouchpoint: boolean
@@ -304,7 +302,11 @@ function CellPanelEditorForm({
   const audiencesResult = useValueAudiences()
   const nameOnlyResult = useNameOnlyPlacements(cellId)
   const nameOnly = nameOnlyResult.status === 'ready' ? nameOnlyResult.data : []
-  const resolveTouchpointTone = useTouchpointToneResolver()
+  const renameHintId = useId()
+  // The opened placement's own registry card goes in its block, where the
+  // touchpoint is named; any other name-only placement keeps its card above.
+  const openedNameOnly = nameOnly.find((one) => one.id === placement?.id) ?? null
+  const otherNameOnly = nameOnly.filter((one) => one !== openedNameOnly)
   const audiences =
     audiencesResult.status === 'ready' ? audiencesResult.data : []
   // The footer host mounts in the same commit as this form; looked up once
@@ -451,36 +453,28 @@ function CellPanelEditorForm({
     past six of the cell's fields to reach the thing they clicked is how
     an editor teaches people it is not for them.
 
-    The placement's resources are not here. The Resources tab lists them
-    beside the cell's own, read-only.
+    A name-only placement's registry card sits in the Touchpoint field,
+    under the name it is about, since linking it is the decision that field
+    is waiting on. The placement's resources are not here: the Resources tab
+    lists them beside the cell's own, read-only.
   */
   const placementGroup = placement ? (
     <div
       className="flex flex-col gap-3 rounded-md border border-border bg-muted/20 p-3"
       data-touchpoint-block=""
     >
-      <Field label="Touchpoint" hint={PANEL_TERMS.touchpoint}>
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {/* The badge the read-only panel names the touchpoint with. */}
-          <PanelKindBadge
-            label={placement.name}
-            tone={resolveTouchpointTone(placement.name)}
-            title={placement.name}
-          />
-          {/*
-            Only for a touchpoint the registry holds: a name-only placement has
-            no entry to edit, and its Link to registry card above is the way
-            forward instead. Disabled for now: editing the registry entry is a
-            modal of its own, which lands separately, and the button holds its
-            place so the block keeps its shape when it does.
-          */}
-          {placement.touchpointId ? (
-            <Button type="button" size="sm" variant="outline" disabled>
-              Edit touchpoint
-            </Button>
-          ) : null}
-        </div>
-      </Field>
+      <TouchpointField
+        name={placement.name}
+        below={
+          openedNameOnly && cellId ? (
+            <RegistryLink
+              placement={openedNameOnly}
+              cellId={cellId}
+              shown={parseCellContentItems(form.content)}
+            />
+          ) : null
+        }
+      />
       <Field
         label="Summary"
         hint="What this touchpoint does at this moment — the screen, the message, the part of it being used."
@@ -521,9 +515,11 @@ function CellPanelEditorForm({
         through — they are the placement's identity, not one of its fields —
         so they refresh the board themselves. Removing one does not close the
         panel: the panel is the cell's here, and the cell is still there.
+        The placement the panel was opened on is the exception: its card
+        sits in its own block, under the name.
       */}
       {cellId
-        ? nameOnly.map((placement) => (
+        ? otherNameOnly.map((placement) => (
             <RegistryLink
               key={placement.id}
               placement={placement}
@@ -565,16 +561,18 @@ function CellPanelEditorForm({
                   {holdsTouchpoint ? (
                     // The sync keys a placement on the name the text shows, so
                     // a rename here is a removal and a new name, not an edit.
-                    <p className="text-xs text-muted-foreground">
-                      Rename a touchpoint from Edit touchpoint. Changing its
-                      name here removes that placement’s Summary, Role and
-                      resources.
+                    <p id={renameHintId} className="text-xs text-muted-foreground">
+                      Changing a touchpoint’s name here removes its Summary,
+                      Role and resources at this step.
                     </p>
                   ) : null}
                 </>
               ) : null
             }
             below={field.key === 'content' ? placementGroup : null}
+            describedBy={
+              field.key === 'content' && holdsTouchpoint ? renameHintId : undefined
+            }
           />
         ))
         // A shared row sits side by side — the owner pair, whose interesting
@@ -640,6 +638,7 @@ function CellFieldEditor<K extends CellEditKey>({
   audiences,
   after,
   below,
+  describedBy,
 }: {
   field: EditableCellField & { key: K }
   value: CellEditValue<K>
@@ -648,6 +647,8 @@ function CellFieldEditor<K extends CellEditKey>({
   audiences: readonly string[]
   after: ReactNode
   below: ReactNode
+  /** The id of a note under the control that says more about it. */
+  describedBy?: string
 }) {
   // Each branch narrows the value by the control rather than by the key,
   // so a second field with the same control needs no branch of its own;
@@ -661,6 +662,7 @@ function CellFieldEditor<K extends CellEditKey>({
           <Input
             value={value as string}
             autoFocus={autoFocus}
+            aria-describedby={describedBy}
             onChange={(event) => change(event.target.value)}
           />
         )
@@ -669,6 +671,7 @@ function CellFieldEditor<K extends CellEditKey>({
           <textarea
             value={value as string}
             rows={field.editor.rows}
+            aria-describedby={describedBy}
             onChange={(event) => change(event.target.value)}
             className={PANEL_TEXTAREA_CLASS}
           />

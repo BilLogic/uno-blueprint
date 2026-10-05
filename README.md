@@ -2,7 +2,7 @@
 
 Get your human and AI teammates on the same page.
 
-An open-source toolkit for context engineering: a canvas for your team, a harness for your agents. One service blueprint that people read as a canvas and agents read as structured data, for product teams whose context is spread across PRDs, designs, code, dashboards and threads.
+An open-source toolkit for context engineering: a canvas for your team, a harness for your agents. One service blueprint that people read as a canvas and agents read as structured data. Your product knowledge is spread across PRDs, designs, code, dashboards and threads; the blueprint shows how it fits together.
 
 [Website](https://uno-blueprint.netlify.app) · [Try the demo](https://uno-blueprint.netlify.app/demo/) · [Agent guide](https://uno-blueprint.netlify.app/uno-blueprint.md)
 
@@ -20,8 +20,8 @@ The canvas opens on http://localhost:5173 with a sample blueprint. Other package
 
 ```bash
 pnpm create uno-blueprint   # then: cd uno-blueprint && pnpm dev
-yarn create uno-blueprint   # Yarn 1 (Classic); then: yarn dev
-bun create uno-blueprint    # then: bun dev
+yarn create uno-blueprint   # Yarn 1 (Classic); then: cd uno-blueprint && yarn dev
+bun create uno-blueprint    # then: cd uno-blueprint && bun dev
 ```
 
 Yarn 2 and later skip the setup scripts the template needs, so they are refused. The folder name, `--no-install` and the other options are in [SETUP.md § 1](./SETUP.md#1-start-a-workspace) and [the initialiser's README](./packages/create-uno-blueprint/README.md).
@@ -33,7 +33,7 @@ claude plugin marketplace add BilLogic/uno-blueprint
 claude plugin install ub@ub-marketplace
 ```
 
-That installs the four skills as slash commands, in any project. Cursor, Codex and other agents read `AGENTS.md` in the workspace, which routes each skill name to its instructions: see [In other coding agents](#in-other-coding-agents).
+That installs the skills as slash commands, in any project. Cursor, Codex and other agents read `AGENTS.md` in the workspace, which routes each skill name to its instructions: see [In other coding agents](#in-other-coding-agents).
 
 To work on the template itself, clone it instead:
 
@@ -44,51 +44,39 @@ npm install
 npm run dev
 ```
 
-## Why a map
+## Your context is everywhere. Your agents need a map.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/why-now.dark.svg">
   <img src="./docs/assets/why-now.svg" alt="Why teams need a service blueprint — checked at a quarterly, twice-yearly or yearly review, it drifts out of date between reviews; checked almost daily, by people and agents, it stays true">
 </picture>
 
-Your context is everywhere. Your agents need a map. MCP connects your agents to your tools. Uno Blueprint shows them how it all fits together, so they find the right context the first time.
+MCP connects your agents to your tools. Uno Blueprint shows them how it all fits together, so they find the right context the first time.
 
-A service blueprint lays one service out step by step, by who does the work, and links every cell to the sources behind it. Your docs stay in their tools; the blueprint organizes what they hold and links back. Because agents read it every day, the team has a reason to keep it accurate.
+A blueprint lays one service out step by step, by who does the work, and links every cell to the sources behind it. Your docs stay in their tools. The blueprint organizes what they hold and links back.
 
 ## What's inside
 
 ### A canvas for your team
 
-A React app (Vite, [shadcn/ui](https://ui.shadcn.com/), Tailwind v4) that renders the blueprint as a grid of lanes and steps. See how your whole service works, keep it accurate together, weigh one path against another, and tailor it for every stakeholder.
-
-- **Get up to speed.** See the service end to end, then open any step for the detail.
-- **Keep it current.** Check a cell against its source and fix it in place.
-- **Compare paths.** Line up a scenario's paths on one shared step axis, with dependency arrows between cells.
-- **Tailor it.** Cut the map down to what each stakeholder needs, present it, or print it to PDF.
-
-The same blueprint opens on a phone, and the built-in agent answers questions against it on your own model key.
+A React app (Vite, [shadcn/ui](https://ui.shadcn.com/), Tailwind v4). See how your whole service works, keep it accurate together, weigh one path against another, and tailor it for every stakeholder.
 
 ### A harness for your agents
 
 Four skills teach your agents to build the map from your docs, keep it accurate, and test changes against it. Agents draft, check and suggest. Drafts need sign-off, and every edit can be undone.
 
-| Skill | What it does | Where it ends |
-| --- | --- | --- |
-| [`ub:map`](./skills/map/SKILL.md) | Draft a blueprint from your docs, a working session, or a diagram exported from another tool; resume an existing workspace | a validated `blueprint/blueprint.json`, signed off per scenario |
-| [`ub:slice`](./skills/slice/SKILL.md) | Cut a view for one audience: a `journey`, `lane`, `step`, `cell` or `custom` set | a slice document that still points at the cells it cites |
-| [`ub:audit`](./skills/audit/SKILL.md) | List gaps, conflicts and stale sources, one check at a time | findings with a severity, for you to triage; nothing is changed for you |
-| [`ub:whatif`](./skills/whatif/SKILL.md) | Trace a change before you make it | the cells it would reach, on a copy |
+| Skill | What it does |
+| --- | --- |
+| [`ub:map`](./skills/map/SKILL.md) | Draft a blueprint from your docs. |
+| [`ub:slice`](./skills/slice/SKILL.md) | Cut a view for one audience: a journey, lane, step, cell or custom set. |
+| [`ub:audit`](./skills/audit/SKILL.md) | List gaps, conflicts and stale sources, each with a severity. |
+| [`ub:whatif`](./skills/whatif/SKILL.md) | Trace a change before you make it. |
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/skill-architecture.dark.svg">
-  <img src="./docs/assets/skill-architecture.svg" alt="The skill set and agent fleet — four skills against the shared references each links and the fresh-context agents each hands its reading to">
-</picture>
-
-Each skill carries its own playbooks and scripts. The heavy reading happens in five fresh-context agents (`document-reader`, `blueprint-reviewer`, `auditor`, `impact-tracer`, `render-checker`), each returning a short summary rather than its raw material. `ub:map` runs one pipeline: sources, one validated blueprint file, preview and adversarial review, sign-off per scenario, import, then verify and deploy. Every phase ends at a deterministic gate. Each skill is walked, with its own figure, in [guide/03 — The plugin](./docs/guide/03-the-plugin.md).
+How each skill works, and the agents and hooks around them: [guide/03 — The plugin](./docs/guide/03-the-plugin.md).
 
 #### In other coding agents
 
-The repo ships the four skills under `.agents/skills/` as well, so a checkout or a workspace works in coding agents that read that folder, with no plugin install. Checked by hand:
+The repo ships the skills under `.agents/skills/` as well, so a checkout or a workspace works in coding agents that read that folder, with no plugin install. Checked by hand:
 
 | Agent | How you call a skill |
 | --- | --- |
@@ -100,34 +88,18 @@ Gemini CLI, Copilot and Windsurf document the same `.agents/skills/` convention 
 
 ### Works on top of MCP
 
-Uno Blueprint works on top of MCP, not instead of it. `ub:map` reads a FigJam or Figma board through MCP when one is connected, and writes to a Supabase project through the Supabase MCP or your own CLI credentials, never with a service-role key on disk. The rules are in [references/adapter-contract.md](./references/adapter-contract.md).
+Uno Blueprint works on top of MCP, not instead of it. `ub:map` reads a FigJam or Figma board through MCP when one is connected, and writes to Supabase through the Supabase MCP or your own CLI credentials: [references/adapter-contract.md](./references/adapter-contract.md).
 
 ### One blueprint, every place you work
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/four-ways-in.dark.svg">
-  <img src="./docs/assets/four-ways-in.svg" alt="Four ways into one shared context — the app, the in-app agent and agentic tools read and write it; a Slack bot you build, dashed because the template does not ship it, only reads">
-</picture>
-
-The template ships three ways in: the app, the in-app agent (sign in and bring your own model key), and your coding agent. All three work from one shared context layer, so what any of them reads is what the others wrote. The fourth, dashed, is a pattern you build: a Slack bot that holds only the publishable key, reads what a deployment publishes, and answers with links back to the exact cell. It has to honour the [read-consumer section of the adapter contract](./references/adapter-contract.md#read-consumers-bots-agent-tools-external-integrations); [guide/02](./docs/guide/02-using-it-in-practice.md) describes the shape, and [guide/04](./docs/guide/04-operations.md) covers who may do what.
+- **In the app.** Ask the built-in agent and watch it point at the blueprint. Bring your own model key.
+- **With your coding agent.** Run the four skills from Claude Code, Cursor, or any agent that reads markdown.
+- **In your team Slack.** Put a bot on the same blueprint, and answers arrive where the questions are asked. You build this one; the template does not ship it. It reads with the publishable key under the [adapter contract's read-consumer rules](./references/adapter-contract.md#read-consumers-bots-agent-tools-external-integrations).
+- **On your phone.** Take the blueprint with you. Read any journey and jump to any step.
 
 ## How a blueprint is laid out
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/data-model-hierarchy.dark.svg">
-  <img src="./docs/assets/data-model-hierarchy.svg" alt="How a blueprint is organized, as a staircase stepping down and to the right — a service holds phases in order and may loop back; one phase opens into a deck of scenarios; one scenario branches into paths (happy, variants, exceptions); and the happy path opens into a grid of lanes and steps">
-</picture>
-
-Service, phase, scenario, path. A **service** holds ordered **phases**, which can loop back. A phase holds **scenarios**: the specific situations that can happen during it. A scenario holds **paths**: the main route, plus its variants and exceptions. One path is one blueprint.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/blueprint-anatomy.dark.svg">
-  <img src="./docs/assets/blueprint-anatomy.svg" alt="Inside one path — lanes as rows, steps as columns, a cell where they cross, leads-to arrows between cells, and the three lines falling between the lanes">
-</picture>
-
-Lanes are rows, one actor each: User, Frontstage, Backstage, Support. Steps are columns, one moment in time each. Where a lane meets a step, one **cell** holds the detail: owner, status, value, dependencies and the sources behind it. The lines of interaction, visibility and internal interaction fall between the lanes they separate. Lane colours follow a semantic `lane_role`, so labels are free-form in any language.
-
-The full model is in [guide/01 — The blueprint model](./docs/guide/01-the-blueprint-model.md) and the vocabulary in [CONTEXT.md](./CONTEXT.md). Lane roles, step ordering, import order and layouts are specified in [references/data-model.md](./references/data-model.md) and [docs/connectors/supabase/database.md](./docs/connectors/supabase/database.md).
+Service > phase > scenario > path. One path is one blueprint: a grid of lanes (User, Frontstage, Backstage, Support) and steps. Where a lane meets a step, one cell holds the detail: owner, status, value, dependencies and the sources behind it. The full model is in [guide/01 — The blueprint model](./docs/guide/01-the-blueprint-model.md); the specification is [references/data-model.md](./references/data-model.md).
 
 ## Get set up
 
@@ -178,7 +150,7 @@ Where your work starts:
 - **Auth stops at the anon / authenticated split.** The tier reader ([`src/lib/identity.ts`](./src/lib/identity.ts)) asks the database one question, what this session may do, and leaves how you answer it to you. Supabase Auth is the shipped recipe.
 - **One blueprint workspace per database.** There is no tenant column, and RLS does not scope by one.
 - **Backup and restore belong to your host.** `supabase/migrations/` is append-only: an undo is a new migration.
-- **Migration ops stop at the shipped chain.** `db push` and `db reset` are supported; branching, squashing and multi-environment promotion are yours. Desync has a runbook: [docs/connectors/supabase/database.md § Migration desync](./docs/connectors/supabase/database.md).
+- **Migration ops stop at the shipped chain.** `db push` and `db reset` are supported; branching, squashing and multi-environment promotion are yours. Desync has a runbook: [docs/connectors/supabase/database.md § Migration desync](./docs/connectors/supabase/database.md#migration-desync-the-repair).
 - **Adapters for other backends, and hosting, are yours to bring.**
 
 ### Deploy

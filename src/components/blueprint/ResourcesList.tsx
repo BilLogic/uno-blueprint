@@ -1,6 +1,7 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Reorder, useDragControls } from 'framer-motion'
 import {
+  ArrowRightLeft,
   Check,
   FileText,
   GripVertical,
@@ -24,31 +25,30 @@ import {
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { IconTooltip } from '@/components/editor/IconTooltip'
+import { OptionSelect } from '@/components/blueprint/OptionSelect'
 import { useSupabase } from '@/contexts/SupabaseProvider'
 import { uploadAttachment } from '@/lib/attachmentUpload'
 import { hostOf } from '@/lib/cellResources'
+import {
+  addResource,
+  featureResource,
+  groupRows,
+  moveResource,
+  removeResource,
+  renameResource,
+  reorderGroup,
+  retagResource,
+  setFeaturedImage,
+  unsavedResourceKeys,
+  type DraftResource,
+  type ResourceDrafts,
+  type ResourceOwner,
+  type ResourceOwnerId,
+} from '@/lib/resourceDrafts'
 import { attachmentMedium, linkPresentation } from '@/lib/resourcePresentation'
 import { validateResourceUrl } from '@/lib/resourceUrl'
 import { ROW_REVEAL_CLASS } from '@/lib/rowReveal'
 import { cn, errorMessage } from '@/lib/utils'
-import type { CellResource } from '@/types/blueprint'
-
-/**
- * A row of the list as the editor holds it.
- *
- * `id` is the row it came from, absent on a row pasted since the last save.
- * `kind` rides along because an attachment and a link sit in the same list
- * and the sync must not turn one into the other.
- */
-export type ResourceListDraft = {
-  id?: string | null
-  kind: string
-  name: string
-  url: string
-}
-
-/** A draft row keyed for React: the row's id, or a key minted when it was pasted. */
-type Row = ResourceListDraft & { key: string; featured: boolean }
 
 /**
  * The one file the list is carrying, and which of its four states it is in.
@@ -59,31 +59,23 @@ type Row = ResourceListDraft & { key: string; featured: boolean }
  */
 type PendingUpload = {
   file: File
+  owner: ResourceOwnerId
   failed: boolean
-}
-
-function rowsFrom(resources: readonly CellResource[]): Row[] {
-  return resources
-    .filter((resource) => resource.url?.trim())
-    .map((resource) => ({
-      key: resource.id ?? resource.url!,
-      id: resource.id,
-      kind: resource.kind,
-      name: resource.name,
-      url: resource.url ?? '',
-      featured: resource.featured,
-    }))
-}
-
-/** What the sync compares: the list without its React keys or featured flags. */
-function sent(rows: readonly Row[]): ResourceListDraft[] {
-  return rows.map(({ id, kind, name, url }) => ({ id: id ?? null, kind, name, url }))
 }
 
 /** What an upload will call the row, before the upload has answered. */
 function nameOfFile(file: File): string {
   return file.name.replace(/\.[^.]+$/, '') || 'Attachment'
 }
+
+/** The select's value for an owner: a placement's id, or the cell's sentinel. */
+const CELL_OWNER = 'cell'
+const ownerValue = (owner: ResourceOwnerId) => owner ?? CELL_OWNER
+const ownerFrom = (value: string): ResourceOwnerId => (value === CELL_OWNER ? null : value)
+
+/** A key for a row that has not been written yet. Never an id: the database mints those. */
+let minted = 0
+const mintKey = (seed: string) => `new:${seed}:${(minted += 1)}`
 
 /**
  * One row of the list: what it is, and everything it offers.
@@ -96,27 +88,32 @@ function ResourceListRow({
   row,
   first,
   last,
-  busy,
+  unsaved,
+  frame,
+  elsewhere,
   onMove,
   onRename,
   onRemove,
   onFeature,
-  frame,
   onSetFeaturedImage,
+  onRetag,
 }: {
-  row: Row
+  row: DraftResource
   first: boolean
   last: boolean
-  busy: boolean
-  /** The cell's frame — its featured image — to say which picture already is it. */
+  /** Whether this row differs from what the database holds. */
+  unsaved: boolean
+  /** The cell's featured image as the draft has it, to say which picture already is it. */
   frame: string | null
-  /** Make this picture the cell's featured image; absent where there is no cell. */
-  onSetFeaturedImage?: () => void
+  /** The owners this row could be moved to. */
+  elsewhere: readonly ResourceOwner[]
   /** Move this row one place up (-1) or down (1). */
   onMove: (by: -1 | 1) => void
   onRename: (name: string) => void
   onRemove: () => void
   onFeature: (featured: boolean) => void
+  onSetFeaturedImage: () => void
+  onRetag: (owner: ResourceOwnerId) => void
 }) {
   const controls = useDragControls()
   /** The rename, while it is open: the text so far. Closed is null. */
@@ -138,6 +135,7 @@ function ResourceListRow({
         row.kind === 'link' && row.featured && 'bg-muted/40',
       )}
       data-resource-row=""
+      data-unsaved={unsaved || undefined}
     >
       <IconTooltip label="Drag to reorder, or press the up and down arrow keys">
         <button
@@ -177,9 +175,6 @@ function ResourceListRow({
         // The URL rides along twice, because `title` alone reaches only a
         // pointer: it is a hover tooltip for a mouse and a visually hidden
         // suffix for a screen reader, which reads "name, then where it goes".
-        // When the name WAS a button the URL sat on something focusable; text
-        // is the right element here, so the second copy is what keeps it from
-        // becoming mouse-only.
         <span className="min-w-0 flex-1 truncate" title={row.url}>
           {row.name}
           <span className="sr-only">{`, ${row.url}`}</span>
@@ -211,6 +206,11 @@ function ResourceListRow({
           }}
         />
       )}
+      {unsaved ? (
+        // Words, not a dot: the count beside Save says how many, and this
+        // says which — a colour alone would say it only to some readers.
+        <span className="shrink-0 text-xs text-tertiary-foreground">Unsaved</span>
+      ) : null}
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -228,28 +228,27 @@ function ResourceListRow({
           {/* A picture becomes the cell's featured image, which is its frame;
               a link is featured as a button. An attachment carries no
               featured meaning of its own. */}
-          {row.id && row.kind === 'attachment' && onSetFeaturedImage &&
-          attachmentMedium(row.url) === 'image' ? (
+          {row.kind === 'attachment' && attachmentMedium(row.url) === 'image' ? (
             row.url === frame ? (
               <DropdownMenuItem disabled>
                 <Check className="size-3.5" aria-hidden />
                 Featured image
               </DropdownMenuItem>
             ) : (
-              <DropdownMenuItem disabled={busy} onClick={onSetFeaturedImage}>
+              <DropdownMenuItem onClick={onSetFeaturedImage}>
                 <ImageIcon className="size-3.5" aria-hidden />
                 Set as featured image
               </DropdownMenuItem>
             )
           ) : null}
-          {row.id && row.kind === 'link' && !row.featured ? (
-            <DropdownMenuItem disabled={busy} onClick={() => onFeature(true)}>
+          {row.kind === 'link' && !row.featured ? (
+            <DropdownMenuItem onClick={() => onFeature(true)}>
               <Star className="size-3.5" aria-hidden />
               Set as button
             </DropdownMenuItem>
           ) : null}
-          {row.id && row.kind === 'link' && row.featured ? (
-            <DropdownMenuItem disabled={busy} onClick={() => onFeature(false)}>
+          {row.kind === 'link' && row.featured ? (
+            <DropdownMenuItem onClick={() => onFeature(false)}>
               <StarOff className="size-3.5" aria-hidden />
               Unset
             </DropdownMenuItem>
@@ -258,6 +257,12 @@ function ResourceListRow({
             <Pencil className="size-3.5" aria-hidden />
             Rename…
           </DropdownMenuItem>
+          {elsewhere.map((owner) => (
+            <DropdownMenuItem key={ownerValue(owner.id)} onClick={() => onRetag(owner.id)}>
+              <ArrowRightLeft className="size-3.5" aria-hidden />
+              {`Move to ${owner.name}`}
+            </DropdownMenuItem>
+          ))}
           <DropdownMenuItem onClick={onRemove}>
             <X className="size-3.5" aria-hidden />
             Remove from the list
@@ -269,85 +274,72 @@ function ResourceListRow({
 }
 
 /**
- * One list for everything an owner points at — a placement, or the cell itself.
+ * Everything a cell points at, as one list grouped by owner: This cell, then
+ * each touchpoint placed at it.
  *
- * The top of the list is the owner's featured links — its buttons — each with
- * an unset control; the list under it is every resource in order, with a row
- * menu that sets a picture as the cell's featured image (its frame), sets a
- * link as a button or unsets one, renames the row, or drops it. Pasting a URL adds a link named
- * by its host and a file arrives under its own name; naming is a second,
- * optional act, which is why it is a rename and not a field on the way in.
- * The rename has one door, the menu item — which is also how a reader FINDS
- * that a row can be renamed at all. The name beside it stays text: the row is
- * already a drag target and carries its URL in a title, so a click there would
- * be a third meaning for one gesture. Enter commits; Escape leaves the name
- * that was standing.
+ * The list is a draft. Nothing here writes a row — not an add, a rename, a
+ * reorder, a featured flag, a featured image or a move to another owner —
+ * because the panel has one Save, and a second button for half of what is on
+ * screen is the arrangement the panel's form was built to end. Every edit is
+ * handed up as a change to the draft; the panel's Save writes it, its count
+ * says how much is waiting, and Cancel throws it away. A row that differs
+ * from what the database holds says so.
  *
- * Reorder is a drag on the handle at the start of the row — `Reorder` from
- * `framer-motion`, which the app already depends on — with the arrow keys on
- * that same handle as its keyboard half, because a pointer gesture on its own
- * would put the order out of reach. The order is all it changes: `featured` is
- * not in either sync's UPDATE.
- *
- * Two writes, deliberately different in tempo. The list (add, remove, rename,
- * reorder) is a draft saved by its own button, one RPC, one transaction,
- * because a reorder is a whole-list fact. Featuring is immediate — a link's
- * flag, or the cell's frame — because waiting for a Save would leave the list
- * showing a state the database does not hold.
- *
- * A file is a third way in: it goes to the bucket at once — the object's URL is
- * what the row carries, so there is no row to draft until the upload has
- * answered — and then joins the list as an `attachment` row saved like any
- * other. It is visible the whole way: the row is on screen, dimmed, while the
+ * The one thing that happens at once is the file itself: a chosen file goes
+ * to the bucket on pick — the row carries the object's URL, so there is no
+ * row to draft until the upload has answered — and only its row waits for
+ * Save. It is visible the whole way: the row is on screen, dimmed, while the
  * bucket is being written, and stays as a `Retry` if the write is refused.
  *
- * Which owner this is shows in three places and nowhere else: the two writes it
- * is handed, and the sentence under the heading. Everything else — the rows,
- * the featured section, the menu, the handle, the paste field, the upload — is
- * the same list, which is why it is one component and not two.
+ * An add picks its owner beside the paste field, defaulting to the
+ * touchpoint the panel was opened on. A row moves to another owner from its
+ * menu: that is a removal from one list and an add to the other, so the row
+ * gets a new id when it is written and its featured flag resets.
+ *
+ * Reorder is a drag on the handle at the start of the row — `Reorder` from
+ * `framer-motion` — within the row's own group, with the arrow keys on that
+ * same handle as its keyboard half, because a pointer gesture on its own
+ * would put the order out of reach. The rename has one door, the menu item;
+ * Enter commits and Escape leaves the name that was standing. Nobody is ever
+ * required to type a name: a link arrives as its host and a file as its own.
  */
 export function ResourcesList({
   cellId,
-  resources,
-  hint,
-  empty,
+  owners,
+  defaultOwner,
+  baseline,
+  value,
+  onChange,
   aside,
-  onSave,
-  onFeature,
-  frame = null,
-  onSetFeaturedImage,
 }: {
   /** The cell a chosen file is filed under; null means no file can join. */
   cellId: string | null
-  /** This owner's rows, already filtered — a placement's, or the cell's own. */
-  resources: readonly CellResource[]
-  /** The sentence under the heading. Without one, neither is drawn. */
-  hint?: ReactNode
-  /** Drawn instead of an empty list when this owner points at nothing. */
-  empty?: ReactNode
-  /** Rows this list shows but does not edit, above the featured section. */
+  /** The groups, in order. The first is the cell's own. */
+  owners: readonly ResourceOwner[]
+  /** Where an add goes until the author picks another owner. */
+  defaultOwner: ResourceOwnerId
+  /** What the database holds, to mark what differs from it. */
+  baseline: ResourceDrafts
+  /** The draft. */
+  value: ResourceDrafts
+  /** Hand an edit up to whoever holds the draft. */
+  onChange: (change: (drafts: ResourceDrafts) => ResourceDrafts) => void
+  /** Rows this list shows but does not hold, under the groups. */
   aside?: ReactNode
-  /** The list write: add, remove, rename and reorder, in one transaction. */
-  onSave: (rows: ResourceListDraft[]) => Promise<void>
-  /** The one-row write: lead with this resource, or stop leading with it. */
-  onFeature: (resourceId: string, featured: boolean) => Promise<void>
-  /** The cell's frame, which is its featured image. */
-  frame?: string | null
-  /** The frame write: make this picture the cell's featured image. */
-  onSetFeaturedImage?: (url: string) => Promise<void>
 }) {
   const { client } = useSupabase()
-  const stored = rowsFrom(resources)
-  const [rows, setRows] = useState<Row[]>(stored)
   const [pasted, setPasted] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [addTo, setAddTo] = useState<ResourceOwnerId>(defaultOwner)
   const [pending, setPending] = useState<PendingUpload | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
 
   const uploading = pending !== null && !pending.failed
-  const dirty = JSON.stringify(sent(rows)) !== JSON.stringify(sent(stored))
   const pasteProblem = pasted.trim() ? validateResourceUrl(pasted) : null
+  const unsaved = unsavedResourceKeys(baseline, value)
+  // An owner that left the cell takes its option with it; the add falls back
+  // to the cell rather than drafting a row into a list nobody can see.
+  const target = owners.some((owner) => owner.id === addTo) ? addTo : null
 
   const add = () => {
     const checked = validateResourceUrl(pasted)
@@ -356,112 +348,44 @@ export function ResourcesList({
       return
     }
     setError(null)
-    setRows((current) => [
-      ...current,
-      {
-        key: `new:${checked.url}:${current.length}`,
-        id: null,
+    onChange((drafts) =>
+      addResource(drafts, {
+        key: mintKey(checked.url),
+        owner: target,
         kind: 'link',
         name: hostOf(checked.url),
         url: checked.url,
-        featured: false,
-      },
-    ])
+      }),
+    )
     setPasted('')
   }
 
-  const upload = async (file: File) => {
+  const upload = async (file: File, owner: ResourceOwnerId) => {
     if (!client || !cellId || uploading) return
-    setPending({ file, failed: false })
+    setPending({ file, owner, failed: false })
     setError(null)
     try {
       const uploaded = await uploadAttachment(client, { cellId, file })
-      setRows((current) => [
-        ...current,
-        {
-          key: `new:${uploaded.objectKey}`,
-          id: null,
+      onChange((drafts) =>
+        addResource(drafts, {
+          key: mintKey(uploaded.objectKey),
+          owner,
           kind: 'attachment',
           name: uploaded.name,
           url: uploaded.url,
-          featured: false,
-        },
-      ])
+        }),
+      )
       setPending(null)
     } catch (uploadError) {
       setError(errorMessage(uploadError))
-      setPending({ file, failed: true })
+      setPending({ file, owner, failed: true })
     }
   }
 
-  const move = (key: string, by: -1 | 1) => {
-    setRows((current) => {
-      const index = current.findIndex((row) => row.key === key)
-      const target = index + by
-      if (index < 0 || target < 0 || target >= current.length) return current
-      const next = current.slice()
-      const [row] = next.splice(index, 1)
-      next.splice(target, 0, row!)
-      return next
-    })
-  }
-
-  const save = async () => {
-    if (!client || busy) return
-    setBusy(true)
-    setError(null)
-    try {
-      await onSave(sent(rows))
-    } catch (saveError) {
-      setError(errorMessage(saveError))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const feature = async (row: Row, featured: boolean) => {
-    if (!client || busy || !row.id) return
-    setBusy(true)
-    setError(null)
-    try {
-      await onFeature(row.id, featured)
-    } catch (featureError) {
-      setError(errorMessage(featureError))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const setFeaturedImage = async (row: Row) => {
-    if (!client || busy || !onSetFeaturedImage) return
-    setBusy(true)
-    setError(null)
-    try {
-      await onSetFeaturedImage(row.url)
-    } catch (writeError) {
-      setError(errorMessage(writeError))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const featuredRows = stored.filter((row) => row.featured && row.kind === 'link')
+  const featuredRows = value.rows.filter((row) => row.featured && row.kind === 'link')
 
   return (
     <div className="flex flex-col gap-2" data-resources-list="">
-      {hint ? (
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-muted-foreground">Resources</span>
-          <p className="text-xs text-muted-foreground">{hint}</p>
-        </div>
-      ) : null}
-
-      {rows.length === 0 && empty ? (
-        <p className="text-xs text-muted-foreground">{empty}</p>
-      ) : null}
-
-      {aside}
-
       {featuredRows.length > 0 ? (
         // No drag handle here, deliberately. The buttons follow the main list's
         // order, so this block has no order of its own to change — a handle
@@ -484,8 +408,7 @@ export function ResourcesList({
                   variant="ghost"
                   size="icon-sm"
                   aria-label={`Unset ${row.name}`}
-                  disabled={busy}
-                  onClick={() => void feature(row, false)}
+                  onClick={() => onChange((drafts) => featureResource(drafts, row.key, false))}
                 >
                   <StarOff className="size-3" />
                 </Button>
@@ -495,38 +418,65 @@ export function ResourcesList({
         </ul>
       ) : null}
 
-      <Reorder.Group
-        as="ul"
-        axis="y"
-        values={rows}
-        onReorder={setRows}
-        className="flex flex-col gap-1"
-        aria-label="All resources"
-      >
-        {rows.map((row, index) => (
-          <ResourceListRow
-            key={row.key}
-            row={row}
-            first={index === 0}
-            last={index === rows.length - 1}
-            busy={busy}
-            onMove={(by) => move(row.key, by)}
-            onRename={(name) =>
-              setRows((current) =>
-                current.map((entry) => (entry.key === row.key ? { ...entry, name } : entry)),
-              )
-            }
-            onRemove={() =>
-              setRows((current) => current.filter((entry) => entry.key !== row.key))
-            }
-            onFeature={(featured) => void feature(row, featured)}
-            frame={frame}
-            onSetFeaturedImage={
-              onSetFeaturedImage ? () => void setFeaturedImage(row) : undefined
-            }
-          />
-        ))}
-      </Reorder.Group>
+      {owners.map((owner) => {
+            const rows = groupRows(value.rows, owner.id)
+            const elsewhere = owners.filter((other) => other.id !== owner.id)
+            return (
+              <section
+                key={ownerValue(owner.id)}
+                className="flex flex-col gap-1"
+                aria-label={owner.name}
+                data-resource-group={ownerValue(owner.id)}
+              >
+                <span className="text-xs font-medium text-muted-foreground">{owner.name}</span>
+                {rows.length === 0 ? (
+                  <p className="px-1 text-xs text-tertiary-foreground">Nothing here yet.</p>
+                ) : (
+                  <Reorder.Group
+                    as="ul"
+                    axis="y"
+                    values={rows}
+                    onReorder={(next: DraftResource[]) =>
+                      onChange((drafts) =>
+                        reorderGroup(drafts, owner.id, next.map((row) => row.key)),
+                      )
+                    }
+                    className="flex flex-col gap-1"
+                  >
+                    {rows.map((row, index) => (
+                      <ResourceListRow
+                        key={row.key}
+                        row={row}
+                        first={index === 0}
+                        last={index === rows.length - 1}
+                        unsaved={unsaved.has(row.key)}
+                        frame={value.frame}
+                        elsewhere={elsewhere}
+                        onMove={(by) => onChange((drafts) => moveResource(drafts, row.key, by))}
+                        onRename={(name) =>
+                          onChange((drafts) => renameResource(drafts, row.key, name))
+                        }
+                        onRemove={() => onChange((drafts) => removeResource(drafts, row.key))}
+                        onFeature={(featured) =>
+                          onChange((drafts) => featureResource(drafts, row.key, featured))
+                        }
+                        onSetFeaturedImage={() =>
+                          onChange((drafts) => setFeaturedImage(drafts, row.url))
+                        }
+                        onRetag={(next) =>
+                          onChange((drafts) =>
+                            retagResource(drafts, row.key, next, mintKey(row.url)),
+                          )
+                        }
+                      />
+                    ))}
+                  </Reorder.Group>
+                )}
+              </section>
+            )
+          })}
+
+      {aside}
 
       {pending ? (
         <div
@@ -549,7 +499,7 @@ export function ResourcesList({
                   variant="outline"
                   size="sm"
                   className="h-6 px-2 text-xs"
-                  onClick={() => void upload(pending.file)}
+                  onClick={() => void upload(pending.file, pending.owner)}
                 >
                   Retry
                 </Button>
@@ -570,6 +520,15 @@ export function ResourcesList({
         </div>
       ) : null}
 
+      {owners.length > 1 ? (
+        <OptionSelect
+          value={ownerValue(target)}
+          onChange={(next) => setAddTo(ownerFrom(next))}
+          options={owners.map((owner) => ({ value: ownerValue(owner.id), label: owner.name }))}
+          aria-label="Add to"
+          className="h-7 text-xs"
+        />
+      ) : null}
       <div className="flex items-center gap-2">
         <Input
           value={pasted}
@@ -609,7 +568,7 @@ export function ResourcesList({
             onChange={(event) => {
               const file = event.target.files?.[0]
               event.target.value = ''
-              if (file) void upload(file)
+              if (file) void upload(file, target)
             }}
           />
           <Button
@@ -625,18 +584,7 @@ export function ResourcesList({
           </Button>
         </>
       ) : null}
-
-      <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          size="sm"
-          disabled={!dirty || busy || !client}
-          onClick={() => void save()}
-        >
-          Save resources
-        </Button>
-        {error ? <p className="text-xs text-destructive">{error}</p> : null}
-      </div>
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   )
 }

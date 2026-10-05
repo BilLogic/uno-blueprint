@@ -54,7 +54,6 @@ export function CellDetailTabs({
     connections,
     otherTech,
     selectedLaneRowPosition,
-    frame,
     resources,
     touchpoints,
   } = facts
@@ -138,7 +137,6 @@ export function CellDetailTabs({
             cellId={cellId}
             resources={resources}
             touchpoints={touchpoints}
-            frame={frame}
           />
         ) : null}
       </div>

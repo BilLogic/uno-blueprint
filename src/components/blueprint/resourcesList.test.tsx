@@ -1,14 +1,12 @@
 // @vitest-environment jsdom
 /**
- * One list, two owners.
+ * One list, grouped by owner, and every edit a draft.
  *
- * `ResourcesList` is the whole list — rows, featured block, row menu, drag
- * handle, paste field, upload. A cell and a touchpoint placement each hand it
- * their own rows and their own pair of writes, and nothing else about them
- * differs. So the suite drives it through BOTH owners: through the Resources
- * tab, which is the cell's, and through `PlacementResourcesList`, which is the
- * placement's. A behaviour that only holds for one of them is the defect this
- * shape exists to prevent, and only two owners can catch it.
+ * `ResourcesList` is the whole of a cell's resources in Edit mode: This cell,
+ * then a group per touchpoint placed at it. It writes nothing. Each case here
+ * drives the Resources tab the way the panel mounts it — inside the panel's
+ * resource draft — and asserts two things: what the draft now says, in the
+ * shape the panel's Save will send, and that no write left the browser.
  *
  * The rest is what a class or a prop cannot pin. The order has to be reachable
  * without a pointer, because the drag is pointer-only. The featured block has
@@ -16,22 +14,23 @@
  * its whole life, because the bucket reports no progress. And a name has to be
  * optional on the way in and reachable afterwards through the row menu.
  */
+import { useEffect } from 'react'
 import { cleanup, fireEvent, render, waitFor, type RenderResult } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CellResourcesTab } from '@/components/blueprint/CellResourcesTab'
-import { PlacementResourcesList } from '@/components/blueprint/PlacementResourcesList'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import type { CellResource } from '@/types/blueprint'
+import {
+  ResourceDraftsProvider,
+  useResourceDraftsOptional,
+} from '@/contexts/ResourceDraftsContext'
+import { planResourceSave, rowsForSync, type ResourceDraftState } from '@/lib/resourceDrafts'
+import type { CellResource, CellTouchpoint } from '@/types/blueprint'
 
 const rpc = vi.fn()
 vi.mock('@/contexts/SupabaseProvider', () => ({
   useSupabase: () => ({ client: { rpc }, canWrite: true }),
 }))
 vi.mock('@/contexts/canvasModeContext', () => ({ useCanvasModeValue: () => 'design' }))
-vi.mock('@/lib/authoringSession', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/authoringSession')>()),
-  recordChange: () => {},
-}))
 const uploadAttachment = vi.fn()
 vi.mock('@/lib/attachmentUpload', () => ({
   uploadAttachment: (...args: unknown[]) => uploadAttachment(...args),
@@ -51,13 +50,22 @@ const row = (over: Partial<CellResource> & { id: string; url: string }): CellRes
 })
 
 const TRACKER = row({ id: 'r-cell', url: 'https://tracker.dev/1' })
-const PLACED = () =>
-  row({
-    id: 'r-tp',
-    url: 'https://plus.app/intake',
-    name: 'Intake portal',
-    placementId: 'p-1',
-  })
+const PLACED = row({
+  id: 'r-tp',
+  url: 'https://intake.example/form',
+  name: 'Intake form',
+  placementId: 'p-1',
+})
+
+const placement = (id: string, name: string): CellTouchpoint => ({
+  id,
+  touchpointId: null,
+  name,
+  kind: null,
+  summary: null,
+  role: null,
+})
+const PORTAL = placement('p-1', 'Intake portal')
 
 /** The row menu is a Base UI trigger: it opens on the mouse, not on Enter. */
 function openMenu(trigger: HTMLElement) {
@@ -66,277 +74,303 @@ function openMenu(trigger: HTMLElement) {
   fireEvent.click(trigger)
 }
 
+async function chooseFromMenu(view: RenderResult, rowName: string, item: string) {
+  openMenu(view.getByLabelText(`More for ${rowName}`))
+  await waitFor(() => expect(document.body.textContent).toContain(item))
+  fireEvent.click(view.getByText(item))
+}
+
 /**
  * Open a row's rename the only way in: the item in that row's own menu.
  *
  * There is no second door — the name beside it is text, not a control — so
- * every test that needs the field open goes through the menu, and a menu item
- * that stopped opening it would take the whole rename down with it.
+ * every test that needs the field open goes through the menu.
  */
 async function openRename(view: RenderResult, name: string) {
-  openMenu(view.getByLabelText(`More for ${name}`))
-  await waitFor(() => expect(document.body.textContent).toContain('Rename…'))
-  fireEvent.click(view.getByText('Rename…'))
+  await chooseFromMenu(view, name, 'Rename…')
   return await waitFor(() => view.getByLabelText(`Rename ${name}`) as HTMLInputElement)
 }
 
-/** The cell's owner: the Resources tab in Edit mode. */
-function mountCell(resources: CellResource[]) {
-  return render(
-    <TooltipProvider>
-      <CellResourcesTab cellId="cell-1" resources={resources} />
-    </TooltipProvider>,
-  )
+/** The draft, as the panel's form would read it. */
+let latest: ResourceDraftState | null = null
+function Probe() {
+  const state = useResourceDraftsOptional()?.state ?? null
+  useEffect(() => {
+    latest = state
+  })
+  return null
 }
+const plan = () => planResourceSave(latest!.baseline, latest!.drafts)
+const listOf = (owner: string | null) =>
+  plan().lists.find((list) => list.owner === owner)?.rows ?? null
 
-/** The placement's owner: the list inside a touchpoint's group. */
-function mountPlacement(resources: CellResource[]) {
+function mount(
+  resources: CellResource[],
+  {
+    touchpoints = [PORTAL],
+    frame = null,
+    opened = null,
+  }: { touchpoints?: CellTouchpoint[]; frame?: string | null; opened?: string | null } = {},
+) {
   return render(
     <TooltipProvider>
-      <PlacementResourcesList
-        placement={{ id: 'p-1', cellId: 'cell-1', name: 'Intake' }}
+      <ResourceDraftsProvider
         resources={resources}
-      />
+        frame={frame}
+        touchpoints={touchpoints}
+        openedPlacementId={opened}
+      >
+        <CellResourcesTab cellId="cell-1" resources={resources} touchpoints={touchpoints} />
+        <Probe />
+      </ResourceDraftsProvider>
     </TooltipProvider>,
   )
 }
 
 beforeEach(() => {
+  latest = null
   uploadAttachment.mockReset()
   rpc.mockReset()
-  rpc.mockResolvedValue({ data: null, error: null })
 })
-afterEach(cleanup)
+afterEach(() => {
+  // Whatever a case did, it wrote nothing: the panel's Save is the only writer.
+  expect(rpc).not.toHaveBeenCalled()
+  cleanup()
+})
 
-describe('the list is the same list whichever owner draws it', () => {
-  it('the cell saves its own rows through the cell sync', async () => {
-    const { getByLabelText, getByText } = mountCell([TRACKER])
+describe('one list, grouped by owner', () => {
+  it('heads This cell first, then each touchpoint placed at the cell by its name', () => {
+    const { container, getByLabelText } = mount([TRACKER, PLACED])
+    const groups = [...container.querySelectorAll('[data-resource-group]')]
+    expect(groups.map((group) => group.getAttribute('aria-label'))).toEqual([
+      'This cell',
+      'Intake portal',
+    ])
+    expect(getByLabelText('This cell').textContent).toContain('Tracker')
+    expect(getByLabelText('Intake portal').textContent).toContain('Intake form')
+    // Both owners' rows are editable here: there is no read-only second list.
+    expect(container.querySelectorAll('[data-resource-row]')).toHaveLength(2)
+  })
+
+  it('offers no Save resources button — the panel’s Save is the only one', () => {
+    const { queryByText } = mount([TRACKER, PLACED])
+    expect(queryByText('Save resources')).toBeNull()
+  })
+
+  it('a pasted link joins the touchpoint the panel was opened on, named by its host', () => {
+    const { getByLabelText, getByText, queryByPlaceholderText } = mount([TRACKER], {
+      opened: 'p-1',
+    })
+    // A link is named by its host and a file by its filename. A box beside
+    // the paste field would make naming a toll on the way in.
+    expect(queryByPlaceholderText('Name')).toBeNull()
     fireEvent.change(getByLabelText('Paste a link'), { target: { value: 'youtu.be/walk' } })
     fireEvent.click(getByText('Add'))
-    fireEvent.click(getByText('Save resources'))
 
-    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1))
-    const [fn, args] = rpc.mock.calls[0]!
-    expect(fn).toBe('sync_cell_resources')
-    expect(args.p_cell_id).toBe('cell-1')
-    expect(args.p_rows.at(-1)).toEqual({
+    expect(getByLabelText('Intake portal').textContent).toContain('youtu.be')
+    expect(rowsForSync(listOf('p-1')!)).toEqual([
+      { id: null, kind: 'link', name: 'youtu.be', url: 'https://youtu.be/walk' },
+    ])
+    expect(listOf(null)).toBeNull()
+  })
+
+  it('with no touchpoint opened, a pasted link joins This cell', () => {
+    const { getByLabelText, getByText } = mount([TRACKER])
+    fireEvent.change(getByLabelText('Paste a link'), { target: { value: 'youtu.be/walk' } })
+    fireEvent.click(getByText('Add'))
+    expect(rowsForSync(listOf(null)!).at(-1)).toEqual({
       id: null,
       kind: 'link',
-      // Named by its host. Nothing on screen asked for a name.
       name: 'youtu.be',
       url: 'https://youtu.be/walk',
     })
   })
 
-  it('the placement saves its own rows through the placement sync', async () => {
-    const { getByLabelText, getByText } = mountPlacement([PLACED()])
+  it('a new row says it is unsaved, and an untouched one does not', () => {
+    const { container, getByLabelText, getByText } = mount([TRACKER])
+    expect(container.querySelector('[data-unsaved]')).toBeNull()
     fireEvent.change(getByLabelText('Paste a link'), { target: { value: 'youtu.be/walk' } })
     fireEvent.click(getByText('Add'))
-    fireEvent.click(getByText('Save resources'))
-
-    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1))
-    const [fn, args] = rpc.mock.calls[0]!
-    expect(fn).toBe('sync_placement_resources')
-    expect(args.p_placement_id).toBe('p-1')
-    expect(args.p_rows.at(-1)).toEqual({
-      id: null,
-      kind: 'link',
-      name: 'youtu.be',
-      url: 'https://youtu.be/walk',
-    })
+    const marked = [...container.querySelectorAll('[data-unsaved]')]
+    expect(marked).toHaveLength(1)
+    expect(marked[0]!.textContent).toContain('youtu.be')
+    expect(marked[0]!.textContent).toContain('Unsaved')
   })
 
-  it('offers no name field on the way in, to either owner', () => {
-    for (const mount of [mountCell, mountPlacement]) {
-      const { queryByPlaceholderText } = mount([TRACKER, PLACED()])
-      // A link is named by its host and a file by its filename. A box beside
-      // the paste field would make naming a toll on the way in.
-      expect(queryByPlaceholderText('Name')).toBeNull()
-      expect(queryByPlaceholderText('Label')).toBeNull()
-      cleanup()
-    }
+  it('removing a row drafts its list without it', async () => {
+    const view = mount([TRACKER, PLACED])
+    await chooseFromMenu(view, 'Intake form', 'Remove from the list')
+    await waitFor(() => expect(view.queryByLabelText('More for Intake form')).toBeNull())
+    expect(listOf('p-1')).toEqual([])
+    expect(listOf(null)).toBeNull()
   })
 
+  it('moving a row to another owner removes it from one list and adds it to the other', async () => {
+    const view = mount([
+      row({ id: 'r-cell', url: 'https://tracker.dev/1', featured: true }),
+    ])
+    await chooseFromMenu(view, 'Tracker', 'Move to Intake portal')
+
+    await waitFor(() =>
+      expect(view.getByLabelText('Intake portal').textContent).toContain('Tracker'),
+    )
+    expect(listOf(null)).toEqual([])
+    // A new row to the placement: no id, and its featured flag left behind.
+    expect(rowsForSync(listOf('p-1')!)).toEqual([
+      { id: null, kind: 'link', name: 'Tracker', url: 'https://tracker.dev/1' },
+    ])
+    expect(latest!.drafts.rows[0]!.featured).toBe(false)
+    expect(plan().featured).toEqual([])
+  })
+})
+
+describe('featuring is a draft too', () => {
   it('offers a picture as the featured image and a link as a button, and a file as neither', async () => {
-    const { getByLabelText } = mountCell([
+    const view = mount([
       row({ id: 'r-pic', url: PICTURE, kind: 'attachment', name: 'Screen' }),
       row({ id: 'r-shot', url: SHOT, kind: 'attachment', name: 'Runbook' }),
       TRACKER,
     ])
 
-    openMenu(getByLabelText('More for Screen'))
+    openMenu(view.getByLabelText('More for Screen'))
     await waitFor(() => expect(document.body.textContent).toContain('Set as featured image'))
-    expect(document.body.textContent).not.toContain('Set as preview')
     expect(document.body.textContent).not.toContain('Set as button')
     fireEvent.keyDown(document.body, { key: 'Escape' })
     await waitFor(() =>
       expect(document.body.textContent).not.toContain('Set as featured image'),
     )
 
-    // A PDF is not a picture: it carries no featured meaning at all now.
-    openMenu(getByLabelText('More for Runbook'))
+    openMenu(view.getByLabelText('More for Runbook'))
     await waitFor(() => expect(document.body.textContent).toContain('Rename…'))
     expect(document.body.textContent).not.toContain('Set as featured image')
-    expect(document.body.textContent).not.toContain('Set as preview')
     fireEvent.keyDown(document.body, { key: 'Escape' })
     await waitFor(() => expect(document.body.textContent).not.toContain('Rename…'))
 
-    openMenu(getByLabelText('More for Tracker'))
+    openMenu(view.getByLabelText('More for Tracker'))
     await waitFor(() => expect(document.body.textContent).toContain('Set as button'))
     expect(document.body.textContent).not.toContain('Set as featured image')
   })
 
-  it('sets the featured image at once, as the cell’s frame, from either owner', async () => {
-    for (const mount of [mountCell, mountPlacement]) {
-      rpc.mockReset()
-      rpc.mockResolvedValue({ data: { cell_id: 'cell-1', frame: null }, error: null })
-      const { getByLabelText, getByText } = mount([
-        row({ id: 'r-pic', url: PICTURE, kind: 'attachment', name: 'Screen', placementId: mount === mountPlacement ? 'p-1' : null }),
-      ])
-
-      openMenu(getByLabelText('More for Screen'))
-      await waitFor(() => expect(document.body.textContent).toContain('Set as featured image'))
-      fireEvent.click(getByText('Set as featured image'))
-
-      await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1))
-      expect(rpc).toHaveBeenCalledWith('set_cell_featured_image', {
-        cell_id: 'cell-1',
-        image_url: PICTURE,
-      })
-      cleanup()
-    }
+  it('“Set as button” drafts one flag, and the featured block shows it', async () => {
+    const view = mount([TRACKER])
+    await chooseFromMenu(view, 'Tracker', 'Set as button')
+    await waitFor(() =>
+      expect(view.getByLabelText('Featured').textContent).toContain('Open link · Tracker'),
+    )
+    expect(plan().featured).toEqual([{ key: 'r-cell', featured: true }])
   })
 
-  it('shows the picture that already is the frame as the featured image, and offers nothing to do', async () => {
-    const { getByLabelText, getByText } = render(
-      <TooltipProvider>
-        <CellResourcesTab
-          cellId="cell-1"
-          frame={PICTURE}
-          resources={[row({ id: 'r-pic', url: PICTURE, kind: 'attachment', name: 'Screen' })]}
-        />
-      </TooltipProvider>,
-    )
-    openMenu(getByLabelText('More for Screen'))
+  it('“Unset” drafts the flag off and keeps the row in the list', () => {
+    const { container, getByLabelText } = mount([{ ...TRACKER, featured: true }])
+    fireEvent.click(getByLabelText('Unset Tracker'))
+    expect(plan().featured).toEqual([{ key: 'r-cell', featured: false }])
+    expect(container.querySelectorAll('[data-resource-row]')).toHaveLength(1)
+  })
+
+  it('“Set as featured image” drafts the frame, from either owner', async () => {
+    const view = mount([
+      row({ id: 'r-pic', url: PICTURE, kind: 'attachment', name: 'Screen', placementId: 'p-1' }),
+    ])
+    await chooseFromMenu(view, 'Screen', 'Set as featured image')
+    expect(plan().frame).toEqual({ url: PICTURE })
+    openMenu(view.getByLabelText('More for Screen'))
     await waitFor(() => expect(document.body.textContent).toContain('Featured image'))
-    const item = getByText('Featured image').closest('[role="menuitem"]')!
-    expect(item.getAttribute('aria-disabled') ?? item.getAttribute('data-disabled')).not.toBeNull()
     expect(document.body.textContent).not.toContain('Set as featured image')
   })
 
-  it('lists a placement’s row in the cell’s tab without giving the cell a menu for it', () => {
-    const { container, getByLabelText, queryByLabelText } = mountCell([TRACKER, PLACED()])
-    expect(getByLabelText("From this cell's touchpoints").textContent).toContain('Intake portal')
-    expect(queryByLabelText('More for Intake portal')).toBeNull()
-    expect(queryByLabelText('Reorder Intake portal')).toBeNull()
-    // One editable row: the cell's own. The sync refuses a placement's ids.
-    expect(container.querySelectorAll('[data-resource-row]')).toHaveLength(1)
-  })
-})
-
-describe('the order stays reachable without a pointer', () => {
-  it('the drag handle answers Up and Down, and the save carries the new order', async () => {
-    // `Reorder.Item` is pointer-only. Without this the order would be a
-    // gesture a keyboard and a screen reader simply do not have.
-    const { getByLabelText, getByText } = mountCell([
-      TRACKER,
-      row({ id: 'r-shot', url: SHOT, kind: 'attachment', name: 'Runbook' }),
-    ])
-
-    fireEvent.keyDown(getByLabelText('Reorder Runbook'), { key: 'ArrowUp' })
-    fireEvent.click(getByText('Save resources'))
-
-    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1))
-    expect(rpc.mock.calls[0]![1].p_rows.map((r: { id: string | null }) => r.id)).toEqual([
-      'r-shot',
-      'r-cell',
-    ])
-  })
-
-  it('will not walk a row off either end', async () => {
-    const { getByLabelText, getByText } = mountCell([TRACKER])
-    fireEvent.keyDown(getByLabelText('Reorder Tracker'), { key: 'ArrowUp' })
-    fireEvent.keyDown(getByLabelText('Reorder Tracker'), { key: 'ArrowDown' })
-    // Nothing moved, so nothing is dirty and there is nothing to save.
-    expect((getByText('Save resources') as HTMLButtonElement).disabled).toBe(true)
+  it('shows the picture that already is the frame as the featured image, and offers nothing to do', async () => {
+    const view = mount(
+      [row({ id: 'r-pic', url: PICTURE, kind: 'attachment', name: 'Screen' })],
+      { frame: PICTURE },
+    )
+    openMenu(view.getByLabelText('More for Screen'))
+    await waitFor(() => expect(document.body.textContent).toContain('Featured image'))
+    const item = view.getByText('Featured image').closest('[role="menuitem"]')!
+    expect(item.getAttribute('aria-disabled') ?? item.getAttribute('data-disabled')).not.toBeNull()
+    expect(plan().frame).toBeNull()
   })
 
   it('gives the featured block no handle — it has no order of its own', () => {
-    // The buttons follow the main list's order. A handle there would offer a
-    // move that changes nothing.
-    const { getByLabelText, queryByLabelText } = mountCell([
-      row({ id: 'r-cell', url: 'https://tracker.dev/1', featured: true }),
-    ])
+    const { getByLabelText, queryByLabelText } = mount([{ ...TRACKER, featured: true }])
     expect(
       getByLabelText('Featured').querySelectorAll('button[aria-label^="Reorder"]'),
     ).toHaveLength(0)
-    // The same row is in the main list below, where it does have one.
     expect(queryByLabelText('Reorder Tracker')).not.toBeNull()
   })
 
   it('an attachment flagged featured leads nothing any more', () => {
-    const { queryByLabelText } = mountCell([
+    const { queryByLabelText } = mount([
       row({ id: 'r-shot', url: SHOT, kind: 'attachment', name: 'Runbook', featured: true }),
     ])
     expect(queryByLabelText('Featured')).toBeNull()
   })
 })
 
+describe('the order stays reachable without a pointer', () => {
+  it('the drag handle answers Up and Down, within the row’s own group', () => {
+    const { getByLabelText } = mount([
+      TRACKER,
+      row({ id: 'r-shot', url: SHOT, kind: 'attachment', name: 'Runbook' }),
+      PLACED,
+    ])
+    fireEvent.keyDown(getByLabelText('Reorder Runbook'), { key: 'ArrowUp' })
+    expect(listOf(null)!.map((entry) => entry.id)).toEqual(['r-shot', 'r-cell'])
+    // The placement's list did not move.
+    expect(listOf('p-1')).toBeNull()
+  })
+
+  it('will not walk a row off either end of its group', () => {
+    const { getByLabelText } = mount([TRACKER, PLACED])
+    fireEvent.keyDown(getByLabelText('Reorder Tracker'), { key: 'ArrowUp' })
+    fireEvent.keyDown(getByLabelText('Reorder Tracker'), { key: 'ArrowDown' })
+    expect(plan().lists).toEqual([])
+  })
+})
+
 describe('naming a resource is a second, optional act', () => {
-  it('opens the rename from the row menu, and Enter commits it to the save', async () => {
-    const view = mountCell([TRACKER])
+  it('opens the rename from the row menu, and Enter commits it to the draft', async () => {
+    const view = mount([TRACKER])
     const field = await openRename(view, 'Tracker')
-    // The field arrives holding the standing name, not empty: a rename starts
-    // from what the row is called, so touching one word costs one word.
     expect(field.value).toBe('Tracker')
     fireEvent.change(field, { target: { value: 'Delivery tracker' } })
     fireEvent.keyDown(field, { key: 'Enter' })
 
     await waitFor(() => expect(view.getByLabelText('More for Delivery tracker')).toBeTruthy())
-    fireEvent.click(view.getByText('Save resources'))
-    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1))
-    expect(rpc.mock.calls[0]![1].p_rows).toEqual([
+    expect(rowsForSync(listOf(null)!)).toEqual([
       { id: 'r-cell', kind: 'link', name: 'Delivery tracker', url: 'https://tracker.dev/1' },
     ])
   })
 
-  it('the placement’s owner reaches the rename through its row menu too', async () => {
-    // The menu is the only door, so it has to be the same door for both
-    // owners — a rename that only the cell could reach would be the very
-    // defect this suite's two-owner shape exists to catch.
-    const view = mountPlacement([PLACED()])
-    const field = await openRename(view, 'Intake portal')
-    expect(field.tagName).toBe('INPUT')
-    expect(field.value).toBe('Intake portal')
+  it('a placement’s row reaches the rename through its row menu too', async () => {
+    const view = mount([PLACED])
+    const field = await openRename(view, 'Intake form')
+    expect(field.value).toBe('Intake form')
   })
 
   it('Escape abandons the rename and leaves the standing name', async () => {
-    const view = mountCell([TRACKER])
+    const view = mount([TRACKER])
     const field = await openRename(view, 'Tracker')
     fireEvent.change(field, { target: { value: 'Something else' } })
     fireEvent.keyDown(field, { key: 'Escape' })
 
     await waitFor(() => expect(view.queryByLabelText('Rename Tracker')).toBeNull())
     expect(view.container.textContent).not.toContain('Something else')
-    expect(view.container.textContent).toContain('Tracker')
-    expect((view.getByText('Save resources') as HTMLButtonElement).disabled).toBe(true)
+    expect(plan().lists).toEqual([])
   })
 
   it('a rename typed down to nothing leaves the name it had', async () => {
-    // The database refuses a nameless row, so an empty field is an abandoned
-    // rename and not a request to erase the name.
-    const view = mountCell([TRACKER])
+    const view = mount([TRACKER])
     const field = await openRename(view, 'Tracker')
     fireEvent.change(field, { target: { value: '   ' } })
     fireEvent.keyDown(field, { key: 'Enter' })
 
     await waitFor(() => expect(view.queryByLabelText('Rename Tracker')).toBeNull())
     expect(view.container.textContent).toContain('Tracker')
-    expect((view.getByText('Save resources') as HTMLButtonElement).disabled).toBe(true)
+    expect(plan().lists).toEqual([])
   })
 })
 
-describe('an upload is on screen for its whole life', () => {
+describe('an upload stores the file on pick; only its row waits for Save', () => {
   const landed = (url: string, objectKey: string) => ({
     kind: 'attachment',
     name: 'Runbook',
@@ -345,10 +379,9 @@ describe('an upload is on screen for its whole life', () => {
   })
 
   it('is a dimmed row with an indeterminate bar, then an ordinary row', async () => {
-    const url = SHOT
     let land: (value: unknown) => void = () => {}
     uploadAttachment.mockReturnValue(new Promise((resolve) => (land = resolve)))
-    const { container, getByLabelText, getByText } = mountCell([TRACKER])
+    const { container, getByLabelText, getByText } = mount([TRACKER])
     fireEvent.change(getByLabelText('Upload a file'), {
       target: { files: [new File(['pdf'], 'Runbook.pdf', { type: 'application/pdf' })] },
     })
@@ -357,22 +390,18 @@ describe('an upload is on screen for its whole life', () => {
     const pending = container.querySelector('[data-upload-row]')!
     expect(pending.textContent).toContain('Runbook')
     expect(pending.className).toContain('opacity-60')
-    // Indeterminate, because the bucket's upload reports no progress at all —
-    // a filling bar would be a number nobody has.
     expect(getByLabelText('Uploading Runbook').getAttribute('role')).toBe('progressbar')
     expect(getByText('Uploading…')).toBeTruthy()
-    // And nothing is in the list yet: the row carries the object's URL, so
-    // there is no row to draft until the upload has answered.
     expect(container.querySelectorAll('[data-resource-row]')).toHaveLength(1)
 
-    land(landed(url, 'cells/cell-1/r.pdf'))
+    land(landed(SHOT, 'cells/cell-1/r.pdf'))
     await waitFor(() => expect(container.querySelectorAll('[data-resource-row]')).toHaveLength(2))
     expect(container.querySelector('[data-upload-row]')).toBeNull()
   })
 
   it('a refused upload says so, offers Retry, and the retry lands the same file', async () => {
     uploadAttachment.mockRejectedValueOnce(new Error('The file could not be uploaded: gateway'))
-    const { container, getByLabelText, getByText } = mountCell([TRACKER])
+    const { container, getByLabelText, getByText } = mount([TRACKER])
     const file = new File(['pdf'], 'Runbook.pdf', { type: 'application/pdf' })
     fireEvent.change(getByLabelText('Upload a file'), { target: { files: [file] } })
 
@@ -381,7 +410,6 @@ describe('an upload is on screen for its whole life', () => {
         'The file did not upload.',
       ),
     )
-    // No row was invented for a file the bucket never took.
     expect(container.querySelectorAll('[data-resource-row]')).toHaveLength(1)
 
     uploadAttachment.mockResolvedValueOnce(landed(SHOT, 'cells/cell-1/r.pdf'))
@@ -391,25 +419,18 @@ describe('an upload is on screen for its whole life', () => {
       cellId: 'cell-1',
       file,
     })
-    expect(container.querySelector('[data-upload-row]')).toBeNull()
   })
 
-  it('files a cell’s own upload under the cell, with no placement', async () => {
+  it('files the object under the cell, and drafts its row into the chosen owner', async () => {
     uploadAttachment.mockResolvedValue(landed(SHOT, 'cells/cell-1/r.pdf'))
-    const { getByLabelText, getByText } = mountCell([TRACKER])
+    const { getByLabelText } = mount([TRACKER], { opened: 'p-1' })
     const file = new File(['pdf'], 'Runbook.pdf', { type: 'application/pdf' })
     fireEvent.change(getByLabelText('Upload a file'), { target: { files: [file] } })
 
-    await waitFor(() => expect(uploadAttachment).toHaveBeenCalled())
+    await waitFor(() => expect(listOf('p-1')).not.toBeNull())
     expect(uploadAttachment).toHaveBeenCalledWith(expect.anything(), { cellId: 'cell-1', file })
-
-    fireEvent.click(getByText('Save resources'))
-    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1))
-    expect(rpc.mock.calls[0]![1].p_rows.at(-1)).toEqual({
-      id: null,
-      kind: 'attachment',
-      name: 'Runbook',
-      url: SHOT,
-    })
+    expect(rowsForSync(listOf('p-1')!)).toEqual([
+      { id: null, kind: 'attachment', name: 'Runbook', url: SHOT },
+    ])
   })
 })

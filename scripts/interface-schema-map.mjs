@@ -149,6 +149,7 @@ export const LABEL_COLUMNS = Object.freeze(
     {
       cell: 'summary',
       names: [
+        'cell_touchpoints.summary',
         'paths.summary',
         'phases.summary',
         'scenarios.summary',

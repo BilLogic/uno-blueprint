@@ -30,7 +30,7 @@ owes the third column a reason.
 | The interface says | The schema says | Why they differ |
 |---|---|---|
 | **Content** | `cells.content` | — |
-| **Summary** | `cells.summary`, `paths.summary`, `phases.summary`, `scenarios.summary`, `services.summary`, `steps.summary` | — |
+| **Summary** | `cells.summary`, `cell_touchpoints.summary`, `paths.summary`, `phases.summary`, `scenarios.summary`, `services.summary`, `steps.summary` | — |
 | **Owner** | `cells.owner` | — |
 | **Perceived owner** | `cells.perceived_owner` | — |
 | **Function** | `cells.function` | — |
@@ -136,10 +136,11 @@ document look complete.
 
 <!-- generated:coverage — npm run interface-map -->
 
-30 of 40 names carry a comment in the catalogue. Read them there — `\d+ <table>` in psql, or the `COMMENT ON` statements in the dump.
+30 of 41 names carry a comment in the catalogue. Read them there — `\d+ <table>` in psql, or the `COMMENT ON` statements in the dump.
 
-10 that carry none:
+11 that carry none:
 
+- `cell_touchpoints.summary`
 - `phases.summary`
 - `scenarios.summary`
 - `services.summary`

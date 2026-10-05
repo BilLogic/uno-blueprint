@@ -114,10 +114,6 @@ vi.mock('@/hooks/useRegistryTouchpoints', () => ({
   useRegistryTouchpoints: () => ({ status: 'ready', data: [] }),
   useNameOnlyPlacements: () => ({ status: 'ready', data: [] }),
 }))
-// Its own button, its own transaction — see the note at the list.
-vi.mock('@/components/blueprint/PlacementResourcesList', () => ({
-  PlacementResourcesList: () => <div data-stub="placement-resources" />,
-}))
 // The owner tags come from their own query against a client this file does
 // not stand up. A plain labelled input is the whole of what these cases ask
 // of the control: that typing in it makes the cell's half of the form dirty.
@@ -242,7 +238,6 @@ describe('one Save over a cell and one of its placements', () => {
       <CellPanelEditor
         cellId="cell-1"
         placement={placement()}
-        placementResources={[]}
         onDone={() => {}}
       />,
     )
@@ -267,7 +262,6 @@ describe('one Save over a cell and one of its placements', () => {
       <CellPanelEditor
         cellId="cell-1"
         placement={placement()}
-        placementResources={[]}
         onDone={() => {}}
       />,
     )
@@ -291,7 +285,6 @@ describe('one Save over a cell and one of its placements', () => {
       <CellPanelEditor
         cellId="cell-1"
         placement={placement()}
-        placementResources={[]}
         onDone={() => {}}
       />,
     )
@@ -315,7 +308,6 @@ describe('one Save over a cell and one of its placements', () => {
         // bundled sample content, and there is nothing to save into. Offering
         // the form there would be offering a Save that writes nothing.
         placement={placement({ id: null, touchpointId: null })}
-        placementResources={[]}
         onDone={() => {}}
       />,
     )
@@ -340,7 +332,6 @@ describe('Save, only when something changed', () => {
       <CellPanelEditor
         cellId="cell-1"
         placement={placement()}
-        placementResources={[]}
         onDone={() => {}}
       />,
     )
@@ -422,7 +413,6 @@ describe('Save, only when something changed', () => {
       <CellPanelEditor
         cellId="cell-1"
         placement={placement()}
-        placementResources={[]}
         onDone={() => {}}
       />,
     )
@@ -451,7 +441,6 @@ describe('Save, only when something changed', () => {
       <CellPanelEditor
         cellId="cell-1"
         placement={placement({ summary: 'Restored elsewhere.', role: 'core' })}
-        placementResources={[]}
         onDone={() => {}}
       />,
     )

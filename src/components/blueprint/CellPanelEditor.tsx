@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -34,8 +34,8 @@ import {
 import { saveCell } from '@/lib/cellSave'
 import type { EntityStatus } from '@/lib/entityStatus'
 import { RegistryLink } from '@/components/blueprint/RegistryLink'
+import { TouchpointField } from '@/components/blueprint/TouchpointField'
 import { RoleSelect } from '@/components/blueprint/RoleSelect'
-import { PlacementResourcesList } from '@/components/blueprint/PlacementResourcesList'
 import {
   changedPlacementFields,
   placementSurvivesContent,
@@ -43,8 +43,9 @@ import {
   type PlacementDetailColumns,
   type PlacementDetailDraft,
 } from '@/lib/touchpointMutations'
+import { cellTouchpoints } from '@/lib/cellTouchpoints'
 import { errorMessage } from '@/lib/utils'
-import type { BlueprintData, CellResource, CellTouchpoint } from '@/types/blueprint'
+import type { BlueprintData, CellTouchpoint } from '@/types/blueprint'
 import { parseCellContentItems } from '@/lib/parseCellContent'
 import type { ValueProp } from '@/lib/valueProps'
 
@@ -189,8 +190,6 @@ export function CellPanelEditor({
   cellId,
   draft,
   placement = null,
-  placementResources = [],
-  frame = null,
   fallbackSummary = '',
   onDone,
 }: {
@@ -206,14 +205,6 @@ export function CellPanelEditor({
    * of the bundled sample content and there is no row to write into.
    */
   placement?: CellTouchpoint | null
-  /**
-   * The cell's resources, from which the placement's list keeps its own. Read
-   * here, written by `PlacementResourcesList` on its own button — see the
-   * note at the list.
-   */
-  placementResources?: readonly CellResource[]
-  /** The cell's frame — its featured image — for the placement's list to name. */
-  frame?: string | null
   /**
    * What the panel displays as this cell's summary when the column is
    * empty (tech cells keep prose in `links`). Seeded into the field so the
@@ -257,8 +248,7 @@ export function CellPanelEditor({
         cellId={cellId}
         draft={undefined}
         placement={editable}
-        placementResources={placementResources}
-        frame={frame}
+        holdsTouchpoint={cellTouchpoints(cell).length > 0}
         baseline={baseline}
         seededSummary={cell.summary ?? fallbackSummary}
         onDone={onDone}
@@ -281,8 +271,7 @@ export function CellPanelEditor({
       }}
       seededSummary=""
       placement={null}
-      placementResources={[]}
-      frame={null}
+      holdsTouchpoint={false}
       onDone={onDone}
     />
   )
@@ -292,8 +281,7 @@ function CellPanelEditorForm({
   cellId,
   draft,
   placement,
-  placementResources,
-  frame,
+  holdsTouchpoint,
   baseline: baselineProp,
   seededSummary,
   onDone,
@@ -302,8 +290,11 @@ function CellPanelEditorForm({
   draft: DraftCellTarget | undefined
   /** Non-null only when it carries a row id — see CellPanelEditor. */
   placement: CellTouchpoint | null
-  placementResources: readonly CellResource[]
-  frame: string | null
+  /**
+   * Whether the saved cell holds any placement, the opened one or another.
+   * A rename in Content is what removes one, so that is where the hint goes.
+   */
+  holdsTouchpoint: boolean
   baseline: FormState
   seededSummary: string
   onDone: () => void
@@ -313,6 +304,11 @@ function CellPanelEditorForm({
   const audiencesResult = useValueAudiences()
   const nameOnlyResult = useNameOnlyPlacements(cellId)
   const nameOnly = nameOnlyResult.status === 'ready' ? nameOnlyResult.data : []
+  const renameHintId = useId()
+  // The opened placement's own registry card goes in its block, where the
+  // touchpoint is named; any other name-only placement keeps its card above.
+  const openedNameOnly = nameOnly.find((one) => one.id === placement?.id) ?? null
+  const otherNameOnly = nameOnly.filter((one) => one !== openedNameOnly)
   const audiences =
     audiencesResult.status === 'ready' ? audiencesResult.data : []
   // The footer host mounts in the same commit as this form; looked up once
@@ -474,30 +470,42 @@ function CellPanelEditorForm({
   /*
     The placement, directly under the text that lists it.
 
-    Enclosed and headed rather than mixed into the cell's fields, because
-    these belong to a DIFFERENT thing: the cell is the moment, the
-    placement is one touchpoint used at it, and the same tool at the next
-    step keeps its own words. Two fields called Summary on one screen is
-    exactly why the group draws a border and says whose it is. Its labels
-    are its own, not the cell field list's: they name columns of
-    `cell_touchpoints`.
+    Enclosed rather than mixed into the cell's fields, because these belong
+    to a DIFFERENT thing: the cell is the moment, the placement is one
+    touchpoint used at it, and the same tool at the next step keeps its own
+    words. Two fields called Summary on one screen is why the group draws a
+    border, and the Touchpoint field at its head is what says whose they
+    are — so the group needs no heading or copy of its own. Its labels are
+    not the cell field list's: they name the touchpoint and two columns of
+    `cell_touchpoints`, and the interface-schema map binds each one.
 
     Directly under Content and not at the bottom because the author
     reached this panel by clicking that touchpoint. Making them scroll
     past six of the cell's fields to reach the thing they clicked is how
     an editor teaches people it is not for them.
+
+    A name-only placement's registry card sits in the Touchpoint field,
+    under the name it is about, since linking it is the decision that field
+    is waiting on. The placement's resources are not here: the Resources tab
+    lists them beside the cell's own, read-only.
   */
   const placementGroup = placement ? (
-    <div className="flex flex-col gap-3 rounded-md border border-border bg-muted/20 p-3">
-      <div className="flex flex-col gap-1">
-        <span className="text-xs font-medium text-muted-foreground">
-          “{placement.name}” at this step
-        </span>
-        <p className="text-xs text-muted-foreground">
-          This touchpoint’s own words here. The same tool at another
-          step keeps its own.
-        </p>
-      </div>
+    <div
+      className="flex flex-col gap-3 rounded-md border border-border bg-muted/20 p-3"
+      data-touchpoint-block=""
+    >
+      <TouchpointField
+        name={placement.name}
+        below={
+          openedNameOnly && cellId ? (
+            <RegistryLink
+              placement={openedNameOnly}
+              cellId={cellId}
+              shown={parseCellContentItems(form.content)}
+            />
+          ) : null
+        }
+      />
       <Field
         label="Summary"
         hint="What this touchpoint does at this moment — the screen, the message, the part of it being used."
@@ -519,20 +527,6 @@ function CellPanelEditorForm({
           onChange={(next) => setPlacement('role', next)}
         />
       </Field>
-      {/*
-        The one exception to "one Save": the list has its own. A reorder
-        is a whole-list fact and featuring is one row's flag that the
-        database settles in its own transaction — folding either into the
-        field Save would make that button write things it cannot show as
-        unsaved. The list says so on its own button.
-      */}
-      {placement.id && cellId ? (
-        <PlacementResourcesList
-          placement={{ id: placement.id, cellId, name: placement.name }}
-          resources={placementResources}
-          frame={frame}
-        />
-      ) : null}
     </div>
   ) : null
 
@@ -552,9 +546,11 @@ function CellPanelEditorForm({
         through — they are the placement's identity, not one of its fields —
         so they refresh the board themselves. Removing one does not close the
         panel: the panel is the cell's here, and the cell is still there.
+        The placement the panel was opened on is the exception: its card
+        sits in its own block, under the name.
       */}
       {cellId
-        ? nameOnly.map((placement) => (
+        ? otherNameOnly.map((placement) => (
             <RegistryLink
               key={placement.id}
               placement={placement}
@@ -583,16 +579,31 @@ function CellPanelEditorForm({
             autoFocus={field.key === 'content' && cellId === null}
             audiences={audiences}
             after={
-              field.key === 'content' && lengthGuidance.message ? (
-                // Advice, not a gate. The same note the agent receives in its
-                // tool result lands under this field at the same thresholds;
-                // stopping the box used to contradict that (cellContentLimits).
-                <p role="status" className="text-xs font-normal text-muted-foreground">
-                  {lengthGuidance.message}
-                </p>
+              field.key === 'content' ? (
+                <>
+                  {lengthGuidance.message ? (
+                    // Advice, not a gate. The same note the agent receives in its
+                    // tool result lands under this field at the same thresholds;
+                    // stopping the box used to contradict that (cellContentLimits).
+                    <p role="status" className="text-xs font-normal text-muted-foreground">
+                      {lengthGuidance.message}
+                    </p>
+                  ) : null}
+                  {holdsTouchpoint ? (
+                    // The sync keys a placement on the name the text shows, so
+                    // a rename here is a removal and a new name, not an edit.
+                    <p id={renameHintId} className="text-xs text-muted-foreground">
+                      Changing a touchpoint’s name here removes its Summary,
+                      Role and resources at this step.
+                    </p>
+                  ) : null}
+                </>
               ) : null
             }
             below={field.key === 'content' ? placementGroup : null}
+            describedBy={
+              field.key === 'content' && holdsTouchpoint ? renameHintId : undefined
+            }
           />
         ))
         // A shared row sits side by side — the owner pair, whose interesting
@@ -669,6 +680,7 @@ function CellFieldEditor<K extends CellEditKey>({
   audiences,
   after,
   below,
+  describedBy,
 }: {
   field: EditableCellField & { key: K }
   value: CellEditValue<K>
@@ -677,6 +689,8 @@ function CellFieldEditor<K extends CellEditKey>({
   audiences: readonly string[]
   after: ReactNode
   below: ReactNode
+  /** The id of a note under the control that says more about it. */
+  describedBy?: string
 }) {
   // Each branch narrows the value by the control rather than by the key,
   // so a second field with the same control needs no branch of its own;
@@ -690,6 +704,7 @@ function CellFieldEditor<K extends CellEditKey>({
           <Input
             value={value as string}
             autoFocus={autoFocus}
+            aria-describedby={describedBy}
             onChange={(event) => change(event.target.value)}
           />
         )
@@ -698,6 +713,7 @@ function CellFieldEditor<K extends CellEditKey>({
           <textarea
             value={value as string}
             rows={field.editor.rows}
+            aria-describedby={describedBy}
             onChange={(event) => change(event.target.value)}
             className={PANEL_TEXTAREA_CLASS}
           />

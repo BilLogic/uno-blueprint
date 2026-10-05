@@ -538,6 +538,13 @@ jobs:
       - name: An authored example survives a re-map
         run: bash scripts/tests/entity-examples-round-trip.test.sh
 
+      # `update_touchpoint` writes the registry row and every bearing cell's
+      # text together or not at all, and an empty replay cannot tell a
+      # transaction that rolled back from one that never wrote. This loads the
+      # seed and calls it as an author and as a reader, refusals included.
+      - name: A touchpoint edit lands whole, undoes whole, and is refused whole
+        run: bash scripts/tests/update-touchpoint.test.sh
+
       # The vocabulary sweep, against the catalogue rather than the files.
       # `alter table … rename` moves the table and the column; the index, the
       # constraint, the policy, the trigger, the comment and every plpgsql body

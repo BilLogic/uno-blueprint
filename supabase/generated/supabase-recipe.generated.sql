@@ -2504,3 +2504,60 @@ begin
   end loop;
 end
 $posture$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000301000000_one_write_edits_a_touchpoint_whole.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- who may call it, and where an uploaded icon may be put.
+--
+-- The same posture as `rename_touchpoint`: closed to `public` and `anon`,
+-- open to `authenticated`, with the guard in the body deciding which
+-- authenticated caller may actually author.
+revoke execute on function public.update_touchpoint(uuid, text, text, text, text, text) from public, anon;
+grant execute on function public.update_touchpoint(uuid, text, text, text, text, text) to authenticated;
+
+-- The two write policies that check a key, rewritten with one more prefix.
+-- Select and delete check no key and are left as they stand.
+drop policy if exists "cell_attachments_insert" on storage.objects;
+drop policy if exists "cell_attachments_update" on storage.objects;
+
+create policy "cell_attachments_insert" on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'cell-attachments'
+    and public.is_service_account()
+    and name ~ '^(cells|touchpoints)/[0-9a-f-]{36}/[0-9a-f-]{36}\.[a-z0-9]{1,8}$'
+  );
+
+create policy "cell_attachments_update" on storage.objects
+  for update to authenticated
+  using (bucket_id = 'cell-attachments' and public.is_service_account())
+  with check (
+    bucket_id = 'cell-attachments'
+    and public.is_service_account()
+    and name ~ '^(cells|touchpoints)/[0-9a-f-]{36}/[0-9a-f-]{36}\.[a-z0-9]{1,8}$'
+  );
+
+do $proof$
+declare
+  admitted int;
+begin
+  select count(*) into admitted
+    from pg_policies
+   where schemaname = 'storage' and tablename = 'objects'
+     and policyname in ('cell_attachments_insert', 'cell_attachments_update')
+     and coalesce(with_check, '') like '%touchpoints%'
+     and coalesce(with_check, '') like '%is_service_account()%'
+     and not ('anon' = any(roles) or 'public' = any(roles));
+  if admitted <> 2 then
+    raise exception
+      'proof: expected both cell_attachments key policies to admit touchpoints/ behind the service guard, found %', admitted;
+  end if;
+
+  if has_function_privilege('anon',
+       'public.update_touchpoint(uuid, text, text, text, text, text)', 'execute') then
+    raise exception 'proof: anon can call update_touchpoint';
+  end if;
+end
+$proof$;

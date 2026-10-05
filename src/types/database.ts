@@ -1338,6 +1338,17 @@ export type Database = {
         Args: { layout: string; scenario_id: string }
         Returns: undefined
       }
+      update_touchpoint: {
+        Args: {
+          p_icon_url: string
+          p_kind: string
+          p_name: string
+          p_summary: string
+          p_touchpoint_id: string
+          p_url: string
+        }
+        Returns: Json
+      }
       upsert_cell: {
         Args: {
           content: string

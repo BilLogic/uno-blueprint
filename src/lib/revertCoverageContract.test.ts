@@ -96,6 +96,9 @@ const RPC_BACKED = new Set([
   // one transaction, so it is a function, and its inverse is that same
   // function pointed back at the previous name.
   'rename_touchpoint',
+  // The whole-entry edit is the same shape: one function, and its inverse is
+  // that function fed the previous values it returned.
+  'update_touchpoint',
   // The header toggle's write, self-inverse with the previous layout, so
   // the default branch calls it back as is.
   'update_scenario_layout',

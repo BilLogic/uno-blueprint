@@ -58,6 +58,8 @@ export const queryKeys = {
   stepSpec: family('step-spec'),
   evidence: family('evidence'),
   registryTouchpoints: family('registry-touchpoints'),
+  /** One registry entry whole, with how many placements it has. */
+  touchpointEntry: family('touchpoint-entry'),
   nameOnlyPlacements: family('name-only-placements'),
   cellDeepLink: family('cell-deep-link'),
   /** A slice's scenario, keyed by the cells it cites. */

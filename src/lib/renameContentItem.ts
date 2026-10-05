@@ -1,5 +1,5 @@
 /**
- * `rename_content_item`, ported, for the tests that model a rename.
+ * `rename_content_item`, ported: what a rename does to one cell's text.
  *
  * The match is against a whole ITEM of the delimited list, never a substring:
  * `cells.content` is what `parseCellContentItems` splits on newline or comma
@@ -7,9 +7,12 @@
  * keeping the delimiters, map the items, join — which puts the author's
  * spacing back verbatim wherever nothing matched.
  *
- * One copy, shared, because two models of the same function are two places
- * for a test to drift from the SQL it stands in for. The SQL proves itself in
- * the migration that defines it.
+ * Two readers, one copy. The tests that model a rename use it to stand in for
+ * the SQL, and the cell editor uses it to move its own copy of the text when
+ * a rename lands while it is open: the database rewrote the cell, and the
+ * form has to hold the same words or its next Save writes the old name back.
+ * Two models of the same function would be two places to drift from the SQL
+ * it mirrors. The SQL proves itself in the migration that defines it.
  */
 export function renameContentItem(content: string, from: string, to: string): string {
   return content

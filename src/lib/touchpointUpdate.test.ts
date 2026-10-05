@@ -20,7 +20,7 @@ import { updateTouchpoint, type TouchpointEntry } from '@/lib/touchpointMutation
 import { touchpointIconObjectKey, uploadTouchpointIcon } from '@/lib/attachmentUpload'
 import { executeRevert } from '@/lib/revertChange'
 import { clearSession, describeChange, sessionSnapshot } from '@/lib/authoringSession'
-import { renameContentItem } from '@/test/renameContentItem'
+import { renameContentItem } from '@/lib/renameContentItem'
 
 type Row = {
   id: string

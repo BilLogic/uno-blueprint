@@ -111,4 +111,9 @@ describe('invalidateCellBoard', () => {
     expect(isStale(queryKeys.canvasBlueprints.of('a'))).toBe(true)
     expect(isStale(queryKeys.canvasBlueprints.of('b'))).toBe(true)
   })
+  it('marks the open touchpoint editor’s reach stale, since a cell’s text decides its placements', () => {
+    seed(queryKeys.touchpointEntry.of('tp-1'))
+    invalidateCellBoard('c1')
+    expect(isStale(queryKeys.touchpointEntry.of('tp-1'))).toBe(true)
+  })
 })

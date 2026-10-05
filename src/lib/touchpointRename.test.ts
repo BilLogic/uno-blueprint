@@ -42,7 +42,7 @@ import { renameTouchpoint } from '@/lib/touchpointMutations'
 import { executeRevert } from '@/lib/revertChange'
 import { clearSession, sessionSnapshot } from '@/lib/authoringSession'
 import { parseCellContentItems } from '@/lib/parseCellContent'
-import { renameContentItem } from '@/test/renameContentItem'
+import { renameContentItem } from '@/lib/renameContentItem'
 
 // ---------------------------------------------------------------------------
 // The model

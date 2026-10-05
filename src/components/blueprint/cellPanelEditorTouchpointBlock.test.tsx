@@ -52,6 +52,7 @@ vi.mock('@/hooks/useValueAudiences', () => ({
 vi.mock('@/hooks/useRegistryTouchpoints', () => ({
   useRegistryTouchpoints: () => ({ status: 'ready', data: [] }),
   useNameOnlyPlacements: () => ({ status: 'ready', data: nameOnly.data }),
+  useTouchpointEntry: () => ({ status: 'loading' }),
 }))
 vi.mock('@/components/blueprint/OwnerTagSelect', () => ({
   OwnerTagSelect: ({ ariaLabel }: { ariaLabel: string }) => (
@@ -117,8 +118,8 @@ describe('the touchpoint block', () => {
     expect(precedes(label, badge)).toBe(true)
     expect(precedes(badge, summary)).toBe(true)
     expect(precedes(summary, role)).toBe(true)
-    // The touchpoint editor arrives with its own button; nothing stands in for it.
-    expect(screen.queryByRole('button', { name: 'Edit touchpoint' })).toBeNull()
+    // A registry-backed placement offers its entry's own editor, in the badge row.
+    expect(inBlock.getByRole('button', { name: 'Edit touchpoint' })).toBeTruthy()
   })
 
   it('sits directly under Content, ahead of the cell’s own Summary', () => {

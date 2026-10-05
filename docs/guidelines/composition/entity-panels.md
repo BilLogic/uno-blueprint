@@ -39,6 +39,7 @@ claims:
   - src/components/blueprint/StepHeaderAffordance.tsx
   - src/components/blueprint/StepPanel.tsx
   - src/components/blueprint/TouchpointField.tsx
+  - src/components/blueprint/TouchpointEditDialog.tsx
   - src/components/blueprint/panelLoading.tsx
   - src/components/blueprint/panelShell.tsx
 ---
@@ -237,6 +238,20 @@ under Role with a **Registry** select and "Link to registry", and "Remove from
 this cell". Both write at once with an inverse in the ledger, and neither is a
 field of the placement, so neither waits for Save. Nothing here matches the
 name to the entry it resembles: the choice is the author's.
+
+**A registry-backed placement opens its entry over the panel.** Beside the
+touchpoint's name, "Edit touchpoint" opens `TouchpointEditDialog`: the entry's
+Name, Kind, Summary, URL and Icon, the number of steps an edit reaches, and a
+Save touchpoint of its own that writes through `update_touchpoint`. It is a
+dialog and not more fields in the panel because it edits a different thing at a
+different reach, and the panel's Save never writes the registry. It leaves the
+panel's form alone, with one exception: a rename rewrites this cell's text in
+the database, so untouched Content moves to the new name, baseline and field
+together, and edited Content refuses the rename until the panel is saved or
+cancelled. Left holding the old name, the panel's next Save would write it back
+and the content sync would delete the renamed placement. The dialog marks
+itself `data-panel-dialog`, which the panel's dismiss paths read, so its Escape
+does not close the panel underneath.
 
 **The resource list is one component with two owners.**
 `ResourcesList` is the list itself; `PlacementResourcesList` and the Resources

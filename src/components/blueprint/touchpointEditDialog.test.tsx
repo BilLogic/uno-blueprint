@@ -28,6 +28,13 @@ vi.mock('@/hooks/useRegistryTouchpoints', () => ({
     id && entry.current ? { status: 'ready', data: entry.current } : { status: 'loading' },
 }))
 vi.mock('@/lib/touchpointMutations', () => ({ updateTouchpoint }))
+// Served from under a prefix, so a root-relative icon path has to be asked
+// for through `servedUrl` — the build under test is served from the root,
+// where the call would be invisible.
+vi.mock('@/lib/basePath', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/basePath')>()
+  return { ...actual, servedUrl: (url: string) => actual.servedUrl(url, '/demo/') }
+})
 
 import { TouchpointEditDialog } from '@/components/blueprint/TouchpointEditDialog'
 import { panelEditorBusy } from '@/lib/panelEditorBusy'
@@ -200,6 +207,14 @@ describe('the touchpoint editor', () => {
     fireEvent.click(saveButton())
     await waitFor(() => expect(updateTouchpoint).toHaveBeenCalledTimes(1))
     expect(updateTouchpoint.mock.calls[0][2].name).toBe('Intake portal')
+  })
+
+  it('asks for a seeded root-relative icon under the path the app is served from', () => {
+    entry.current = { ...PORTAL, iconUrl: '/touchpoints/portal.png' }
+    open()
+    expect(screen.getByAltText('The touchpoint’s icon').getAttribute('src')).toBe(
+      '/demo/touchpoints/portal.png',
+    )
   })
 
   it('turns away an icon that is not a PNG, JPEG or WebP, with the reason, and keeps the old one', async () => {

@@ -20,8 +20,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CellTouchpoint } from '@/types/blueprint'
 import type { TouchpointUpdate } from '@/lib/touchpointMutations'
 
-const { updateCellContent, updateCellSpec, updateTouchpointPlacement, updateTouchpoint } =
+const { board, updateCellContent, updateCellSpec, updateTouchpointPlacement, updateTouchpoint } =
   vi.hoisted(() => ({
+    /** The board's copy of the cell — what a refetch would change. */
+    board: { content: 'Intake portal, Case file', name: 'Intake portal' },
     updateCellContent: vi.fn(async () => {}),
     updateCellSpec: vi.fn(async () => {}),
     updateTouchpointPlacement: vi.fn(async () => {}),
@@ -41,9 +43,9 @@ vi.mock('@/lib/authoringRpc', () => ({ upsertCell: vi.fn() }))
 vi.mock('@/contexts/SupabaseProvider', () => ({
   useSupabase: () => ({ client: {}, configured: true, canWrite: true }),
 }))
-// The board as it stood before the rename. It is never refetched here, which
-// is the window the panel has to survive: the database has the new name and
-// the board does not yet.
+// The board, read through `board` so a case can stand in for a refetch. Left
+// as it is, it is the window the panel has to survive after a rename: the
+// database has the new name and the board does not yet.
 vi.mock('@/contexts/BlueprintCellDetailContext', () => ({
   useBlueprintCellDetailOptional: () => ({
     blueprints: [
@@ -51,12 +53,12 @@ vi.mock('@/contexts/BlueprintCellDetailContext', () => ({
         cells: [
           {
             id: 'cell-1',
-            content: 'Intake portal, Case file',
+            content: board.content,
             summary: 'Where a report is filed.',
             owner: null,
             perceived_owner: null,
             resources: [],
-            touchpoints: [placement()],
+            touchpoints: [placement({ name: board.name })],
           },
         ],
       },
@@ -150,6 +152,8 @@ function rename(dialog: HTMLElement, to: string) {
 }
 
 beforeEach(() => {
+  board.content = 'Intake portal, Case file'
+  board.name = 'Intake portal'
   updateCellContent.mockClear()
   updateCellSpec.mockClear()
   updateTouchpointPlacement.mockClear()
@@ -268,5 +272,84 @@ describe('Edit touchpoint in the cell panel', () => {
 
     expect(updateTouchpoint).not.toHaveBeenCalled()
     expect(content().value).toBe('Intake portal, Case file, Phone line')
+  })
+
+  describe('when the rename is undone while the panel is open', () => {
+    /** Rename to Report portal, then let the board catch up with it. */
+    async function renameAndRefetch() {
+      updateTouchpoint.mockResolvedValue(RENAMED)
+      const view = render(
+        <CellPanelEditor cellId="cell-1" placement={placement()} onDone={() => {}} />,
+      )
+      const dialog = openEditor()
+      rename(dialog, 'Report portal')
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Save touchpoint' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+      board.content = 'Report portal, Case file'
+      board.name = 'Report portal'
+      view.rerender(
+        <CellPanelEditor
+          cellId="cell-1"
+          placement={placement({ name: 'Report portal' })}
+          onDone={() => {}}
+        />,
+      )
+      return view
+    }
+
+    /** The undo: the old name back in the registry and the text, and the board refetched. */
+    function undo(view: ReturnType<typeof render>) {
+      board.content = 'Intake portal, Case file'
+      board.name = 'Intake portal'
+      view.rerender(
+        <CellPanelEditor cellId="cell-1" placement={placement()} onDone={() => {}} />,
+      )
+    }
+
+    it('moves untouched Content back with it, and Save still writes the placement', async () => {
+      const view = await renameAndRefetch()
+      expect(content().value).toBe('Report portal, Case file')
+
+      undo(view)
+      expect(content().value).toBe('Intake portal, Case file')
+      expect(within(block()).getByTitle('Intake portal')).toBeTruthy()
+
+      fireEvent.change(placementSummary(), { target: { value: 'The screen a report starts on.' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+      await waitFor(() => expect(updateTouchpointPlacement).toHaveBeenCalledTimes(1))
+      expect(updateCellContent).not.toHaveBeenCalled()
+      expect(updateTouchpointPlacement).toHaveBeenCalledWith(
+        {},
+        { id: 'ct-1', cellId: 'cell-1', name: 'Intake portal' },
+        { summary: 'The screen a report starts on.', role: null },
+        { summary: 'Where a report is filed.', role: null },
+      )
+    })
+
+    it('refuses to save an edited Content that still says the undone name, until it names the placement again', async () => {
+      const view = await renameAndRefetch()
+      fireEvent.change(content(), { target: { value: 'Report portal, Case file, Phone line' } })
+
+      undo(view)
+      // The author's text is theirs, and stays as typed.
+      expect(content().value).toBe('Report portal, Case file, Phone line')
+      expect(screen.getByText(/The rename to “Report portal” was undone/)).toBeTruthy()
+      const save = screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement
+      expect(save.disabled).toBe(true)
+      fireEvent.click(save)
+      expect(updateCellContent).not.toHaveBeenCalled()
+
+      fireEvent.change(content(), { target: { value: 'Intake portal, Case file, Phone line' } })
+      fireEvent.change(placementSummary(), { target: { value: 'The screen a report starts on.' } })
+      expect(screen.queryByText(/was undone/)).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+      await waitFor(() => expect(updateTouchpointPlacement).toHaveBeenCalledTimes(1))
+      expect(updateTouchpointPlacement).toHaveBeenCalledWith(
+        {},
+        { id: 'ct-1', cellId: 'cell-1', name: 'Intake portal' },
+        expect.anything(),
+        expect.anything(),
+      )
+    })
   })
 })

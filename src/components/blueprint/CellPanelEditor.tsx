@@ -261,6 +261,7 @@ export function CellPanelEditor({
         draft={undefined}
         placement={editable}
         holdsTouchpoint={cellTouchpoints(cell).length > 0}
+        liveContent={cell.content}
         baseline={baseline}
         seededSummary={cell.summary ?? fallbackSummary}
         onDone={onDone}
@@ -284,6 +285,7 @@ export function CellPanelEditor({
       seededSummary=""
       placement={null}
       holdsTouchpoint={false}
+      liveContent={null}
       onDone={onDone}
     />
   )
@@ -294,6 +296,7 @@ function CellPanelEditorForm({
   draft,
   placement,
   holdsTouchpoint,
+  liveContent,
   baseline: baselineProp,
   seededSummary,
   onDone,
@@ -307,6 +310,12 @@ function CellPanelEditorForm({
    * A rename in Content is what removes one, so that is where the hint goes.
    */
   holdsTouchpoint: boolean
+  /**
+   * The cell's text as the board holds it now — unlike `baseline`, it tracks
+   * the live query. Read only to follow an undo of a rename this panel saved;
+   * null for a draft, which has no row to follow.
+   */
+  liveContent: string | null
   baseline: FormState
   seededSummary: string
   onDone: () => void
@@ -333,10 +342,11 @@ function CellPanelEditorForm({
     captured `previous` must speak about the world as it was when editing
     began, or Save quietly writes reverted values back.
 
-    One write moves it: a touchpoint rename saved from this panel's own
-    touchpoint editor, which rewrote this cell's Content in the database. The
-    baseline then has to say what the database now holds, or the diff would
-    find a content edit nobody made — see `handleTouchpointSaved`.
+    One write moves it, and its undo moves it back: a touchpoint rename saved
+    from this panel's own touchpoint editor, which rewrote this cell's
+    Content in the database. The baseline then has to say what the database
+    now holds, or the diff would find a content edit nobody made — see
+    `handleTouchpointSaved`, and the undo check after the `rename` state.
   */
   const [baseline, setBaseline] = useState(baselineProp)
   const [form, setForm] = useState<FormState>({
@@ -365,17 +375,64 @@ function CellPanelEditorForm({
   // The registry entry's own editor, over the panel.
   const [editingTouchpoint, setEditingTouchpoint] = useState(false)
   /*
-    A rename this panel saved, until the board catches up. The placement prop
-    is the board's, and the refetch that carries the new name lands a beat
-    after the write; in between, the block and the content check below would
-    still be asking about the old name, which the text no longer lists.
+    A rename this panel saved, followed until it settles one way or the other.
+
+    `content` is the text this form moved its Content to, or null when the
+    rename did not rewrite this cell. `seen` turns true once the board shows
+    the new name: before that the placement prop is the board's pre-rename
+    copy, and the block and the content check below would still be asking
+    about the old name, which the text no longer lists.
   */
-  const [renamed, setRenamed] = useState<{ from: string; to: string } | null>(null)
-  // Caught up: the board says the new name itself, and from here on it is
-  // the board's to say — an undo of the rename shows the old one again.
-  if (renamed && placement?.name === renamed.to) setRenamed(null)
+  const [rename, setRename] = useState<{
+    from: string
+    to: string
+    content: string | null
+    seen: boolean
+  } | null>(null)
+  /*
+    A rename undone under an edited Content — see `renameUndoneBlocks` below.
+    Kept until the panel closes; it only blocks while it is still true.
+  */
+  const [undoneRename, setUndoneRename] = useState<{ from: string; to: string } | null>(null)
+  if (rename && !rename.seen && placement?.name === rename.to) {
+    setRename({ ...rename, seen: true })
+  }
+  /*
+    The rename taken back while the panel is open — a ⌘Z revert, which puts
+    the old name back in the registry and in every cell's text. The board
+    says the old name again, and this form, which followed the rename, would
+    hold a baseline the database no longer has: Save would see the old name
+    missing from Content and skip the placement's edits without a word, or
+    write the new name back over the reverted text.
+
+    So the form follows the undo the way it followed the rename. When this
+    cell's text on the board is exactly the reverse item-rewrite of the text
+    the form moved to, the baseline moves back to it; an untouched Content
+    moves with it, and the form again holds no edit of its own. An edited
+    Content cannot be moved without guessing at the author's intent, so it
+    stays as typed and Save waits until it names the placement again.
+  */
+  if (rename?.seen && placement?.name === rename.from) {
+    setRename(null)
+    if (
+      rename.content !== null &&
+      liveContent !== null &&
+      baseline.content === rename.content &&
+      liveContent === renameContentItem(rename.content, rename.to, rename.from)
+    ) {
+      const back = liveContent
+      if (form.content === baseline.content) {
+        setForm((current) => ({ ...current, content: back }))
+      } else {
+        setUndoneRename({ from: rename.from, to: rename.to })
+      }
+      setBaseline((current) => ({ ...current, content: back }))
+    }
+  }
   const placementName =
-    placement && renamed && placement.name === renamed.from ? renamed.to : placement?.name
+    placement && rename && !rename.seen && placement.name === rename.from
+      ? rename.to
+      : placement?.name
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((current) => ({ ...current, [key]: value }))
@@ -411,15 +468,32 @@ function CellPanelEditorForm({
   */
   const handleTouchpointSaved = (result: TouchpointUpdate) => {
     if (result.name === result.previousName) return
-    setRenamed({ from: result.previousName, to: result.name })
     const savedCell = cellId ?? createdId
-    if (!savedCell || !result.cellIds.includes(savedCell)) return
-    const moved = renameContentItem(baseline.content, result.previousName, result.name)
+    const rewritten = Boolean(savedCell && result.cellIds.includes(savedCell))
+    const moved = rewritten
+      ? renameContentItem(baseline.content, result.previousName, result.name)
+      : null
+    setRename({ from: result.previousName, to: result.name, content: moved, seen: false })
+    if (moved === null) return
     if (form.content === baseline.content) {
       setForm((current) => ({ ...current, content: moved }))
     }
     setBaseline((current) => ({ ...current, content: moved }))
   }
+
+  /*
+    The one case the undo above cannot settle: Content was edited after the
+    rename and still names the touchpoint by the name the undo took away.
+    Saving it would write that name back, and the content sync would read it
+    as a new touchpoint — the placement the panel is about would lose its
+    registry entry and a second one would be minted. Refused, with the way
+    out, rather than written; the placement is otherwise keyed on a name
+    check that just went stale, and would be skipped without a word.
+  */
+  const renameUndoneBlocks =
+    undoneRename !== null &&
+    placementSurvivesContent(form.content, undoneRename.to) &&
+    !placementSurvivesContent(form.content, undoneRename.from)
 
   const placementChanged =
     Boolean(placement) &&
@@ -427,7 +501,7 @@ function CellPanelEditorForm({
       form.placement.role !== baseline.placement.role)
 
   const handleSave = async () => {
-    if (!client || busy || blocked) return
+    if (!client || busy || blocked || renameUndoneBlocks) return
     setBusy(true)
     setError(null)
     try {
@@ -678,6 +752,13 @@ function CellPanelEditorForm({
           A cell needs content.
         </p>
       ) : null}
+      {renameUndoneBlocks && undoneRename ? (
+        <p className="text-xs text-destructive">
+          The rename to “{undoneRename.to}” was undone, and Content still says
+          “{undoneRename.to}”. Change it back to “{undoneRename.from}”, or cancel,
+          before saving.
+        </p>
+      ) : null}
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
 
       {(() => {
@@ -686,7 +767,7 @@ function CellPanelEditorForm({
             <Button
               type="button"
               size="sm"
-              disabled={busy || blocked}
+              disabled={busy || blocked || renameUndoneBlocks}
               onClick={handleSave}
             >
               {busy ? 'Saving…' : cellId ? 'Save' : 'Create cell'}

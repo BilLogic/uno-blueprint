@@ -19,6 +19,7 @@ import {
   type TouchpointEntryRead,
 } from '@/hooks/useRegistryTouchpoints'
 import { uploadTouchpointIcon } from '@/lib/attachmentUpload'
+import { servedUrl } from '@/lib/basePath'
 import { TOUCHPOINT_KIND_OPTIONS } from '@/lib/touchpointKind'
 import {
   updateTouchpoint,
@@ -272,7 +273,9 @@ function TouchpointEditForm({
           <div className="flex flex-wrap items-center gap-2">
             {draft.iconUrl ? (
               <img
-                src={draft.iconUrl}
+                // A seeded icon can be a root-relative path into `public/`,
+                // which under a base path is served from under the prefix.
+                src={servedUrl(draft.iconUrl)}
                 alt="The touchpoint’s icon"
                 className="size-8 shrink-0 rounded-md border border-border object-contain"
               />

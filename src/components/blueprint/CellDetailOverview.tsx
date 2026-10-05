@@ -52,7 +52,6 @@ export function CellDetailOverview({
     cellId,
     frame,
     touchpoints,
-    resources,
     lane: selectedLane,
     placement,
     touchpointDetail,
@@ -175,8 +174,11 @@ export function CellDetailOverview({
     field says which is which, and it matches how Owner already presents a
     value: label above, value below. The definition rides the label's own
     hint popover, the affordance every other field label uses.
+
+    Not while editing a real placement: the editor's touchpoint block opens
+    with the same field, and one name shown twice reads as two touchpoints.
   */
-  const touchpointField = showTouchpoint ? (
+  const touchpointField = showTouchpoint && !(editingCell && hasRealPlacement) ? (
     <Field label="Touchpoint" hint={PANEL_TERMS.touchpoint}>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <PanelKindBadge
@@ -263,8 +265,6 @@ export function CellDetailOverview({
           // cell's form under one Save rather than arriving as a second
           // editor with a second Save button.
           placement={placement}
-          placementResources={resources}
-          frame={frame}
           // Never seed the field with the title wearing a summary's
           // clothes — only prose that actually says more than the cell text.
           fallbackSummary={

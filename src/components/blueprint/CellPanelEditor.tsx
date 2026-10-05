@@ -10,6 +10,7 @@ import {
   CELL_PANEL_FOOTER_ID,
   Field,
   PANEL_TEXTAREA_CLASS,
+  PanelKindBadge,
 } from '@/components/blueprint/panelShell'
 import { usePanelFooterHost } from '@/hooks/usePanelFooterHost'
 import { useSupabase } from '@/contexts/SupabaseProvider'
@@ -17,6 +18,7 @@ import { useBlueprintCellDetailOptional } from '@/contexts/BlueprintCellDetailCo
 import { useBlueprintCell } from '@/hooks/useBlueprintCell'
 import { useValueAudiences } from '@/hooks/useValueAudiences'
 import { useNameOnlyPlacements } from '@/hooks/useRegistryTouchpoints'
+import { useTouchpointToneResolver } from '@/hooks/useTouchpointToneResolver'
 import {
   cellBudgetKindForLane,
   getCellContentLengthGuidance,
@@ -34,15 +36,16 @@ import { saveCell } from '@/lib/cellSave'
 import type { EntityStatus } from '@/lib/entityStatus'
 import { RegistryLink } from '@/components/blueprint/RegistryLink'
 import { RoleSelect } from '@/components/blueprint/RoleSelect'
-import { PlacementResourcesList } from '@/components/blueprint/PlacementResourcesList'
 import {
   placementSurvivesContent,
   updateTouchpointPlacement,
   type PlacementDetailColumns,
   type PlacementDetailDraft,
 } from '@/lib/touchpointMutations'
+import { cellTouchpoints } from '@/lib/cellTouchpoints'
+import { PANEL_TERMS } from '@/lib/panelTerms'
 import { errorMessage } from '@/lib/utils'
-import type { BlueprintData, CellResource, CellTouchpoint } from '@/types/blueprint'
+import type { BlueprintData, CellTouchpoint } from '@/types/blueprint'
 import { parseCellContentItems } from '@/lib/parseCellContent'
 import type { ValueProp } from '@/lib/valueProps'
 
@@ -187,8 +190,6 @@ export function CellPanelEditor({
   cellId,
   draft,
   placement = null,
-  placementResources = [],
-  frame = null,
   fallbackSummary = '',
   onDone,
 }: {
@@ -204,14 +205,6 @@ export function CellPanelEditor({
    * of the bundled sample content and there is no row to write into.
    */
   placement?: CellTouchpoint | null
-  /**
-   * The cell's resources, from which the placement's list keeps its own. Read
-   * here, written by `PlacementResourcesList` on its own button — see the
-   * note at the list.
-   */
-  placementResources?: readonly CellResource[]
-  /** The cell's frame — its featured image — for the placement's list to name. */
-  frame?: string | null
   /**
    * What the panel displays as this cell's summary when the column is
    * empty (tech cells keep prose in `links`). Seeded into the field so the
@@ -255,8 +248,7 @@ export function CellPanelEditor({
         cellId={cellId}
         draft={undefined}
         placement={editable}
-        placementResources={placementResources}
-        frame={frame}
+        holdsTouchpoint={cellTouchpoints(cell).length > 0}
         baseline={baseline}
         seededSummary={cell.summary ?? fallbackSummary}
         onDone={onDone}
@@ -279,8 +271,7 @@ export function CellPanelEditor({
       }}
       seededSummary=""
       placement={null}
-      placementResources={[]}
-      frame={null}
+      holdsTouchpoint={false}
       onDone={onDone}
     />
   )
@@ -290,8 +281,7 @@ function CellPanelEditorForm({
   cellId,
   draft,
   placement,
-  placementResources,
-  frame,
+  holdsTouchpoint,
   baseline: baselineProp,
   seededSummary,
   onDone,
@@ -300,8 +290,11 @@ function CellPanelEditorForm({
   draft: DraftCellTarget | undefined
   /** Non-null only when it carries a row id — see CellPanelEditor. */
   placement: CellTouchpoint | null
-  placementResources: readonly CellResource[]
-  frame: string | null
+  /**
+   * Whether the cell's text names any placement, the opened one or another.
+   * A rename in Content is what removes one, so that is where the hint goes.
+   */
+  holdsTouchpoint: boolean
   baseline: FormState
   seededSummary: string
   onDone: () => void
@@ -311,6 +304,7 @@ function CellPanelEditorForm({
   const audiencesResult = useValueAudiences()
   const nameOnlyResult = useNameOnlyPlacements(cellId)
   const nameOnly = nameOnlyResult.status === 'ready' ? nameOnlyResult.data : []
+  const resolveTouchpointTone = useTouchpointToneResolver()
   const audiences =
     audiencesResult.status === 'ready' ? audiencesResult.data : []
   // The footer host mounts in the same commit as this form; looked up once
@@ -443,30 +437,50 @@ function CellPanelEditorForm({
   /*
     The placement, directly under the text that lists it.
 
-    Enclosed and headed rather than mixed into the cell's fields, because
-    these belong to a DIFFERENT thing: the cell is the moment, the
-    placement is one touchpoint used at it, and the same tool at the next
-    step keeps its own words. Two fields called Summary on one screen is
-    exactly why the group draws a border and says whose it is. Its labels
-    are its own, not the cell field list's: they name columns of
-    `cell_touchpoints`.
+    Enclosed rather than mixed into the cell's fields, because these belong
+    to a DIFFERENT thing: the cell is the moment, the placement is one
+    touchpoint used at it, and the same tool at the next step keeps its own
+    words. Two fields called Summary on one screen is why the group draws a
+    border, and the Touchpoint field at its head is what says whose they
+    are — so the group needs no heading or copy of its own. Its labels are
+    not the cell field list's: they name the touchpoint and two columns of
+    `cell_touchpoints`, and the interface-schema map binds each one.
 
     Directly under Content and not at the bottom because the author
     reached this panel by clicking that touchpoint. Making them scroll
     past six of the cell's fields to reach the thing they clicked is how
     an editor teaches people it is not for them.
+
+    The placement's resources are not here. The Resources tab lists them
+    beside the cell's own, read-only.
   */
   const placementGroup = placement ? (
-    <div className="flex flex-col gap-3 rounded-md border border-border bg-muted/20 p-3">
-      <div className="flex flex-col gap-1">
-        <span className="text-xs font-medium text-muted-foreground">
-          “{placement.name}” at this step
-        </span>
-        <p className="text-xs text-muted-foreground">
-          This touchpoint’s own words here. The same tool at another
-          step keeps its own.
-        </p>
-      </div>
+    <div
+      className="flex flex-col gap-3 rounded-md border border-border bg-muted/20 p-3"
+      data-touchpoint-block=""
+    >
+      <Field label="Touchpoint" hint={PANEL_TERMS.touchpoint}>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {/* The badge the read-only panel names the touchpoint with. */}
+          <PanelKindBadge
+            label={placement.name}
+            tone={resolveTouchpointTone(placement.name)}
+            title={placement.name}
+          />
+          {/*
+            Only for a touchpoint the registry holds: a name-only placement has
+            no entry to edit, and its Link to registry card above is the way
+            forward instead. Disabled for now: editing the registry entry is a
+            modal of its own, which lands separately, and the button holds its
+            place so the block keeps its shape when it does.
+          */}
+          {placement.touchpointId ? (
+            <Button type="button" size="sm" variant="outline" disabled>
+              Edit touchpoint
+            </Button>
+          ) : null}
+        </div>
+      </Field>
       <Field
         label="Summary"
         hint="What this touchpoint does at this moment — the screen, the message, the part of it being used."
@@ -488,20 +502,6 @@ function CellPanelEditorForm({
           onChange={(next) => setPlacement('role', next)}
         />
       </Field>
-      {/*
-        The one exception to "one Save": the list has its own. A reorder
-        is a whole-list fact and featuring is one row's flag that the
-        database settles in its own transaction — folding either into the
-        field Save would make that button write things it cannot show as
-        unsaved. The list says so on its own button.
-      */}
-      {placement.id && cellId ? (
-        <PlacementResourcesList
-          placement={{ id: placement.id, cellId, name: placement.name }}
-          resources={placementResources}
-          frame={frame}
-        />
-      ) : null}
     </div>
   ) : null
 
@@ -552,13 +552,26 @@ function CellPanelEditorForm({
             autoFocus={field.key === 'content' && cellId === null}
             audiences={audiences}
             after={
-              field.key === 'content' && lengthGuidance.message ? (
-                // Advice, not a gate. The same note the agent receives in its
-                // tool result lands under this field at the same thresholds;
-                // stopping the box used to contradict that (cellContentLimits).
-                <p role="status" className="text-xs font-normal text-muted-foreground">
-                  {lengthGuidance.message}
-                </p>
+              field.key === 'content' ? (
+                <>
+                  {lengthGuidance.message ? (
+                    // Advice, not a gate. The same note the agent receives in its
+                    // tool result lands under this field at the same thresholds;
+                    // stopping the box used to contradict that (cellContentLimits).
+                    <p role="status" className="text-xs font-normal text-muted-foreground">
+                      {lengthGuidance.message}
+                    </p>
+                  ) : null}
+                  {holdsTouchpoint ? (
+                    // The sync keys a placement on the name the text shows, so
+                    // a rename here is a removal and a new name, not an edit.
+                    <p className="text-xs text-muted-foreground">
+                      Rename a touchpoint from Edit touchpoint. Changing its
+                      name here removes that placement’s Summary, Role and
+                      resources.
+                    </p>
+                  ) : null}
+                </>
               ) : null
             }
             below={field.key === 'content' ? placementGroup : null}

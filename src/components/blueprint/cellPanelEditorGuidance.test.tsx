@@ -43,6 +43,7 @@ vi.mock('@/hooks/useValueAudiences', () => ({
 vi.mock('@/hooks/useRegistryTouchpoints', () => ({
   useRegistryTouchpoints: () => ({ status: 'ready', data: [] }),
   useNameOnlyPlacements: () => ({ status: 'ready', data: [] }),
+  useTouchpointEntry: () => ({ status: 'loading' }),
 }))
 vi.mock('@/components/blueprint/OwnerTagSelect', () => ({
   OwnerTagSelect: ({ value, ariaLabel }: { value: string; ariaLabel: string }) => (

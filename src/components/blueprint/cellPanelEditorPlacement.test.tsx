@@ -91,6 +91,7 @@ vi.mock('@/hooks/useValueAudiences', () => ({
 vi.mock('@/hooks/useRegistryTouchpoints', () => ({
   useRegistryTouchpoints: () => ({ status: 'ready', data: [] }),
   useNameOnlyPlacements: () => ({ status: 'ready', data: [] }),
+  useTouchpointEntry: () => ({ status: 'loading' }),
 }))
 // The owner tags come from their own query against a client this file does
 // not stand up. A plain labelled input is the whole of what these cases ask

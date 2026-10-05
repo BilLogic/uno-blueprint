@@ -368,6 +368,40 @@ describe('the overview’s reading', () => {
     })
   })
 
+  it('keeps the clicked placement by its row when a rename changes its name under the panel', () => {
+    // The selection still says the name it was clicked under; the board has
+    // been refetched with the registry's new one, on the same row.
+    const renamedBoard = (name: string | null): BlueprintData => ({
+      ...BOARD,
+      cells: BOARD.cells.map((cell) =>
+        cell.id !== 'cell-tools-arrives'
+          ? cell
+          : {
+              ...cell,
+              content: name ?? '',
+              touchpoints:
+                name === null ? [] : cell.touchpoints!.map((entry) => ({ ...entry, name })),
+            },
+      ),
+    })
+    const selection = selectionFor('cell-tools-arrives', { techItem: 'Kiosk' })
+    const { result, rerender } = renderHook(
+      ({ blueprints }: { blueprints: BlueprintData[] }) =>
+        useCellOverviewFacts(useSelectedCell({ blueprints, selection, draft: null })),
+      { initialProps: { blueprints: [BOARD] } },
+    )
+    expect(result.current.placement?.id).toBe('placement-kiosk')
+
+    rerender({ blueprints: [renamedBoard('Welcome kiosk')] })
+    expect(result.current.placement?.id).toBe('placement-kiosk')
+    expect(result.current.placement?.name).toBe('Welcome kiosk')
+    expect(result.current.touchpointDetail?.name).toBe('Welcome kiosk')
+
+    // A placement taken out of the text has no row left to find.
+    rerender({ blueprints: [renamedBoard(null)] })
+    expect(result.current.placement).toBeNull()
+  })
+
   it('leads with the placement’s featured link, and with the frame as stored', () => {
     const facts = overviewFacts(
       selectionFor('cell-tools-arrives', { techItem: 'Kiosk' }),

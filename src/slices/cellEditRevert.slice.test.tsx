@@ -95,6 +95,7 @@ vi.mock('@/hooks/useValueAudiences', () => ({
 vi.mock('@/hooks/useRegistryTouchpoints', () => ({
   useRegistryTouchpoints: () => ({ status: 'ready', data: [] }),
   useNameOnlyPlacements: () => ({ status: 'ready', data: [] }),
+  useTouchpointEntry: () => ({ status: 'loading' }),
 }))
 
 import { CellPanelEditor } from '@/components/blueprint/CellPanelEditor'

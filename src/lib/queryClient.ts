@@ -182,4 +182,8 @@ export function invalidateCellBoard(cellId: string | null | undefined): void {
   invalidateQueries(queryKeys.servicePhases.prefix)
   if (cellId) invalidateCanvasBlueprintsForCell(cellId)
   else invalidateQueries(queryKeys.canvasBlueprints.prefix)
+  // A cell's text decides which touchpoints are placed at it, so any cell
+  // write can change how many steps a registry entry reaches. Only an open
+  // touchpoint editor holds that count; anywhere else this marks nothing.
+  invalidateQueries(queryKeys.touchpointEntry.prefix)
 }

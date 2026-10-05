@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { describeLaneRole, getLaneRole } from '@/lib/laneRoles'
 import { featuredPresentation } from '@/lib/resourcePresentation'
 import {
@@ -434,10 +434,41 @@ export function useCellOverviewFacts({
     case. The row is what the summary, the role, the icon and the featured
     attachment all belong to, so it is resolved once and read from.
   */
-  const placement = useMemo(
+  const named = useMemo(
     () =>
       cell ? findCellPlacement({ touchpoints: cell.touchpoints }, techItem) : null,
     [cell, techItem],
+  )
+
+  /*
+    …and held by its ROW once found, because the selection names it by the
+    name it showed when it was clicked, and a name can change under an open
+    panel. A rename from the panel's own touchpoint editor refetches the board
+    with the new name while the selection still says the old one; matched by
+    name alone, the placement would vanish, and with it the editor's form and
+    every unsaved edit in it. So the row found for this cell and this name is
+    remembered by id, and found again by id when the name stops matching. A
+    placement that is really gone — its name taken out of the cell's text —
+    has no row to find, and resolves to nothing as before.
+  */
+  const [held, setHeld] = useState<{
+    cellId: string | null
+    techItem: string | undefined
+    placementId: string
+  } | null>(null)
+  if (
+    named?.id &&
+    (held?.placementId !== named.id || held.cellId !== cellId || held.techItem !== techItem)
+  ) {
+    setHeld({ cellId, techItem, placementId: named.id })
+  }
+  const heldId =
+    held && held.cellId === cellId && held.techItem === techItem ? held.placementId : null
+  const placement = useMemo(
+    () =>
+      named ??
+      (heldId ? (cell?.touchpoints.find((entry) => entry.id === heldId) ?? null) : null),
+    [named, heldId, cell],
   )
 
   /*
@@ -453,10 +484,12 @@ export function useCellOverviewFacts({
       cell
         ? resolveTouchpointDetail(
             { summary: cell.summary, touchpoints: cell.touchpoints },
-            techItem,
+            // The resolved row's own name, so a placement held by id across
+            // a rename is read under the name it now has.
+            placement?.name ?? techItem,
           )
         : null,
-    [cell, techItem],
+    [cell, placement, techItem],
   )
 
   /*

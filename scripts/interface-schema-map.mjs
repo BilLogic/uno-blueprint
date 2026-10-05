@@ -155,6 +155,7 @@ export const LABEL_COLUMNS = Object.freeze(
         'scenarios.summary',
         'services.summary',
         'steps.summary',
+        'touchpoints.summary',
       ],
     },
     { cell: 'owner' },
@@ -163,6 +164,16 @@ export const LABEL_COLUMNS = Object.freeze(
     { cell: 'form' },
     { cell: 'value_props' },
     { label: 'Touchpoint', names: ['touchpoints'], because: '' },
+    // The touchpoint editor, opened from that field: the registry entry's own
+    // fields. Its Kind and Summary bind on the rows of those words elsewhere.
+    { label: 'Name', names: ['touchpoints.name'], because: '' },
+    { label: 'URL', names: ['touchpoints.url'], because: '' },
+    {
+      label: 'Icon',
+      names: ['touchpoints.icon_url'],
+      because:
+        'The field shows the picture and offers Upload and Clear; nobody types an address into it. The column holds where the uploaded file lives, which is why it is a URL, and the label names the thing a reader sees rather than how it is stored.',
+    },
     { label: 'Role', names: ['cell_touchpoints.role'], because: '' },
     {
       label: 'Dependencies',
@@ -207,7 +218,7 @@ export const LABEL_COLUMNS = Object.freeze(
         'The control names what a reader is choosing FROM — the deployment\'s touchpoint registry — and the column is the key the choice lands in. The same split `Actor` draws over `lanes.stakeholder_id`: the label is the pool, the name is the pointer.',
     },
     { label: 'Evidence', names: ['evidence'], because: '' },
-    { label: 'Kind', names: ['evidence.kind'], because: '' },
+    { label: 'Kind', names: ['evidence.kind', 'touchpoints.kind'], because: '' },
     { label: 'Title', names: ['evidence.title'], because: '' },
     { label: 'Note', names: ['evidence.note'], because: '' },
     { label: 'Resources', names: ['resources'], because: '' },

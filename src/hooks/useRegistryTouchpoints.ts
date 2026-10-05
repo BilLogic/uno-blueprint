@@ -61,3 +61,60 @@ export function useNameOnlyPlacements(
     fallback,
   )
 }
+
+/** One registry entry, whole, as the touchpoint editor opens it. */
+export type TouchpointEntryRead = {
+  id: string
+  name: string
+  kind: string
+  summary: string | null
+  url: string | null
+  iconUrl: string | null
+  /**
+   * How many placements name this entry. One placement per cell — the pair is
+   * unique — so this is the number of steps an edit to the entry reaches.
+   */
+  placements: number
+}
+
+/**
+ * A registry entry and its reach, read when the touchpoint editor opens.
+ *
+ * Its own query because the board does not carry it. The board joins a
+ * placement's registry row for the name, kind and icon only, and it holds the
+ * boards of one service while the registry is the deployment's: a count taken
+ * off the boards in memory would leave out every step in another service that
+ * uses the same entry, and those are exactly the steps a rename rewrites. One
+ * request answers both — the row, and the placements counted beside it.
+ *
+ * Gated on an id, so nothing is read until the editor is opened.
+ */
+export function useTouchpointEntry(
+  touchpointId: string | null,
+): QueryResult<TouchpointEntryRead | null> {
+  const fallback = useCallback(() => null, [])
+  return useSupabaseQuery<TouchpointEntryRead | null>(
+    touchpointId ? queryKeys.touchpointEntry.of(touchpointId) : null,
+    async (client, signal) => {
+      const { data, error } = await client
+        .from('touchpoints')
+        .select('id, name, kind, summary, url, icon_url, cell_touchpoints(count)')
+        .eq('id', touchpointId!)
+        .abortSignal(signal)
+        .maybeSingle()
+      if (error) throw error
+      if (!data) return null
+      const counted = data.cell_touchpoints as unknown as { count: number }[] | null
+      return {
+        id: data.id,
+        name: data.name,
+        kind: data.kind,
+        summary: data.summary,
+        url: data.url,
+        iconUrl: data.icon_url,
+        placements: counted?.[0]?.count ?? 0,
+      }
+    },
+    fallback,
+  )
+}

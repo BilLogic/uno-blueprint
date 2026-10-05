@@ -68,6 +68,7 @@ vi.mock('@/hooks/useValueAudiences', () => ({
 vi.mock('@/hooks/useRegistryTouchpoints', () => ({
   useRegistryTouchpoints: () => ({ status: 'ready', data: [] }),
   useNameOnlyPlacements: () => ({ status: 'ready', data: [] }),
+  useTouchpointEntry: () => ({ status: 'loading' }),
 }))
 
 // The owner tags query a client this file does not stand up.

@@ -30,13 +30,16 @@ owes the third column a reason.
 | The interface says | The schema says | Why they differ |
 |---|---|---|
 | **Content** | `cells.content` | — |
-| **Summary** | `cells.summary`, `cell_touchpoints.summary`, `paths.summary`, `phases.summary`, `scenarios.summary`, `services.summary`, `steps.summary` | — |
+| **Summary** | `cells.summary`, `cell_touchpoints.summary`, `paths.summary`, `phases.summary`, `scenarios.summary`, `services.summary`, `steps.summary`, `touchpoints.summary` | — |
 | **Owner** | `cells.owner` | — |
 | **Perceived owner** | `cells.perceived_owner` | — |
 | **Function** | `cells.function` | — |
 | **Form** | `cells.form` | — |
 | **Value proposition** | `cells.value_props` | `props` abbreviates this exact phrase and no other. A label is read once and a name is typed daily, so the panel spells out what the schema shortens. |
 | **Touchpoint** | `touchpoints` | — |
+| **Name** | `touchpoints.name` | — |
+| **URL** | `touchpoints.url` | — |
+| **Icon** | `touchpoints.icon_url` | The field shows the picture and offers Upload and Clear; nobody types an address into it. The column holds where the uploaded file lives, which is why it is a URL, and the label names the thing a reader sees rather than how it is stored. |
 | **Role** | `cell_touchpoints.role` | — |
 | **Dependencies** | `cell_dependencies` | The relation names both ends, because a dependency always runs from one cell to another. The tab is already standing inside a cell, so the prefix would be the one word on it that told a reader nothing. |
 | **Follows** | `cell_dependencies.kind` | Names a VALUE read from one end rather than a column: these rows are `kind = 'leads_to'` arriving. The schema stores one row and the panel shows it twice, once from each end, so the label has to say which end a reader is standing at — and no column could be called this. |
@@ -46,7 +49,7 @@ owes the third column a reason.
 | **Also on this step** | `cells.content` | Not a field of anything: it heads the touchpoints standing in the same step that nothing on this cell points at, and each item under it is one name parsed out of a touchpoint cell's content. A touchpoint is not always technology, so the label says where the items stand rather than what they are. `content` names where the words live. |
 | **Registry** | `cell_touchpoints.touchpoint_id` | The control names what a reader is choosing FROM — the deployment's touchpoint registry — and the column is the key the choice lands in. The same split `Actor` draws over `lanes.stakeholder_id`: the label is the pool, the name is the pointer. |
 | **Evidence** | `evidence` | — |
-| **Kind** | `evidence.kind` | — |
+| **Kind** | `evidence.kind`, `touchpoints.kind` | — |
 | **Title** | `evidence.title` | — |
 | **Note** | `evidence.note` | — |
 | **Resources** | `resources` | — |
@@ -70,7 +73,7 @@ owes the third column a reason.
 
 <!-- /generated:binding -->
 
-Twelve rows out of thirty-eight carry a reason, and each one is a decision rather
+Thirteen rows out of forty-one carry a reason, and each one is a decision rather
 than an accident. That is the claim the table exists to make checkable, and
 [`scripts/tests/labels-name-their-columns.test.mjs`](../scripts/tests/labels-name-their-columns.test.mjs)
 checks it two ways: every row names something the schema has, and a divergent
@@ -136,7 +139,7 @@ document look complete.
 
 <!-- generated:coverage — npm run interface-map -->
 
-30 of 41 names carry a comment in the catalogue. Read them there — `\d+ <table>` in psql, or the `COMMENT ON` statements in the dump.
+35 of 46 names carry a comment in the catalogue. Read them there — `\d+ <table>` in psql, or the `COMMENT ON` statements in the dump.
 
 11 that carry none:
 

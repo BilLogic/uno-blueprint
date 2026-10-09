@@ -8,6 +8,7 @@ import {
   requireScope,
 } from '@/lib/agent/tools/definition'
 import { listFindings } from '@/lib/agent/tools/read'
+import { RATINGS } from '@/lib/findingPriority'
 import { findingFingerprint } from '@/lib/findingFingerprint'
 import { recordFinding, updateFinding } from '@/lib/findingMutations'
 
@@ -16,7 +17,7 @@ import { recordFinding, updateFinding } from '@/lib/findingMutations'
 export const listFindingsTool = defineTool({
   name: 'list_findings',
   description:
-    'The findings ledger: audit/whatif findings with status. Read before recording (see what is already open) and when the human asks to triage.',
+    'The findings ledger: audit/whatif findings with status, severity and impact/effort ratings, grouped in priority order (Do first, Plan, Quick wins, Later). Read before recording (see what is already open), when reporting an audit, and when the human asks to triage.',
   surface: 'read',
   args: z.object({
     status: z
@@ -35,13 +36,23 @@ export const listFindingsTool = defineTool({
 export const createFindingTool = defineWriteTool({
   name: 'create_finding',
   description:
-    'Record one ub:audit / ub:whatif finding as a triageable row. Dedupe is built in: an open finding with the same fingerprint (check_key + cited cells) is updated in place, a dismissed one stays dismissed (the call reports it and writes nothing), a resolved one reopens as a new row. Omit run_id on the first finding of a run and reuse the returned run_id for the rest of that run. Cite cells by id; for a zero-cell finding pass scope instead (e.g. "scenario:Intake Call").',
+    'Record one ub:audit / ub:whatif finding as a triageable row, with its severity and its impact and effort ratings. Dedupe is built in: an open finding with the same fingerprint (check_key + cited cells) is updated in place, ratings included, a dismissed one stays dismissed (the call reports it and writes nothing), a resolved one reopens as a new row. Omit run_id on the first finding of a run and reuse the returned run_id for the rest of that run. Cite cells by id; for a zero-cell finding pass scope instead (e.g. "scenario:Intake Call").',
   args: z.object({
     source: z.enum(['audit', 'whatif']).describe('Which skill produced it'),
     check_key: arg.text('Roster check key, e.g. "gap-sweep"'),
     severity: z
       .enum(['info', 'warn', 'critical'])
       .describe('Per the check doc default unless evidence says otherwise'),
+    impact: z
+      .enum(RATINGS)
+      .describe(
+        "How much fixing it matters to the service, rated from the check doc's rubric. Required on every finding.",
+      ),
+    effort: z
+      .enum(RATINGS)
+      .describe(
+        "How much work the fix takes, rated from the check doc's rubric. Required on every finding.",
+      ),
     summary: arg.text(
       'The finding itself — what is wrong, where, and why it matters. No raw ids in this text.',
     ),
@@ -51,7 +62,10 @@ export const createFindingTool = defineWriteTool({
     ),
     run_id: arg.optionalText('The run identity returned by the first create_finding of this run'),
   }),
-  run: async ({ source, check_key, severity, summary, cell_ids, scope, run_id }, ctx) => {
+  run: async (
+    { source, check_key, severity, impact, effort, summary, cell_ids, scope, run_id },
+    ctx,
+  ) => {
     const cellIds = cell_ids ?? []
     if (cellIds.length === 0 && !scope)
       throw new Error('A zero-cell finding needs a scope (e.g. "scenario:Intake Call").')
@@ -66,6 +80,8 @@ export const createFindingTool = defineWriteTool({
       source,
       checkKey: check_key,
       severity,
+      impact,
+      effort,
       cellIds,
       summary,
       fingerprint,
@@ -75,7 +91,7 @@ export const createFindingTool = defineWriteTool({
       return `An open finding already had this fingerprint — updated it in place (dedupe). ${reuse}`
     if (outcome.kind === 'suppressed')
       return `A finding with this fingerprint was dismissed by a human — dismissed stays dismissed. Nothing recorded. ${reuse}`
-    return `Recorded ${severity} finding for ${check_key}${outcome.reopened ? ' (a resolved twin existed — this reopens the issue)' : ''}. ${reuse}`
+    return `Recorded ${severity} finding (impact ${impact}, effort ${effort}) for ${check_key}${outcome.reopened ? ' (a resolved twin existed — this reopens the issue)' : ''}. ${reuse}`
   },
 })
 

@@ -11,6 +11,7 @@ import {
   type CompareSlot,
 } from '@/lib/compareSlots'
 import type { BlueprintData, CellResource } from '@/types/blueprint'
+import { rankFindings, ratingLabel } from '@/lib/findingPriority'
 import { CANONICAL_LANE_ROLES } from '@/lib/laneRoles'
 import { PATH_KINDS } from '@/lib/versionValidation'
 
@@ -445,10 +446,14 @@ export function formatBusinessModel(
   return filled || 'The business model row exists but is empty.'
 }
 
-/** One audit finding as a line — id, severity, check, provenance, cell count. */
+/**
+ * One audit finding as a line — id, severity and ratings, check, provenance,
+ * cell count. A finding recorded before impact and effort existed says
+ * `unrated` where the ratings go, rather than leaving a reader to guess.
+ */
 function findingLine(row: FindingRow): string {
   const summary = row.summary ? ` — ${row.summary}` : ''
-  return `${row.id} [${row.severity}] ${row.check_key} (${row.source}, ${row.status}, ${row.created_at.slice(0, 10)}) cells:${(row.cell_ids ?? []).length}${summary}`
+  return `${row.id} [${row.severity} · ${ratingLabel(row)}] ${row.check_key} (${row.source}, ${row.status}, ${row.created_at.slice(0, 10)}) cells:${(row.cell_ids ?? []).length}${summary}`
 }
 
 export type FindingRow = {
@@ -456,6 +461,9 @@ export type FindingRow = {
   source: string
   check_key: string
   severity: string
+  impact?: string | null
+  effort?: string | null
+  fingerprint?: string | null
   summary?: string | null
   status: string
   cell_ids?: string[] | null
@@ -466,6 +474,15 @@ export type FindingRow = {
  * The findings list, and the three ways it can be empty — for the whole
  * board, for one status, and for one cell. Shared with the harness's REST
  * read for the reason `formatBusinessModel` is.
+ *
+ * Grouped in the audit report's priority order — Do first, Plan, Quick wins,
+ * Later — so the order a team should fix things in is the order it reads
+ * them in. A group with nothing in it is left out rather than printed empty.
+ *
+ * The rows are every finding the filter matches, and the cap applies AFTER
+ * ranking: cutting to the newest first would drop an old Do-first finding
+ * while keeping a new one from Later. What the cap leaves out is the bottom
+ * of the order, and the last line says how many.
  */
 export function formatFindingsList(
   rows: ReadonlyArray<FindingRow>,
@@ -475,8 +492,24 @@ export function formatFindingsList(
     if (forCell) return `No ${filter === 'all' ? '' : `${filter} `}findings touch cell ${forCell}.`
     return filter === 'all' ? 'No findings recorded yet.' : `No ${filter} findings.`
   }
-  return rows.map(findingLine).join('\n')
+  let room = FINDINGS_SHOWN
+  const lines: string[] = []
+  for (const { group, findings } of rankFindings(rows)) {
+    const shown = findings.slice(0, room)
+    room -= shown.length
+    if (shown.length > 0) lines.push(`${group}:`, ...shown.map(findingLine))
+  }
+  const hidden = rows.length - FINDINGS_SHOWN
+  if (hidden > 0) {
+    lines.push(
+      `${hidden} more lower in priority order not listed (${rows.length} in all). Narrow with status or cell_id to see them.`,
+    )
+  }
+  return lines.join('\n')
 }
+
+/** How many findings one list shows; the rest are counted, never dropped silently. */
+export const FINDINGS_SHOWN = 100
 
 /** `key: value` lines, empty fields dropped. */
 export function formatFields(fields: Array<[string, unknown]>): string {

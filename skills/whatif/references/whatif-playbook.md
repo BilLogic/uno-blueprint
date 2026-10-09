@@ -8,6 +8,7 @@ rules; this file carries the three operations and the promote handoff.
 - §1 The variant discipline
 - §2 The three operations
 - §3 Findings
+- §3.1 Impact and effort
 - §4 Accept → change request
 - §5 Canvas note
 
@@ -85,6 +86,27 @@ Same table, `source = 'whatif'`, same fingerprint algorithm as audit
 (check_key = `whatif-<operation>-<key>`), same dedupe/triage rules
 (audit-playbook §2–§4). Whatif findings never supersede audit findings
 and vice versa — fingerprints keep them disjoint by construction.
+
+Every whatif finding carries a severity, an impact and an effort, exactly
+as an audit finding does, and one missing either rating fails validation
+the same way. The report orders them by the audit's priority groups
+(audit-playbook §3.5).
+
+## §3.1 Impact and effort
+
+Rate both on every finding, from the anchors below. Impact is read off the
+trace: how many cells the change reaches, which assumptions it breaks, and
+where the displaced demand lands. Effort is how much the proposed change
+itself takes to carry out — the change the human is weighing, not the
+finding's own correction. Pick the level whose anchor the finding matches
+most closely; between two, rate impact the lower and effort the higher —
+a finding has to earn Do first.
+
+| Level | Impact — the traced blast radius | Effort — what the proposed change takes |
+| --- | --- | --- |
+| low | The trace reaches one or two cells in one lane, breaks no assumption another cell relies on, and displaces no demand | Rewording or re-sequencing cells that already exist: no new cell, lane, step or touchpoint |
+| medium | The trace crosses lanes within one scenario, or breaks one assumption a downstream cell relies on, and the displaced demand lands on an existing cell that can absorb it | New cells, or moving cells across the visibility line, within one scenario |
+| high | The trace reaches the customer lane at a moment the customer acts on, crosses scenarios, or displaces demand onto a cell with no capacity for it or onto nothing the blueprint records | A new touchpoint, lane, path or step, or a change that spans scenarios or needs a team outside the blueprint |
 
 ## §4 Accept → change request
 

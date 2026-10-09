@@ -100,6 +100,8 @@ const DRAFT = {
   source: 'audit' as const,
   checkKey: 'orphan-cell',
   severity: 'warn' as const,
+  impact: 'high' as const,
+  effort: 'low' as const,
   cellIds: ['cell-1'],
   cellKeys: ['cell-1'],
   summary: 'This cell is cited by nothing.',
@@ -110,13 +112,17 @@ beforeEach(() => clearSession())
 
 describe('recordFinding', () => {
   it('records the insert in the ledger, with no revert control', async () => {
-    const { client } = fakeClient([])
+    const { client, calls } = fakeClient([])
     const outcome = await recordFinding(client, DRAFT)
+
+    // Both ratings land beside severity, on the row and in the ledger entry.
+    expect(calls[0].patch).toMatchObject({ severity: 'warn', impact: 'high', effort: 'low' })
 
     expect(outcome).toEqual({ kind: 'created', findingId: 'f-new', reopened: false })
     const [entry, ...rest] = sessionSnapshot()
     expect(rest).toEqual([])
     expect(entry.fn).toBe('create_finding')
+    expect(entry.args).toMatchObject({ severity: 'warn', impact: 'high', effort: 'low' })
     // DELETE on audit_findings is revoked from every client role, and the two states
     // that would silence a finding are human triage decisions. There is no
     // inverse to capture, and offering a control that dismissed the check
@@ -146,7 +152,7 @@ describe('recordFinding', () => {
   })
 
   it('dedupes onto the open twin and captures what it overwrote', async () => {
-    const { client } = fakeClient([
+    const { client, calls } = fakeClient([
       {
         id: 'f-open',
         service_id: 'svc-1',
@@ -154,6 +160,9 @@ describe('recordFinding', () => {
         status: 'open',
         check_key: 'orphan-cell',
         severity: 'info',
+        // Recorded before the ratings existed: unrated, and put back unrated.
+        impact: null,
+        effort: null,
         summary: 'An earlier run said this.',
         run_id: 'run-0',
         cell_ids: ['cell-9'],
@@ -164,6 +173,9 @@ describe('recordFinding', () => {
     const outcome = await recordFinding(client, DRAFT)
 
     expect(outcome).toEqual({ kind: 'deduped', findingId: 'f-open' })
+    // A re-run whose only news is a rating moves the rating on the open row
+    // rather than raising a twin.
+    expect(calls[0].patch).toMatchObject({ impact: 'high', effort: 'low' })
     const [entry] = sessionSnapshot()
     expect(entry.fn).toBe('update_finding')
     // Identity-keyed on the finding, not on the fingerprint: reopening a
@@ -174,6 +186,8 @@ describe('recordFinding', () => {
         finding_id: 'f-open',
         update: {
           severity: 'info',
+          impact: null,
+          effort: null,
           summary: 'An earlier run said this.',
           runId: 'run-0',
           cellIds: ['cell-9'],

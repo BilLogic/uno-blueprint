@@ -2940,6 +2940,10 @@ CREATE TABLE public.audit_findings (
     status text DEFAULT 'open'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    impact text,
+    effort text,
+    CONSTRAINT audit_findings_effort_check CHECK ((effort = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text]))),
+    CONSTRAINT audit_findings_impact_check CHECK ((impact = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text]))),
     CONSTRAINT audit_findings_keys_match_ids CHECK ((cardinality(cell_ids) = cardinality(cell_keys))),
     CONSTRAINT audit_findings_severity_check CHECK ((severity = ANY (ARRAY['info'::text, 'warn'::text, 'critical'::text]))),
     CONSTRAINT audit_findings_source_check CHECK ((source = ANY (ARRAY['audit'::text, 'whatif'::text, 'import-sweep'::text]))),
@@ -2975,6 +2979,18 @@ COMMENT ON COLUMN public.audit_findings.summary IS 'The finding''s own sentence 
 --
 
 COMMENT ON COLUMN public.audit_findings.fingerprint IS 'check_key + sorted cell_keys hash. Dedupe/reopen identity across runs.';
+
+--
+-- Name: COLUMN audit_findings.impact; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.audit_findings.impact IS 'How much fixing this finding matters to the service: low, medium or high. Null on a finding recorded before the rating existed, which reads as unrated.';
+
+--
+-- Name: COLUMN audit_findings.effort; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.audit_findings.effort IS 'How much work the fix takes: low, medium or high. Null on a finding recorded before the rating existed, which reads as unrated.';
 
 --
 -- Name: authoring_changes; Type: TABLE; Schema: public; Owner: -

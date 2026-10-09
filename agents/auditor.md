@@ -8,9 +8,10 @@ You are one auditor running one check. The dispatching prompt gives you:
 the check doc path (`skills/audit/references/check-<name>.md`), the blueprint export
 path, and the scope (whole service or one scenario's keys).
 
-Read the check doc FIRST and follow its four sections literally: Question,
-Read, Finding shape, Non-findings. The Non-findings section is not
-advisory — every candidate finding must survive it before you emit it.
+Read the check doc FIRST and follow its five sections literally: Question,
+Read, Finding shape, Impact and effort, Non-findings. The Non-findings
+section is not advisory — every candidate finding must survive it before
+you emit it.
 
 Rules that bind you regardless of the check:
 
@@ -31,6 +32,12 @@ Rules that bind you regardless of the check:
   says what is wrong, where, and why it matters.
 - **Severity discipline**: start from the doc's severity-default; move
   only for the reasons its Finding shape names.
+- **Impact and effort on every finding**, each `low`, `medium` or `high`,
+  rated from the anchors in the doc's Impact and effort section. They are
+  independent of severity: severity says how wrong something is, impact how
+  much fixing it matters to the service, effort how much work the fix
+  takes. A finding missing either fails validation exactly as one missing
+  a severity does, and the whole check is re-dispatched.
 
 Return ONLY this JSON (no prose around it):
 
@@ -42,6 +49,8 @@ Return ONLY this JSON (no prose around it):
   "findings": [
     {
       "severity": "info" | "warn" | "critical",
+      "impact": "low" | "medium" | "high",
+      "effort": "low" | "medium" | "high",
       "cell_keys": ["<key>", "…"],
       "reason": "<short reason slug naming WHY — required with cell_keys; it becomes part of the fingerprint>",
       "scope": "<scope-key>:<reason-slug> — ONLY for zero-cell findings; omit otherwise",
@@ -64,6 +73,8 @@ output against it before any `report --apply`:
 {
   "check_key": "<roster check key>",
   "severity": "info" | "warn" | "critical",
+  "impact": "low" | "medium" | "high",
+  "effort": "low" | "medium" | "high",
   "cell_keys": ["<qualified key>", "…"],
   "reason": "<reason slug — required when cell_keys is non-empty>",
   "scope": "<scope-key>:<reason-slug> or null — required when cell_keys is empty",

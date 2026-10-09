@@ -69,7 +69,7 @@ Four skills teach your agents to build the map from your docs, keep it accurate,
 | --- | --- |
 | [`ub:map`](./skills/map/SKILL.md) | Draft a blueprint from your docs. |
 | [`ub:slice`](./skills/slice/SKILL.md) | Cut a view for one audience: a journey, lane, step, cell or custom set. |
-| [`ub:audit`](./skills/audit/SKILL.md) | List gaps, conflicts and stale sources, each with a severity. |
+| [`ub:audit`](./skills/audit/SKILL.md) | List gaps, conflicts and stale sources, ranked by what to fix first. |
 | [`ub:whatif`](./skills/whatif/SKILL.md) | Trace a change before you make it. |
 
 How each skill works, and the agents and hooks around them: [guide/03 — The plugin](./docs/guide/03-the-plugin.md).

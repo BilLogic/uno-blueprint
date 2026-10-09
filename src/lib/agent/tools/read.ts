@@ -17,6 +17,7 @@ import {
   formatStakeholderList,
   listBlueprintRequest,
   type BlueprintListOptions,
+  type FindingRow,
   type GranularityLevel,
   type JourneyTree,
 } from '@/lib/agent/tools/format'
@@ -578,9 +579,10 @@ export async function getSlice(client: Client, sliceId: string): Promise<string>
 export type FindingsFilter = 'open' | 'resolved' | 'dismissed' | 'all'
 
 /**
- * The findings ledger, newest first and capped. `cell_ids` is an array, so
- * "which findings cite this cell" is a containment test; without it a finding
- * was reachable only by reading the whole ledger, and the ledger is capped.
+ * The findings ledger, every row the filter matches, read a page at a time so
+ * no server-side row limit can cut it short. Ranking and the display cap are
+ * `formatFindingsList`'s, and they run over the whole set. `cell_ids` is an
+ * array, so "which findings cite this cell" is a containment test.
  */
 export async function listFindings(
   client: Client,
@@ -589,18 +591,29 @@ export async function listFindings(
   const filter = options.status ?? 'open'
   const forCell = options.cellId
   const scope = options.scope ?? SCOPE_ALL
-  let query = client
-    .from('audit_findings')
-    .select('id, source, check_key, severity, summary, status, cell_ids, created_at')
-    .order('created_at', { ascending: false })
-    .limit(100)
-  if (scope.kind === 'service') query = query.eq('service_id', scope.serviceId)
-  if (filter !== 'all') query = query.eq('status', filter)
-  if (forCell) query = query.contains('cell_ids', [forCell])
-  const { data, error } = await query
-  if (error) throw new Error(error.message)
-  return formatFindingsList(data ?? [], { filter, forCell })
+  const rows: FindingRow[] = []
+  for (let from = 0; ; from += FINDINGS_PAGE) {
+    let query = client
+      .from('audit_findings')
+      .select(
+        'id, source, check_key, severity, impact, effort, fingerprint, summary, status, cell_ids, created_at',
+      )
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(from, from + FINDINGS_PAGE - 1)
+    if (scope.kind === 'service') query = query.eq('service_id', scope.serviceId)
+    if (filter !== 'all') query = query.eq('status', filter)
+    if (forCell) query = query.contains('cell_ids', [forCell])
+    const { data, error } = await query
+    if (error) throw new Error(error.message)
+    rows.push(...(data ?? []))
+    if ((data ?? []).length < FINDINGS_PAGE) break
+  }
+  return formatFindingsList(rows, { filter, forCell })
 }
+
+/** One page of the findings read; PostgREST's own row cap is 1000 by default. */
+const FINDINGS_PAGE = 500
 
 /** The tag vocabulary — read this before writing any owner value. */
 export async function listOwnerTags(client: Client): Promise<string> {

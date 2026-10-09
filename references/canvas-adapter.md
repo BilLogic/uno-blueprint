@@ -45,7 +45,11 @@ call. A reader holding this file rather than a session sees the placeholders.
    out of tool rounds and delivering chat-only opinion, which is a
    failed audit. Reuse the run_id the first call returns for the whole
    run.
-4. **Report**: per-check counts, skipped checks with reasons.
+4. **Report**: the open findings in priority order — Do first, Plan,
+   Quick wins, Later — which is the order `list_findings` returns them in;
+   then per-check counts, skipped checks with reasons. Every
+   `create_finding` carries `impact` and `effort` from the check doc's
+   anchors beside its severity.
 5. **Triage** = `update_finding`; the ledger = `list_findings`.
 
 Canvas findings cite cells by id (written as the cell_keys), so canvas
@@ -55,7 +59,8 @@ and IDE fingerprints are separate dedupe spaces.
 
 1. **The hypothetical variant is conversational**: analysis never writes
    cells — reason over reads, record consequence findings via
-   `create_finding` source `whatif`.
+   `create_finding` source `whatif`, rating impact and effort from
+   whatif-playbook §3.1.
 2. **Promotion is direct**: only on the human's explicit acceptance,
    apply the diff through the ordinary write tools (nod gate, small
    batches, ledger), then resolve superseded whatif findings via

@@ -38,6 +38,8 @@ const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
     source: 'audit',
     check_key: 'gap-sweep',
     severity: 'warn',
+    impact: 'high',
+    effort: 'low',
     summary: 'A gap',
     cell_ids: ['c-1'],
     run_id: 'run-9',
@@ -77,7 +79,7 @@ describe('the sentence is the tool’s, placeholder ids included', () => {
 
   it('create_finding hands back the run id to reuse, in its own sentence', async () => {
     expect(await rehearse('create_finding').text).toBe(
-      'Recorded warn finding for gap-sweep. run_id run-9; reuse it for the rest of this run.',
+      'Recorded warn finding (impact high, effort low) for gap-sweep. run_id run-9; reuse it for the rest of this run.',
     )
   })
 })

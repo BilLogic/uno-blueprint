@@ -34,7 +34,7 @@ to a content hash.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/ub-audit.dark.svg">
-  <img src="../assets/ub-audit.svg" alt="ub:audit flags cells without changing the blueprint — a step with no cell, two cells competing for one channel, a recorded owner and a perceived owner that differ — and records each as a finding for you to triage">
+  <img src="../assets/ub-audit.svg" alt="ub:audit flags cells without changing the blueprint — a step with no cell, two cells competing for one channel, a recorded owner and a perceived owner that differ — and records each as a finding for you to triage, rated by impact and effort and listed in the order to fix them">
 </picture>
 
 Runs the check roster. Each check is dispatched to its own agent that sees

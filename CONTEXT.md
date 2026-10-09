@@ -334,10 +334,25 @@ the split. There is no alias for the old keys — a file that uses one is
 refused by name, told which word replaced which.
 
 **Finding** — one triageable observation about a blueprint, raised by a
-consistency check or a change trace. A finding carries a severity, the cells
-it concerns, and a triage state: open, resolved, or dismissed. It is a claim
-about the blueprint, not a change to it — nothing acts on a finding until a
-person triages it.
+consistency check or a change trace. A finding carries a severity, an
+impact and an effort, the cells it concerns, and a triage state: open,
+resolved, or dismissed. It is a claim about the blueprint, not a change to
+it — nothing acts on a finding until a person triages it.
+
+**Severity** — how wrong a finding says something is: `info`, `warn` or
+`critical`.
+
+**Impact** — how much fixing a finding matters to the service: `low`,
+`medium` or `high`.
+
+**Effort** — how much work fixing a finding takes: `low`, `medium` or
+`high`. A finding recorded before impact and effort existed has neither,
+and is **unrated**.
+
+**Priority group** — where a finding falls in the audit report, read off
+its impact and effort: Do first (high impact, low effort), Plan (high
+impact, more effort), Quick wins (lesser impact, low effort), or Later
+(everything else, unrated findings included).
 
 **Evidence** — one provenance record attached to a cell: where the claim in
 that cell came from, and when it was observed. A cell with no evidence is an

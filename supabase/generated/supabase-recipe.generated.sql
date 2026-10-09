@@ -2579,3 +2579,13 @@ begin
   end if;
 end
 $posture$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000303000000_a_finding_says_what_fixing_it_is_worth.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- an audit re-run rewrites an open finding's ratings in place, so
+-- the role that records findings may update the two new columns, and only
+-- those beside the ones it already could.
+
+grant update (impact, effort) on public.audit_findings to authenticated;

@@ -991,9 +991,9 @@ pass "audit-fingerprint-form (reason slug in every fingerprint; slugless cell fi
 # cells. Distinct reason slugs -> two distinct fingerprints, two inserts.
 cat > "$TMP/audit-incoming.json" <<'JSON'
 [
- {"check_key": "jargon-lint", "severity": "warn", "note": "UCO acronym",
+ {"check_key": "jargon-lint", "severity": "warn", "impact": "medium", "effort": "low", "note": "UCO acronym",
   "cell_keys": ["x/1", "x/2", "x/3"], "reason": "uco-acronym", "source": "audit"},
- {"check_key": "jargon-lint", "severity": "info", "note": "perms wording",
+ {"check_key": "jargon-lint", "severity": "info", "impact": "low", "effort": "low", "note": "perms wording",
   "cell_keys": ["x/1", "x/2", "x/3"], "reason": "perms-wording", "source": "audit"}
 ]
 JSON
@@ -1020,9 +1020,9 @@ pass "audit-same-cells (same check + same cells, distinct reasons -> two open ro
 # untouched.
 cat > "$TMP/audit-dup.json" <<'JSON'
 [
- {"check_key": "jargon-lint", "severity": "warn", "note": "first",
+ {"check_key": "jargon-lint", "severity": "warn", "impact": "low", "effort": "low", "note": "first",
   "cell_keys": ["x/1"], "reason": "same-slug", "source": "audit"},
- {"check_key": "jargon-lint", "severity": "info", "note": "second",
+ {"check_key": "jargon-lint", "severity": "info", "impact": "low", "effort": "low", "note": "second",
   "cell_keys": ["x/1"], "reason": "same-slug", "source": "audit"}
 ]
 JSON
@@ -1109,6 +1109,110 @@ scoped = [s["key"] for p in export["service"]["phases"] for s in p["scenarios"]]
 assert scoped == ["asset-repair"], f"scoped export wrong: {scoped}"
 PY
 pass "audit-export-copy (scenario filter copies; loaded IR and source stay intact)"
+
+# Impact and effort: every incoming finding carries both, beside severity,
+# and a finding missing any of the three — or carrying a value outside its
+# set — fails the batch the way a malformed auditor output does. Ledger rows
+# written before the ratings existed are NOT incoming and stay valid.
+for missing in impact effort severity; do
+  python3 - "$TMP/audit-missing-$missing.json" "$missing" <<'PY'
+import json, sys
+finding = {"check_key": "gap-sweep", "severity": "warn", "impact": "high",
+           "effort": "low", "note": "n", "cell_keys": ["x/1"], "reason": "r",
+           "source": "audit"}
+del finding[sys.argv[2]]
+json.dump([finding], open(sys.argv[1], "w", encoding="utf-8"))
+PY
+  if python3 "$AUDIT_TOOLS" dedupe --ledger "$TMP/audit-ledger.json" \
+    --incoming "$TMP/audit-missing-$missing.json" > "$TMP/audit-missing.out" 2>&1; then
+    fail "audit-ratings-required: dedupe accepted a finding with no $missing"
+  fi
+  grep -q "$missing" "$TMP/audit-missing.out" \
+    || fail "audit-ratings-required: refusal does not name $missing — $(cat "$TMP/audit-missing.out")"
+done
+cat > "$TMP/audit-bad-rating.json" <<'JSON'
+[{"check_key": "gap-sweep", "severity": "warn", "impact": "huge", "effort": "low",
+  "note": "n", "cell_keys": ["x/1"], "reason": "r", "source": "audit"}]
+JSON
+cp "$TMP/audit-ledger.json" "$TMP/audit-ledger.before.json"
+if python3 "$AUDIT_TOOLS" report --ledger "$TMP/audit-ledger.json" \
+  --incoming "$TMP/audit-bad-rating.json" --run-id run-5 --apply > "$TMP/audit-bad.out" 2>&1; then
+  fail "audit-ratings-required: report --apply accepted impact 'huge'"
+fi
+grep -q "low, medium or high" "$TMP/audit-bad.out" \
+  || fail "audit-ratings-required: no value-set message — $(cat "$TMP/audit-bad.out")"
+diff -q "$TMP/audit-ledger.json" "$TMP/audit-ledger.before.json" > /dev/null \
+  || fail "audit-ratings-required: a refused batch still wrote the ledger"
+python3 "$AUDIT_TOOLS" validate "$TMP/audit-incoming.json" > /dev/null \
+  || fail "audit-ratings-required: validate refused a well-formed batch"
+if python3 "$AUDIT_TOOLS" validate "$TMP/audit-missing-effort.json" > /dev/null 2>&1; then
+  fail "audit-ratings-required: validate accepted a finding with no effort"
+fi
+pass "audit-ratings-required (impact, effort and severity each required and closed; refused batch writes nothing)"
+
+# A rating change alone is the same finding: the open row is updated in
+# place, never duplicated, and an unchanged re-run inserts nothing.
+FP_RATED="$(python3 "$AUDIT_TOOLS" fingerprint --check gap-sweep --cell-keys x/1 --reason silent-stretch)"
+cat > "$TMP/audit-rated-ledger.json" <<JSON
+{"rows": [
+ {"check_key": "gap-sweep", "severity": "warn", "impact": "medium", "effort": "high",
+  "summary": "a gap", "cell_keys": ["x/1"], "reason": "silent-stretch", "source": "audit",
+  "fingerprint": "$FP_RATED", "status": "open", "run_id": "old-1"}
+]}
+JSON
+cat > "$TMP/audit-rerated.json" <<'JSON'
+[{"check_key": "gap-sweep", "severity": "warn", "impact": "high", "effort": "low",
+  "summary": "a gap", "cell_keys": ["x/1"], "reason": "silent-stretch", "source": "audit"}]
+JSON
+python3 "$AUDIT_TOOLS" report --ledger "$TMP/audit-rated-ledger.json" \
+  --incoming "$TMP/audit-rerated.json" --run-id run-6 --apply > "$TMP/audit-rerate.out" \
+  || fail "audit-rating-update: report --apply failed"
+grep -q '"insert": 0' "$TMP/audit-rerate.out" \
+  || fail "audit-rating-update: a rating change inserted a row — $(cat "$TMP/audit-rerate.out")"
+python3 "$AUDIT_TOOLS" report --ledger "$TMP/audit-rated-ledger.json" \
+  --incoming "$TMP/audit-rerated.json" --run-id run-7 --apply > "$TMP/audit-rerun.out" \
+  || fail "audit-rating-update: unchanged re-run failed"
+grep -q '"insert": 0' "$TMP/audit-rerun.out" \
+  || fail "audit-rating-update: an unchanged re-run inserted a row — $(cat "$TMP/audit-rerun.out")"
+python3 - "$TMP/audit-rated-ledger.json" <<'PY' || fail "audit-rating-update: ledger not updated in place"
+import json, sys
+rows = json.load(open(sys.argv[1], encoding="utf-8"))["rows"]
+assert len(rows) == 1, f"expected the one row, got {len(rows)}"
+assert rows[0]["impact"] == "high" and rows[0]["effort"] == "low", rows[0]
+assert rows[0]["status"] == "open" and rows[0]["run_id"] == "run-7", rows[0]
+PY
+pass "audit-rating-update (a re-rating updates the open row; an unchanged re-run inserts nothing)"
+
+# The report's order: Do first (high impact, low effort), Plan (high impact,
+# more effort), Quick wins (lesser impact, low effort), Later (the rest, with
+# every unrated row last of all). Within a group: impact desc, effort asc,
+# severity desc, then check_key and fingerprint. The cases are a fixture the
+# app's findingPriority.test.ts reads too, so the two orders cannot drift.
+python3 - "$REPO_ROOT" <<'PY' || fail "audit-rank-order: priority order wrong"
+import importlib.util, json, sys
+repo = sys.argv[1]
+spec = importlib.util.spec_from_file_location(
+    "audit_tools", f"{repo}/skills/audit/scripts/audit_tools.py")
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+
+cases = json.load(open(f"{repo}/scripts/tests/fixtures/finding-priority.json", encoding="utf-8"))
+got = [[group, [row["name"] for row in members]] for group, members in mod.rank(cases["findings"])]
+assert got == cases["expected"], got
+unrated = next(row for row in cases["findings"] if row["name"] == "half-rated")
+assert mod.rating_label(unrated) == "unrated", mod.rating_label(unrated)
+PY
+python3 "$AUDIT_TOOLS" rank --ledger "$TMP/audit-old-ledger.json" > "$TMP/audit-rank.out" \
+  || fail "audit-rank-print: rank failed"
+python3 - "$TMP/audit-rank.out" <<'PY' || fail "audit-rank-print: printed report wrong — $(cat "$TMP/audit-rank.out")"
+import sys
+text = open(sys.argv[1], encoding="utf-8").read()
+order = [text.index(h) for h in ("Do first", "Plan", "Quick wins", "Later", "Per check")]
+assert order == sorted(order), order
+assert "unrated" in text, "the old-form row must print as unrated"
+assert "jargon-lint: 3" in text, "per-check counts must print"
+PY
+pass "audit-rank-order (Do first, Plan, Quick wins, Later; impact desc, effort asc, severity desc; unrated last; per-check counts print)"
 
 # --- adapter parity ---------------------------------------------------------
 # The adapter contract calls the no-DB adapter "not a degraded mode". These two

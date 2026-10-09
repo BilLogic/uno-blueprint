@@ -216,7 +216,7 @@ describe('a write lands on the active service, and follows a switch', () => {
     await expect(
       runTool(
         createFindingTool,
-        { source: 'audit', check_key: 'k', severity: 'info', summary: 'Lost', cell_ids: ['c1'] },
+        { source: 'audit', check_key: 'k', severity: 'info', impact: 'low', effort: 'low', summary: 'Lost', cell_ids: ['c1'] },
         none,
       ),
     ).rejects.toThrow('No service is active')

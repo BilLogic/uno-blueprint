@@ -21,6 +21,17 @@ Two directions, one finding each per lane:
   info; cell_keys = the strongest example cells.
 Note cites the KPI text and keys — no invented metrics.
 
+## Impact and effort
+Rate both on every finding, from the anchors below. Pick the level whose
+anchor the finding matches most closely; between two, rate impact the lower
+and effort the higher — a finding has to earn Do first.
+
+| Level | Impact — how much aligning the measure matters | Effort — how much work aligning it takes |
+| --- | --- | --- |
+| low | An activity no KPI measures, in a lane off the journey's critical path | Naming the KPI in a cell, or adding the missing tool: the activity already happens |
+| medium | A KPI no cell contributes to: the lane is measured on something the blueprint never shows | Rewriting several cells, or the KPI's wording, with the lane's owner |
+| high | The KPI rewards behaviour the cells show working against the customer, such as speed measured where the journey needs care | The KPI is set outside the blueprint, by an organisation-level target, and moves only by negotiation |
+
 ## Non-findings
 Org-level KPIs (NPS, revenue) that legitimately roll up beyond one lane;
 lanes with kpis deliberately empty (skip, don't flag).

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { recordChange } from '@/lib/authoringSession'
 import { toAuthoringError } from '@/lib/authoringErrors'
+import type { FindingRating } from '@/lib/findingPriority'
 import { requireRowsWritten } from '@/lib/optimisticConcurrency'
 import type { Database } from '@/types/database'
 
@@ -59,6 +60,13 @@ export type FindingDraft = {
   checkKey: string
   severity: FindingSeverity
   /**
+   * How much fixing it matters, and how much work the fix takes. Required on
+   * a new finding: the columns are nullable only so that rows recorded before
+   * the ratings existed stay valid, and a reader shows those as unrated.
+   */
+  impact: FindingRating
+  effort: FindingRating
+  /**
    * Ordered cell ids. A finding raised against live rows carries them into
    * `cell_keys` too — the table checks the two have equal cardinality, and
    * there is no IR key path to record for such a finding. An id is a worse
@@ -86,6 +94,9 @@ export type FindingOutcome =
 /** The columns the grant allows an update to write — the grant, as a type. */
 export type FindingUpdate = {
   severity?: FindingSeverity
+  /** Null only on the way back: an inverse restoring a row that was unrated. */
+  impact?: FindingRating | null
+  effort?: FindingRating | null
   summary?: string | null
   runId?: string
   cellIds?: readonly string[]
@@ -112,6 +123,8 @@ type FindingPatch = Database['public']['Tables']['audit_findings']['Update']
 function toPatch(update: FindingUpdate): FindingPatch {
   const patch: FindingPatch = {}
   if (update.severity !== undefined) patch.severity = update.severity
+  if (update.impact !== undefined) patch.impact = update.impact
+  if (update.effort !== undefined) patch.effort = update.effort
   if (update.summary !== undefined) patch.summary = update.summary
   if (update.runId !== undefined) patch.run_id = update.runId
   if (update.cellIds !== undefined) patch.cell_ids = [...update.cellIds]
@@ -150,6 +163,8 @@ export async function recordFinding(
   if (open) {
     await updateFinding(client, open.id, {
       severity: draft.severity,
+      impact: draft.impact,
+      effort: draft.effort,
       summary: draft.summary,
       runId: draft.runId,
       cellIds: draft.cellIds,
@@ -175,6 +190,8 @@ export async function recordFinding(
       source: draft.source,
       check_key: draft.checkKey,
       severity: draft.severity,
+      impact: draft.impact,
+      effort: draft.effort,
       summary: draft.summary,
       cell_ids: [...draft.cellIds],
       cell_keys: [...draft.cellIds],
@@ -190,6 +207,8 @@ export async function recordFinding(
     finding_id: data.id,
     check_key: draft.checkKey,
     severity: draft.severity,
+    impact: draft.impact,
+    effort: draft.effort,
     run_id: draft.runId,
   })
 
@@ -231,7 +250,7 @@ export async function updateFinding(
   const { data: before, error: readError } = await client
     .from('audit_findings')
     .select(
-      'id, check_key, severity, summary, run_id, cell_ids, cell_keys, source, status',
+      'id, check_key, severity, impact, effort, summary, run_id, cell_ids, cell_keys, source, status',
     )
     .eq('id', findingId)
     .maybeSingle()
@@ -240,6 +259,8 @@ export async function updateFinding(
 
   const previous: FindingUpdate = {}
   if (update.severity !== undefined) previous.severity = before.severity as FindingSeverity
+  if (update.impact !== undefined) previous.impact = (before.impact ?? null) as FindingRating | null
+  if (update.effort !== undefined) previous.effort = (before.effort ?? null) as FindingRating | null
   if (update.summary !== undefined) previous.summary = before.summary
   if (update.runId !== undefined) previous.runId = before.run_id
   if (update.cellIds !== undefined) previous.cellIds = before.cell_ids

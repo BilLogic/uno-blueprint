@@ -142,7 +142,17 @@ export const PANEL_WRITE_SURFACE = {
   // are written on insert only and are NOT updatable; naming either here would
   // assert a privilege the deployment deliberately withholds. The insert itself
   // is covered, table-wide, by the verb the scan reads off that same module.
-  audit_findings: ['severity', 'summary', 'run_id', 'cell_ids', 'cell_keys', 'source', 'status'],
+  audit_findings: [
+    'severity',
+    'impact',
+    'effort',
+    'summary',
+    'run_id',
+    'cell_ids',
+    'cell_keys',
+    'source',
+    'status',
+  ],
   // src/lib/sliceMutations.ts. Slides are replaced wholesale — deleted and
   // reinserted — so the only slide column the editor UPDATES is
   // `shows_all_images`. The members live in `slide_images`, which is replaced

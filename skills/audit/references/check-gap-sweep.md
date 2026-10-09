@@ -27,6 +27,17 @@ applies if ANY step inside the silent stretch is a customer-visible
 moment with no frontstage cell at all (not only when the finding is
 itself that moment).
 
+## Impact and effort
+Rate both on every finding, from the anchors below. Pick the level whose
+anchor the finding matches most closely; between two, rate impact the lower
+and effort the higher — a finding has to earn Do first.
+
+| Level | Impact — how much filling the gap matters | Effort — how much work filling it takes |
+| --- | --- | --- |
+| low | A declared step no path includes: untidy, but no reader is misled | One cell to write, whose content the flanking cells already state |
+| medium | A backstage lane silent for a stretch while its actor plainly keeps working, so a reader misjudges who carries the load | Several cells along one lane, or a dependency edge plus the cell at its receiving end, to settle with that lane's owner |
+| high | A silent stretch at a customer-visible moment: the journey has a hole exactly where the customer is waiting | Nobody in the source says what happens there, so the stretch needs new research, a new step or a new path |
+
 ## Non-findings
 Empty cells are NORMAL — a lane legitimately idle at a step is not a gap.
 Only flag silence that the surrounding cells' content contradicts. Never

@@ -363,8 +363,8 @@ same scoping the Supabase grants encode (see
   leaves a window where the cell has no resources at all. No-DB equivalent:
   the generated module is replaced wholesale.
 - **INSERT + column-scoped UPDATE** on `audit_findings` (inserts arrive with
-  `status = 'open'`; updates touch `status, summary, severity, run_id,
-  cell_ids, cell_keys, source`).
+  `status = 'open'`; updates touch `status, summary, severity, impact,
+  effort, run_id, cell_ids, cell_keys, source`).
 - **INSERT / DELETE** on `slices` and `slides`.
 - **Full CRUD for the owner** on `agent_sessions` / `agent_messages`
   (`src/lib/agent/persistence.ts`), reachable by authenticated sessions

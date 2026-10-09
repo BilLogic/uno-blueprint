@@ -43,6 +43,17 @@ blueprint's own scaffolding, 224 of 299 lane rows. Never ask who they are for.
   say which: it is either a missing alias or a missing member of the cast.
 - Value claimed for a stakeholder the scenario never touches → info.
 
+## Impact and effort
+Rate both on every finding, from the anchors below. Pick the level whose
+anchor the finding matches most closely; between two, rate impact the lower
+and effort the higher — a finding has to earn Do first.
+
+| Level | Impact — how much closing the ledger hole matters | Effort — how much work closing it takes |
+| --- | --- | --- |
+| low | One frontstage cell without `value_props` while its siblings have them | One alias or one `value_props` entry that the cell's content already implies |
+| medium | Value claimed for an audience no stakeholder matches: a missing alias or a missing member of the cast | Value entries across one lane, settled with its owner |
+| high | A stakeholder in a lane who receives value nowhere: the service asks something of them and gives nothing back | The stakeholder genuinely gets nothing, so the fix is a change to the service rather than to its record |
+
 ## Non-findings
 Lanes with no stakeholder (see above); purely mechanical backstage cells (a
 cron job owes nobody a value prop); scenarios where value_props are wholesale

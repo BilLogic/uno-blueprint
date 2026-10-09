@@ -17,6 +17,17 @@ cluster. Divergence on the interaction line (customer perceives X, Y acts)
 cell's own content calls out as deliberate (ghost-writing, white-label) →
 info, summary says "reads as designed".
 
+## Impact and effort
+Rate both on every finding, from the anchors below. Pick the level whose
+anchor the finding matches most closely; between two, rate impact the lower
+and effort the higher — a finding has to earn Do first.
+
+| Level | Impact — how much closing the divergence matters | Effort — how much work closing it takes |
+| --- | --- | --- |
+| low | A divergence the content calls deliberate, or one the customer never acts on | One cell's `perceived_owner` or wording to correct |
+| medium | A divergence on the interaction line with no cell managing the impression | Adding the frontstage cell that manages the impression |
+| high | The customer would contact or blame the wrong party at a moment that matters — a complaint, a failure, a payment | The divergence comes from how the service is contracted, such as white-labelling, so the fix is a decision outside the blueprint |
+
 ## Non-findings
 Divergences where perceived_owner is simply unset (that's data absence,
 not perception design); backstage cells (nobody perceives them).

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic audit mechanics — fingerprint, dedupe, export, report.
+"""Deterministic audit mechanics — fingerprint, dedupe, export, report, rank.
 
 The audit's two most correctness-critical steps (fingerprint identity and
 the dedupe decision) must never be improvised per run: two agents
@@ -18,6 +18,10 @@ Usage:
     python3 skills/audit/scripts/audit_tools.py report --ledger audit/findings-report.json \
         --incoming <findings.json> --run-id <uuid> --apply
         # applies §3 to the file ledger (the no-DB route substrate)
+    python3 skills/audit/scripts/audit_tools.py validate <findings.json>
+        # the collect stage's shape check; dedupe and report run it too
+    python3 skills/audit/scripts/audit_tools.py rank --ledger audit/findings-report.json
+        # prints the open findings in priority order, then per-check counts
 
 Stdlib only. Exit 0 on success; 1 on bad input.
 
@@ -35,7 +39,8 @@ ledger rewrite is needed. New writes always use the new form; per-check
 supersede retires the old-form open rows on the next completed run.
 
 Findings JSON shape (both incoming and ledger rows):
-    {"check_key": str, "severity": "info|warn|critical", "summary": str,
+    {"check_key": str, "severity": "info|warn|critical",
+     "impact": "low|medium|high", "effort": "low|medium|high", "summary": str,
      "cell_keys": [str, ...],
      "reason": str (short reason slug — required when cell_keys is non-empty),
      "scope": str|null ("<scope-key>:<reason-slug>" — required when cell_keys is empty),
@@ -43,6 +48,18 @@ Findings JSON shape (both incoming and ledger rows):
      "fingerprint": str (computed here — never hand-written),
      "status": "open|resolved|dismissed", "run_id": str}
 The ledger file is {"rows": [row, ...]}.
+
+Every INCOMING finding carries severity, impact and effort; one missing any
+of the three, or carrying a value outside its set, fails the batch before
+anything is planned. Ledger rows recorded before impact and effort existed
+lack them and stay valid: they print as unrated and sort last.
+
+Priority order (audit-playbook §3.5), the order `rank` prints:
+    Do first    high impact, low effort
+    Plan        high impact, medium or high effort
+    Quick wins  medium or low impact, low effort
+    Later       everything else, unrated rows included
+Within a group: impact desc, then effort asc, then severity desc.
 """
 
 from __future__ import annotations
@@ -52,6 +69,10 @@ import hashlib
 import json
 import sys
 from pathlib import Path
+
+SEVERITIES = ("info", "warn", "critical")
+RATINGS = ("low", "medium", "high")
+GROUPS = ("Do first", "Plan", "Quick wins", "Later")
 
 
 def fingerprint(
@@ -84,6 +105,82 @@ def dedupe_action(existing_rows: list[dict], fp: str) -> str:
     if "resolved" in statuses:
         return "reopen"
     return "insert"
+
+
+def finding_problems(finding: dict) -> list[str]:
+    """What keeps one incoming finding out of a batch — empty when it is
+    well formed. Severity, impact and effort are each required and closed:
+    a rating left to a default is a judgement nobody made."""
+    if not isinstance(finding, dict):
+        return [f"a finding must be an object, got {type(finding).__name__}"]
+    problems = []
+    if not finding.get("check_key"):
+        problems.append("check_key is missing")
+    for field, allowed in (("severity", SEVERITIES), ("impact", RATINGS), ("effort", RATINGS)):
+        value = finding.get(field)
+        if value is None:
+            problems.append(f"{field} is missing")
+        elif value not in allowed:
+            problems.append(
+                f"{field} {value!r} is not one of {', '.join(allowed[:-1])} or {allowed[-1]}"
+            )
+    return problems
+
+
+def validate_findings(findings: list) -> None:
+    """Refuse the whole batch on the first malformed finding, naming it."""
+    for index, finding in enumerate(findings):
+        problems = finding_problems(finding)
+        if problems:
+            check = finding.get("check_key", "?") if isinstance(finding, dict) else "?"
+            raise ValueError(
+                f"finding {index} ({check}) is malformed: {'; '.join(problems)}"
+            )
+
+
+def priority_group(finding: dict) -> str:
+    """Which of the four report groups a finding falls in. A row without
+    both ratings is unrated and falls in Later."""
+    impact, effort = finding.get("impact"), finding.get("effort")
+    if impact not in RATINGS or effort not in RATINGS:
+        return "Later"
+    if impact == "high":
+        return "Do first" if effort == "low" else "Plan"
+    if effort == "low":
+        return "Quick wins"
+    return "Later"
+
+
+def _priority_key(finding: dict) -> tuple:
+    impact, effort = finding.get("impact"), finding.get("effort")
+    rated = impact in RATINGS and effort in RATINGS
+    severity = finding.get("severity")
+    return (
+        0 if rated else 1,  # unrated last, whatever its severity
+        -RATINGS.index(impact) if rated else 0,
+        RATINGS.index(effort) if rated else 0,
+        -SEVERITIES.index(severity) if severity in SEVERITIES else 1,
+        finding.get("check_key") or "",
+        finding.get("fingerprint") or "",
+    )
+
+
+def rank(findings: list[dict]) -> list[tuple[str, list[dict]]]:
+    """The findings in report order: the four groups, always all four and
+    always in this order, each sorted impact desc, effort asc, severity
+    desc. The last two keys only make the order stable."""
+    grouped: dict[str, list[dict]] = {group: [] for group in GROUPS}
+    for finding in findings:
+        grouped[priority_group(finding)].append(finding)
+    return [(group, sorted(grouped[group], key=_priority_key)) for group in GROUPS]
+
+
+def rating_label(finding: dict) -> str:
+    """`impact high · effort low`, or `unrated` for a row with either missing."""
+    impact, effort = finding.get("impact"), finding.get("effort")
+    if impact not in RATINGS or effort not in RATINGS:
+        return "unrated"
+    return f"impact {impact} · effort {effort}"
 
 
 def _read_json(path: Path, label: str):
@@ -164,6 +261,7 @@ def _load_ledger(path: Path) -> dict:
 
 
 def _plan(ledger: dict, incoming: list[dict], run_id: str | None) -> list[tuple[str, dict]]:
+    validate_findings(incoming)
     plan: list[tuple[str, dict]] = []
     seen: set[str] = set()
     for finding in incoming:
@@ -213,7 +311,11 @@ def cmd_report(args: argparse.Namespace) -> int:
                     "open" if action == "update" else "resolved",
                 ):
                     row.update(
-                        {k: finding[k] for k in ("severity", "summary", "run_id") if k in finding}
+                        {
+                            k: finding[k]
+                            for k in ("severity", "impact", "effort", "summary", "run_id")
+                            if k in finding
+                        }
                     )
                     row["status"] = "open"
                     break
@@ -235,6 +337,39 @@ def cmd_report(args: argparse.Namespace) -> int:
             json.dumps(ledger, ensure_ascii=False, indent=1), encoding="utf-8"
         )
     print(json.dumps({"applied": bool(args.apply), **counts}))
+    return 0
+
+
+def cmd_validate(args: argparse.Namespace) -> int:
+    validate_findings(_read_findings(Path(args.findings)))
+    print("findings valid")
+    return 0
+
+
+def cmd_rank(args: argparse.Namespace) -> int:
+    rows = _load_ledger(Path(args.ledger))["rows"]
+    if args.status != "all":
+        rows = [row for row in rows if row.get("status") == args.status]
+    for group, members in rank(rows):
+        print(group)
+        if not members:
+            print("  (none)")
+        for row in members:
+            cells = len(row.get("cell_keys") or [])
+            summary = row.get("summary") or row.get("note") or ""
+            print(
+                f"  [{row.get('severity', '?')} · {rating_label(row)}] "
+                f"{row.get('check_key', '?')} (cells: {cells}) — {summary}"
+            )
+    counts: dict[str, int] = {}
+    for row in rows:
+        check = row.get("check_key", "?")
+        counts[check] = counts.get(check, 0) + 1
+    print("Per check")
+    if not counts:
+        print("  (none)")
+    for check in sorted(counts):
+        print(f"  {check}: {counts[check]}")
     return 0
 
 
@@ -266,6 +401,15 @@ def main() -> int:
     p.add_argument("--run-id", required=True)
     p.add_argument("--apply", action="store_true")
     p.set_defaults(fn=cmd_report)
+
+    p = sub.add_parser("validate")
+    p.add_argument("findings")
+    p.set_defaults(fn=cmd_validate)
+
+    p = sub.add_parser("rank")
+    p.add_argument("--ledger", required=True)
+    p.add_argument("--status", default="open", choices=("open", "resolved", "dismissed", "all"))
+    p.set_defaults(fn=cmd_rank)
 
     args = parser.parse_args()
     try:

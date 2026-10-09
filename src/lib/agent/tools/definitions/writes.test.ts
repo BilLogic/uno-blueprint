@@ -416,27 +416,38 @@ describe('the finding writes', () => {
   it('create_finding refuses a zero-cell finding with no scope, before touching the database', async () => {
     const { calls } = recordingClient()
     await expect(
-      write(createFindingTool, { source: 'audit', check_key: 'gap-sweep', severity: 'warn', summary: 'A gap' }),
+      write(createFindingTool, { source: 'audit', check_key: 'gap-sweep', severity: 'warn', impact: 'high', effort: 'low', summary: 'A gap' }),
     ).rejects.toThrow(/needs a scope/)
+    expect(calls).toEqual([])
+  })
+
+  it('create_finding refuses a finding missing either rating, as it refuses one missing a severity', async () => {
+    const { calls } = recordingClient()
+    const finding = { source: 'audit', check_key: 'gap-sweep', severity: 'warn', impact: 'high', effort: 'low', summary: 'A gap', cell_ids: ['c-1'] }
+    for (const missing of ['impact', 'effort', 'severity'] as const) {
+      const { [missing]: _dropped, ...args } = finding
+      await expect(write(createFindingTool, args)).rejects.toThrow(new RegExp(missing))
+    }
+    await expect(write(createFindingTool, { ...finding, effort: 'huge' })).rejects.toThrow(/effort/)
     expect(calls).toEqual([])
   })
 
   it('create_finding records a new finding and hands back a run id to reuse', async () => {
     const { calls, text, ledger } = await write(
       createFindingTool,
-      { source: 'audit', check_key: 'gap-sweep', severity: 'warn', summary: 'A gap', cell_ids: ['c-1'], run_id: 'run-9' },
+      { source: 'audit', check_key: 'gap-sweep', severity: 'warn', impact: 'high', effort: 'low', summary: 'A gap', cell_ids: ['c-1'], run_id: 'run-9' },
       { audit_findings: (ops) => (ops.some(([op]) => op === 'insert') ? { id: 'f-1' } : []) },
     )
     const insert = calls.find((call) => call.ops.some(([op]) => op === 'insert'))!
-    expect(insert.ops.find(([op]) => op === 'insert')![1]).toMatchObject({ service_id: 'svc-1', run_id: 'run-9', source: 'audit', check_key: 'gap-sweep', severity: 'warn', cell_ids: ['c-1'] })
-    expect(text).toBe('Recorded warn finding for gap-sweep. run_id run-9; reuse it for the rest of this run.')
+    expect(insert.ops.find(([op]) => op === 'insert')![1]).toMatchObject({ service_id: 'svc-1', run_id: 'run-9', source: 'audit', check_key: 'gap-sweep', severity: 'warn', impact: 'high', effort: 'low', cell_ids: ['c-1'] })
+    expect(text).toBe('Recorded warn finding (impact high, effort low) for gap-sweep. run_id run-9; reuse it for the rest of this run.')
     expect(ledger).toEqual(['create_finding'])
   })
 
   it('create_finding reports a dismissed twin and writes nothing', async () => {
     const { text, ledger } = await write(
       createFindingTool,
-      { source: 'whatif', check_key: 'gap-sweep', severity: 'info', summary: 'A gap', scope: 'scenario:Intake:orphan' },
+      { source: 'whatif', check_key: 'gap-sweep', severity: 'info', impact: 'low', effort: 'low', summary: 'A gap', scope: 'scenario:Intake:orphan' },
       { audit_findings: [{ id: 'f-0', status: 'dismissed' }] },
     )
     expect(text).toMatch(/dismissed stays dismissed\. Nothing recorded\./)

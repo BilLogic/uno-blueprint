@@ -506,7 +506,7 @@ async function realGetBusinessModel() {
  * no sentence for.
  */
 async function realListFindings(statusFilter) {
-  const query = `audit_findings?select=id,source,check_key,severity,summary,status,cell_ids,created_at&order=created_at.desc&limit=100${statusFilter === 'all' ? '' : `&status=eq.${encodeURIComponent(statusFilter)}`}`
+  const query = `audit_findings?select=id,source,check_key,severity,impact,effort,summary,status,cell_ids,created_at&order=created_at.desc&limit=100${statusFilter === 'all' ? '' : `&status=eq.${encodeURIComponent(statusFilter)}`}`
   const response = await fetch(`${env.VITE_SUPABASE_URL}/rest/v1/${query}`, {
     headers: {
       apikey: env.VITE_SUPABASE_ANON_KEY,

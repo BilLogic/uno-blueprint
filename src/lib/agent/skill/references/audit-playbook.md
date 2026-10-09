@@ -9,6 +9,7 @@ hard rules; this file carries the mechanics.
 - §1.5 Roster & skips
 - §2 Fingerprint
 - §3 Dedupe decision table
+- §3.5 Priority order
 - §4 Triage route
 - §5 Check-authoring template (its Question / Read / Finding shape / Non-findings headings are the template itself)
 - §6 Canvas note
@@ -86,8 +87,9 @@ that disagree on a separator split the finding history).
   convention slice-schema.json defines; IR cells carry lane+step — the
   rest of the path comes from their position in the tree). On a live
   canvas, cell ids stand in for keys (separate dedupe space, by design).
-- The note is NOT part of the fingerprint — rewording a finding updates the
-  open row rather than duplicating it.
+- The note is NOT part of the fingerprint, and neither are severity,
+  impact and effort — rewording or re-rating a finding updates the open row
+  rather than duplicating it.
 - Zero-cell findings (e.g. "no scenario covers onboarding at all") use a
   scope key instead of cell keys, WITH the same reason-slug discipline:
   `check_key + ':scope:' + scenario_key + ':' + <reason-slug>`
@@ -118,9 +120,34 @@ implement this table — execute, never improvise.
 | Incoming fingerprint matches… | Action |
 | --- | --- |
 | nothing | insert `open` |
-| an `open` row | update its note/severity/run_id in place |
+| an `open` row | update its note/severity/impact/effort/run_id in place |
 | a `dismissed` row | drop silently — a human said no; re-detection does not overrule them |
 | a `resolved` row | reopen it (status → `open`, new run_id) — it came back |
+
+## §3.5 Priority order
+
+Every finding carries three ratings, assigned by its auditor from the check
+doc: **severity** (`info | warn | critical`) says how wrong something is;
+**impact** (`low | medium | high`) says how much fixing it matters to the
+service; **effort** (`low | medium | high`) says how much work the fix
+takes. Impact and effort decide what to fix first; severity breaks ties.
+
+The report prints the open findings in four groups, in this order:
+
+| Group | Impact | Effort |
+| --- | --- | --- |
+| Do first | high | low |
+| Plan | high | medium or high |
+| Quick wins | medium or low | low |
+| Later | everything else | |
+
+Within a group: impact descending, then effort ascending, then severity
+descending. A finding recorded before the ratings existed has neither: it
+reads as **unrated**, falls in Later, and sorts after every rated finding
+there. Nothing guesses a rating it was never given.
+
+`skills/audit/scripts/audit_tools.py rank` prints this order for the file
+ledger; on the canvas, `list_findings` returns it.
 
 ## §4 Triage route
 
@@ -128,8 +155,9 @@ implement this table — execute, never improvise.
 
 1. Identify the row (by id if given; else by check + cell keys — confirm
    when ambiguous).
-2. Update `status` only. Never note, severity, or cells — a triage is a
-   human judgement about an agent statement, not an edit of the statement.
+2. Update `status` only. Never note, severity, impact, effort, or cells —
+   a triage is a human judgement about an agent statement, not an edit of
+   the statement.
 3. Confirm back: check, cells, old → new status.
 4. Never run checks, never write anything else. If the user ALSO wants the
    underlying issue fixed, that is the `ub:map` skill, after.
@@ -158,6 +186,12 @@ the skip condition.
 ## Finding shape
 When to emit; what the cell_keys set is; what the summary must contain
 (cite keys/titles — never excerpt text); when to raise/lower severity.
+
+## Impact and effort
+One concrete anchor per level, for each: what a low, medium and high
+impact finding of THIS check looks like, and what a low, medium and high
+effort fix looks like. Anchors drawn from the check's own subject matter
+are what make two runs rate the same finding the same way.
 
 ## Non-findings
 The false positives this check is known to attract, spelled out.

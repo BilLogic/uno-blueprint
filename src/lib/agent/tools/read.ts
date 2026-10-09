@@ -591,7 +591,7 @@ export async function listFindings(
   const scope = options.scope ?? SCOPE_ALL
   let query = client
     .from('audit_findings')
-    .select('id, source, check_key, severity, summary, status, cell_ids, created_at')
+    .select('id, source, check_key, severity, impact, effort, summary, status, cell_ids, created_at')
     .order('created_at', { ascending: false })
     .limit(100)
   if (scope.kind === 'service') query = query.eq('service_id', scope.serviceId)

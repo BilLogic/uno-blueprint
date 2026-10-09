@@ -15,6 +15,7 @@
 %%        slices.kind ∈ (journey | step | lane | cell | custom)
 %%        audit_findings.source ∈ (audit | whatif | import-sweep); severity ∈ (info | warn | critical);
 %%          status ∈ (open | resolved | dismissed)
+%%        audit_findings.impact ∈ (low | medium | high); audit_findings.effort ∈ (low | medium | high) — null means unrated
 %%        evidence.kind ∈ (interview | survey | analytics | doc | meeting | decision | observation | other)
 %%        authoring_changes.author ∈ (human | agent)
 %%        authoring_changes.deleted_kind ∈ (scenario | path | lane | step | cell)
@@ -248,6 +249,8 @@ erDiagram
     text source "audit | whatif | import-sweep"
     text check_key
     text severity "info | warn | critical"
+    text impact "low | medium | high; null = unrated"
+    text effort "low | medium | high; null = unrated"
     uuid[] cell_ids "SOFT refs, paired with cell_keys"
     text[] cell_keys
     text summary

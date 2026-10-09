@@ -178,6 +178,39 @@ describe('list_findings answers for one cell', () => {
     expect(findings?.calls.some(([op]) => op === 'contains')).toBe(false)
     expect(text).toBe('No findings recorded yet.')
   })
+
+  it('reads the ratings back, in priority order, with an old row shown as unrated', async () => {
+    const row = (id: string, impact: string | null, effort: string | null, severity = 'warn') => ({
+      id,
+      source: 'audit',
+      check_key: 'gap-sweep',
+      severity,
+      impact,
+      effort,
+      summary: null,
+      status: 'open',
+      cell_ids: ['c-1'],
+      created_at: '2026-10-09T00:00:00Z',
+    })
+    // Newest first, as the query returns them — the read regroups them.
+    const { client, log } = fakeClient(() => [
+      row('f-old', null, null, 'critical'),
+      row('f-plan', 'high', 'high'),
+      row('f-do', 'high', 'low'),
+    ])
+    const text = await runTool(listFindingsTool, {}, fakeToolContext({ client }))
+    expect(log.find((rec) => rec.table === 'audit_findings')?.select).toMatch(/impact, effort/)
+    expect(text).toBe(
+      [
+        'Do first:',
+        'f-do [warn · impact high · effort low] gap-sweep (audit, open, 2026-10-09) cells:1',
+        'Plan:',
+        'f-plan [warn · impact high · effort high] gap-sweep (audit, open, 2026-10-09) cells:1',
+        'Later:',
+        'f-old [critical · unrated] gap-sweep (audit, open, 2026-10-09) cells:1',
+      ].join('\n'),
+    )
+  })
 })
 
 describe('the dependency tool tells the two kinds apart', () => {

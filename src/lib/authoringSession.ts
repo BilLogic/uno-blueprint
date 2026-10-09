@@ -494,7 +494,11 @@ const DESCRIBERS: Record<WriteFn, (entry: ChangeEntry) => string> = {
       typeof entry.args.severity === 'string' ? `${entry.args.severity} ` : ''
     const check =
       typeof entry.args.check_key === 'string' ? ` for “${entry.args.check_key}”` : ''
-    return `Recorded a ${severity}finding${check}`
+    const rated =
+      typeof entry.args.impact === 'string' && typeof entry.args.effort === 'string'
+        ? ` (impact ${entry.args.impact}, effort ${entry.args.effort})`
+        : ''
+    return `Recorded a ${severity}finding${rated}${check}`
   },
   update_finding: (entry) => {
     const check =

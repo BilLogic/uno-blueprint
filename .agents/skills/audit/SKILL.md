@@ -10,7 +10,10 @@ staffs, a step customers experience but no cell records, a fee the journey
 never shows. The audit runs a fixed roster of **checks** — each a written
 interrogation, each executed by a fresh-context auditor — and lands the
 results as `audit_findings` rows a human can triage. The audit never fixes
-anything: it points, with severities, at cells by key.
+anything: it points at cells by key, and rates each finding three ways —
+severity (how wrong it is), impact (how much fixing it matters to the
+service) and effort (how much work the fix takes) — so the report can say
+what to fix first.
 
 All paths are relative to the plugin root — Claude Code's
 `${CLAUDE_PLUGIN_ROOT}`; anywhere else, the repository or workspace root: this
@@ -59,8 +62,10 @@ triage rules, and the check-authoring template.
   reported error, never a second insert. A
   re-detected finding whose fingerprint matches a `dismissed` row is
   dropped silently; matching a `resolved` row reopens it; matching an
-  `open` row updates it in place. The DB backstop (partial unique index on
-  open fingerprints) makes violations an insert error, not a silent dupe.
+  `open` row updates it in place, ratings included — a re-run whose only
+  change is a rating moves the rating and adds no row. The DB backstop
+  (partial unique index on open fingerprints) makes violations an insert
+  error, not a silent dupe.
 - ⚠ **REQUIRED — per-check atomic supersede.** A check that completes
   replaces its own previous open findings in one transaction; a check that
   fails leaves its previous findings untouched. Never wipe the whole run's
@@ -87,14 +92,16 @@ imported blueprint (or IR files)
   → dispatch  (one auditor per check, parallel, blind)
   → collect   (findings JSON per check; validate each auditor's output
                against the findings-row shape pinned in agents/auditor.md
-               BEFORE any dedupe or `report --apply` — malformed output =
-               check failed, re-dispatch once, then report the check as
-               failed)
+               BEFORE any dedupe or `report --apply` — `audit_tools.py
+               validate`; a finding missing its severity, impact or effort
+               is malformed output = check failed, re-dispatch once, then
+               report the check as failed)
   → dedupe    (fingerprint vs existing rows: drop dismissed, reopen
                resolved, update open)
   → write     (one run_id for the run; per-check atomic supersede)
-  → report    (per-check counts + skipped checks + failed checks; nothing
-               silent)
+  → report    (open findings in priority order — Do first, Plan, Quick
+               wins, Later, playbook §3.5 — then per-check counts +
+               skipped checks + failed checks; nothing silent)
 ```
 
 ## The check roster
@@ -132,15 +139,16 @@ reportable result, not a failure.
 | Roster | Every `check-*.md` either dispatched or reported skipped-with-reason |
 | Collect | Every dispatched check returned valid findings JSON or is reported failed after one retry |
 | Write | Rows for this `run_id` = deduped findings; open-fingerprint index reports zero conflicts; per-check supersede left no orphaned open findings from prior runs of completed checks |
-| Idempotence | Running twice on an unchanged blueprint yields zero new rows the second time |
+| Idempotence | Running twice on an unchanged blueprint yields zero new rows the second time; a re-run whose only change is a rating updates the open finding instead of adding one |
 | Triage | The named finding's `status` changed and nothing else did |
-| Report | Printed checklist: per-check found/skipped/failed counts and the run_id — never silent |
+| Report | Printed checklist: the open findings grouped Do first / Plan / Quick wins / Later (`audit_tools.py rank` on the file ledger; `list_findings` already returns that order on the canvas), then per-check found/skipped/failed counts and the run_id — never silent |
 
 ## Agents
 
 - `auditor` — one check doc + the blueprint export in; findings JSON out
-  (check, severity `info|warn|critical`, cell keys, summary). Blind to other
-  checks. Tools: Read, Glob, Grep, Bash.
+  (check, severity `info|warn|critical`, impact and effort
+  `low|medium|high`, cell keys, summary). Blind to other checks. Tools:
+  Read, Glob, Grep, Bash.
 - `impact-tracer` — used by `channel-conflict` when a suspected conflict
   needs its downstream chain walked (shared with the whatif skill).
 

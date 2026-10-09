@@ -45,7 +45,11 @@ call. A reader holding this file rather than a session sees the placeholders.
    out of tool rounds and delivering chat-only opinion, which is a
    failed audit. Reuse the run_id the first call returns for the whole
    run.
-4. **Report**: per-check counts, skipped checks with reasons.
+4. **Report**: the open findings in priority order — Do first, Plan,
+   Quick wins, Later — which is the order `list_findings` returns them in;
+   then per-check counts, skipped checks with reasons. Every
+   `create_finding` carries `impact` and `effort` from the check doc's
+   anchors beside its severity.
 5. **Triage** = `update_finding`; the ledger = `list_findings`.
 
 Canvas findings cite cells by id (written as the cell_keys), so canvas

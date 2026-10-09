@@ -11,6 +11,7 @@ import {
   type CompareSlot,
 } from '@/lib/compareSlots'
 import type { BlueprintData, CellResource } from '@/types/blueprint'
+import { rankFindings, ratingLabel } from '@/lib/findingPriority'
 import { CANONICAL_LANE_ROLES } from '@/lib/laneRoles'
 import { PATH_KINDS } from '@/lib/versionValidation'
 
@@ -445,10 +446,14 @@ export function formatBusinessModel(
   return filled || 'The business model row exists but is empty.'
 }
 
-/** One audit finding as a line — id, severity, check, provenance, cell count. */
+/**
+ * One audit finding as a line — id, severity and ratings, check, provenance,
+ * cell count. A finding recorded before impact and effort existed says
+ * `unrated` where the ratings go, rather than leaving a reader to guess.
+ */
 function findingLine(row: FindingRow): string {
   const summary = row.summary ? ` — ${row.summary}` : ''
-  return `${row.id} [${row.severity}] ${row.check_key} (${row.source}, ${row.status}, ${row.created_at.slice(0, 10)}) cells:${(row.cell_ids ?? []).length}${summary}`
+  return `${row.id} [${row.severity} · ${ratingLabel(row)}] ${row.check_key} (${row.source}, ${row.status}, ${row.created_at.slice(0, 10)}) cells:${(row.cell_ids ?? []).length}${summary}`
 }
 
 export type FindingRow = {
@@ -456,6 +461,8 @@ export type FindingRow = {
   source: string
   check_key: string
   severity: string
+  impact?: string | null
+  effort?: string | null
   summary?: string | null
   status: string
   cell_ids?: string[] | null
@@ -466,6 +473,10 @@ export type FindingRow = {
  * The findings list, and the three ways it can be empty — for the whole
  * board, for one status, and for one cell. Shared with the harness's REST
  * read for the reason `formatBusinessModel` is.
+ *
+ * Grouped in the audit report's priority order — Do first, Plan, Quick wins,
+ * Later — so the order a team should fix things in is the order it reads
+ * them in. A group with nothing in it is left out rather than printed empty.
  */
 export function formatFindingsList(
   rows: ReadonlyArray<FindingRow>,
@@ -475,7 +486,10 @@ export function formatFindingsList(
     if (forCell) return `No ${filter === 'all' ? '' : `${filter} `}findings touch cell ${forCell}.`
     return filter === 'all' ? 'No findings recorded yet.' : `No ${filter} findings.`
   }
-  return rows.map(findingLine).join('\n')
+  return rankFindings(rows)
+    .filter(({ findings }) => findings.length > 0)
+    .map(({ group, findings }) => [`${group}:`, ...findings.map(findingLine)].join('\n'))
+    .join('\n')
 }
 
 /** `key: value` lines, empty fields dropped. */

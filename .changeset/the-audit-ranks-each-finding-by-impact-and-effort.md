@@ -1,0 +1,9 @@
+---
+"uno-blueprint": minor
+---
+
+The audit ranks each finding by impact and effort, so a team can see what to fix first. Beside its severity (how wrong something is), every finding now carries an impact (how much fixing it matters to the service) and an effort (how much work the fix takes), each `low`, `medium` or `high`. Each of the eight check docs gains an Impact and effort section with one concrete anchor per level, and the auditor rates every finding from it; a finding missing either rating fails validation the way one missing a severity does, in `audit_tools.py` (the new `validate` subcommand, and `dedupe` and `report`) and in the agent's `create_finding`. The audit report groups the open findings Do first (high impact, low effort), Plan (high impact, medium or high effort), Quick wins (medium or low impact, low effort) and Later (everything else), ordered within each group by impact, then effort, then severity: `audit_tools.py rank` prints it for the file ledger with the per-check counts after it, and `list_findings` returns the same order on the canvas, with each finding's ratings on its line. A re-run whose only change is a rating updates the open finding instead of adding one, and an unchanged re-run still adds nothing. The audit figure shows the ratings beside each finding's status.
+
+A new migration, `21000303000000`, adds nullable `impact` and `effort` columns to `audit_findings`, each held to `low`, `medium` and `high`, and grants update on both to the role that records findings. Findings recorded before it keep both columns empty: they read as unrated and sort last, in Later.
+
+Upgrading a deployment: port the new migration, `21000303000000`, under the deployment's own version and apply it (`supabase db push`), then bump the pin. Existing findings stay as they are and show as unrated until an audit re-run rates them. A deployment that holds the generated recipe byte-identical takes the new copy with it.

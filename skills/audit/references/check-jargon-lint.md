@@ -19,6 +19,17 @@ rewriting cell text in the summary. Internal-system names, org-chart words,
 and acronyms in customer-visible cells → warn; the same words in backstage
 lanes → not a finding.
 
+## Impact and effort
+Rate both on every finding, from the anchors below. Pick the level whose
+anchor the finding matches most closely; between two, rate impact the lower
+and effort the higher — a finding has to earn Do first.
+
+| Level | Impact — how much the plainer word matters | Effort — how much work the change takes |
+| --- | --- | --- |
+| low | The term sits in text the customer skims, and most customers would still decode it | A word swap in one or two cells |
+| medium | An acronym or internal name in the main text the customer reads at a step | The term recurs across the scenario, or the plainer word has to be agreed with whoever owns the copy |
+| high | The term sits where the customer must act on it — a choice, a consent, a payment — and misreading it sends them down the wrong path | The term is a name the shipped interface itself uses, so the product's copy changes along with the blueprint's |
+
 ## Non-findings
 Domain terms the customer genuinely uses (verify against evidence titles
 if present); product names the service deliberately teaches; backstage

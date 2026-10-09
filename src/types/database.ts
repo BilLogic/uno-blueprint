@@ -92,8 +92,10 @@ export type Database = {
           cell_keys: string[]
           check_key: string
           created_at: string
+          effort: string | null
           fingerprint: string
           id: string
+          impact: string | null
           run_id: string
           service_id: string
           severity: string
@@ -107,8 +109,10 @@ export type Database = {
           cell_keys?: string[]
           check_key: string
           created_at?: string
+          effort?: string | null
           fingerprint: string
           id?: string
+          impact?: string | null
           run_id: string
           service_id: string
           severity: string
@@ -122,8 +126,10 @@ export type Database = {
           cell_keys?: string[]
           check_key?: string
           created_at?: string
+          effort?: string | null
           fingerprint?: string
           id?: string
+          impact?: string | null
           run_id?: string
           service_id?: string
           severity?: string

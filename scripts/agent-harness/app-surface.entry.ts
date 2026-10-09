@@ -113,6 +113,7 @@ export {
   formatCellDependencies,
   formatEvidenceDetail,
   formatEvidenceList,
+  FINDINGS_SHOWN,
   formatFindingsList,
   formatLaneVocabulary,
   formatOwnerTags,

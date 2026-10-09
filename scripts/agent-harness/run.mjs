@@ -303,6 +303,7 @@ const {
   formatCellDependencies,
   formatEvidenceDetail,
   formatEvidenceList,
+  FINDINGS_SHOWN,
   formatFindingsList,
   formatLaneVocabulary,
   formatOwnerTags,
@@ -500,30 +501,37 @@ async function realGetBusinessModel() {
  * The findings, in the app's words, under a total the app cannot state.
  *
  * The rows and every empty state are `formatFindingsList` — the same function
- * `list_findings` answers with. The header above them is the harness's own
- * and stays: this read asks PostgREST for `count=exact`, so it knows the true
- * total behind the cap, which the app's own read does not and therefore has
- * no sentence for.
+ * `list_findings` answers with, given every matching row, read a page at a
+ * time as the app's read does, so the ranking runs over the whole set before
+ * any cap. The header above them is the harness's own and stays: this read
+ * asks PostgREST for `count=exact`, so it can state the total outright.
  */
 async function realListFindings(statusFilter) {
-  const query = `audit_findings?select=id,source,check_key,severity,impact,effort,summary,status,cell_ids,created_at&order=created_at.desc&limit=100${statusFilter === 'all' ? '' : `&status=eq.${encodeURIComponent(statusFilter)}`}`
-  const response = await fetch(`${env.VITE_SUPABASE_URL}/rest/v1/${query}`, {
-    headers: {
-      apikey: env.VITE_SUPABASE_ANON_KEY,
-      authorization: `Bearer ${env.VITE_SUPABASE_ANON_KEY}`,
-      prefer: 'count=exact',
-    },
-  })
-  if (!response.ok) throw new Error(`postgrest ${response.status}`)
-  const rows = await response.json()
-  const range = response.headers.get('content-range')
-  const total = range?.includes('/') ? Number(range.split('/')[1]) : undefined
-  const listed = formatFindingsList(rows ?? [], { filter: statusFilter })
-  if (!rows?.length) return listed
+  const PAGE = 500
+  const rows = []
+  let total
+  for (let offset = 0; ; offset += PAGE) {
+    const query = `audit_findings?select=id,source,check_key,severity,impact,effort,fingerprint,summary,status,cell_ids,created_at&order=created_at.desc,id&limit=${PAGE}&offset=${offset}${statusFilter === 'all' ? '' : `&status=eq.${encodeURIComponent(statusFilter)}`}`
+    const response = await fetch(`${env.VITE_SUPABASE_URL}/rest/v1/${query}`, {
+      headers: {
+        apikey: env.VITE_SUPABASE_ANON_KEY,
+        authorization: `Bearer ${env.VITE_SUPABASE_ANON_KEY}`,
+        prefer: 'count=exact',
+      },
+    })
+    if (!response.ok) throw new Error(`postgrest ${response.status}`)
+    const page = (await response.json()) ?? []
+    const range = response.headers.get('content-range')
+    if (range?.includes('/')) total = Number(range.split('/')[1])
+    rows.push(...page)
+    if (page.length < PAGE) break
+  }
+  const listed = formatFindingsList(rows, { filter: statusFilter })
+  if (!rows.length) return listed
   const label = statusFilter === 'all' ? 'findings' : `${statusFilter} findings`
   const header = Number.isFinite(total)
-    ? `${total} ${label} total; listing ${Math.min(rows.length, total)}. Answer count questions from the TOTAL, not by counting the rows below.`
-    : `Listing ${rows.length} ${label} (total unavailable — do not state a total).`
+    ? `${total} ${label} total; listing ${Math.min(rows.length, total, FINDINGS_SHOWN)} in priority order. Answer count questions from the TOTAL, not by counting the rows below.`
+    : `Listing ${Math.min(rows.length, FINDINGS_SHOWN)} of ${rows.length} ${label} in priority order.`
   return [header, listed].join('\n')
 }
 

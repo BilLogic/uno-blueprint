@@ -8,6 +8,7 @@ import {
   requireScope,
 } from '@/lib/agent/tools/definition'
 import { listFindings } from '@/lib/agent/tools/read'
+import { RATINGS } from '@/lib/findingPriority'
 import { findingFingerprint } from '@/lib/findingFingerprint'
 import { recordFinding, updateFinding } from '@/lib/findingMutations'
 
@@ -43,12 +44,12 @@ export const createFindingTool = defineWriteTool({
       .enum(['info', 'warn', 'critical'])
       .describe('Per the check doc default unless evidence says otherwise'),
     impact: z
-      .enum(['low', 'medium', 'high'])
+      .enum(RATINGS)
       .describe(
         "How much fixing it matters to the service, rated from the check doc's rubric. Required on every finding.",
       ),
     effort: z
-      .enum(['low', 'medium', 'high'])
+      .enum(RATINGS)
       .describe(
         "How much work the fix takes, rated from the check doc's rubric. Required on every finding.",
       ),

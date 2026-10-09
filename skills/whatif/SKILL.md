@@ -61,7 +61,9 @@ the change-request handoff.
   flagged for the human, not a fact.
 - ⚠ **REQUIRED — findings discipline is the audit's.** Same fingerprint
   algorithm, same dedupe, same triage, same no-verbatim-excerpts rule
-  (audit-playbook §2–§4).
+  (audit-playbook §2–§4), and the same three ratings on every finding:
+  severity, impact and effort, the last two rated from whatif-playbook
+  §3.1.
 - ⚠ **REQUIRED — confirm the import target** before writing findings;
   `references/adapter-contract.md` applies unchanged — wrong-project
   protection: findings written into someone else's database are pollution
@@ -106,6 +108,7 @@ imported blueprint + a hypothetical
 | Doing anything in this skill | `skills/whatif/references/whatif-playbook.md` |
 | Emitting or validating a change request | `skills/whatif/references/change-request-schema.json` |
 | Findings mechanics (shared with audit) | `references/audit-playbook.md` §2–§4 |
+| Rating a whatif finding's impact and effort | `skills/whatif/references/whatif-playbook.md` §3.1 |
 | Anything touching an import target | `references/adapter-contract.md` |
 | Understanding the underlying tables | `references/data-model.md` |
 | How the same whatif behaves on the app canvas | `references/canvas-adapter.md` |

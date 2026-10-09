@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   priorityGroup,
@@ -7,9 +9,9 @@ import {
 } from '@/lib/findingPriority'
 
 /**
- * The audit report's order, held to the same cases the skill's own
- * `audit_tools.py rank` is tested against, so the canvas and the IDE cannot
- * print one ledger in two orders.
+ * The audit report's order. The ordering case reads the fixture the skill's
+ * own `audit_tools.py rank` is tested against in `run_tests.sh`, so the
+ * canvas and the IDE cannot print one ledger in two orders.
  */
 const finding = (
   name: string,
@@ -39,31 +41,21 @@ describe('priorityGroup', () => {
 })
 
 describe('rankFindings', () => {
-  it('orders the four groups, and impact desc, effort asc, severity desc within each', () => {
-    const rows = [
-      finding('unrated', null, null, 'critical'),
-      finding('later-low-high', 'low', 'high'),
-      finding('later-medium-medium', 'medium', 'medium'),
-      finding('quick-low', 'low', 'low', 'critical'),
-      finding('quick-medium', 'medium', 'low', 'info'),
-      finding('plan-high-high', 'high', 'high', 'critical'),
-      finding('plan-high-medium', 'high', 'medium'),
-      finding('do-info', 'high', 'low', 'info'),
-      finding('do-critical', 'high', 'low', 'critical'),
-    ]
-    const ranked = rankFindings(rows).map(({ group, findings }) => [
+  it('prints the shared fixture in the order audit_tools.py rank prints it', () => {
+    const cases = JSON.parse(
+      readFileSync(resolve(process.cwd(), 'scripts/tests/fixtures/finding-priority.json'), 'utf8'),
+    ) as {
+      findings: Array<RankableFinding & { name: string }>
+      expected: Array<[string, string[]]>
+    }
+    const ranked = rankFindings(cases.findings).map(({ group, findings }) => [
       group,
       findings.map((row) => row.name),
     ])
-    expect(ranked).toEqual([
-      ['Do first', ['do-critical', 'do-info']],
-      ['Plan', ['plan-high-medium', 'plan-high-high']],
-      ['Quick wins', ['quick-medium', 'quick-low']],
-      ['Later', ['later-medium-medium', 'later-low-high', 'unrated']],
-    ])
+    expect(ranked).toEqual(cases.expected)
   })
 
-  it('keeps arrival order between findings that tie', () => {
+  it('keeps arrival order only where every key ties, check and fingerprint included', () => {
     const rows = [finding('first', 'low', 'low'), finding('second', 'low', 'low')]
     expect(rankFindings(rows)[2].findings.map((row) => row.name)).toEqual(['first', 'second'])
   })

@@ -463,6 +463,7 @@ export type FindingRow = {
   severity: string
   impact?: string | null
   effort?: string | null
+  fingerprint?: string | null
   summary?: string | null
   status: string
   cell_ids?: string[] | null
@@ -477,6 +478,11 @@ export type FindingRow = {
  * Grouped in the audit report's priority order — Do first, Plan, Quick wins,
  * Later — so the order a team should fix things in is the order it reads
  * them in. A group with nothing in it is left out rather than printed empty.
+ *
+ * The rows are every finding the filter matches, and the cap applies AFTER
+ * ranking: cutting to the newest first would drop an old Do-first finding
+ * while keeping a new one from Later. What the cap leaves out is the bottom
+ * of the order, and the last line says how many.
  */
 export function formatFindingsList(
   rows: ReadonlyArray<FindingRow>,
@@ -486,11 +492,24 @@ export function formatFindingsList(
     if (forCell) return `No ${filter === 'all' ? '' : `${filter} `}findings touch cell ${forCell}.`
     return filter === 'all' ? 'No findings recorded yet.' : `No ${filter} findings.`
   }
-  return rankFindings(rows)
-    .filter(({ findings }) => findings.length > 0)
-    .map(({ group, findings }) => [`${group}:`, ...findings.map(findingLine)].join('\n'))
-    .join('\n')
+  let room = FINDINGS_SHOWN
+  const lines: string[] = []
+  for (const { group, findings } of rankFindings(rows)) {
+    const shown = findings.slice(0, room)
+    room -= shown.length
+    if (shown.length > 0) lines.push(`${group}:`, ...shown.map(findingLine))
+  }
+  const hidden = rows.length - FINDINGS_SHOWN
+  if (hidden > 0) {
+    lines.push(
+      `${hidden} more lower in priority order not listed (${rows.length} in all). Narrow with status or cell_id to see them.`,
+    )
+  }
+  return lines.join('\n')
 }
+
+/** How many findings one list shows; the rest are counted, never dropped silently. */
+export const FINDINGS_SHOWN = 100
 
 /** `key: value` lines, empty fields dropped. */
 export function formatFields(fields: Array<[string, unknown]>): string {

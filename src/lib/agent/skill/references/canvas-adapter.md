@@ -59,7 +59,8 @@ and IDE fingerprints are separate dedupe spaces.
 
 1. **The hypothetical variant is conversational**: analysis never writes
    cells — reason over reads, record consequence findings via
-   `create_finding` source `whatif`.
+   `create_finding` source `whatif`, rating impact and effort from
+   whatif-playbook §3.1.
 2. **Promotion is direct**: only on the human's explicit acceptance,
    apply the diff through the ordinary write tools (nod gate, small
    batches, ledger), then resolve superseded whatif findings via

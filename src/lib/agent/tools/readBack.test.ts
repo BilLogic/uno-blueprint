@@ -52,6 +52,10 @@ function fakeClient(answer: (rec: Rec) => unknown): {
       limit() {
         return b
       },
+      range(...args: unknown[]) {
+        rec.calls.push(['range', ...args])
+        return b
+      },
       maybeSingle: settle,
       then(onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) {
         return settle().then(onF, onR)
@@ -199,7 +203,7 @@ describe('list_findings answers for one cell', () => {
       row('f-do', 'high', 'low'),
     ])
     const text = await runTool(listFindingsTool, {}, fakeToolContext({ client }))
-    expect(log.find((rec) => rec.table === 'audit_findings')?.select).toMatch(/impact, effort/)
+    expect(log.find((rec) => rec.table === 'audit_findings')?.select).toMatch(/impact, effort, fingerprint/)
     expect(text).toBe(
       [
         'Do first:',
@@ -210,6 +214,44 @@ describe('list_findings answers for one cell', () => {
         'f-old [critical · unrated] gap-sweep (audit, open, 2026-10-09) cells:1',
       ].join('\n'),
     )
+  })
+
+  it('ranks every open finding before it caps the list, and says what the cap left out', async () => {
+    const row = (id: string, impact: string, effort: string, created_at: string) => ({
+      id,
+      source: 'audit',
+      check_key: 'gap-sweep',
+      severity: 'warn',
+      impact,
+      effort,
+      summary: null,
+      status: 'open',
+      cell_ids: [],
+      created_at,
+    })
+    // 120 newer Later findings, then one old Do-first finding, newest first
+    // as the query returns them. A newest-first cut at 100 would lose it.
+    const later = Array.from({ length: 120 }, (_, n) =>
+      row(`f-later-${n}`, 'low', 'high', '2026-10-09T00:00:00Z'),
+    )
+    const all = [...later, row('f-do-old', 'high', 'low', '2026-01-01T00:00:00Z')]
+    const { client, log } = fakeClient((rec) => {
+      const range = rec.calls.find(([op]) => op === 'range') as [string, number, number]
+      return all.slice(range[1], range[2] + 1)
+    })
+    const text = await runTool(listFindingsTool, {}, fakeToolContext({ client }))
+    const lines = text.split('\n')
+    expect(lines.slice(0, 2)).toEqual([
+      'Do first:',
+      'f-do-old [warn · impact high · effort low] gap-sweep (audit, open, 2026-01-01) cells:0',
+    ])
+    expect(lines.filter((line) => line.startsWith('f-'))).toHaveLength(100)
+    expect(lines.at(-1)).toBe(
+      '21 more lower in priority order not listed (121 in all). Narrow with status or cell_id to see them.',
+    )
+    // Read by range, never by a limit that would cut before the ranking.
+    const read = log.find((rec) => rec.table === 'audit_findings')
+    expect(read?.calls).toContainEqual(['range', 0, 499])
   })
 })
 

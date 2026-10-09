@@ -1,0 +1,24 @@
+{
+  "_about": "The audit report's priority order, as cases both implementations read: skills/audit/scripts/audit_tools.py rank (scripts/tests/run_tests.sh) and src/lib/findingPriority.ts (findingPriority.test.ts). Findings arrive in this order; `expected` is the order each must print, group by group, named by `name`. Every full tie on impact, effort and severity is broken by check_key, then fingerprint.",
+  "findings": [
+    { "name": "unrated-warn", "check_key": "gap-sweep", "fingerprint": "gap-sweep:b", "impact": null, "effort": null, "severity": "warn" },
+    { "name": "half-rated", "check_key": "gap-sweep", "fingerprint": "gap-sweep:c", "impact": "high", "effort": null, "severity": "info" },
+    { "name": "unrated-critical", "check_key": "jargon-lint", "fingerprint": "jargon-lint:a", "impact": null, "effort": null, "severity": "critical" },
+    { "name": "later-low-high", "check_key": "kpi-alignment", "fingerprint": "kpi-alignment:a", "impact": "low", "effort": "high", "severity": "warn" },
+    { "name": "later-medium-medium", "check_key": "kpi-alignment", "fingerprint": "kpi-alignment:b", "impact": "medium", "effort": "medium", "severity": "warn" },
+    { "name": "quick-low", "check_key": "jargon-lint", "fingerprint": "jargon-lint:b", "impact": "low", "effort": "low", "severity": "critical" },
+    { "name": "quick-medium", "check_key": "jargon-lint", "fingerprint": "jargon-lint:c", "impact": "medium", "effort": "low", "severity": "info" },
+    { "name": "plan-high-high", "check_key": "channel-conflict", "fingerprint": "channel-conflict:a", "impact": "high", "effort": "high", "severity": "critical" },
+    { "name": "plan-high-medium", "check_key": "channel-conflict", "fingerprint": "channel-conflict:b", "impact": "high", "effort": "medium", "severity": "warn" },
+    { "name": "do-info", "check_key": "gap-sweep", "fingerprint": "gap-sweep:a", "impact": "high", "effort": "low", "severity": "info" },
+    { "name": "do-tie-second-fingerprint", "check_key": "gap-sweep", "fingerprint": "gap-sweep:z", "impact": "high", "effort": "low", "severity": "critical" },
+    { "name": "do-tie-check", "check_key": "fee-visibility", "fingerprint": "fee-visibility:z", "impact": "high", "effort": "low", "severity": "critical" },
+    { "name": "do-tie-first-fingerprint", "check_key": "gap-sweep", "fingerprint": "gap-sweep:m", "impact": "high", "effort": "low", "severity": "critical" }
+  ],
+  "expected": [
+    ["Do first", ["do-tie-check", "do-tie-first-fingerprint", "do-tie-second-fingerprint", "do-info"]],
+    ["Plan", ["plan-high-medium", "plan-high-high"]],
+    ["Quick wins", ["quick-medium", "quick-low"]],
+    ["Later", ["later-medium-medium", "later-low-high", "unrated-critical", "unrated-warn", "half-rated"]]
+  ]
+}

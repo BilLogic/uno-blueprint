@@ -1186,37 +1186,21 @@ pass "audit-rating-update (a re-rating updates the open row; an unchanged re-run
 # The report's order: Do first (high impact, low effort), Plan (high impact,
 # more effort), Quick wins (lesser impact, low effort), Later (the rest, with
 # every unrated row last of all). Within a group: impact desc, effort asc,
-# severity desc.
+# severity desc, then check_key and fingerprint. The cases are a fixture the
+# app's findingPriority.test.ts reads too, so the two orders cannot drift.
 python3 - "$REPO_ROOT" <<'PY' || fail "audit-rank-order: priority order wrong"
-import importlib.util, sys
+import importlib.util, json, sys
+repo = sys.argv[1]
 spec = importlib.util.spec_from_file_location(
-    "audit_tools", f"{sys.argv[1]}/skills/audit/scripts/audit_tools.py")
+    "audit_tools", f"{repo}/skills/audit/scripts/audit_tools.py")
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 
-def f(name, impact, effort, severity="warn"):
-    return {"check_key": "c", "summary": name, "impact": impact, "effort": effort,
-            "severity": severity}
-
-rows = [
-    f("unrated", None, None, "critical"),
-    f("later-low-high", "low", "high"),
-    f("later-medium-medium", "medium", "medium"),
-    f("quick-low", "low", "low", "critical"),
-    f("quick-medium", "medium", "low", "info"),
-    f("plan-high-high", "high", "high", "critical"),
-    f("plan-high-medium", "high", "medium"),
-    f("do-info", "high", "low", "info"),
-    f("do-critical", "high", "low", "critical"),
-]
-groups = mod.rank(rows)
-assert [g for g, _ in groups] == ["Do first", "Plan", "Quick wins", "Later"], groups
-got = {g: [r["summary"] for r in members] for g, members in groups}
-assert got["Do first"] == ["do-critical", "do-info"], got
-assert got["Plan"] == ["plan-high-medium", "plan-high-high"], got
-assert got["Quick wins"] == ["quick-medium", "quick-low"], got
-assert got["Later"] == ["later-medium-medium", "later-low-high", "unrated"], got
-assert mod.rating_label(rows[0]) == "unrated", mod.rating_label(rows[0])
+cases = json.load(open(f"{repo}/scripts/tests/fixtures/finding-priority.json", encoding="utf-8"))
+got = [[group, [row["name"] for row in members]] for group, members in mod.rank(cases["findings"])]
+assert got == cases["expected"], got
+unrated = next(row for row in cases["findings"] if row["name"] == "half-rated")
+assert mod.rating_label(unrated) == "unrated", mod.rating_label(unrated)
 PY
 python3 "$AUDIT_TOOLS" rank --ledger "$TMP/audit-old-ledger.json" > "$TMP/audit-rank.out" \
   || fail "audit-rank-print: rank failed"

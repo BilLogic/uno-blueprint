@@ -336,9 +336,8 @@ refused by name, told which word replaced which.
 **Finding** — one triageable observation about a blueprint, raised by a
 consistency check or a change trace. A finding carries a severity, an
 impact and an effort, the cells it concerns, and a triage state: open,
-resolved, or dismissed. It is a claim
-about the blueprint, not a change to it — nothing acts on a finding until a
-person triages it.
+resolved, or dismissed. It is a claim about the blueprint, not a change to
+it — nothing acts on a finding until a person triages it.
 
 **Severity** — how wrong a finding says something is: `info`, `warn` or
 `critical`.

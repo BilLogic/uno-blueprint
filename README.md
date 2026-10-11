@@ -2,7 +2,7 @@
 
 Get your human and AI teammates on the same page.
 
-An open-source toolkit for context engineering: a canvas for your team, a harness for your agents. One service blueprint that people read as a canvas and agents read as structured data. Your product knowledge is spread across PRDs, designs, code, dashboards and threads; the blueprint shows how it fits together.
+An open-source toolkit for context engineering: a canvas for your team, a harness for your agents.
 
 [Website](https://uno-blueprint.netlify.app) · [Try the demo](https://uno-blueprint.netlify.app/demo/) · [Agent guide](https://uno-blueprint.netlify.app/uno-blueprint.md) · [Changelog](./CHANGELOG.md) · [Latest release](https://github.com/BilLogic/uno-blueprint/releases/latest)
 
@@ -86,7 +86,7 @@ Four skills teach your agents to build the map from your docs, keep it accurate,
 | [`ub:audit`](./skills/audit/SKILL.md) | List gaps, conflicts and stale sources, ranked by what to fix first. |
 | [`ub:whatif`](./skills/whatif/SKILL.md) | Trace a change before you make it. |
 
-How each skill works, and the agents and hooks around them: [guide/03 — The plugin](./docs/guide/03-the-plugin.md). Cursor and Codex find the skills in `.agents/skills/`, and any agent that reads markdown routes through `AGENTS.md`: [guide/03 § In other coding agents](./docs/guide/03-the-plugin.md#5-in-other-coding-agents).
+How each skill works, and the agents and hooks around them: [guide/03 — The plugin](./docs/guide/03-the-plugin.md).
 
 ### One blueprint, every place you work
 
@@ -106,7 +106,7 @@ npm run supabase:reset       # applies migrations + sample seed
 npm run dev
 ```
 
-Copy `API URL` and `anon key` from the CLI output into `.env`, then run `npm run check:target`: it asks the database which schema it carries, because a page that renders does not prove the migration ran. Keep every key and connection string in `.env`, never in a tracked file. Most tables are publicly readable, so keep client-sensitive content out of a public deployment.
+Copy `API URL` and `anon key` from the CLI output into `.env`, then run `npm run check:target`: it asks the database which schema it carries, because a page that renders does not prove the migration ran. Keep every key and connection string in `.env`, never in a tracked file. Who can read what, table by table: [SETUP.md § Who can read what](./SETUP.md#who-can-read-what).
 
 A hosted project, the exposure note table by table, any other Postgres host through the portable core, what stays yours to bring, and deploying: [SETUP.md § Adopting it for a team](./SETUP.md#adopting-it-for-a-team).
 

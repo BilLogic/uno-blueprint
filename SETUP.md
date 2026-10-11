@@ -82,8 +82,7 @@ have configured anything: with no `VITE_SUPABASE_*` variables the app runs in
 [`scripts/generate_sample_blueprint.mjs`](./scripts/generate_sample_blueprint.mjs)
 into both `src/data/sampleBlueprint.ts` (the offline fallback) and
 `supabase/seed.sql` (the database seed), from one source, so both serve the
-same content. Stop here if all you want is to look at the
-renderer.
+same content. Stop here if all you want is to look at the renderer.
 
 ### 3. Set the two variables
 
@@ -225,6 +224,9 @@ reverts a hand-edit.
 
 ### Agent search and other readers
 
+- **MCP:** `ub:map` reads FigJam or Figma boards through MCP and writes
+  through the Supabase MCP or your own CLI credentials:
+  [references/adapter-contract.md](./references/adapter-contract.md).
 - **Agent search on your own vector index:** [references/customization.md §
   Agent search](./references/customization.md#agent-search).
 - **A Slack bot, or any other reader:** it reads with the publishable key

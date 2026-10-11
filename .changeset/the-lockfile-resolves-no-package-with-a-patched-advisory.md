@@ -1,7 +1,0 @@
----
-'uno-blueprint': patch
----
-
-The lockfile resolves no package with a patched advisory. `@modelcontextprotocol/sdk` moves to 1.32.1, `proxy-addr` to 2.0.8 and `source-map-js` to 1.2.2, each inside the range its parent already allows. Two packages have no parent release that fixes them, so `package.json` now carries an `overrides` block, mirrored as `resolutions` for pnpm, Yarn and Bun: `tinypool` `~2.1.2` (a patch over the 2.1.0 that `oxfmt` pins, under `@supabase/postgrest-typegen`) and `postcss-selector-parser` `^7.1.6` (over the 6.0.10 that `@tailwindcss/typography` pins). The build output is byte-identical and `src/types/database.ts` regenerates unchanged. `braces` and `sprintf-js` have no patched release and stay: both sit only in development and build tooling (`@changesets/cli`, and the `shadcn` CLI's file globbing), and neither reaches the Vite build.
-
-Upgrading a deployment: overrides apply only at the root of the tree that installs, so the template's do not reach a deployment's own lockfile. If the deployment resolves `tinypool` below 2.1.2 or `postcss-selector-parser` below 7.1.6, copy the `overrides` and `resolutions` blocks into its own `package.json`; if it resolves `@modelcontextprotocol/sdk`, `proxy-addr` or `source-map-js` below the versions above, run `npm update @modelcontextprotocol/sdk proxy-addr source-map-js`. Then `npm install` and commit the lockfile. A deployment that resolves none of these has nothing to do.

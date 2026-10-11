@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.8.4
+
+**The lockfile resolves no package with a patched advisory.** Six Dependabot
+alerts close: three packages move up inside the ranges their parents allow, and
+two that no parent release fixes are pinned through `overrides`. The two left
+open, `braces` and `sprintf-js`, have no patched release and sit only in
+development tooling.
+
+### Upgrading a deployment
+
+- **Copy the `overrides` and `resolutions` blocks** into the deployment's own
+  `package.json` if its lockfile resolves `tinypool` below 2.1.2 or
+  `postcss-selector-parser` below 7.1.6; the template's overrides do not reach
+  a deployment's tree.
+- **Run `npm update @modelcontextprotocol/sdk proxy-addr source-map-js`** if
+  the lockfile resolves any of them below 1.32.1, 2.0.8 and 1.2.2.
+- **Then bump the pin.** No migration.
+
+### Patch Changes
+
+- c0e3afe: The lockfile resolves no package with a patched advisory. `@modelcontextprotocol/sdk` moves to 1.32.1, `proxy-addr` to 2.0.8 and `source-map-js` to 1.2.2, each inside the range its parent already allows. Two packages have no parent release that fixes them, so `package.json` now carries an `overrides` block, mirrored as `resolutions` for pnpm, Yarn and Bun: `tinypool` `~2.1.2` (a patch over the 2.1.0 that `oxfmt` pins, under `@supabase/postgrest-typegen`) and `postcss-selector-parser` `^7.1.6` (over the 6.0.10 that `@tailwindcss/typography` pins). The build output is byte-identical and `src/types/database.ts` regenerates unchanged. `braces` and `sprintf-js` have no patched release and stay: both sit only in development and build tooling (`@changesets/cli`, and the `shadcn` CLI's file globbing), and neither reaches the Vite build.
+
+  Upgrading a deployment: overrides apply only at the root of the tree that installs, so the template's do not reach a deployment's own lockfile. If the deployment resolves `tinypool` below 2.1.2 or `postcss-selector-parser` below 7.1.6, copy the `overrides` and `resolutions` blocks into its own `package.json`; if it resolves `@modelcontextprotocol/sdk`, `proxy-addr` or `source-map-js` below the versions above, run `npm update @modelcontextprotocol/sdk proxy-addr source-map-js`. Then `npm install` and commit the lockfile. A deployment that resolves none of these has nothing to do.
+
 ## 2.8.3
 
 **Agent search works on deployments again.** Every `search_blueprint` call
@@ -10669,8 +10693,8 @@ accent: BRAND.accent }, content: { workspaceTitle: coverContent.title } }`. The
   constraint violation rather than as anything the authoring tools had said
   (#204):
 
-                                                                                                                                                                                                                                                      ERROR: new row for relation "lanes" violates check constraint
-                                                                                                                                                                                                                                                      "lanes_lane_role_check" … compliance_review
+                                                                                                                                                                                                                                                        ERROR: new row for relation "lanes" violates check constraint
+                                                                                                                                                                                                                                                        "lanes_lane_role_check" … compliance_review
 
   That error at least names the value. Meeting it after validation has passed is
   the wrong moment.

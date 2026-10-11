@@ -22,15 +22,9 @@ migration in the same change.
 
 ## Lane roles
 
-The canonical vocabulary is documented in `references/lane-roles.md`, and it
-is **closed**: eight roles or `null`, at the database and in the IR alike.
-Customization summary: display names are free-form in any language and are
-where a lane's own meaning belongs; no role is mandatory; a lane none of the
-eight names takes `null` and renders as a generic swimlane. There is no
-org-defined role to mint — authoring refuses a ninth value rather than letting
-a document validate and then be refused on import (#204), and adding one to
-the set is a deliberate multi-file act, listed in `references/lane-roles.md`
-§ Adding a role.
+The vocabulary is closed — eight roles or `null`; a lane none of the eight
+names takes `null`: `references/lane-roles.md` § No custom roles, and
+§ Adding a role for the multi-file act a ninth takes.
 
 ## Theming & branding
 
@@ -405,15 +399,7 @@ and is green for as long as the package's own build is.
 Set per scenario / per path **in the IR**, not in code: `layout`
 (`stacked` | `merged`) and `kind` (`happy` | `variant` | `exception`).
 
-`21000117000000` folded `single` into `stacked` — one path stacked is one
-band — and made `merged`, until then a session-only display, a value a
-scenario is stored as. Both lists got shorter at `21000116000000`. `side-by-side` and `integrated`
-were one layout a reader switches between rather than two a scenario is stored
-as — the client had been collapsing both to the same view on read for a while,
-and `21000116000000` moved the rows to `stacked` so the seam could go.
-`unhappy` and `alternative` were two spellings of one thing, and `exception`
-already carries "this went wrong", so `21000116000000` folded both into
-`variant`.
+Retired values are recorded in `CONTEXT.md`.
 
 The stacked layout compares any two labeled variants via `variant_label` —
 designed-vs-reality, before/after a redesign, or two stakeholders' conflicting

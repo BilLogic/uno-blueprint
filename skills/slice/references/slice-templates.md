@@ -3,8 +3,7 @@
 The markdown companion `slice_tools.py doc` emits is a skeleton: title,
 slides, cited cells. These templates say what the prose around it should
 cover, per slice type. They are editorial guidance — adapt them to the
-audience. The citation and no-excerpt rules from the playbook are not
-adaptable.
+audience; `skills/slice/SKILL.md` § Hard rules bind them unchanged.
 
 Headings below are ours, not any vendor's. Cell content is described with the
 **function / form** pair the data model uses: *function* is what the cell has
@@ -137,10 +136,7 @@ citation block per frame regardless.
 
 ## Common to all
 
-- **Cite every frame's cells.** The generated doc does this; keep it when you
-  rewrite.
-- **No excerpts, no figures, no names.** Reference evidence by cell key or
-  title.
+- **Keep every frame's citation block** when you rewrite the generated doc.
 - **Say "not recorded" out loud.** A slice that quietly skips a gap reads as
   a complete picture. The gaps are usually the reason the slice was asked
   for.

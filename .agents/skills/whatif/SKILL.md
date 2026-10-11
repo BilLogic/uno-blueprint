@@ -11,14 +11,7 @@ dependency graph, and reports what breaks, what improves, and where the
 displaced work lands — without the database ever learning about a change
 nobody has agreed to make.
 
-All paths are relative to the plugin root — Claude Code's
-`${CLAUDE_PLUGIN_ROOT}`; anywhere else, the repository or workspace root: this
-skill's own materials (playbook, change-request schema) live under
-`skills/whatif/`, the shared core under `references/`, `scripts/`, and
-`agents/`; a scaffolded workspace carries the same files
-(workspaces scaffolded before this skill shipped may lack them — fall back
-to the plugin root, and suggest the upgrade recipe in
-`references/customization.md`).
+Paths resolve against the plugin root (`${CLAUDE_PLUGIN_ROOT}` in Claude Code) or the workspace root, per `AGENTS.md`.
 
 ## Entry-state detection (do this first)
 

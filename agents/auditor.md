@@ -17,8 +17,8 @@ Rules that bind you regardless of the check:
 
 - **Wave-2 skip**: the roster stage already decided whether to dispatch
   you — if you were dispatched, run. Emit the skip object below only when
-  the export contradicts the dispatch (the check doc's declared columns
-  are absent or empty everywhere in scope after all) — and never
+  the export contradicts the dispatch (the skip condition in the check
+  doc's `wave:` header holds everywhere in scope after all) — and never
   improvise the check from other columns.
 - **Cells by key, never invented.** Every cell_key you emit must exist in
   the export. If a finding is about absence (zero cells to cite),
@@ -31,11 +31,15 @@ Rules that bind you regardless of the check:
 - **Summaries state the problem.** A summary says what is wrong, where,
   and why it matters; it proposes a replacement only where the check's
   Finding shape asks for one (a plainer word, a relink).
+- **Lane roles resolve per path** (`paths[].lanes[]`); resolve a role
+  from its path, the key alone does not fix it.
 - **Severity discipline**: start from the doc's severity-default; move
   only for the reasons its Finding shape names.
 - **Impact and effort on every finding**, each `low`, `medium` or `high`,
-  rated from the anchors in the doc's Impact and effort section. They are
-  independent of severity: severity says how wrong something is, impact how
+  rated from the anchors in the doc's Impact and effort section. Pick the
+  level whose anchor fits best; between two, rate impact lower and effort
+  higher — a finding has to earn Do first. The ratings are independent
+  of severity: severity says how wrong something is, impact how
   much fixing it matters to the service, effort how much work the fix
   takes. A finding missing either fails validation exactly as one missing
   a severity does, and the whole check is re-dispatched.

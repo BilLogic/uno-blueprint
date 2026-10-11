@@ -43,18 +43,14 @@ finding — fix, or record a reasoned won't-fix with the user's agreement.
 
 ### 4. ⚠ REQUIRED — hash-bound sign-off (per scenario)
 
-Sign-off binds **per scenario**, not per file — so approving scenario ⑥ and
-later appending scenario ⑦ leaves ⑥ signed (friction #19). When the user
-explicitly approves a previewed scenario:
+When the user explicitly approves a previewed scenario:
 
 1. Compute its hash: `python3 scripts/compute_signoff_hash.py <ir> --scenario <key>`.
 2. Record that `content_hash` (+ `signed_at`/`signed_by`) on the scenario's
-   entry in `blueprint-workspace.json` (see `skills/map/references/workspace-state.md`),
-   and set its status to `signed_off`.
+   entry in `blueprint-workspace.json`, and set its status to `signed_off`.
 
-Import **refuses on hash mismatch, per scenario** — an edit after approval
-de-signs only the scenario it touched and re-enters this phase for that
-scenario. Never record a hash without an explicit user approval.
+Import refuses on mismatch, per scenario — semantics:
+`skills/map/references/workspace-state.md` § Sign-off.
 
 **Phase A exit (deterministic): all `blueprint-reviewer` findings resolved
 AND each covered scenario's `content_hash` is recorded and matches its current
@@ -64,11 +60,8 @@ subtree hash.**
 
 ### 5. ⚠ REQUIRED — adapter selection: ASK
 
-Present the no-DB fallback and live-DB modes as **co-equal options** and ask
-which the user wants (per locale). Never default-assume Supabase. State the
-trade-off honestly: fallback = zero infra, static hosting anywhere;
-live-DB = requires Supabase or a PostgREST-compatible read API. See
-`references/adapter-contract.md`.
+Fallback or live-DB, per locale, as co-equal options —
+`references/adapter-contract.md` §1.
 
 ### 6. Pre-flight
 
@@ -78,17 +71,7 @@ live-DB = requires Supabase or a PostgREST-compatible read API. See
 - IR `schema_version` compatible with the workspace clone's.
 - Target echo + user confirmation (project ref / output paths) — wrong-project
   protection (⚠ REQUIRED).
-- Connector reachable: for a live-DB target, confirm the Supabase MCP can see
-  the project. A connector added mid-session (e.g. `claude mcp add` for the
-  import account) is **not live until a Claude Code reload** — if the target is
-  unreachable even though the user just authenticated, the fix is a reload, not
-  more retries. Say so and prompt it. Cross-account targets also need the right
-  account's connector (`references/adapter-contract.md` §1). Adding one
-  follows the same pattern as multiple Slack/Notion/Figma connectors:
-  one connector per account, use that account's tools for its target.
-  Address tools by discovering the connected server's name at runtime —
-  tool names are stable, server names are user-chosen
-  (`references/adapter-contract.md` §"MCP tool addressing").
+- Connector reachable for a live-DB target — `references/adapter-contract.md` §1.
 - Pre-import read-back diff: if the target differs from `last_import` state
   (e.g. manual Studio edits), warn and offer an export before replacing.
 

@@ -15,14 +15,7 @@ It selects, orders, captions, and cites. Every claim points at a cell key.
 Regenerating a slice is therefore cheap and safe, which is the whole reason
 a slice is worth storing separately from the board at all.
 
-All paths are relative to the plugin root — Claude Code's
-`${CLAUDE_PLUGIN_ROOT}`; anywhere else, the repository or workspace root: this
-skill's own materials (playbook, templates, schema, `slice_tools.py`) live
-under `skills/slice/`, the shared core under `references/`, `scripts/`, and
-`agents/`; a scaffolded workspace carries the same files
-(workspaces scaffolded before this skill shipped may lack them — fall back
-to the plugin root, and suggest the upgrade recipe in
-`references/customization.md`).
+Paths resolve against the plugin root (`${CLAUDE_PLUGIN_ROOT}` in Claude Code) or the workspace root, per `AGENTS.md`.
 
 ## Entry-state detection (do this first)
 
@@ -35,15 +28,13 @@ selecting anything:
 | Workspace DB predates slices (`relation public.slices does not exist`) | Stop before any insert: apply the migrations that add the records about the board (`supabase/migrations/20260729120000_derived_layer.sql` onward — the filename keeps the spelling it shipped with) to the target, then resume — never hand-create the tables |
 | IR exists, scenario not signed off | Finish review first: a slice of unsigned IR cites cells review may still change |
 | Signed off, not imported | Import the scenario, then slice |
-| Imported, no slices yet | Read `skills/slice/references/slice-playbook.md`, then select |
+| Imported, no slices yet | Select |
 | Slices exist, user wants another | Select; reuse the existing slice keys' naming conventions |
 | Slices exist, user wants this one changed | Check `authorship` before touching it (playbook §6) |
 | Slice cites keys that no longer resolve | Stale after a key rename — re-select, re-apply prose. Never substitute a lookalike key |
 | Text slices exist, user wants pictures | Storyboard sub-flow — `skills/slice/references/storyboard-prompts.md` |
 
-**Playbook gating**: read `skills/slice/references/slice-playbook.md` before executing any
-of these routes. It carries the selection rules, the framing defaults, and
-the regeneration branches this skill's correctness depends on.
+Read `skills/slice/references/slice-playbook.md` before executing any route; it carries the gates.
 
 ## Hard rules
 
@@ -67,15 +58,12 @@ actually breaks:
   must exit 0. It catches unresolvable cell keys, duplicate cells, and
   multi-scenario slices — each of which renders as silently wrong rather
   than as an error.
-- ⚠ **REQUIRED — respect `authorship`.** `generated` regenerates freely;
-  `customized` needs explicit confirmation; `human` is never overwritten by
-  an agent.
+- ⚠ **REQUIRED — regenerate per `authorship`** — playbook §6.
 - ⚠ **REQUIRED — confirm the import target** (project ref / service id)
-  before any write, and never default-assume Supabase — the adapter rules in
-  `references/adapter-contract.md` apply to slices unchanged.
-- ⚠ **REQUIRED — secrets.** Image-model keys (Gemini `AIza…`, OpenAI `sk-…`)
-  live in a verified-gitignored `.env` only. Never on disk elsewhere, never
-  through chat.
+  before any write; `references/adapter-contract.md` §1 applies to slices
+  unchanged.
+- ⚠ **REQUIRED — secrets**, image-model keys included, follow
+  `references/adapter-contract.md` §7.
 
 ## The pipeline
 

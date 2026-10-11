@@ -12,12 +12,7 @@ import via a backend adapter (no-DB fallback or Supabase), present with the
 bundled React template, and update in place. A blueprint touched once is a
 failure; touched monthly is the product.
 
-All paths below are relative to the plugin root — Claude Code's
-`${CLAUDE_PLUGIN_ROOT}`; anywhere else, the repository or workspace root:
-this skill's own materials live under `skills/map/references/`, while the
-shared core (`references/`, `scripts/`, `agents/`, `assets/`) sits at the
-root because every skill uses it. A scaffolded workspace carries the same
-files in its template clone.
+Paths resolve against the plugin root (`${CLAUDE_PLUGIN_ROOT}` in Claude Code) or the workspace root, per `AGENTS.md`.
 
 ## The workspace
 
@@ -55,13 +50,7 @@ Then route:
 | Deployed, needs update | Delta edits/docs → IR → re-sign-off → re-import → redeploy | playbook for the delta + `skills/map/references/review-import-playbook.md`, `skills/map/references/deploy-notes.md` |
 | Inherited workspace (state file present, unknown provenance) | Read state + `HANDOFF.md`, verify sign-off hash, resume | `skills/map/references/workspace-state.md` |
 
-**Playbook gating**: before executing a phase, READ its playbook — do not
-improvise the phase from memory. Before ingesting, read
-`skills/map/references/ingest-playbook.md`; before co-creating,
-`skills/map/references/cocreate-playbook.md`; before translating,
-`skills/map/references/translate-playbook.md`; before reviewing or importing,
-`skills/map/references/review-import-playbook.md`. The playbooks carry the branch
-logic and gates this skill's correctness depends on.
+Read the routed playbook before executing its phase; it carries the gates.
 
 Decline early what this isn't for: org charts, gantt charts, non-journey
 diagrams, real-time multi-user editing — point elsewhere rather than bend
@@ -76,25 +65,22 @@ these, which are where the system actually breaks**:
   require exit 0 before any adapter runs. It catches what the DB trigger
   would abort mid-import (cells without path_steps, cross-path dependencies,
   duplicate columns, a lane role outside the closed eight).
-- ⚠ **REQUIRED — never import unsigned IR.** The sign-off content hash in
-  `blueprint-workspace.json` must match the current IR file; on mismatch,
-  refuse and re-enter review. Never record the hash without explicit user
-  approval of the previewed content.
+- ⚠ **REQUIRED — import only signed scenarios.** Import only scenarios whose
+  recorded `content_hash` matches the current subtree, recorded after the
+  user explicitly approves the preview — `skills/map/references/workspace-state.md`
+  § Sign-off.
 - ⚠ **REQUIRED — never fabricate a blueprint from system-only docs.**
   Manuals and feature inventories describe the system, not the journey.
   Detect this and pivot to co-creation with the docs as reference material
   (the ingest playbook's critical branch). Plausible-but-invented journeys
   presented as parsed truth are the worst failure mode.
-- ⚠ **REQUIRED — secrets.** Never write secrets to committable files. Anon
-  key: only in a verified-gitignored `.env`. Service-role key: never on
-  disk, never through chat (a pre-write hook also enforces this).
+- ⚠ **REQUIRED — secrets** follow `references/adapter-contract.md` §7; a
+  pre-write hook enforces the committable-file half.
 - ⚠ **REQUIRED — confirm the target directory before writing anything**
   (scaffolding, IR files, generated artifacts), and the import target
   (project ref / output paths) before any import.
-- ⚠ **REQUIRED — backend choice is the user's.** Present the no-DB fallback
-  and live-DB modes as co-equal options and ASK. Never default-assume
-  Supabase. (Live-DB requires Supabase or a PostgREST-compatible read API;
-  the fallback runs anywhere — `references/adapter-contract.md`.)
+- ⚠ **REQUIRED — backend choice is the user's:** ask, per locale —
+  `references/adapter-contract.md` §1.
 
 ## Deterministic exit conditions
 
@@ -111,23 +97,13 @@ long unattended runs ("all 6 scenarios signed off") verifiable:
 
 ## Agents
 
-- `document-reader` — sources → structure; three modes (corpus survey /
-  deep read with provenance / foreign-blueprint extraction). Fan out in
-  parallel; pilot on a few docs before a whole corpus.
-- `blueprint-reviewer` — fresh-context adversarial IR review before
-  sign-off; a context that never saw the parsing catches what the drafting
-  context is anchored on.
-- `render-checker` — walks every scenario × view in the running app after
-  import/deploy; screenshots + console-error report.
-
-Per-scenario locale translation fans out to generic subagents — no bespoke
-definition needed.
+Pilot `document-reader` on a few docs before a whole corpus. Per-scenario
+locale translation fans out to generic subagents.
 
 ## References
 
 | Read when | File |
 | --- | --- |
-| Executing a phase | `skills/map/references/ingest-playbook.md` / `cocreate-playbook.md` / `translate-playbook.md` / `review-import-playbook.md` |
 | Running the co-creation conversation | `skills/map/references/elicitation-protocol.md` (question script + right-sizing branches) |
 | Writing or checking IR structure | `references/ir-schema.json`; model background in `references/data-model.md` |
 | Assigning swimlane roles / divider lines | `references/lane-roles.md` |

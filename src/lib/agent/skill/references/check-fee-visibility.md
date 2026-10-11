@@ -1,5 +1,5 @@
 # check: fee-visibility
-wave: 2   # needs value_props/description columns carrying money mentions; skip if none found
+wave: 2   # a content scan, not a column test: skip only when no money mention exists anywhere in scope
 severity-default: warn
 
 ## Question
@@ -8,8 +8,10 @@ customer's journey?
 
 ## Read
 Cells whose content/description/value_props mention prices, fees,
-billing, invoices, credits. For each, the same-step and adjacent
-customer-lane cells: is the money moment visible frontstage?
+billing, invoices, credits. Match whole words: a substring is a false
+positive ("fee" in "feedback", 收 as receive, 款 inside 条款). For each, the
+same-step and adjacent customer-lane cells: is the money moment visible
+frontstage?
 
 ## Finding shape
 One finding per money moment. Backstage charge with no frontstage
@@ -18,10 +20,6 @@ AFTER the charge → warn; visible-but-jargoned disclosure → info and defer
 wording to jargon-lint (don't double-report).
 
 ## Impact and effort
-Rate both on every finding, from the anchors below. Pick the level whose
-anchor the finding matches most closely; between two, rate impact the lower
-and effort the higher — a finding has to earn Do first.
-
 | Level | Impact — how much making the money visible matters | Effort — how much work making it visible takes |
 | --- | --- | --- |
 | low | The disclosure is visible but worded in jargon | The service already discloses it and the blueprint lacks only the cell that records where |

@@ -8,9 +8,7 @@ Which customer-facing texts use words the customer would never say?
 ## Read
 Cells in lanes whose role is customer_actions or frontstage_* only. The
 lane vocabulary (references/lane-vocabulary.md) tells you which actor
-reads each lane. Lane roles resolve PER PATH (`paths[].lanes[]`) — the
-same lane key can carry different roles in different scenarios/paths, so
-never resolve a role from the key alone.
+reads each lane.
 
 ## Finding shape
 One finding per term (grouped across cells), cell_keys = every cell using
@@ -20,10 +18,6 @@ and acronyms in customer-visible cells → warn; the same words in backstage
 lanes → not a finding.
 
 ## Impact and effort
-Rate both on every finding, from the anchors below. Pick the level whose
-anchor the finding matches most closely; between two, rate impact the lower
-and effort the higher — a finding has to earn Do first.
-
 | Level | Impact — how much the plainer word matters | Effort — how much work the change takes |
 | --- | --- | --- |
 | low | The term sits in text the customer skims, and most customers would still decode it | A word swap in one or two cells |

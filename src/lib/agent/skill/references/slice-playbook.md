@@ -72,15 +72,8 @@ Per frame: a title (the moment) and a caption (what happens, and what it
 costs the actor). Per slice: a title and a summary that says who it is
 for and what question it answers.
 
-Rules that are not style preferences:
-
-- **Cite, never quote.** Slices land in public-read tables. Reference
-  evidence by cell key or title; never paste an interview excerpt or a
-  proposition figure into a title, caption, or doc.
-- **Personas, not people.** "A first-week field technician", never a participant's name,
-  employer, or contact string.
-- **No claim without a cell.** If a sentence cannot point at a cell in its own
-  frame, delete the sentence or add the cell.
+The citing, persona and traced-claim rules are `skills/slice/SKILL.md`
+§ Hard rules; they bind every title, caption and doc.
 
 Merge slides when two steps are one moment for the actor; split when one step
 hides two. Frame count is an editorial choice — cell membership is not.

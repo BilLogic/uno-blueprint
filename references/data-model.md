@@ -107,11 +107,7 @@ erDiagram
 - `scenarios.layout`: `stacked` \| `merged` — ONE vocabulary. The
   stored token is the token the UI names, and the header toggle writes it
   through `update_scenario_layout`, so a scenario left merged opens merged.
-  (It used to store `single | side-by-side | integrated` with a translation
-  module; all rows held `side-by-side` and the other two were unused, so
-  `21000116000000` folded both into `stacked` and the translation was
-  deleted. `21000117000000` then folded `single` into `stacked` — one path
-  stacked is one band — and made `merged` storable.)
+  Retired values: `CONTEXT.md`.
   - `stacked`: one full band per path on a shared step axis — any labeled
     variants ("as designed" vs "reality" is just the default labeling)
   - `merged`: the paths combined into one blueprint — one lane rail, one
@@ -250,7 +246,7 @@ deliberately never stored.
 
 | Table | What it is | Notes |
 |---|---|---|
-| `slices` | A saved 1D cut through the grid that REFERENCES cells (never copies them) | `title`, `summary`, `kind` (`journey`\|`step`\|`lane`\|`cell`\|`custom`), `actor`, `locale`, `position`, `authorship` (`generated` = safe to regenerate \| `customized` = skill output human-edited, regeneration must confirm \| `human` = authored in the app, never the skill's to regenerate) |
+| `slices` | A saved 1D cut through the grid that REFERENCES cells (never copies them) | `title`, `summary`, `kind` (`journey`\|`step`\|`lane`\|`cell`\|`custom`), `actor`, `locale`, `position`, `authorship` (`generated` \| `customized` \| `human`; what each allows on regeneration: `skills/slice/references/slice-playbook.md` §6) |
 | `slides` | One slide of a slice | `position` (unique per slice, deferrable), `cell_ids`/`cell_keys` (equal cardinality enforced; empty = title-only divider slide), `title`, `caption`, `shows_all_images` (untouched default: every cited cell's frames). Full-replacement semantics on rework |
 | `slide_images` | One member of a slide's authored image set | Exactly one of `cell_id` or `image_url`; unique `(slide_id, position)`. Replaced as a set, not patched. Empty with `shows_all_images` false means show nothing. Changing `slides.cell_ids` deletes members whose `cell_id` is no longer cited; remaining positions stay put |
 | `audit_findings` | One triageable audit/whatif finding | `source` (`audit`\|`whatif`\|`import-sweep`), `check_key`, `severity` (`info`\|`warn`\|`critical`), `impact` and `effort` (each `low`\|`medium`\|`high`; null on a finding recorded before the ratings existed, which reads as unrated and sorts last — audit-playbook §3.5), `summary`, `cell_ids`/`cell_keys`, `status` (`open`\|`resolved`\|`dismissed`), `run_id` (FK-less by design — no runs table), `fingerprint` (check_key + sorted-cell_keys hash + reason slug — audit-playbook §2) |
@@ -259,9 +255,8 @@ deliberately never stored.
 **Findings dedupe is DB-backed**: the partial unique index
 `findings_open_fingerprint_idx` on `(service_id, fingerprint)
 where status = 'open'` allows at most one OPEN finding per fingerprint.
-Skill-side rule it backstops: open updates in place, dismissed stays
-dismissed, resolved reopens as a new row (a reopen collision surfaces as
-23505 by design).
+It backstops the dedupe table in audit-playbook §3; a reopen that collides
+with an open row surfaces as 23505 by design.
 
 **Public count surface**: the `evidence_counts` view (`cell_id → n`)
 exposes evidence row counts — never content — to anonymous readers; it

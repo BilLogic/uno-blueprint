@@ -20,10 +20,6 @@ critical. If the chain is unclear, walk it yourself by the Method in
 downstream keys.
 
 ## Impact and effort
-Rate both on every finding, from the anchors below. Pick the level whose
-anchor the finding matches most closely; between two, rate impact the lower
-and effort the higher — a finding has to earn Do first.
-
 | Level | Impact — how much resolving the collision matters | Effort — how much work resolving it takes |
 | --- | --- | --- |
 | low | Contention for a tool where a workaround is already normal, such as a shared inbox two people watch | Re-sequencing inside the step: the cells already allow one use after the other |

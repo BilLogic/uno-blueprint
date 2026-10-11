@@ -18,10 +18,6 @@ cell's own content calls out as deliberate (ghost-writing, white-label) →
 info, summary says "reads as designed".
 
 ## Impact and effort
-Rate both on every finding, from the anchors below. Pick the level whose
-anchor the finding matches most closely; between two, rate impact the lower
-and effort the higher — a finding has to earn Do first.
-
 | Level | Impact — how much closing the divergence matters | Effort — how much work closing it takes |
 | --- | --- | --- |
 | low | A divergence the content calls deliberate, or one the customer never acts on | One cell's `perceived_owner` or wording to correct |

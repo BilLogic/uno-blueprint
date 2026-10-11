@@ -80,8 +80,8 @@ Rules:
   `*_touchpoints` touchpoint.
 - Prefix conventions (`前台·` / `后台· ` / `支撑·`) are optional but, once chosen,
   applied everywhere — and only on groups whose role never varies (see above).
-- Non-spine client orgs (e.g. a supervising bureau): the role vocabulary is
-  closed, so give them `null` (a generic swimlane) and reuse the SAME
+- Non-spine client orgs (e.g. a supervising bureau): `null`
+  (`references/lane-roles.md` § No custom roles), with the SAME
   `display_name` in every phase to keep them one group.
 
 ## 3. Source-layout crosswalk

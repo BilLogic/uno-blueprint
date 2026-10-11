@@ -46,14 +46,9 @@ hard rules; this file carries the mechanics.
 
 The roster stage ALONE decides which checks run — a dispatched auditor
 never re-decides (it may only report that the export contradicts the
-dispatch). Wave 1 always runs. Wave-2 rules:
+dispatch). Wave 1 always runs. For wave 2 the roster applies each doc's
+`wave:` header comment, the one statement of that check's skip condition.
 
-- `kpi-alignment`: skip when no lane in scope carries `kpis`/`tools`.
-- `perceived-owner`: skip when no cell carries the owner pair.
-- `value-ledger`: skip when no cell carries `value_props`.
-- `fee-visibility`: a CONTENT SCAN, not a column test — skip only when no
-  money mention exists anywhere in scope (beware substring false
-  positives: "fee" in "feedback", 收 as receive, 款 inside 条款).
 - `obsolete-source`: wave 1, but CONDITIONAL on source access (a repo
   checkout, reachable URLs). Without any verifiable source its canonical
   outcome is **unverifiable** — neither ran-with-findings nor skipped:
@@ -159,8 +154,8 @@ ledger; on the canvas, `list_findings` returns it.
    a triage is a human judgement about an agent statement, not an edit of
    the statement.
 3. Confirm back: check, cells, old → new status.
-4. Never run checks, never write anything else. If the user ALSO wants the
-   underlying issue fixed, that is the `ub:map` skill, after.
+4. Run no checks and change nothing else — the write rule is SKILL.md
+   § Hard rules.
 
 Status vocabulary is closed: `open | resolved | dismissed`. `dismissed`
 means "true but accepted — do not show me again"; `resolved` means "was
@@ -173,25 +168,24 @@ sections, in order:
 
 ```markdown
 # check: <name>
-wave: 1|2            # 2 = list the columns it needs; skip-if-empty
+wave: 1|2            # 2 = the skip condition, stated here and only here
 severity-default: info|warn|critical
 
 ## Question
 One sentence, from the customer's or operator's point of view.
 
 ## Read
-What to read in the export, in what order. Wave-2: name the columns and
-the skip condition.
+What to read in the export, in what order. Wave-2: name the columns.
 
 ## Finding shape
 When to emit; what the cell_keys set is; what the summary must contain
 (cite keys/titles — never excerpt text); when to raise/lower severity.
 
 ## Impact and effort
-One concrete anchor per level, for each: what a low, medium and high
-impact finding of THIS check looks like, and what a low, medium and high
-effort fix looks like. Anchors drawn from the check's own subject matter
-are what make two runs rate the same finding the same way.
+A three-row table: Level | Impact anchor | Effort anchor — what a low,
+medium and high impact finding of THIS check looks like, and what a low,
+medium and high effort fix looks like. Anchors drawn from the check's own
+subject matter are what make two runs rate the same finding the same way.
 
 ## Non-findings
 The false positives this check is known to attract, spelled out.

@@ -2,7 +2,7 @@
 
 ## 2.8.4
 
-**The lockfile resolves no package with a patched advisory.** Five Dependabot
+**The lockfile resolves no package with a patched advisory.** Six Dependabot
 alerts close: three packages move up inside the ranges their parents allow, and
 two that no parent release fixes are pinned through `overrides`. The two left
 open, `braces` and `sprintf-js`, have no patched release and sit only in

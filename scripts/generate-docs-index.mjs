@@ -55,8 +55,8 @@ export function frontmatter(source) {
  *
  * THE SUBJECT IS THE COMMIT, not the prose sweep, and the difference is the
  * decision records. This index lists EVERY document under `docs/` — the
- * twenty-four ADRs included, which is what the `What decisions have been
- * recorded` row sends a reader to — while the `docs` subject deliberately
+ * decision records included, which the routing table reaches through their
+ * overview — while the `docs` subject deliberately
  * leaves the dated records out, because a sweep that rewrites a decision
  * record falsifies it. Naming that subject here would silently drop a third of
  * the table. `commit` is the honest one for "every document this tree ships
@@ -122,7 +122,7 @@ Route by the task you arrived with. Every document, with what it answers, is
 in [docs/index.md](./docs/index.md); what the folders mean is in
 [docs/overview.md](./docs/overview.md).
 
-| I need to… | Go to |
+| Task | Go to |
 | --- | --- |
 ${ROUTING.map(([task, target]) => `| ${task} | ${target} |`).join('\n')}
 

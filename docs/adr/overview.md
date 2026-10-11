@@ -63,6 +63,7 @@ that repository's 0013 is the import decision, which lives here as 0020.
 | [0026](0026-a-skill-is-invoked-by-its-official-name.md) | A skill is invoked by its official name; its alias only finds it |
 | [0027](0027-a-skill-token-lives-in-the-prose.md) | A skill token lives in the prose, and the text is the only record |
 | [0028](0028-a-jump-is-awaited-through-one-module.md) | A jump is awaited through one module, and answers in one jump verdict |
+| [0029](0029-the-script-policy-stays-strict-and-jitless-makes-it-free.md) | The script policy stays strict, and `jitless` makes that free |
 | [0030](0030-the-impact-tracer-walks-either-way.md) | The impact tracer walks either way |
 | [0031](0031-a-description-is-always-loaded-and-budgeted.md) | A description is always loaded, and is budgeted like the router |
 

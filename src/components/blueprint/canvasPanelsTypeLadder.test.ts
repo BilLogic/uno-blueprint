@@ -17,7 +17,7 @@ import { CANVAS_HEADER_TEXT } from '@/lib/canvasHeaderStyle'
 import { sourceFiles } from '@/lib/tokenModel'
 
 /**
- * The blueprint canvas and its panels land on the new ladder, where a rung
+ * The blueprint canvas and its panels land on the type ladder, where a type rung
  * owns size and leading and a call site owns weight, tracking and ink.
  *
  * 12px (`xs`) is canvas chrome and panel labels/meta. 13px (`sm`) is

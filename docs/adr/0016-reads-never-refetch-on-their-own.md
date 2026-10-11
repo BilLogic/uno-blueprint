@@ -45,3 +45,12 @@ through each module against a recording stand-in and asserts the keys.
 **If a second writer ever appears** — a second app surface, a bot that edits, a
 webhook — this decision is the first thing to revisit. It is not a tuning
 parameter; it is a claim about who writes.
+
+## Vocabulary
+
+**query key** — the name a read caches under, built in one place
+(`queryKeys`) that the read hook and the write both use. A **family** is a
+prefix and the keys under it (`slice:` and one slice's `slice:<id>`); the
+**structural set** is the families a phase, scenario, path, step, lane or
+cell write can change. A key is invalidated by the mutation module that
+changed its rows, never by a panel or the agent.

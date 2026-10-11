@@ -95,7 +95,7 @@ describe('the scenario header', () => {
     const { container } = mountHeader(SCENARIO)
 
     // One rung for both crumbs, and it is the vendored list's `sm` — 13px on
-    // this ladder. The `text-xs` override here is what made the phase a 12px
+    // the type ladder. The `text-xs` override here is what made the phase a 12px
     // word beside a 14px title.
     const list = container.querySelector('[data-slot="breadcrumb-list"]')
     const sizes = list?.className.split(/\s+/) ?? []

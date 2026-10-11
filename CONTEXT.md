@@ -5,9 +5,13 @@ Definitions only: what a word denotes, not how to use it. Procedure lives in
 `docs/`, the schema in `references/data-model.md`, and the routes to both in
 `INDEX.md`.
 
-A term is defined here when getting it wrong changes what an agent writes to
-the database. Where a term is spelled differently in the database, the
-blueprint file and the app, every spelling is given.
+A term is defined here when getting it wrong changes what an agent writes: a
+database row, a blueprint file, a skill, a document, a check or a tool
+definition. Where a term is spelled differently in the database, the
+blueprint file and the app, every spelling is given. A word that matters only
+inside `src/` is defined in the decision record under `docs/adr/` that governs
+it: arrival in 0007, the camera in 0028, the active service in 0005, the
+session's four axes in 0011, query keys in 0016, and type in 0012.
 
 Definitions only, held there by `scripts/check-glossary-only.mjs`. Renames:
 [`scripts/retired-vocabulary.mjs`](scripts/retired-vocabulary.mjs). Words
@@ -302,76 +306,6 @@ that cell came from, and when it was observed. A cell with no evidence is an
 assumption; that state is derived from the absence of evidence rows and is
 never stored as a flag.
 
-## Five words for arrival
-
-Five words for *not there yet*, naming five different things. Two belong to the
-shell, one to the canvas, one is a duration, and one is about the data rather
-than the screen. They are set out together because apart they read as spellings
-of one idea, and they are spelled here in lower case as the code spells them:
-each is a value or a constant, not a thing on the board. Where the halves they
-belong to meet is `docs/adr/0007-the-canvas-and-the-shell-run-on-separate-clocks.md`.
-
-**entrance** — the shell's from-state as it arrives: `idle`, `pending`, `shown`.
-`pending` lasts a single frame, and exists so that the fade which follows has
-somewhere to start. Nothing is waiting on data while it runs, which is what
-separates it from every other word here.
-
-**boot** — the sidebar's once-per-entry latch: `off`, `armed`, `skeletoning`. It
-answers whether this is the reader arriving or a surface they have already
-loaded coming back — a question no rung of the canvas's ladder can answer,
-because a canvas that stayed mounted does not restart that ladder, and one that
-remounts does. `skeletoning` was called *staging* until the collision with the
-rung below was named.
-
-**revealStage** — the canvas's ladder, six rungs from `CANVAS_REVEAL_STAGING` to
-`CANVAS_REVEAL_DONE`. It says how much of the board is painted and nothing about
-the shell around it. The canvas is the only thing that sets it; everything else
-reads it.
-
-**hold** — `SKELETON_HOLD_MS`, 250 ms: how long a surface may load before its
-skeleton is allowed to paint. **A duration, not a state** — the one word here
-measured in milliseconds rather than spelled as values, and the reason a fast
-load shows no placeholder at all instead of one that flashes.
-
-**status** — what a query returned: `loading`, `ready` or `error`. It is a fact
-about the data and not about the screen, so a bar can be `ready` while the
-sidebar is still `skeletoning` without the two contradicting each other. **Not
-the board's *Status*** above, the six-value word for how far along a cell or a
-path is: that one is stored in a column, this one only ever describes a read.
-
-## The camera
-
-Three words for a camera move that somebody is waiting on. They belong to the
-move itself rather than to any one caller: the canvas publishes them, and the
-desktop navigation tools, the agent's cell focus and the phone's ✦ sheet all
-read the same words. Where the halves they cross meet is
-`docs/adr/0028-a-jump-is-awaited-through-one-module.md`.
-
-**Jump** — one camera move toward a named target, awaited by whoever asked for
-it. The target is a scenario, a phase or a cell. The awaiting is what
-separates a jump from any other camera move: a reader's own pan answers to
-nobody, while a jump is asked for and answered.
-
-**Flight** — the camera's own move between two transforms, run by the
-viewport: the thing a jump verdict is a claim about. A jump is asked for and
-answered; a flight is the movement itself, and a jump may involve none at all
-— a cell the board does not hold is answered without anything having flown.
-**Not a persistence flight** — `AgentPersistenceFlight` in
-`src/lib/agent/persistenceReadiness.ts` is one run of a piece of parked
-database work, and nothing moves on screen for it.
-
-**Jump verdict** — a jump's one settled answer, in four words: `landed`,
-`cancelled`, `superseded`, `unanswered`. The first three are the canvas's own
-claim about a flight it owned; `unanswered` is what silence is called, and
-belongs to the deadline alone. **Not a check's verdict** — that word is how a
-check's run came out, four values of its own, defined in
-`docs/engineering/checks.md`. And not a status: a jump verdict is said once,
-about one camera move, and describes a move rather than a thing on the board.
-**And not persistence's `superseded`** — there the word asks whether the
-account a read was made for is still the one signed in, and the answer is a
-boolean a piece of work reads about itself rather than a verdict anyone
-publishes.
-
 ## The writing vocabulary
 
 Five words for how a document is written and reached, shared with the
@@ -388,9 +322,7 @@ decides whether a session gets there. What a pointer points at is a
 **Ladder** — where a piece of writing sits by how immediately a session needs
 it: an in-file step, then an in-file reference, then a **disclosed** reference
 behind a pointer. A skill's `SKILL.md` is the top rung of its own ladder, and
-the reference files it names are the rungs below. **Not the canvas's reveal
-ladder** in § Five words for arrival, and **not the type ladder** in § The type
-system.
+the reference files it names are the rungs below.
 
 **Disclosed** — a reference pushed out of the always-loaded tier and behind a
 pointer, loaded only when that pointer fires. Everything under `docs/`,
@@ -475,59 +407,3 @@ further call offered no tools, so it answers from what it learned rather than
 stopping mid-work. A turn whose final round answers in prose is finished and
 makes no such call.
 
-## The session
-
-**identity** — whether anyone is signed in.
-
-**tier** — regular creator, or the editing privilege the database reports
-for this session.
-
-**build** — a dev server, or a production bundle.
-
-**config** — whether a database is connected.
-
-**active service** — the single service the URL slug names, resolved once at
-the surface root into a module store as its id, slug and name together. There is no
-inactive service and no flag that marks one; a reader who takes it as a
-filter over many gets a plural where the code means a singular. A
-service-scoped read takes the id as a parameter and resolves nothing; given
-none, it reads nothing — never the first service, never all of them.
-
-**query key** — the name a read caches under, built in one place
-(`queryKeys`) that the read hook and the write both use. A **family** is a
-prefix and the keys under it (`slice:` and one slice's `slice:<id>`); the
-**structural set** is the families a phase, scenario, path, step, lane or
-cell write can change. A key is invalidated by the mutation module that
-changed its rows (ADR 0016), never by a panel or the agent.
-
-## The type system
-
-Eight words for how text is sized, weighted and faced. They are set out
-together because the axes look interchangeable until each is named, and
-because **ladder** and **rung** already mean something else in this file.
-
-**rung** — one named size on the type scale: `xs`, `sm`, `base`, and so on. A
-rung owns its size and, through pairing, its line-height. **Not a rung of
-the canvas's reveal ladder**, and not a rung of the writing ladder.
-
-**ladder** — the ordered set of type rungs a face may use. Two exist, selected
-by scope. **Not the writing ladder** above, and **not the canvas's reveal
-ladder**.
-
-**scope** — which face a ladder applies to. Sans sizes live on the root; mono
-sizes are scoped to monospace elements, sizes only, because monospace renders
-optically smaller at the same nominal value.
-
-**pairing** — the line-height ratio declared once on the root for each rung,
-so the same ratio meeting a larger mono size yields a larger box.
-
-**leading** — the line box a rung carries. A call site does not write a
-leading utility unless it overrides for geometry.
-
-**tracking** — letter-spacing. A call-site decision; the rung does not own it.
-
-**working weight** — 400, the weight of all content. 500 is the one emphasis;
-600 is headings only.
-
-**density** — which surface the text is on, and therefore which rung it asks
-for: canvas chrome, editor UI, panel, presentation.

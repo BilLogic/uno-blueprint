@@ -1,29 +1,17 @@
 # ub — Uno Blueprint service blueprinting skills (agent router)
 
-This repo is the `ub` plugin. In Claude Code it installs as a plugin
-(`claude plugin marketplace add <this repo>` → `claude plugin install
-ub@ub-marketplace`) and the skills load themselves. Cursor, Codex and other
-agents that read `.agents/skills/` find them there, a copy of `skills/`
-walked in `docs/guide/03-the-plugin.md` § 5. In other coding agents — any
-other agent reads this file as the router: the skills are plain markdown and
-work anywhere.
-
-Short by design. This file is the whole always-loaded tier, and every routing
-item in it is a **pointer** — a trigger word, then the document carrying the
-body — or one of the rules that hold for every skill, which stay inline
-because they bind before any pointer could fire. Three checks hold that shape:
-`scripts/check-router-budget.mjs`, `scripts/check-negation-ratchet.mjs`,
-`scripts/check-pointers.mjs`.
+Router for the `ub` service-blueprinting skills; the skills are plain markdown
+and run in any agent.
 
 ## Before the task
 
-- **Vocabulary** — the words this repo fixes, and what each is bound to in the
-  schema: `CONTEXT.md`. Definitions only, so it is cheap.
+- **Vocabulary** — before writing a domain word (lane, path, slice, finding)
+  into data, a skill or a doc: `CONTEXT.md`, by its ## heading.
 - **Routing** — `INDEX.md` maps task to document. Generated from the docs' own
   frontmatter, so it states the tree as it is.
 - **Panel labels** — the word a field shows and the column behind it:
-  `references/interface-schema-map.md`. Generated, with a reason on each of the
-  thirteen that diverge.
+  `references/interface-schema-map.md`. Generated, with a reason on each
+  divergence.
 - **Running it** — the local stack, and the guard set to run before pushing:
   `SETUP.md` § Before you push.
 
@@ -45,14 +33,13 @@ because they bind before any pointer could fire. Three checks hold that shape:
   published interface: a deployment imports them by fixed path from a pinned
   tag, so moving one is a version bump plus a matching consumer change —
   `docs/adr/0004-reference-paths-are-a-published-interface.md`.
-- Sub-agent dispatch (auditor, impact-tracer, document-reader,
-  blueprint-reviewer, render-checker) runs in a fresh context, which is what
-  keeps a review or an audit blind. Where a runtime offers no sub-agent
+- Sub-agent dispatch (`agents/`) runs in a fresh context, which is what keeps
+  a review or an audit blind. Where a runtime offers no sub-agent
   primitive, run the prompt in `agents/` yourself in a fresh context and
   return only its structured output.
 - Validation is deterministic: `scripts/validate_ir.py` exit 0 gates every
   import, and that exit code is the whole of the verdict.
-- Secrets live in a gitignored `.env` and nowhere else — never a tracked file.
+- Secrets live in a gitignored `.env` and nowhere else.
   `hooks/secret_guard.py` enforces that automatically in Claude Code alone, so
   enforce it yourself in any other runtime.
 

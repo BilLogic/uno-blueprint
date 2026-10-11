@@ -29,14 +29,28 @@ export const repoConfig = {
      * Set against this router, whose skill routing table carries four rows.
      * Lower it whenever the tier lands well under.
      */
-    budget: 4600,
+    budget: 3700,
     /** How far under `budget` the tier may sit before the budget is stale. */
-    slack: 920,
+    slack: 740,
     /**
-     * The prohibition-token baseline across the tier (`check-negation-ratchet.mjs`):
-     * the files it was measured over, and the count it scored.
+     * The prohibition-token baseline across the tier and the descriptions
+     * (`check-negation-ratchet.mjs`): the files it was measured over — the
+     * router plus one per description — and the count it scored.
      */
-    prohibitions: { files: 1, tokens: 1 },
+    prohibitions: { files: 10, tokens: 0 },
+  },
+
+  /**
+   * The skill and agent descriptions' ceiling, in characters
+   * (`check-router-budget.mjs`): every description a plugin host puts in
+   * front of a session on every turn, counted apart from the router. Set
+   * against four skills and five agents. Lower it whenever they land well
+   * under.
+   */
+  descriptions: {
+    budget: 3350,
+    /** How far under `budget` the descriptions may sit before the budget is stale. */
+    slack: 500,
   },
 
   /**
@@ -166,6 +180,7 @@ export const repoConfig = {
   supabase/generated/portable-core.generated.sql → guide/04.
 - **Working on this repository** — SETUP → docs/guidelines/contributing.md →
   docs/engineering/checks.md, with docs/adr/ before anything that renames.
-- **An agent, any task** — AGENTS.md (auto-loaded) → CONTEXT.md → this table.`,
+- **An agent, any task** — AGENTS.md (auto-loaded) → this table, and CONTEXT.md
+  when the task names a domain word.`,
   },
 }

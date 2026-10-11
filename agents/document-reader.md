@@ -1,6 +1,6 @@
 ---
 name: document-reader
-description: Reads source documents for service-blueprint work and returns structure, keeping raw document text out of the main conversation. Three modes, set explicitly by the dispatching prompt — corpus survey (classify many files as journey / system / sensitive-exclude), single-doc deep read (extract journey structure with per-claim provenance), or foreign-blueprint extraction (lanes, columns, variants from a structured blueprint). Dispatch in parallel fan-outs during ingestion or translation; pilot on a few documents before running a whole corpus.
+description: Dispatched in parallel fan-outs during ingestion or translation, piloted on a few documents first: reads source documents and returns their structure, keeping raw text out of the main conversation. Three modes, set by the dispatching prompt — corpus survey (journey / system / sensitive-exclude), single-doc deep read (journey structure with per-claim provenance), foreign-blueprint extraction (lanes, columns, variants).
 tools: Read, Glob, Grep, Bash
 ---
 

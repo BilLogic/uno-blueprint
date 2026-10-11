@@ -33,6 +33,12 @@ import sliceTemplates from '@/lib/agent/skill/references/slice-templates.md?raw'
  * `scripts/check-reference-paths.mjs` (by the decision that reference paths
  * are a published interface — consumers import them by name). `references.ts`
  * throws at module init if the record and the name list disagree.
+ *
+ * The canvas adapter is the one document rendered before it is served: its
+ * two surface rows carry `{{write_tools}}` and `{{read_tools}}`, which
+ * `renderCanvasAdapter` in `references.ts` fills from the session's roster, so
+ * the lists are always the tools that session can call. A reader holding the
+ * file rather than a session sees the placeholders.
  */
 export const TEMPLATE_REFERENCE_DOCS: Record<string, string> = {
   'canvas-adapter': canvasAdapter,

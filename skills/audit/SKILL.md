@@ -1,6 +1,6 @@
 ---
 name: audit
-description: Runs consistency checks over an imported service blueprint and records what they find as triageable findings — gaps a scenario never covers, jargon customers would not say, channel conflicts, KPI drift, ownership mismatches, value dead-ends, invisible fees. Use when the user asks to "audit the blueprint", "check Map your service for gaps/inconsistencies", "what's wrong with this scenario", "re-run the checks", "sanity check my blueprint", "health check", "is my blueprint consistent", or wants a finding dismissed or resolved ("that jargon one is fine, dismiss it"). Requires an imported blueprint — for building or importing one, use the ub:map skill; for hypothetical changes, use ub:whatif.
+description: Blueprint audit — run the consistency-check roster over an imported blueprint (gaps, jargon, channel conflicts, KPI drift, ownership, value dead-ends, hidden fees), recording findings ranked by impact and effort; re-run the checks, or dismiss or resolve a finding. Building → ub:map; hypothetical changes → ub:whatif.
 ---
 
 # Blueprint Audit

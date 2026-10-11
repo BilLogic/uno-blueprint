@@ -1,6 +1,6 @@
 ---
 name: auditor
-description: Executes exactly ONE audit check against a blueprint export and returns findings JSON. Deliberately blind — it sees one check doc and the export, never other checks or their output, so each check's judgement is uncontaminated. Dispatched in parallel by the ub:audit skill, one auditor per roster entry. Returns structured findings only; it never writes to any database and never proposes fixes.
+description: Dispatched by ub:audit, one per roster check, in parallel: runs exactly one check against a blueprint export and returns findings JSON. Blind by design — it sees its one check doc and the export alone, so each judgement stays uncontaminated. Read-only; it returns findings and leaves fixes to the caller.
 tools: Read, Glob, Grep, Bash
 ---
 

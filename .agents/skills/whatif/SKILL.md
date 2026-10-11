@@ -1,6 +1,6 @@
 ---
 name: whatif
-description: Traces the consequences of a hypothetical change to an existing service blueprint before anyone commits to it — replays a scenario as if the change were made, restages a moment across the visibility line (frontstage/backstage), or prioritizes which cells matter most right now. Use when the user asks "what if we removed/automated/moved X", "what breaks if…", "what's the impact of…", "should this be customer-visible", "which cells should we focus on", or wants an accepted analysis promoted into an actual blueprint change. Requires an imported blueprint — for building one use ub:map; for finding present-tense inconsistencies use ub:audit.
+description: Blueprint what-if — trace a hypothetical change to an imported blueprint before anyone commits: replay a scenario as if it were made (what breaks, where displaced load lands), restage a moment across the visibility line, or prioritize which cells to focus on next; promote an accepted analysis into the blueprint. Present-tense problems and ranking existing findings → ub:audit; building → ub:map.
 ---
 
 # Blueprint Whatif

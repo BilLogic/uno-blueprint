@@ -108,7 +108,7 @@ export function measure(root = process.cwd(), files = ALWAYS_LOADED) {
     if (n > 0) counts[rel] = n
     total += n
   }
-  const described = descriptionsIn(tier)
+  const described = descriptionsIn(root)
   for (const one of described) {
     const n = countProhibitions(one.text)
     if (n > 0) counts[`${one.file} (description)`] = n

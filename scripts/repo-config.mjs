@@ -56,8 +56,10 @@ export const repoConfig = {
 
   /**
    * Folders whose markdown every prose sweep reads, beside the root docs
-   * (the sweep's `docs` subject, `sweep.mjs`). A folder this repository does not have sweeps as
-   * empty, so a misspelt name here sweeps nothing: check it against the tree.
+   * (the sweep's `docs` subject, `sweep.mjs`). A folder named here that this
+   * tree does not have is swept as empty and announced as unverified on every
+   * run, so name only folders that exist. The skill and agent description
+   * census finds its files on its own and reads nothing from this list.
    */
   sweptDirs: ['docs', 'references', 'skills', 'agents'],
 

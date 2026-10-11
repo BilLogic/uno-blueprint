@@ -78,6 +78,7 @@ in [docs/index.md](./docs/index.md); what the folders mean is in
   supabase/generated/portable-core.generated.sql → guide/04.
 - **Working on this repository** — SETUP → docs/guidelines/contributing.md →
   docs/engineering/checks.md, with docs/adr/ before anything that renames.
-- **An agent, any task** — AGENTS.md (auto-loaded) → CONTEXT.md → this table.
+- **An agent, any task** — AGENTS.md (auto-loaded) → this table, and CONTEXT.md
+  when the task names a domain word.
 
-55 protocol documents are indexed in [docs/index.md](./docs/index.md).
+56 protocol documents are indexed in [docs/index.md](./docs/index.md).

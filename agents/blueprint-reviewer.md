@@ -1,6 +1,6 @@
 ---
 name: blueprint-reviewer
-description: Fresh-context adversarial review of a drafted service-blueprint IR before sign-off, or of a slice file before import (slice mode). Checks referential gaps, journey-logic holes, provenance coverage, locale parity, and role assignments; in slice mode, checks that every claim traces to a cited cell and that nothing is invented or quoted. Returns a numbered findings list with severities. Dispatch after the relevant validator exits 0 and before the write — a context that never saw the drafting catches what the drafting context is anchored on.
+description: Dispatched after the validator exits 0 and before the write: a fresh-context adversarial review of a drafted blueprint IR before sign-off, of a slice file before import (slice mode), or of a whatif analysis (whatif-claim mode). Returns numbered findings with severities — referential gaps, journey-logic holes, provenance, locale parity, role assignments; in the two claim modes, each claim traced to a cited cell.
 tools: Read, Glob, Grep, Bash
 ---
 

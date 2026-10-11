@@ -9,7 +9,8 @@
  * `CONTEXT.md` and `INDEX.md` are not, is `scripts/always-loaded.mjs`.
  *
  * WHAT IS COUNTED: characters of the files in `ALWAYS_LOADED`, whole, as they
- * sit on disk. No frontmatter stripping — these files have none — and no
+ * sit on disk; and, as a second census with its own budget, characters of
+ * every skill and agent frontmatter description (`descriptionsIn`). No frontmatter stripping — these files have none — and no
  * tokenisation, because a char count is the number an author can check against
  * their own editor. The report names every file it counted and its size, so a
  * total is never printed without the census behind it.
@@ -34,7 +35,7 @@
  *
  * Run: node scripts/check-router-budget.mjs   (also: npm run check:budget)
  */
-import { ALWAYS_LOADED, TIER_NOUN } from './always-loaded.mjs'
+import { ALWAYS_LOADED, DESCRIPTIONS_NOUN, TIER_NOUN, descriptionsIn } from './always-loaded.mjs'
 import { repoConfig } from './repo-config.mjs'
 import { sweep } from './sweep.mjs'
 import { whenRun } from './verdict.mjs'
@@ -45,6 +46,10 @@ export const BUDGET = repoConfig.router.budget
 
 /** How far under the budget the tier may sit before the budget is stale. */
 export const SLACK = repoConfig.router.slack
+
+/** The descriptions' own ceiling and slack, the same ratchet over the second census. */
+export const DESCRIPTIONS_BUDGET = repoConfig.descriptions.budget
+export const DESCRIPTIONS_SLACK = repoConfig.descriptions.slack
 
 const withCommas = (n) => n.toLocaleString('en-US')
 
@@ -73,27 +78,42 @@ export function measure(root = process.cwd(), files = ALWAYS_LOADED) {
 }
 
 /**
+ * The description census: one entry per skill or agent that carries a
+ * frontmatter description, its chars, plus the total. Only the description is
+ * counted; the body below it loads when the description fires.
+ */
+export function measureDescriptions(root = process.cwd()) {
+  const tier = sweep({ subject: 'docs', root, what: 'document' })
+  const counted = descriptionsIn(tier).map((one) => ({ file: one.file, chars: one.text.length }))
+  return { counted, total: counted.reduce((sum, one) => sum + one.chars, 0) }
+}
+
+/**
  * The verdict, as the reader is owed it: the failures, and the line to print.
  *
  * Pure, so both failing branches can be asserted without a file on disk.
  */
-export function verdict({ counted, total }, { budget = BUDGET, slack = SLACK } = {}) {
-  const census = counted.map((one) => `${one.file} ${withCommas(one.chars)}`).join(' · ')
+export function verdict(
+  { counted, total },
+  { budget = BUDGET, slack = SLACK, noun = TIER_NOUN, key = 'router.budget' } = {},
+) {
+  const census = counted.map((one) => `${one.file} ${withCommas(one.chars)}`).join(' · ') || 'none'
   const failures = []
   if (total > budget) {
     failures.push(
-      `[budget] the ${TIER_NOUN} is over budget: ${withCommas(total)} chars against ` +
+      `[budget] over budget, the ${noun}: ${withCommas(total)} chars against ` +
         `${withCommas(budget)}, ${withCommas(total - budget)} over (${census}).\n` +
         '  -> move the body into the document the line names and leave the pointer. A rule\n' +
         '     that has to be inline — one that holds for every skill — stays, and the budget\n' +
-        '     rises to fit it only as a deliberate edit here, said out loud in the pull request.',
+        `     rises to fit it only as a deliberate edit to ${key} in scripts/repo-config.mjs,\n` +
+        '     said out loud in the pull request.',
     )
   } else if (budget - total > slack) {
     failures.push(
-      `[budget] the ${TIER_NOUN} is ${withCommas(budget - total)} chars under a ` +
+      `[budget] the ${noun}: ${withCommas(budget - total)} chars under a ` +
         `${withCommas(budget)} budget, more than the ${withCommas(slack)} slack: the budget ` +
         `no longer describes the file (${census}).\n` +
-        '  -> lower router.budget in scripts/repo-config.mjs to about ' +
+        `  -> lower ${key} in scripts/repo-config.mjs to about ` +
         `${withCommas(total + slack / 2)}. A ceiling that only ever blocks stops being a\n` +
         '     ratchet, and a stale one passes while meaning nothing.',
     )
@@ -102,22 +122,35 @@ export function verdict({ counted, total }, { budget = BUDGET, slack = SLACK } =
   return {
     failures,
     line:
-      `[budget] the ${TIER_NOUN} is ${withCommas(total)} chars against a ` +
+      `[budget] the ${noun}: ${withCommas(total)} chars against a ` +
       `${withCommas(budget)} budget — ${withCommas(margin)} to spare ` +
-      `(${((margin / budget) * 100).toFixed(1)}%). Counted: ${census}.`,
+      `(${budget > 0 ? ((margin / budget) * 100).toFixed(1) : '0.0'}%). Counted: ${census}.`,
   }
 }
 
 /**
- * The verdict: the router tier measured, and its size held to the budget.
+ * The verdict: the router tier and the descriptions measured, each held to
+ * its own budget.
  *
  * Pure — it measures, decides, and hands back what it found. Nothing here prints
  * or exits.
  */
 export function judge() {
-  const census = measure()
-  const { failures, line } = verdict(census)
-  return { what: `the files of the ${TIER_NOUN}`, count: census.counted.length, findings: failures, line }
+  const router = measure()
+  const described = measureDescriptions()
+  const first = verdict(router)
+  const second = verdict(described, {
+    budget: DESCRIPTIONS_BUDGET,
+    slack: DESCRIPTIONS_SLACK,
+    noun: DESCRIPTIONS_NOUN,
+    key: 'descriptions.budget',
+  })
+  return {
+    what: `the files of the ${TIER_NOUN} and the ${DESCRIPTIONS_NOUN}`,
+    count: router.counted.length + described.counted.length,
+    findings: [...first.failures, ...second.failures],
+    line: `${first.line}\n${second.line}`,
+  }
 }
 
 whenRun(import.meta.url, judge)

@@ -1,6 +1,6 @@
 ---
 name: render-checker
-description: Post-import/post-deploy verification walk of a service-blueprint app. Drives a browser through every scenario and layout (stacked and merged, every path), screenshots each, collects console errors, and returns a pass/fail report per scenario. Dispatch after an import's read-back verification passes, against a local dev server or a deployed URL. Needs browser tools — do not restrict its tool set.
+description: Dispatched after an import's read-back verification passes, against a local dev server or a deployed URL: drives a browser through every scenario and layout (stacked and merged, every path), screenshots each, collects console errors, and returns a pass/fail report per scenario. Runs with the full tool set, browser tools included.
 ---
 
 You verify that imported blueprint content actually renders. The dispatching

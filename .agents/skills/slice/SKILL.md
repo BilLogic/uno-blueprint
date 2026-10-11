@@ -1,6 +1,6 @@
 ---
 name: slice
-description: Cuts a stakeholder-ready view out of an existing service blueprint — one actor's journey, one moment across every lane, one lane end to end, or one cell read closely — and writes it back as a slice the app can present. Use when the user asks to "pull out the customer's journey", "show what everyone is doing at check-in", "make a storyboard from the blueprint", "what does the support team own", "turn this blueprint into something I can show the client/exec/team", or mentions a slice, journey summary, lane spec, cell brief, or storyboard of a blueprint that already exists. Requires an imported, signed-off blueprint — for creating or importing the blueprint itself, use the ub:map skill instead.
+description: Blueprint slice — cut a stakeholder view out of an imported, signed-off blueprint: one actor's journey, one moment across every lane, one lane end to end (what a team owns), one cell brief, or a slide-by-slide walkthrough for a client or exec; writes it back as a slice the app presents, and refreshes one whose cells changed. Building the blueprint → ub:map.
 ---
 
 # Blueprint Slices

@@ -33,7 +33,10 @@
  * identifier, and `Say "I don't know"` is an instruction TO do something.
  *
  * SCOPE is the always-loaded tier — the files in `scripts/always-loaded.mjs`,
- * which cost every session their whole length before any task begins.
+ * which cost every session their whole length before any task begins, and
+ * every skill and agent frontmatter description, which costs every turn the
+ * same way. A description scores under its file's name with ` (description)`
+ * after it, and counts as one file measured.
  * Everything else loads when a pointer fires, and the decision records are
  * append-only: a record saying "X is not reversible" ADDS prohibitions by
  * doing its job, so a ratchet over them would rise by construction.
@@ -56,7 +59,7 @@
  *
  * Run: node scripts/check-negation-ratchet.mjs   (also: npm run check:negation)
  */
-import { ALWAYS_LOADED, TIER_NOUN } from './always-loaded.mjs'
+import { ALWAYS_LOADED, TIER_NOUN, descriptionsIn } from './always-loaded.mjs'
 import { repoConfig } from './repo-config.mjs'
 import { sweep } from './sweep.mjs'
 import { whenRun } from './verdict.mjs'
@@ -105,7 +108,13 @@ export function measure(root = process.cwd(), files = ALWAYS_LOADED) {
     if (n > 0) counts[rel] = n
     total += n
   }
-  return { files: files.length, counts, total }
+  const described = descriptionsIn(tier)
+  for (const one of described) {
+    const n = countProhibitions(one.text)
+    if (n > 0) counts[`${one.file} (description)`] = n
+    total += n
+  }
+  return { files: files.length + described.length, counts, total }
 }
 
 /**

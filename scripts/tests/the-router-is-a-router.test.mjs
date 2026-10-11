@@ -40,7 +40,15 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
-import { BUDGET, SLACK, measure as measureChars, verdict as budgetVerdict } from '../check-router-budget.mjs'
+import {
+  BUDGET,
+  SLACK,
+  DESCRIPTIONS_BUDGET,
+  DESCRIPTIONS_SLACK,
+  measure as measureChars,
+  measureDescriptions,
+  verdict as budgetVerdict,
+} from '../check-router-budget.mjs'
 import {
   RECORDED,
   countProhibitions,
@@ -55,6 +63,7 @@ import {
   pointersIn,
   sweep as sweepRouters,
 } from '../check-pointers.mjs'
+import { repoConfig } from '../repo-config.mjs'
 
 const ROOT = resolve(new URL('../..', import.meta.url).pathname)
 
@@ -120,6 +129,76 @@ test('the pass line names every file it counted', () => {
   assert.match(line, /to spare/)
 })
 
+/* ------------------------------------------------------ the descriptions */
+
+/**
+ * A throwaway repository holding one skill and one agent, each with a body the
+ * description census has to leave alone. Every swept folder is present, so the
+ * prose sweep has nothing to announce.
+ */
+function described({ skill, agent }) {
+  const swept = Object.fromEntries(repoConfig.sweptDirs.map((dir) => [`${dir}/keep.md`, '']))
+  return repo('# Router\n', {
+    ...swept,
+    'skills/pick/SKILL.md': `---\nname: pick\ndescription: ${skill}\n---\n\nNever read past this line.\n`,
+    'skills/pick/references/notes.md': '---\ndescription: Never counted, a reference.\n---\n',
+    'agents/runner.md': `---\nname: runner\ndescription: ${agent}\ntools: Read\n---\n\nBody.\n`,
+  })
+}
+
+test('the description census counts each skill and agent description, and nothing beside it', () => {
+  const r = described({ skill: 'Picks one.', agent: 'Runs once, when dispatched.' })
+  try {
+    const { counted, total } = measureDescriptions(r.root)
+    assert.deepEqual(counted, [
+      { file: 'agents/runner.md', chars: 27 },
+      { file: 'skills/pick/SKILL.md', chars: 10 },
+    ])
+    assert.equal(total, 37)
+  } finally {
+    r.done()
+  }
+})
+
+test('descriptions over their budget fail, and the failure names the descriptions budget', () => {
+  const total = DESCRIPTIONS_BUDGET + 7
+  const { failures } = budgetVerdict(
+    { counted: [{ file: 'skills/map/SKILL.md', chars: total }], total },
+    { budget: DESCRIPTIONS_BUDGET, slack: DESCRIPTIONS_SLACK, key: 'descriptions.budget' },
+  )
+  assert.equal(failures.length, 1)
+  assert.match(failures[0], /7 over/)
+  assert.match(failures[0], /descriptions\.budget/)
+})
+
+test('descriptions far under their budget fail, asking for that budget to be lowered', () => {
+  const total = DESCRIPTIONS_BUDGET - DESCRIPTIONS_SLACK - 1
+  const { failures } = budgetVerdict(
+    { counted: [{ file: 'skills/map/SKILL.md', chars: total }], total },
+    { budget: DESCRIPTIONS_BUDGET, slack: DESCRIPTIONS_SLACK, key: 'descriptions.budget' },
+  )
+  assert.equal(failures.length, 1)
+  assert.match(failures[0], /lower descriptions\.budget in scripts\/repo-config\.mjs/)
+})
+
+test('the committed descriptions sit inside their budget and its slack', () => {
+  const { total } = measureDescriptions()
+  assert.ok(total <= DESCRIPTIONS_BUDGET, `${total} over ${DESCRIPTIONS_BUDGET}`)
+  assert.ok(DESCRIPTIONS_BUDGET - total <= DESCRIPTIONS_SLACK, `${total} stale against ${DESCRIPTIONS_BUDGET}`)
+})
+
+test('the ratchet counts a prohibition in a description, and not one in the body under it', () => {
+  const r = described({ skill: 'Picks one; never two.', agent: 'Runs once.' })
+  try {
+    const { files, counts, total } = measureBans(r.root)
+    assert.equal(files, 3, 'the router and two descriptions')
+    assert.deepEqual(counts, { 'skills/pick/SKILL.md (description)': 1 })
+    assert.equal(total, 1)
+  } finally {
+    r.done()
+  }
+})
+
 /* ---------------------------------------------------------- the ratchet */
 
 test('the committed tier scores exactly its recorded prohibition count', () => {
@@ -130,7 +209,7 @@ test('the committed tier scores exactly its recorded prohibition count', () => {
 
 test('a prohibition added to the tier fails, and the failure names the file', () => {
   const { failures } = negationVerdict({
-    files: 1,
+    files: RECORDED.files,
     counts: { 'AGENTS.md': RECORDED.tokens + 1 },
     total: RECORDED.tokens + 1,
   })
@@ -146,9 +225,15 @@ test('a tier that lost a file fails rather than reporting a smaller, greener num
 })
 
 test('a fall passes, with the new number to record', () => {
-  const { failures, line } = negationVerdict({ files: 1, counts: {}, total: 0 })
+  const { failures, line } = negationVerdict(
+    { files: RECORDED.files, counts: {}, total: RECORDED.tokens },
+    { ...RECORDED, tokens: RECORDED.tokens + 2 },
+  )
   assert.deepEqual(failures, [])
-  assert.match(line, /Down \d+: lower router\.prohibitions\.tokens in scripts\/repo-config\.mjs to 0\./)
+  assert.match(
+    line,
+    new RegExp(`Down 2: lower router\\.prohibitions\\.tokens in scripts/repo-config\\.mjs to ${RECORDED.tokens}\\.`),
+  )
 })
 
 test('quoted speech and code spans are not prohibitions', () => {

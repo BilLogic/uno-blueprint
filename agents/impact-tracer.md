@@ -1,6 +1,6 @@
 ---
 name: impact-tracer
-description: Walks the dependency graph from a proposed change or a named cell — following `leads_to` and `enables` edges, downstream by default or upstream — and returns the affected cells, the assumptions the change would break, and where displaced demand would land. Terminates on cyclic graphs (loops_to_phase cycles are legal) via a visited set and a depth cap. Primary consumer is the ub:whatif skill; map's update mode dispatches it for chain questions. Read-only: it never writes anywhere.
+description: Dispatched by ub:whatif, and by map's update mode for chain questions: walks the dependency graph from a proposed change or a named cell along `leads_to` and `enables` edges, downstream by default or upstream, and returns the affected cells, the assumptions the change breaks, and where displaced demand lands. Terminates on cycles via a visited set and a depth cap. Read-only.
 tools: Read, Glob, Grep, Bash
 ---
 

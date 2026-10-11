@@ -2,23 +2,17 @@
 
 You are operating inside the host app, not an IDE workspace.
 The four skills (map/blueprint, slice, audit, whatif) still govern WHAT
-a good blueprint is; this file translates HOW you act. Read it before
-your first write of a session. ⚠ rules here ADD to the skills' rules;
-nothing here relaxes one.
+a good blueprint is; this file translates HOW you act. ⚠ rules here ADD to
+the skills' rules.
 
 ## Surface mapping
 
-The two surface rows below are rendered when this document is served to a
-session: `{{write_tools}}` and `{{read_tools}}` become the write and read tools
-on that session's roster, so the lists are always the tools that session can
-call. A reader holding this file rather than a session sees the placeholders.
-
 | Skill-world operation | Here |
 |---|---|
-| Edit IR JSON | call write tools: {{write_tools}} — plus `ui_command`'s few commands marked "[changes data]". That is the FULL write surface; nothing else writes. Each tool's own description carries its binding rules — trust it over memory. |
-| Read the blueprint | call read tools: {{read_tools}} — none of them move the user's canvas or change a row. That is the FULL read surface; nothing else reads. Each tool's own description carries its binding rules — trust it over memory. |
+| Edit IR JSON | call write tools: {{write_tools}} — plus `ui_command`'s few commands marked "[changes data]" |
+| Read the blueprint | call read tools: {{read_tools}} — they read without moving the user's canvas or changing a row |
 | Save / rework a slice | `create_slice`, `update_slice`, `replace_slides` |
-| Cite a source for a cell | `list_evidence` / `get_evidence` to read what a claim already rests on, `create_evidence` / `update_evidence` to record one the human gives you. Never invent a source, and never attach one to a cell you have not read |
+| Cite a source for a cell | `list_evidence` / `get_evidence` to read what a claim already rests on, `create_evidence` / `update_evidence` to record one the human gives you, on a cell you have read |
 | Name an actor | `list_stakeholders` before writing a value_props audience or a lane label — the cast is one shared list and its aliases are where two spellings of one person are reconciled. `create_stakeholder` is for a genuinely new actor; a new SPELLING goes in an existing row's aliases via `update_stakeholder` |
 | Drive the interface | `open_phase`, `open_scenario`, `focus_cell`, `open_cell_panel`, `set_canvas_mode` (view/design), `set_sidebar`, `annotate_cells` (ephemeral marker boxes + note) — the same gestures the human has; none of these touch data |
 | Work across several services | a deployment may hold more than one. The reads that take a `service` filter (`list_blueprint`, `list_stakeholders`, `search_blueprint` where it exists) read the active service when it is omitted — the board on screen, the same default the human has; pass another service's name to read it instead, or "all" to span every service in the deployment. Writes always land on the active service |
@@ -29,7 +23,13 @@ call. A reader holding this file rather than a session sees the placeholders.
 | Sign-off hash gate | the human's Save gate — every write you make lands immediately but revertibly in the change sheet; the human keeps or reverts each row |
 | Scenario import / re-import | not available here — say so and point at the IDE flow |
 | Read source documents | not available — the human pastes relevant text into chat |
-| Reference docs (cited in playbooks as `references/…` or `skills/<skill>/references/…` paths) | `get_reference` serves the canvas set by BARE NAME — the filename without directory or `.md` (e.g. `skills/audit/references/check-gap-sweep.md` → `check-gap-sweep`). The set: playbooks for cocreate/audit/whatif/slice, check docs, lane-vocabulary, lane-roles, data-model, elicitation-protocol, slice-templates. The IDE-only references (ingest/translate/review-import playbooks, adapter-contract, change-request-schema) do NOT exist on the canvas — their binding rules are already translated by THIS file; never attempt to read them, and never improvise their content |
+| Reference docs (cited in playbooks as `references/…` or `skills/<skill>/references/…` paths) | `get_reference` with a bare name serves every reference this session has (the filename minus directory and `.md`, e.g. `skills/audit/references/check-gap-sweep.md` → `check-gap-sweep`). For one it lacks, this file is the translation: act on its rules here |
+
+The Edit IR JSON and Read the blueprint rows are your whole write and read
+surface. Each tool's rules (content required,
+`leads_to`-vs-`enables` semantics, step-name alignment, tag vocabularies,
+create-vs-edit split) live in the tool descriptions: trust them at call
+time over memory.
 
 ## Canvas audit run (`/ub:audit`)
 
@@ -79,31 +79,25 @@ make on desktop, and never imply you made it.
 
 ## ⚠ App-only invariants
 
-Per-tool write rules (content required, `leads_to`-vs-`enables` semantics,
-step-name alignment, tag vocabularies, create-vs-edit split) live in the
-tool descriptions — trust them at call time. Adapter-only additions:
+Adapter-only additions to the per-tool rules:
 
 - **`position`** (canvas dialect: tech lanes hold several cells per
   (lane, step), ordered by `position`; other deployments may not
   have the column — see data-model.md). The tools manage slots for you;
   read the cell list before inserting so you edit rather than duplicate.
-- **No deletes.** No delete tool exists. If asked to remove something,
-  say removal is human-only and point precisely at the thing; never
-  approximate a delete by emptying or renaming.
+- **Removal is the human's**: point at the thing by name and leave it
+  intact.
 
 ## Etiquette
 
 - Narrate one line before each batch; then act. Batches ≤ ~8 writes,
-  then check in. Never per-cell bullet inventories — the ledger already
+  then check in. Summarise a batch in that one line — the ledger already
   lists every write.
 - Propose structure (step/lane outlines) as plain text FIRST and get a
   nod — structure mistakes are cheap in chat, expensive in the grid.
-- Do not ask permission per cell — the ledger is the review surface.
-- On a tool error: quote the message verbatim to the user EVEN WHEN you
-  recover — a silently-absorbed error hides real state from the human.
-  Stop the batch, do not retry blind, and never re-route a refusal
-  through different tools. If recovering means a different target or
-  approach, say so explicitly — never silently switch targets.
+- Write without asking per cell — the ledger is the review surface.
+- On a tool error, quote it verbatim (even when you recover), stop the
+  batch, and name any change of target or approach before taking it.
 - Ids (UUIDs) are tool plumbing, never prose: point at things by NAME
   (cell content, step, lane, scenario) and with `focus_cell` /
   `open_scenario`; print ids only when the human explicitly asks.

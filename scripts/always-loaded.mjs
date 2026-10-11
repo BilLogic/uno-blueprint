@@ -60,7 +60,7 @@
  * a tier that every session pays for.
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 /** Repo-relative paths, in load order. */
@@ -79,17 +79,21 @@ export const DESCRIBED = /^(?:skills\/[^/]+\/SKILL|agents\/[^/]+)\.md$/
  * `agents/<agent>.md` — rather than through the prose sweep's folder list,
  * because the two answer different questions: the sweep reads the folders a
  * repository names as prose, and the host loads whatever skills and agents
- * the repository holds. A folder that is not there holds none, which is a
- * fact about the tree and nothing to announce.
+ * the repository holds. A folder that is not there — or a file where the
+ * folder would be — holds none, which is a fact about the tree and nothing to
+ * announce. A dot-entry is skipped, as every sweep skips one.
  */
 function describedFiles(root) {
-  const entries = (dir) => {
+  const entriesOfFolder = (dir) => {
     const at = join(root, dir)
-    return existsSync(at) ? readdirSync(at).map((name) => `${dir}/${name}`) : []
+    if (!statSync(at, { throwIfNoEntry: false })?.isDirectory()) return []
+    return readdirSync(at)
+      .filter((name) => !name.startsWith('.'))
+      .map((name) => `${dir}/${name}`)
   }
   return [
-    ...entries('agents'),
-    ...entries('skills').map((dir) => `${dir}/SKILL.md`),
+    ...entriesOfFolder('agents'),
+    ...entriesOfFolder('skills').map((dir) => `${dir}/SKILL.md`),
   ]
     .filter((rel) => DESCRIBED.test(rel) && statSync(join(root, rel), { throwIfNoEntry: false })?.isFile())
     .sort()

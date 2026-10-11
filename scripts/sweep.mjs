@@ -27,11 +27,12 @@
  *   docs             This repository's prose: every markdown file at the
  *                    root but the changelog, and the markdown under the
  *                    folders `repo-config.mjs` names — minus the dated
- *                    records, whose words are the day they were written. A
- *                    named folder this tree lacks is a SKIP SAID OUT LOUD: a
- *                    repository without a plugin surface has no `skills/`,
- *                    and that is a fact about the tree, announced once so a
- *                    misspelt name cannot pass as one.
+ *                    records, whose words are the day they were written. The
+ *                    list names only folders that exist, so a named folder
+ *                    this tree lacks is a SKIP SAID OUT LOUD, announced once
+ *                    so a misspelt name cannot pass as one. A repository
+ *                    without a plugin surface leaves `skills` and `agents`
+ *                    off its list.
  *   scripts          This repository's own executable code: `scripts/` and
  *                    the scripts under `skills/<skill>/scripts/`, which a model
  *                    runs against a live database. A deployment's scripts

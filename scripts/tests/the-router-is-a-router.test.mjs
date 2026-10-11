@@ -225,13 +225,36 @@ test('a repository with no skills or agents counts zero descriptions, quietly', 
 
 test('a repository with no skills or agents passes the ratchet over the router alone', () => {
   const r = repo('# Router\n')
+  // Every folder the prose sweep is told to read is there and empty, so the
+  // sweep that hands over the router has nothing true to announce; none holds
+  // a skill or an agent, whichever repository's list this is.
+  for (const dir of repoConfig.sweptDirs) mkdirSync(join(r.root, dir), { recursive: true })
   try {
     const { said, value } = stderrOf(() => measureBans(r.root))
     assert.deepEqual(value, { files: 1, counts: {}, total: 0 })
     assert.deepEqual(negationVerdict(value, { files: 1, tokens: 0 }).failures, [])
-    // The prose sweep that hands over the router's bytes may name a folder on
-    // its own list; the description census names none.
-    for (const line of said) assert.match(line, /unverified — the prose under /)
+    for (const line of said) assert.doesNotMatch(line, /\b(?:skills|agents)\b/)
+  } finally {
+    r.done()
+  }
+})
+
+test('a hidden skill or agent is skipped, as every sweep skips a dot-entry', () => {
+  const r = repo('# Router\n', {
+    'skills/.draft/SKILL.md': '---\nname: draft\ndescription: Half written.\n---\n',
+    'agents/.draft.md': '---\nname: draft\ndescription: Half written.\n---\n',
+  })
+  try {
+    assert.deepEqual(measureDescriptions(r.root), { counted: [], total: 0 })
+  } finally {
+    r.done()
+  }
+})
+
+test('a skills or agents FILE holds no descriptions, and is not a crash', () => {
+  const r = repo('# Router\n', { skills: 'not a folder\n', agents: 'not a folder\n' })
+  try {
+    assert.deepEqual(measureDescriptions(r.root), { counted: [], total: 0 })
   } finally {
     r.done()
   }

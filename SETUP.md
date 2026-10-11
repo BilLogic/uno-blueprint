@@ -167,13 +167,25 @@ adopting it needs to know beyond that is here.
 
 ### Who can read what
 
-> **Exposure note:** every table carries a public `SELECT` policy (read-only anon access) except these: `agent_sessions` and `agent_messages` (agent chat transcripts) are readable only by their author, `business_models` (propositions) only after sign-in, and `service_account_emails` (the emails that become service accounts at sign-up) only by the service role. Everything else you deploy is publicly readable, so keep client-sensitive content out of a public deployment.
+> **Exposure note:** every table carries a public `SELECT` policy (read-only
+> anon access) except these: `agent_sessions` and `agent_messages` (agent chat
+> transcripts) are readable only by their author, `business_models`
+> (propositions) only after sign-in, and `service_account_emails` (the emails
+> that become service accounts at sign-up) only by the service role.
+> Everything else you deploy is publicly readable, so keep client-sensitive
+> content out of a public deployment.
 
 ### The portable Postgres core
 
-**The portable Postgres core is the contract. Supabase is one conformant reference recipe, fully supported and not required.** Any other Postgres host takes the core plus a small data layer you write against the adapter contract.
+**The portable Postgres core is the contract. Supabase is one conformant
+reference recipe, fully supported and not required.** Any other Postgres host
+takes the core plus a small data layer you write against the adapter contract.
 
-The migrations carry partition marks, [scripts/generate-portable-core.mjs](./scripts/generate-portable-core.mjs) emits both halves from them, and every pull request applies the core to a stock `postgres:17` with no Supabase in front of it, then the recipe on top. If the core stops being portable, the build goes red.
+The migrations carry partition marks,
+[scripts/generate-portable-core.mjs](./scripts/generate-portable-core.mjs)
+emits both halves from them, and every pull request applies the core to a
+stock `postgres:17` with no Supabase in front of it, then the recipe on top.
+If the core stops being portable, the build goes red.
 
 | File | What it is |
 | --- | --- |
@@ -181,24 +193,76 @@ The migrations carry partition marks, [scripts/generate-portable-core.mjs](./scr
 | [supabase/generated/supabase-recipe.generated.sql](./supabase/generated/supabase-recipe.generated.sql) | **One recipe.** `auth.uid()` defaults, the anon / authenticated / service_role grants, RLS policies, the storage bucket. The shipped app runs on this. |
 | [supabase/generated/portable-core.schema.sql](./supabase/generated/portable-core.schema.sql) | **The same core, as the database it builds.** `pg_dump --schema-only` of a stock Postgres that replayed the series. You apply the series; you read this. |
 
-All three are generated. Edit a migration, then run `npm run generate:portable-core` and `npm run generate:portable-schema`; CI reverts a hand-edit.
+All three are generated. Edit a migration, then run
+`npm run generate:portable-core` and `npm run generate:portable-schema`; CI
+reverts a hand-edit.
 
-- **What the app reads and writes through** is the generated database type, [`src/types/database.ts`](./src/types/database.ts): every table, column and RPC signature the core declares, emitted from the migrations and re-checked by CI. Change the core, regenerate the type, and every call site that no longer agrees stops building.
-- **What a store has to answer** to serve the app live is [references/adapter-contract.md](./references/adapter-contract.md) § Live backend surface (beyond import). The shipped Supabase call sites are the worked example.
+- **What the app reads and writes through** is the generated database type,
+  [`src/types/database.ts`](./src/types/database.ts): every table, column and
+  RPC signature the core declares, emitted from the migrations and re-checked
+  by CI. Change the core, regenerate the type, and every call site that no
+  longer agrees stops building.
+- **What a store has to answer** to serve the app live is
+  [references/adapter-contract.md](./references/adapter-contract.md) § Live
+  backend surface (beyond import). The shipped Supabase call sites are the
+  worked example.
 
 ### Where your work starts
 
-- **Auth stops at the anon / authenticated split.** The tier reader ([`src/lib/identity.ts`](./src/lib/identity.ts)) asks the database one question, what this session may do, and leaves how you answer it to you. Supabase Auth is the shipped recipe.
-- **One blueprint workspace per database.** There is no tenant column, and RLS does not scope by one.
-- **Backup and restore belong to your host.** `supabase/migrations/` is append-only: an undo is a new migration.
-- **Migration ops stop at the shipped chain.** `db push` and `db reset` are supported; branching, squashing and multi-environment promotion are yours. Desync has a runbook: [docs/connectors/supabase/database.md § Migration desync](./docs/connectors/supabase/database.md#migration-desync-the-repair).
+- **Auth stops at the anon / authenticated split.** The tier reader
+  ([`src/lib/identity.ts`](./src/lib/identity.ts)) asks the database one
+  question, what this session may do, and leaves how you answer it to you.
+  Supabase Auth is the shipped recipe.
+- **One blueprint workspace per database.** There is no tenant column, and RLS
+  does not scope by one.
+- **Backup and restore belong to your host.** `supabase/migrations/` is
+  append-only: an undo is a new migration.
+- **Migration ops stop at the shipped chain.** `db push` and `db reset` are
+  supported; branching, squashing and multi-environment promotion are yours.
+  Desync has a runbook: [docs/connectors/supabase/database.md § Migration
+  desync](./docs/connectors/supabase/database.md#migration-desync-the-repair).
 - **Adapters for other backends, and hosting, are yours to bring.**
+
+### Agent search and other readers
+
+- **Agent search on your own vector index:** [references/customization.md §
+  Agent search](./references/customization.md#agent-search).
+- **A Slack bot, or any other reader:** it reads with the publishable key
+  under the [adapter contract's read-consumer
+  rules](./references/adapter-contract.md#read-consumers-bots-agent-tools-external-integrations).
 
 ### Deploy
 
-Any static host works: the build always produces a plain `dist/`. Live-database mode needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` at **build time**. `netlify.toml` carries the build command, the `dist/` publish folder, the Node version and the redirect table: a 404 for `/assets/*` above the SPA fallback (`/* /index.html 200`). `public/_headers` carries the CSP and the one-year immutable cache for `/assets/*`. `npm run check:hosting` holds both files. Blueprint-specific gotchas: [skills/map/references/deploy-notes.md](./skills/map/references/deploy-notes.md).
+Any static host works: the build always produces a plain `dist/`.
+Live-database mode needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` at
+**build time**. `netlify.toml` carries the build command, the `dist/` publish
+folder, the Node version and the redirect table: a 404 for `/assets/*` above
+the SPA fallback (`/* /index.html 200`). `public/_headers` carries the CSP and
+the one-year immutable cache for `/assets/*`. `npm run check:hosting` holds
+both files. Blueprint-specific gotchas:
+[skills/map/references/deploy-notes.md](./skills/map/references/deploy-notes.md).
 
-To serve from a path (`https://example.org/demo/` rather than a domain root), set `BASE_PATH=/demo/` at build time. The output lands in `dist/demo/`, every URL the app reads or writes keeps the prefix, and the build writes the redirect and cache rules for `/demo/`. Details, and the one-line Netlify rewrite for showing the app under a path on another site: [guide/04 § Serving from a path](./docs/guide/04-operations.md#serving-from-a-path).
+To serve from a path (`https://example.org/demo/` rather than a domain root),
+set `BASE_PATH=/demo/` at build time. The output lands in `dist/demo/`, every
+URL the app reads or writes keeps the prefix, and the build writes the
+redirect and cache rules for `/demo/`. Details, and the one-line Netlify
+rewrite for showing the app under a path on another site: [guide/04 § Serving
+from a path](./docs/guide/04-operations.md#serving-from-a-path).
+
+## Everyday commands
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Vite dev server |
+| `npm run build` | Typecheck + production build |
+| `npm test` | Skill-mirror check, then the Vitest suite |
+| `npm run lint` | ESLint |
+| `npm run sync:skills` | Refresh the vendored skill copies after editing `skills/` or `references/` |
+| `npm run supabase:start` / `stop` / `reset` | Local Supabase stack |
+
+The blueprint pipeline's own scripts are documented by the skills that run
+them, and every guard CI runs by
+[docs/engineering/checks.md](./docs/engineering/checks.md).
 
 ## Before you push
 

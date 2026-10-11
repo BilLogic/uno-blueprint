@@ -13,9 +13,13 @@ An open-source toolkit for context engineering: a canvas for your team, a harnes
   <img src="./docs/assets/why-now.svg" alt="Why teams need a service blueprint — checked at a quarterly, twice-yearly or yearly review, it drifts out of date between reviews; checked almost daily, by people and agents, it stays true">
 </picture>
 
-MCP connects your agents to your tools. Uno Blueprint works on top of it, not instead of it, and shows them how it all fits together, so they find the right context the first time. `ub:map` reads a FigJam or Figma board through MCP when one is connected, and writes to Supabase through the Supabase MCP or your own CLI credentials: [references/adapter-contract.md](./references/adapter-contract.md).
+MCP connects your agents to your tools, and search finds the passages that match. The blueprint adds how they fit together, so your agents find the right context the first time.
 
 A blueprint lays one service out step by step, by who does the work, and links every cell to the sources behind it. Your docs stay in their tools. The blueprint organizes what they hold and links back.
+
+## How a blueprint is laid out
+
+Service > phase > scenario > path. One path is one blueprint: a grid of lanes (one actor each: the customer, frontstage, backstage, support and others) and steps. Where a lane meets a step, one cell holds the detail: owner, status, value, dependencies and the sources behind it. The full model is in [guide/01 — The blueprint model](./docs/guide/01-the-blueprint-model.md); the specification is [references/data-model.md](./references/data-model.md).
 
 ## Quick start
 
@@ -44,7 +48,7 @@ claude plugin marketplace add BilLogic/uno-blueprint
 claude plugin install ub@ub-marketplace
 ```
 
-That installs the skills as slash commands, in any project. Cursor and Codex find them in `.agents/skills/`, and any other agent routes through `AGENTS.md`: see [In other coding agents](#in-other-coding-agents).
+That installs the skills as slash commands, in any project. Cursor and Codex find them in `.agents/skills/`, and any other agent routes through `AGENTS.md`: see [guide/03 § In other coding agents](./docs/guide/03-the-plugin.md#5-in-other-coding-agents).
 
 To work on the template itself, clone it instead:
 
@@ -82,30 +86,14 @@ Four skills teach your agents to build the map from your docs, keep it accurate,
 | [`ub:audit`](./skills/audit/SKILL.md) | List gaps, conflicts and stale sources, ranked by what to fix first. |
 | [`ub:whatif`](./skills/whatif/SKILL.md) | Trace a change before you make it. |
 
-How each skill works, and the agents and hooks around them: [guide/03 — The plugin](./docs/guide/03-the-plugin.md).
-
-#### In other coding agents
-
-The repo ships the skills under `.agents/skills/` as well, so a checkout or a workspace works in coding agents that read that folder, with no plugin install. Checked by hand:
-
-| Agent | How you call a skill |
-| --- | --- |
-| Claude Code (plugin) | `/ub:map` |
-| Cursor | `ub:map`, or describe a map task |
-| Codex | `$ub:map` |
-
-Gemini CLI, Copilot and Windsurf document the same `.agents/skills/` convention and are expected to find the skills too. Any other agent that reads markdown can run them from `AGENTS.md`. Why you edit `skills/` and sync the mirror: [guide/03 § In other coding agents](./docs/guide/03-the-plugin.md#5-in-other-coding-agents).
+How each skill works, and the agents and hooks around them: [guide/03 — The plugin](./docs/guide/03-the-plugin.md). Cursor and Codex find the skills in `.agents/skills/`, and any agent that reads markdown routes through `AGENTS.md`: [guide/03 § In other coding agents](./docs/guide/03-the-plugin.md#5-in-other-coding-agents).
 
 ### One blueprint, every place you work
 
 - **In the app.** Ask the built-in agent and watch it point at the blueprint. Sign in and bring your own model key.
-- **With your coding agent.** Run the four skills from Claude Code, Cursor, or any agent that reads markdown.
-- **In your team Slack.** Put a bot on the same blueprint, and answers arrive where the questions are asked. You build this one; the template does not ship it. It reads with the publishable key under the [adapter contract's read-consumer rules](./references/adapter-contract.md#read-consumers-bots-agent-tools-external-integrations).
+- **With your coding agent.** In the terminal or the editor: Claude Code, Cursor, Codex.
+- **In your team Slack.** A bot on the same blueprint answers where questions are asked, and flags gaps to whoever owns that part.
 - **On your phone.** Take the blueprint with you. Read any journey and jump to any step.
-
-## How a blueprint is laid out
-
-Service > phase > scenario > path. One path is one blueprint: a grid of lanes (one actor each: the customer, frontstage, backstage, support and others) and steps. Where a lane meets a step, one cell holds the detail: owner, status, value, dependencies and the sources behind it. The full model is in [guide/01 — The blueprint model](./docs/guide/01-the-blueprint-model.md); the specification is [references/data-model.md](./references/data-model.md).
 
 ## Add a database
 
@@ -122,48 +110,6 @@ Copy `API URL` and `anon key` from the CLI output into `.env`, then run `npm run
 
 A hosted project, the exposure note table by table, any other Postgres host through the portable core, what stays yours to bring, and deploying: [SETUP.md § Adopting it for a team](./SETUP.md#adopting-it-for-a-team).
 
-## Reference
-
-### Scripts
-
-The everyday ones:
-
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Vite dev server |
-| `npm run build` | Typecheck + production build |
-| `npm test` | Skill-mirror check, then the Vitest suite |
-| `npm run lint` | ESLint |
-| `npm run sync:skills` | Refresh the vendored skill copies after editing `skills/` or `references/` |
-| `npm run supabase:start` / `stop` / `reset` | Local Supabase stack |
-
-The checks to run before pushing are in [SETUP.md § Before you push](./SETUP.md#before-you-push); every guard CI runs, and how to read its failure, is in [docs/engineering/checks.md](./docs/engineering/checks.md). The blueprint pipeline's scripts are documented by the skills that run them.
-
-### Repo map
-
-| Path | Purpose |
-| --- | --- |
-| [INDEX.md](./INDEX.md) | Where to find things: routes by task, generated from the docs' frontmatter |
-| [CONTEXT.md](./CONTEXT.md) | The domain language: scenario, path, phase, step, cell, lane, touchpoint, the line of visibility, dependency, slice, finding |
-| [SETUP.md](./SETUP.md) | Getting the repository running, adopting it for a team, and the checks to run before pushing |
-| [AGENTS.md](./AGENTS.md) | The agent router: which skill answers which intent |
-| [CHANGELOG.md](./CHANGELOG.md) | What changed in each release, and what a deployment does to upgrade |
-| [.claude-plugin/](./.claude-plugin/) | The Claude Code plugin manifest that makes the repo installable as a plugin |
-| [.agents/skills/](./.agents/skills/) | The skills' `SKILL.md` files, mirrored for other coding agents. Generated by `npm run sync:skills` |
-| [packages/](./packages/) | The initialiser behind `npm create uno-blueprint` |
-| [skills/](./skills/) | Four skills, one directory each, with their own `references/` and `scripts/` |
-| [agents/](./agents/) | Five subagents the skills dispatch in a fresh context |
-| [references/](./references/) | The shared core every skill uses: data model, schema, adapter contract, vocabularies |
-| [scripts/](./scripts/) | The shared blueprint pipeline, the generators and the guards |
-| [hooks/](./hooks/) | Session status, auto-validation on edit, the secret guard |
-| [src/](./src/) | The canvas app: React components, the token layers, the no-database fallback |
-| [public/](./public/) | Static files the app serves as they are: icons and the hosting headers |
-| [supabase/](./supabase/) | Migrations, the generated seed, and the generated portable core |
-| [render-walk/](./render-walk/) | The browser walk over every view of the sample board |
-| [evals/](./evals/) | The skill evals: does the right skill fire, and does it behave |
-| [assets/](./assets/) | The workspace handoff template `ub:map` fills in |
-| [docs/](./docs/) | Guides, decisions, connectors, engineering procedure and figures; [docs/overview.md](./docs/overview.md) says which is which |
-
 ## Going deeper
 
 | Guide | Who it is for | What it covers |
@@ -173,7 +119,7 @@ The checks to run before pushing are in [SETUP.md § Before you push](./SETUP.md
 | [03 — The plugin](./docs/guide/03-the-plugin.md) | The adopter installing it, the engineer extending it | How the skills and agents work, and what lands on disk |
 | [04 — Operations](./docs/guide/04-operations.md) | Whoever runs it | Who may do what, and what happens when it changes |
 
-Every other document, with what it answers, and the routing table an agent matches its task against, is in [INDEX.md](./INDEX.md); [docs/overview.md](./docs/overview.md) says what the folders mean. Work in flight lives in [issues](https://github.com/BilLogic/uno-blueprint/issues), so you can see what is already under way before proposing something.
+Every other document is in [INDEX.md](./INDEX.md); the checks to run before pushing are in [SETUP.md § Before you push](./SETUP.md#before-you-push), every guard CI runs is in [docs/engineering/checks.md](./docs/engineering/checks.md), and the repo map is in [docs/overview.md](./docs/overview.md#the-repository-at-the-top-level).
 
 ## Credits
 

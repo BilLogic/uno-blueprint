@@ -1,24 +1,10 @@
 # Data Model
 
-The template's blueprint data model. Source of truth:
-`supabase/migrations/20260716200000_template_schema.sql` plus the
-migrations that add the records about the board — filenames keep the
-spelling they shipped with (`20260729120000_derived_layer.sql`,
-`20260730090000_derived_layer_grants_hardening.sql`,
-`20260803001000_slices_origin_allows_human.sql`) and the authoring
-migrations (`20260818000000_authoring_foundation.sql` — provenance
-`origin` columns, `cells.cell_key` identity, `position`,
-the deletion archive, direct-column grants;
-`20260818001000_authoring_operations.sql` — the `SECURITY DEFINER` RPCs
-that are the only sanctioned write path for structure;
-`20260818002000_service_account_tier.sql` — OPTIONAL recipe splitting
-`authenticated` into service/regular tiers via RESTRICTIVE policies;
-`20260819000000_agent_surface.sql` — `agent_sessions`/`agent_messages`
-chat persistence plus the findings write path for in-app runs) (portable
-core: `supabase/generated/portable-core.generated.sql`, diagram:
-`docs/erd.mmd`). The IR
-(`references/ir-schema.json`) mirrors this shape one-to-one with locale maps
-and stable keys in place of UUIDs.
+The template's blueprint data model. Source of truth: the migrations in
+`supabase/migrations/`, collected as
+`supabase/generated/portable-core.generated.sql` (diagram: `docs/erd.mmd`). The
+IR (`references/ir-schema.json`) mirrors it with locale maps and stable keys in
+place of UUIDs.
 
 ## Contents
 
@@ -107,7 +93,7 @@ erDiagram
 - `scenarios.layout`: `stacked` \| `merged` — ONE vocabulary. The
   stored token is the token the UI names, and the header toggle writes it
   through `update_scenario_layout`, so a scenario left merged opens merged.
-  Retired values: `CONTEXT.md`.
+  Retired values: `scripts/retired-vocabulary.mjs`.
   - `stacked`: one full band per path on a shared step axis — any labeled
     variants ("as designed" vs "reality" is just the default labeling)
   - `merged`: the paths combined into one blueprint — one lane rail, one

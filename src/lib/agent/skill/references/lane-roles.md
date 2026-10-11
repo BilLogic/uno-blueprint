@@ -13,8 +13,8 @@ A lane has two identities:
 - `role` (`lanes.lane_role`) — a stable semantic key that drives rendering.
   `null`/absent = plain generic swimlane.
 
-Never infer semantics from the display name. That was the old magic-name
-contract; it broke every non-English blueprint.
+Rendering reads `role`; the display name is for people. Rows predating
+`lane_role` go through the legacy name shim below.
 
 ## Canonical vocabulary
 
@@ -63,10 +63,9 @@ elicitation), or to none.
   `content` as **touchpoints**: one touchpoint per newline-separated line
   (`"GIS Portal\nWork Order App"` → two touchpoints). A `cell_touchpoints` row
   attaches long-form copy, resources and a featured link to one touchpoint:
-  its `name` is the touchpoint's label, and the row survives a rename where
-  the old label-matched entry silently stopped being found. A "tech" lane was
-  never only tech — it held the things a moment happens *through*, which is a
-  touchpoint: an app, a document, a channel, a place.
+  its `name` is the touchpoint's label, and the row survives a rename. A
+  touchpoint lane holds the things a moment happens *through*: an app, a
+  document, a channel, a place.
 - A touchpoint cell's `frame` is its **logo**: placing a touchpoint fills an
   empty frame with that touchpoint's icon. So the storyboard walkthrough — the
   step's stack, the canvas strip and the walkthrough deck, which share one
@@ -88,23 +87,14 @@ something the eight roles do not name uses `null` (a generic swimlane) — a
 role style, no divider anchored on it. The lane's meaning lives in its
 `display_name`, which is free-form in any language and is what a reader
 actually sees; the role only says what the renderer must do about the row, and
-for these lanes there is nothing to do. The old advice to mint an org-defined
-role (`physical_evidence`, `compliance_review`, `partner_ops`) no longer
-holds, because an unconstrained column is how thirty-six support lanes once
-went unclassified.
+for these lanes there is nothing to do.
 
 **Authoring refuses a ninth.** `references/ir-schema.json` carries the eight
 as an enum and `scripts/validate_ir.py` errors on anything else, naming the
-value, the lane it is on and all eight legal values. This closed with the
-`2026.09.10` schema version: until then the schema took any
-`^[a-z0-9][a-z0-9_]*$` and the validator passed
-a ninth role in silence, so a document validated and was then refused by
-`lanes_lane_role_check` part-way through its import — the value named, but at
-the one moment its author could no longer act on it. A file authored before
-that, carrying a role outside the set, is carried across by
-`scripts/migrate_ir.py` (`to_2026_09_10`), which nulls the role and leaves the
-display name alone; the scenarios it touches go back through review, because
-a role is authored content.
+value, the lane it is on and all eight legal values. `scripts/migrate_ir.py`
+`to_2026_09_10` nulls an out-of-set role on older files and leaves the display
+name alone; the scenarios it touches go back through review, because a role is
+authored content.
 
 All layout logic is role-agnostic where it can be: e.g. backward in-lane
 loop corridors are computed from dependency geometry for ANY lane, `null`

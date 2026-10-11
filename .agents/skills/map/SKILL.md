@@ -69,11 +69,9 @@ these, which are where the system actually breaks**:
   recorded `content_hash` matches the current subtree, recorded after the
   user explicitly approves the preview — `skills/map/references/workspace-state.md`
   § Sign-off.
-- ⚠ **REQUIRED — never fabricate a blueprint from system-only docs.**
-  Manuals and feature inventories describe the system, not the journey.
-  Detect this and pivot to co-creation with the docs as reference material
-  (the ingest playbook's critical branch). Plausible-but-invented journeys
-  presented as parsed truth are the worst failure mode.
+- ⚠ **REQUIRED — draft journeys only from journey docs.** Manuals and
+  feature inventories describe the system; they route to co-creation as
+  reference material (the ingest playbook's critical branch).
 - ⚠ **REQUIRED — secrets** follow `references/adapter-contract.md` §7; a
   pre-write hook enforces the committable-file half.
 - ⚠ **REQUIRED — confirm the target directory before writing anything**
@@ -84,7 +82,7 @@ these, which are where the system actually breaks**:
 
 ## Deterministic exit conditions
 
-Every phase ends at a quantitative stop condition — never "looks done".
+Every phase ends at a quantitative stop condition.
 Check them against `blueprint-workspace.json`, which is also what makes
 long unattended runs ("all 6 scenarios signed off") verifiable:
 

@@ -112,15 +112,10 @@ When the human accepts a whatif's recommendation:
    `skills/whatif/references/change-request-schema.json` — the diff (cell-key
    addressed), affected scenario keys, the base sign-off hashes captured
    at analysis time, and the finding fingerprints it supersedes.
-2. Then STOP and tell the user to invoke ub:map (map-promote) — never
-   chain into promotion in the same turn; the gap between accept and
-   promote is a human gate. Map-promote's steps for reference:
-   verify hashes → edit IR → de-sign notice → re-sign → re-import →
-   `sweep_orphans.py` (planned — if the script is absent, skip the sweep
-   and say so in the report) → auto-resolve the superseded whatif
-   findings.
-3. Whole-request promote only in v1 — no cherry-picking diff entries; a
-   partial acceptance is a NEW, smaller whatif.
+2. Then stop and hand the user to ub:map (map-promote), which runs in a
+   later turn; the gap between accept and promote is a human gate.
+3. Promote the whole request; a partial acceptance is a new, smaller
+   whatif.
 
 The staleness guard is absolute, and the comparison is TWO checks per
 affected scenario, both against defined targets: (a) each embedded

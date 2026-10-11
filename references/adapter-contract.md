@@ -21,15 +21,8 @@ Supabase opted into.
 project one shared model through one shared field list
 (`generate_seed_sql.seed_cell_fields` / `seed_dependency_fields`), and
 `scripts/adapter_parity.py` runs an IR through both and compares every
-field. The second of those two was `seed_trigger_fields` until IR
-`2026.09.09`, when a path's `triggers` array became its `dependencies` — the
-word the database has used since `21000103000000` — and the field function
-moved with the field it reads. A consumer that calls it by name changes one
-import. It exists because the sentence was false for months while nothing
-failed: each generator wrote its own field list by hand, they drifted, and
-the no-DB side quietly stopped carrying `cell_key`, `position`, every
-cell spec field, and the edge `kind` — losing an adopter their cell specs
-on the adapter this contract calls "not a degraded mode".
+field. Each generator reads the shared list rather than its own, so neither
+side can drop a field the other carries.
 
 One thing is outside the projection on **both** adapters, which is parity by
 absence rather than by accident: `cell_dependencies` `label`/`note`, which the IR
@@ -45,10 +38,7 @@ sample service's examples and never an adopter's own. The parity check is silent
 on this because it compares the aggregates the two adapters share, and this is
 not one of them.
 
-Lane `kpis`/`tools` were listed here too, and were not: the SQL adapter
-carried both and the no-DB one carried neither. The check had the same hole —
-it compared cells and edges and not lanes — so a claim about parity was itself
-the next thing to drift. Every aggregate is compared now.
+Lanes, cells and edges are all compared, lane `kpis`/`tools` included.
 
 **Read-only without a database (normative).** The no-DB adapter serves; it
 does not accept live authoring — `canAgentWrite` is false without a
@@ -65,14 +55,8 @@ rest. Any store that can answer them can serve this app. The Supabase call
 sites answer them with PostgREST embedded selects; that is one implementation,
 not the requirement.
 
-This paragraph used to say that a host without a PostgREST-compatible read
-API "cannot serve the app". That was our coupling written down as physics.
-
-It then said, for a while, that the app reads and writes through a set of
-repository interfaces kept beside the code. That was the opposite mistake: no
-call site ever dispatched through them, so the sentence described a seam that
-did not exist. The operations below are the contract; the seam the code
-actually holds is the generated database type (`src/types/database.ts`).
+The operations below are the contract; the seam the code holds is the
+generated database type (`src/types/database.ts`).
 
 **⚠ Slices, findings and evidence without a DB (normative)**: a no-DB adopter's
 findings/slices store IS the ledger files that
@@ -127,10 +111,6 @@ version found and the versions supported. The list lives in
 `src/lib/backend/schemaVersion.ts` carries the TypeScript copy and the test
 that holds the two equal.
 
-Until that table existed this clause compared a file against a file: the value
-was in the IR and in `blueprint-workspace.json` and nowhere a live target could
-be interrogated, which is the one thing the clause is for.
-
 **Runnable form**: `npm run check:target` performs exactly this check against a
 configured project and distinguishes *never migrated* from *stale*. Supabase:
 the desync repair, for a fork whose history diverged before the reserved
@@ -165,11 +145,9 @@ exist is BORN with, nothing more.
 
 That is what makes two things true at once. Seeding a second service into a
 target that already holds the first lands on the row that is there instead of
-being refused by the unique constraint — which is the model ADR 0003 states
-and, until #201, the one thing the seeder could not express, because the id
-was derived from the seeding service's key. And a target seeded before that
-derivation changed stays idempotent: its rows keep the ids they were born
-with, and a re-import updates them in place.
+being refused by the unique constraint — the model ADR 0003 states. And a
+target seeded under the older key-derived ids stays idempotent: its rows keep
+the ids they were born with, and a re-import updates them in place.
 
 An import wins where it SAYS something and says nothing where it was merely
 minted. An entry the IR never listed arrives as kind `other` with no summary
@@ -272,16 +250,11 @@ arrives.
   run Supabase auth, their own OIDC, or a single-user desktop build without
   either side learning about the other. It is a UI-level answer; the backend
   still enforces it. A backend that splits its authors from its automation
-  answers with the writing tier and enforces the narrower line itself, which is
-  the only place it is enforceable — a third tier lived in this vocabulary for
-  a while, nothing produced it, and a backend that had answered it would have
-  been read here as writing nothing. `src/lib/identity.ts` is the Supabase
+  answers with the writing tier and enforces the narrower line itself, the
+  only place it is enforceable. `src/lib/identity.ts` is the Supabase
   rendering, and the only one shipped.
 
-These were once TypeScript interfaces with adapters behind them. Nothing
-dispatched through the interfaces, so what they added over this section was a
-second statement of it that the compiler could not check against any caller.
-The seam the code does hold is the generated database type,
+The seam the code holds is the generated database type,
 `src/types/database.ts`: change the portable core, regenerate, and every call
 site that no longer agrees stops building. A replacement backend's real work
 is answering the operations above; the type is what tells it when it has
@@ -311,18 +284,9 @@ again, wearing a different word.
 
 ### Proving an implementation
 
-**There is no runnable conformance suite, and saying so is the honest state.**
-There was one — framework-free, run from an adopter's own runner — and the two
-implementations it held equivalent were a read-only fixture over the bundled
-sample and an in-memory store. Neither was a database, and neither served the
-app: the shipped call sites talk to PostgREST directly, so the suite's green
-was two hypothetical stores agreeing with each other. What an adopter
-actually has is this section — the operations are named and so is the guarantee
-on each — plus § How the Supabase adapter renders it below as the worked
-example, and the checklist at the end of this document for the import half. A
-suite earns its place back on the day a second real backend needs it; until
-then a passing suite would be making the deleted one's claim again, which was
-that two stores nobody runs agree with each other.
+No runnable conformance suite exists; the operations above plus the import
+checklist at the end of this document are the bar, with § How the Supabase
+adapter renders it below as the worked example.
 
 ### How the Supabase adapter renders it
 

@@ -9,24 +9,12 @@ A term is defined here when getting it wrong changes what an agent writes to
 the database. Where a term is spelled differently in the database, the
 blueprint file and the app, every spelling is given.
 
-**This file is definitions and nothing else.** That constraint is its whole
-value: an agent or a person can read it end to end before touching anything,
-and it stays readable because it never grows a second job. It said so while
-three of its six sections were something else, which is how a promise nothing
-enforces ends up. `scripts/check-glossary-only.mjs` holds it there now, so the
-sentence has a build behind it rather than a habit.
-
-Three reference sections used to live here and now live where they are
-enforced. The rename map is
-[`scripts/retired-vocabulary.mjs`](scripts/retired-vocabulary.mjs), the one
-list three checks read, and its header carries why each name went and which
-renames the word lists deliberately leave out. The four words retired as
-identifiers rather than as words are the header of
-[`scripts/check-retired-identifiers.mjs`](scripts/check-retired-identifiers.mjs),
-beside the exemption list that applies them. Every panel label and the column
-behind it is
-[`references/interface-schema-map.md`](references/interface-schema-map.md),
-generated from the list CI acts on.
+Definitions only, held there by `scripts/check-glossary-only.mjs`. Renames:
+[`scripts/retired-vocabulary.mjs`](scripts/retired-vocabulary.mjs). Words
+retired as identifiers:
+[`scripts/check-retired-identifiers.mjs`](scripts/check-retired-identifiers.mjs).
+Panel labels:
+[`references/interface-schema-map.md`](references/interface-schema-map.md).
 
 ## The application
 
@@ -180,14 +168,10 @@ above are what exists.
 Structure is *where a thing sits* — a cell's lane, step and path — and moves
 only through an authoring RPC. Spec is *what it is like*, and carries a
 column-scoped grant so a panel can edit it without opening the board's shape to
-the same path. That split is why the word is load-bearing: `skills/audit`
-instructs an agent to read "the spec columns" and skip gracefully when they are
-empty, and until now this file had never heard of them.
+the same path. `skills/audit` reads "the spec columns" by this word.
 
-**Not a UI word.** The interface says Function, Form, Value proposition,
-Owner — never "spec fields". The ban is on the *interface*, not the glossary,
-and reading it as both is how a word the skills are told to use went undefined
-on both sides.
+**A glossary word, not a UI word.** The interface names each field — Function,
+Form, Value proposition, Owner — and the skills and this glossary say *spec*.
 
 **Cell field** — one column of a cell, with everything the application says
 about it: the label and hint a person sees, the group (structure, content or
@@ -214,39 +198,13 @@ happen. A handoff, rendered as an arrow.
 possible without causing it. A precondition, never drawn, because a blueprint
 in which every relationship is an arrow cannot be read. Both kinds read
 source-first: `A enables B` puts the precondition at the source, the same end
-`A leads_to B` puts the cause. (The `needs` that `21000114000000` retired put it at the target, so
-those edges turned around in `21000114000000`.) The panel names each end:
+`A leads_to B` puts the cause. The panel names each end:
 **Follows** and **Leads to** for the drawn kind, **Enabled by** and
 **Enables** for the recorded one.
 
 > The test that separates the two: remove the other cell and ask what happens.
 > If this one never starts, that was a `leads_to`. If it starts but goes wrong,
 > that was an `enables`.
-
-The retired values — `cell_dependencies.kind = 'trigger'` and
-`cell_dependencies.kind = 'needs'` — are values, not identifiers, so the
-identifier sweep has no fragment to key on and the copy sweep no reader-facing
-word: a database *trigger* is a live subject in these documents, and "needs"
-is English. `scripts/check-dependency-kinds.mjs` holds them instead, across
-every rulebook tree an agent or reader follows — in their code-span form, and
-in the short list of phrases where either word can only be a dependency kind
-("trigger-vs-needs", the slashed pair, either word beside "edge"), which is
-what caught the two documents that spelled the pair with no backticks at all.
-
-The same is true of `scenarios.layout = 'side-by-side'`,
-`scenarios.layout = 'integrated'`, `paths.kind = 'unhappy'` and
-`paths.kind = 'alternative'`, which `21000116000000` folded into `stacked`,
-`exception` and `variant`, of `scenarios.layout = 'single'`, which
-`21000117000000` folded into `stacked`, and of `resources.kind = 'other'`,
-which `21000118000000` folded into `attachment`: values, so no fragment and
-no copy word. `cell_touchpoints.url` and `cell_touchpoints.screenshots`, which
-`21000119000000` moved into `resources` as a featured link and attachments,
-retire no fragment either: `url` is a live column on `resources`, and
-"screenshots" is English wherever a render check takes them.
-`scripts/value-set-claims.mjs` holds them — a list in any swept document
-that names one is stale, unless the sentence records the retirement and
-cites the migration — and holds every documented value set to the CHECK
-that defines it, read off the schema dump.
 
 ## What the skills produce
 
@@ -276,20 +234,7 @@ naming it after the audit would be wrong in the direction a slice would notice
 first. The cell is the claim the source grounds, and it is the one thing every
 evidence row the agent can write names.
 
-That row said **nobody** until the agent gained `create_evidence` and
-`update_evidence`, and "nobody" was a fact about the roster rather than a
-position: the panel was the only writer, so no tool named the table. The
-moment one did, the honest answer had to be a real owner — which is what
-rule 2 of `who-writes-what` exists to force.
-
-**And no record at all belongs to what-if**, which is worth saying rather than
-leaving as an absence: it walks the dependency graph and returns a trace, on a
-copy. Where it does record something it records a finding, and a finding is the
-audit's — the what-if skill says so itself. So the vocabulary still has to be
-able to say **nobody**; what-if is what it says it about, which is why the owner
-column is prose rather than a name drawn from a list of readers. A category
-covering all four was always going to strain, because one of the four readers
-has nothing of its own in it.
+**What-if owns no record**; a finding it raises is the audit's.
 
 So write the owner you mean — *the slice's record*, *the audit's findings*,
 *the cell's evidence*. Where a statement genuinely covers all four — a grant, a
@@ -327,11 +272,9 @@ defect the `slides` rename fixed, which
 calling one a screen is that defect wearing a third word.
 
 The slice AUTHORING FORMAT says the same words as the columns it writes:
-`kind`, `summary`, `authorship`, `position`, `slides`. It used to say `type`,
-`description`, `origin`, `order`, `frames` and `narrative`, so an author had to hold two
-vocabularies to write one file, and the tooling carried a comment explaining
-the split. There is no alias for the old keys — a file that uses one is
-refused by name, told which word replaced which.
+`kind`, `summary`, `authorship`, `position`, `slides`. One vocabulary, no
+aliases: a file using a retired key is refused by name and told its
+replacement.
 
 **Finding** — one triageable observation about a blueprint, raised by a
 consistency check or a change trace. A finding carries a severity, an
@@ -454,14 +397,13 @@ pointer, loaded only when that pointer fires. Everything under `docs/`,
 `skills/` and `references/` is disclosed; `AGENTS.md` is the tier itself, and
 `scripts/always-loaded.mjs` is the list that says which is which.
 
-**Leading word** — the first word of a routing item, chosen so that it is the
-word carrying the branch — *vocabulary*, *routing*, *editing* — and front-loaded
-so a scanned pointer triggers on it. `scripts/check-pointers.mjs` is what holds
-it there.
+**Leading word** — a compact word the model already knows that anchors
+behaviour (*tracer bullet*); a pointer front-loads it, held by
+`scripts/check-pointers.mjs`.
 
 **Sprawl** — a document too long even when every line of it is live: attention
 thins across the whole of it. The cure is the ladder rather than a shorter
-sentence. Distinct from *bloat*, which is dead weight.
+sentence.
 
 ## The agent
 

@@ -83,9 +83,8 @@ Import must recompute each scenario's hash and **refuse on mismatch** for that
 scenario — a hand-edit after approval de-signs only the scenario it touched and
 re-gates that scenario's review. Because the hash is per-scenario, appending a
 new phase/scenario to the IR leaves every previously signed scenario's hash
-unchanged (they stay `signed_off`) — the whole-file hash this replaced
-de-signed everything on any edit (friction #19). Recording a hash without an
-explicit user approval defeats the gate; don't.
+unchanged (they stay `signed_off`). Record a hash only on the user's explicit
+approval; that approval is the gate.
 
 A template schema bump renames fields **inside** a scenario subtree, so every
 recorded hash would stop matching. `scripts/migrate_ir.py <ir> --workspace
@@ -95,9 +94,8 @@ sound because a migration step renames field names only. A hash matching
 neither side was already stale and is reported, not moved. See
 `references/customization.md` § Sign-off across a bump.
 
-A top-level `sign_off` object (whole-IR hash) is no longer the gate. It may be
-kept as an optional convenience record, but per-scenario `content_hash` is
-authoritative.
+The gate is the per-scenario `content_hash`; a top-level `sign_off` object
+(whole-IR hash), where one exists, is an optional convenience record.
 
 ### Targets
 

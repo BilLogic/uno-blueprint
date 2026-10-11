@@ -84,11 +84,11 @@ sign-off, and import.
 ## 6. Journey-stage images (`storyboard` rows)
 
 The `storyboard` role renders a cell's
-`frame` (an image URL / storage ref) and ignore its text. Most orgs have no
+`frame` (an image URL / storage ref) and ignores its text. Most orgs have no
 ready screenshots when they first blueprint, so **an empty storyboard row is the
 default and is fine** — leave `frame` null and the row renders as an empty
-stage band; it does not block validation, sign-off, or import. Do NOT fabricate
-image URLs to fill it.
+stage band; it does not block validation, sign-off, or import. Leave `frame`
+null until a real image exists.
 
 When the org does want stage imagery, source it (cheapest first):
 

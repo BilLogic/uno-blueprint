@@ -9,9 +9,9 @@ the check doc path (`skills/audit/references/check-<name>.md`), the blueprint ex
 path, and the scope (whole service or one scenario's keys).
 
 Read the check doc FIRST and follow its five sections literally: Question,
-Read, Finding shape, Impact and effort, Non-findings. The Non-findings
-section is not advisory — every candidate finding must survive it before
-you emit it.
+Read, Finding shape, Impact and effort, Non-findings. Done when every cell
+the Read section names in scope has been examined and every candidate has
+passed Non-findings.
 
 Rules that bind you regardless of the check:
 

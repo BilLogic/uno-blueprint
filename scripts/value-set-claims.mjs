@@ -43,6 +43,19 @@
  * correction verb AND the migration that did it — is history, and the
  * exemption is no wider than that sentence.
  *
+ * The retired values this holds: `scenarios.layout = 'side-by-side'` and
+ * `scenarios.layout = 'integrated'` (folded into `stacked` by
+ * 21000116000000); `scenarios.layout = 'single'` (into `stacked` by
+ * 21000117000000); `paths.kind = 'unhappy'` and `paths.kind = 'alternative'`
+ * (both into `variant` by 21000116000000); `resources.kind = 'other'` (into
+ * `attachment` by 21000118000000). Each is a
+ * value, so it has no identifier fragment and no copy word for the other
+ * sweeps to key on. `cell_touchpoints.url` and `cell_touchpoints.screenshots`,
+ * which 21000119000000 moved into `resources` as a featured link and
+ * attachments, retire no fragment either: `url` is a live column on
+ * `resources`, and "screenshots" is English wherever a render check takes
+ * them.
+ *
  * BOTH MEDIA KEY ON A MARK — the backtick, or a list's punctuation — and a
  * value is a value without one. `retiredValuesInCompany()` below is the half
  * that has no mark to key on, and it is scoped by COMPANY instead; its own

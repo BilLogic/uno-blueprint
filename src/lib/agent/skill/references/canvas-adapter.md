@@ -39,7 +39,9 @@ time over memory.
    every check you will execute. A check run without its doc is improv,
    not the audit. Each doc's Non-findings section is binding — a finding
    it excludes is invalid (an empty lane alone is not a gap unless you
-   cite the contradicting content).
+   cite the contradicting content). Rate from the anchor that fits best —
+   between two, impact lower and effort higher — and resolve each lane's
+   role from its path.
 3. **Record as you go**: findings land via `create_finding` the moment a
    check completes — deferring all recording to the end risks running
    out of tool rounds and delivering chat-only opinion, which is a

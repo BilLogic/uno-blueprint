@@ -12,7 +12,7 @@ migration in the same change.
 - Theming & branding
 - Deployment inputs and their config homes
 - Composition claims: what a deployment still documents
-- View types & path types
+- Layouts & path kinds
 - Scale
 - Agent account
 - Agent search
@@ -226,7 +226,7 @@ without the other is a broken board rather than a partial one: a deployment
 that named its own nav and left the content to the template got its own rows
 over a registry keyed by the template's ids, which answers none of them — rows
 above an empty canvas in every no-database build, and a render walk over that
-build with no board to find (#754).
+build with no board to find.
 
 `scripts/generate_fallbacks.py` writes both halves in one pass, and the config
 field takes the registry in exactly the shape that run emits, so a deployment
@@ -399,7 +399,7 @@ and is green for as long as the package's own build is.
 Set per scenario / per path **in the IR**, not in code: `layout`
 (`stacked` | `merged`) and `kind` (`happy` | `variant` | `exception`).
 
-Retired values are recorded in `CONTEXT.md`.
+Retired values are recorded in `scripts/retired-vocabulary.mjs`.
 
 The stacked layout compares any two labeled variants via `variant_label` —
 designed-vs-reality, before/after a redesign, or two stakeholders' conflicting

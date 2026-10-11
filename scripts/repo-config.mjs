@@ -111,61 +111,48 @@ export const repoConfig = {
   /** The authored half of the generated `INDEX.md` (`generate-docs-index.mjs`). */
   docsIndex: {
     /**
-     * A row per task someone arrives holding, phrased the way they would ask
-     * it. Targets are repo-relative paths, and include the plugin contract's
-     * own folders — an agent's task is far more often "which rule applies"
-     * than "which document".
+     * A row per task someone arrives holding, led by the noun the task is
+     * about so a scanning reader matches on its first word. Each target is a
+     * backticked repo-relative path, which makes the row a pointer in the
+     * grammar `check-pointers.mjs` reads. Targets include the plugin
+     * contract's own folders: an agent's task is far more often "which rule
+     * applies" than "which document".
+     *
+     * Three decision records have rows of their own, because they answer the
+     * rename and move questions a contributor asks before acting. Every other
+     * record is reached through the decision-record overview.
      */
     routing: [
-      ['What is this, and why would I want it?', 'README.md'],
-      ['What does this word mean — lane, path, slice, dependency, finding?', 'CONTEXT.md'],
-      ['What does this panel label actually name in the schema?', INTERFACE_MAP],
-      ['Get it running on my machine', 'SETUP.md'],
-      ['I am an agent — which skill do I follow?', 'AGENTS.md'],
-      ['Read the whole thing start to finish', 'docs/guide/'],
-      ['What exactly am I looking at in a blueprint?', 'docs/guide/01-the-blueprint-model.md'],
-      ['What do I actually do with a blueprint?', 'docs/guide/02-using-it-in-practice.md'],
-      ['How does the plugin machinery work, and what lands on my disk?', 'docs/guide/03-the-plugin.md'],
-      ['Who may do what once it is deployed?', 'docs/guide/04-operations.md'],
-      ['The tables, columns, enums and import order', 'references/data-model.md'],
-      ['What a blueprint file has to contain', 'references/ir-schema.json'],
-      ['What a backend has to satisfy to serve this app', 'references/adapter-contract.md'],
-      ['Which tools the canvas agent may call, and which of them write', 'references/canvas-adapter.md'],
-      ['What a lane role does to rendering; what to call a lane', 'references/lane-roles.md + references/lane-vocabulary.md'],
-      ['Write or change an audit check', 'references/audit-playbook.md'],
-      ['Fork this template and change it for my org', 'references/customization.md'],
-      ['Connect the app to a database; what a column means; row-level security', 'docs/connectors/supabase/database.md'],
-      ["Generate a deployment's agent account from a connected database", 'docs/agents/blueprint.md'],
-      ['My migration history desynced from upstream', 'docs/connectors/supabase/database.md'],
-      ['Bring a backend that is not Supabase', 'references/adapter-contract.md + supabase/generated/portable-core.generated.sql'],
-      ['CI went red and I do not know what the check defends', 'docs/engineering/checks.md'],
-      ['Cut a release', 'docs/engineering/releasing.md'],
-      ['Can I rename this / is it a breaking change?', 'docs/adr/0001-two-contract-tiers-and-a-frozen-identifier-layer.md'],
-      ['Why do skills/, references/, agents/, hooks/ and scripts/ sit at the root?', 'docs/adr/0002-plugin-contract-folder-names.md'],
-      ['Why does a service own its journey but share the catalog of tools and actors?', 'docs/adr/0003-a-service-owns-its-journey-and-shares-the-catalog.md'],
-      ['May I move a file under references/ or skills/?', 'docs/adr/0004-reference-paths-are-a-published-interface.md'],
-      ['May I move a document a deployment reads out of this package?', 'docs/adr/0023-a-document-a-deployment-resolves-is-a-published-path.md'],
-      ['Where does state shared across surfaces live?', 'docs/adr/0005-cross-surface-state-is-a-module-store.md'],
-      ['When may a surface I am adding stop showing its skeleton?', 'docs/adr/0007-the-canvas-and-the-shell-run-on-separate-clocks.md'],
-      ['Does switching a still-open view remount the canvas?', 'docs/adr/0010-open-views-stay-mounted.md'],
-      ['What may a surface ask of the session?', 'docs/adr/0011-one-question-a-surface-may-ask.md'],
-      ['Why is this colour token derived, and where does it part from upstream?', 'docs/adr/0008-a-primitive-is-a-hue-and-a-semantic-token-is-a-job.md'],
-      ['Which axis of a text style does a rung own, and why are there two ladders?', 'docs/adr/0012-a-rung-owns-size-and-leading.md'],
-      ['Where do layout numbers the runtime does math on live?', 'docs/adr/0013-typescript-owns-layout-numbers.md'],
-      ['May I edit a file under src/components/ui/?', 'docs/adr/0014-vendored-primitives-stay-pristine.md'],
-      ['Does focusing a scenario unmount the rest of the board?', 'docs/adr/0015-the-board-is-always-fully-mounted.md'],
-      ['Why do queries never refetch on focus?', 'docs/adr/0016-reads-never-refetch-on-their-own.md'],
-      ['Why did the large editor components wait to be split, and what did splitting them do?', 'docs/adr/0017-large-component-splits-wait-for-an-end-to-end-round.md'],
-      ['What does featured mean on a resource?', 'docs/adr/0018-featured-is-one-column-two-verbs.md'],
-      ['Is this repo a fork of a deployment, or the canonical template?', 'docs/adr/0019-the-deployment-is-a-deployment-of-the-template.md'],
-      ['How does a deployment consume this template?', 'docs/adr/0020-the-deployment-imports-the-template.md'],
-      ['Who owns the canvas agent, and how may a deployment tune it?', 'docs/adr/0021-the-template-owns-the-agent.md'],
-      ['What decisions have been recorded, and under which numbers?', 'docs/adr/overview.md'],
-      ['Which document owns this assembled surface, and who writes its claim?', 'docs/guidelines/composition/overview.md'],
-      ['Add or move a document', 'docs/guidelines/documentation.md'],
-      ['Propose a change; what a commit and a pull request carry', 'docs/guidelines/contributing.md'],
-      ['See what is already being worked on', 'GitHub issues — the queue is not in this repo'],
-      ['Where does a decision get written down, and where does work in flight live?', 'docs/adr/0009-the-queue-is-issues-and-a-durable-decision-is-an-adr.md'],
+      ['Purpose — what this is, and why I would want it', '`README.md`'],
+      ['Vocabulary — what lane, path, slice, dependency or finding means', '`CONTEXT.md`'],
+      ['Panel labels — what each one names in the schema', `\`${INTERFACE_MAP}\``],
+      ['Setup — getting it running on my machine', '`SETUP.md`'],
+      ['Guide — the whole thing, start to finish', '`docs/guide/`'],
+      ['Blueprint model — what I am looking at in a blueprint', '`docs/guide/01-the-blueprint-model.md`'],
+      ['Practice — what I do with a blueprint', '`docs/guide/02-using-it-in-practice.md`'],
+      ['Plugin machinery — how it works, and what lands on my disk', '`docs/guide/03-the-plugin.md`'],
+      ['Operations — who may do what once it is deployed', '`docs/guide/04-operations.md`'],
+      ['Data model — the tables, columns, enums and import order', '`references/data-model.md`'],
+      ['Blueprint file — what one has to contain', '`references/ir-schema.json`'],
+      ['Backend contract — what a backend satisfies to serve this app', '`references/adapter-contract.md`'],
+      ['Canvas agent tools — which it may call, and which of them write', '`references/canvas-adapter.md`'],
+      ['Lane roles and names — what a role does to rendering; what to call a lane', '`references/lane-roles.md` + `references/lane-vocabulary.md`'],
+      ['Audit checks — writing or changing one', '`references/audit-playbook.md`'],
+      ['Customization — forking this template for my org', '`references/customization.md`'],
+      ['Database — connecting the app, what a column means, row-level security', '`docs/connectors/supabase/database.md`'],
+      ["Agent account — generating a deployment's from a connected database", '`docs/agents/blueprint.md`'],
+      ['Migration history — desynced from upstream', '`docs/connectors/supabase/database.md`'],
+      ['Backends other than Supabase', '`references/adapter-contract.md` + `supabase/generated/portable-core.generated.sql`'],
+      ['CI checks — what a red one defends', '`docs/engineering/checks.md`'],
+      ['Releases — cutting one', '`docs/engineering/releasing.md`'],
+      ['Renames — whether one is a breaking change', '`docs/adr/0001-two-contract-tiers-and-a-frozen-identifier-layer.md`'],
+      ['File moves under references/ or skills/', '`docs/adr/0004-reference-paths-are-a-published-interface.md`'],
+      ['Document moves out of this package, for a document a deployment reads', '`docs/adr/0023-a-document-a-deployment-resolves-is-a-published-path.md`'],
+      ['Decisions — why it is built this way, every record by number', '`docs/adr/overview.md`'],
+      ['Assembled surfaces — which document owns one, and who writes its claim', '`docs/guidelines/composition/overview.md`'],
+      ['Documentation — adding or moving a document', '`docs/guidelines/documentation.md`'],
+      ['Contributions — what a commit and a pull request carry', '`docs/guidelines/contributing.md`'],
+      ['Work in flight — the GitHub issues queue', '`docs/agents/issue-tracker.md`'],
     ],
 
     /**
@@ -174,13 +161,13 @@ export const repoConfig = {
      */
     readingPaths: `- **Adopting the plugin** — README → SETUP → guide/03, then \`references/\` as
   the tasks come up.
-- **Deploying the template** — SETUP → docs/connectors/supabase/database.md →
+- **Deploying the template** — SETUP → \`docs/connectors/supabase/database.md\` →
   guide/04.
-- **Bringing your own backend** — references/adapter-contract.md →
-  supabase/generated/portable-core.generated.sql → guide/04.
-- **Working on this repository** — SETUP → docs/guidelines/contributing.md →
-  docs/engineering/checks.md, with docs/adr/ before anything that renames.
-- **An agent, any task** — AGENTS.md (auto-loaded) → this table, and CONTEXT.md
-  when the task names a domain word.`,
+- **Bringing your own backend** — \`references/adapter-contract.md\` →
+  \`supabase/generated/portable-core.generated.sql\` → guide/04.
+- **Working on this repository** — SETUP → \`docs/guidelines/contributing.md\` →
+  \`docs/engineering/checks.md\`, with \`docs/adr/\` before anything that renames.
+- **Agent sessions** — \`AGENTS.md\` (auto-loaded) → this table, and \`CONTEXT.md\`
+  when the task writes a domain word.`,
   },
 }

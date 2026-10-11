@@ -13,7 +13,7 @@ import { declarationsIn } from '@/lib/tokenModel'
  * The type ladder, and the guards that hold it. A rung owns size and
  * leading; a call site owns weight, tracking and ink.
  *
- * Nine rungs, two scopes, one ratio each. Nothing below `xs`. On a
+ * Nine type rungs, two type scopes, one ratio each. Nothing below `xs`. On a
  * presentation surface the floor is `sm`. The roster must know both
  * scopes, or a legitimate mono `sm` (14px) reads as off-ladder.
  */
@@ -121,7 +121,7 @@ function sizeRungOf(name: string): string | null {
 }
 
 /**
- * Size-rung declarations in `theme.css`, both scopes.
+ * Type rung declarations in `theme.css`, both type scopes.
  *
  * Line-heights and `--text-color-*` stay out: those are not rungs.
  */

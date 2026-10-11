@@ -23,11 +23,10 @@ READING — the shell reads that rung to decide when to lift the sidebar's boot
 layer, and an identity bar above the canvas reads the layer to decide when its own
 skeleton may end. Every link points the same way, and nothing reads back.
 
-The words for the phases of arrival are defined in
-[CONTEXT.md](../../CONTEXT.md) § Five words for arrival. How each half is wired
-is written where it is wired — the shell's in `EditorShell.tsx`, the rungs in
-`canvasRevealContext.ts`, the published layer in `shellBootStore.ts` — and is
-deliberately not repeated here. Two copies of a rule is one rule and one lie,
+The words for the phases of arrival are defined in § Vocabulary below. How
+each half is wired is written where it is wired — the shell's in
+`EditorShell.tsx`, the rungs in `canvasRevealContext.ts`, the published layer
+in `shellBootStore.ts` — and is deliberately not repeated here. Two copies of a rule is one rule and one lie,
 and a record that restated those comments would be that hazard rather than an
 account of it. What this holds is the shape, and what the shape costs anything
 new that arrives on screen.
@@ -36,10 +35,10 @@ new that arrives on screen.
 
 They are driven by different things. The shell's stagger runs on frames and
 waits on nothing; it is choreography over space that is already reserved. The
-canvas's ladder waits on a board being laid out and painted, and it starts over
+canvas's reveal ladder waits on a board being laid out and painted, and it starts over
 whenever that canvas remounts. When this record was written, uncover was a
 remount. That assumption is superseded by
-[ADR 0010](./0010-open-views-stay-mounted.md). The ladder still restarts on a
+[ADR 0010](./0010-open-views-stay-mounted.md). The reveal ladder still restarts on a
 real remount.
 
 One clock would have to be the canvas's, because it is the one that can be slow.
@@ -103,3 +102,39 @@ what would close the loop.
 the canvas's reveal rung, on the reasoning that one screen should have one
 clock. It removes a state machine and reintroduces the remount — every return
 from a tab replays the shell's arrival over a sidebar that never left.
+
+## Vocabulary
+
+Five words for *not there yet*, naming five different things. Two belong to the
+shell, one to the canvas, one is a duration, and one is about the data rather
+than the screen. They are set out together because apart they read as spellings
+of one idea, and they are spelled here in lower case as the code spells them:
+each is a value or a constant, not a thing on the board.
+
+**entrance** — the shell's from-state as it arrives: `idle`, `pending`, `shown`.
+`pending` lasts a single frame, and exists so that the fade which follows has
+somewhere to start. Nothing is waiting on data while it runs, which is what
+separates it from every other word here.
+
+**boot** — the sidebar's once-per-entry latch: `off`, `armed`, `skeletoning`. It
+answers whether this is the reader arriving or a surface they have already
+loaded coming back — a question no rung of the reveal ladder can answer,
+because a canvas that stayed mounted does not restart that ladder, and one that
+remounts does. `skeletoning` was called *staging* until the collision with the
+reveal ladder's first rung was named.
+
+**revealStage** — the canvas's **reveal ladder**, six rungs from
+`CANVAS_REVEAL_STAGING` to `CANVAS_REVEAL_DONE`. It says how much of the board
+is painted and nothing about the shell around it. The canvas is the only thing
+that sets it; everything else reads it.
+
+**hold** — `SKELETON_HOLD_MS`, 250 ms: how long a surface may load before its
+skeleton is allowed to paint. **A duration, not a state** — the one word here
+measured in milliseconds rather than spelled as values, and the reason a fast
+load shows no placeholder at all instead of one that flashes.
+
+**query status** — what a query returned: `loading`, `ready` or `error`, the
+`status` of a `QueryResult`. It is a fact about the data and not about the
+screen, so a bar can be `ready` while the sidebar is still `skeletoning`
+without the two contradicting each other. It only ever describes a read; the
+status stored in a column is the board's, defined in `CONTEXT.md`.

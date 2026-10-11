@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Slice and presentation surfaces on the new ladder.
+ * Slice and presentation surfaces on the type ladder.
  *
  * Editing chrome sits on `xs`. Stage text sits on `sm` or above and is
  * never muted-only. Sub-12px rungs on these files lift onto that floor.

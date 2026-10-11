@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * The editor shell on the new ladder: 12px (`xs`) is chrome, 13px (`sm`)
+ * The editor shell on the type ladder: 12px (`xs`) is chrome, 13px (`sm`)
  * is UI text.
  *
  * Slice/presentation, the blueprint canvas, the cover/mobile remainder and

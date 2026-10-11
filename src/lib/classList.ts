@@ -142,7 +142,7 @@ export function classLists(surface: Surface = 'app'): ClassListSite[] {
  * Every `leading-*` in `file` whose line — or the comment immediately above it
  * — does not name the geometry that needs the override.
  *
- * Here rather than in the two ladders that ask it because it was written twice,
+ * Here rather than in the two type ladder guards that ask it because it was written twice,
  * byte for byte, and the only thing keeping the copies apart was that each
  * closed over its own reader of the tree. There is one reader now, so there is
  * one rule. The RAW text is read, comments and all: the comment IS the

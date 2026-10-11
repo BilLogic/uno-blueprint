@@ -75,3 +75,6 @@ if it doesn't, that's a template bug, not a hosting quirk to patch around.
 Verify with `render-checker` against the deployed URL (every scenario ×
 view type renders, no console errors), then update `blueprint-workspace.json`
 targets and regenerate `HANDOFF.md` if targets changed.
+
+Done when a deep link under each `deploy_url` loads, `render-checker`
+passes, and each `deploy_url` is recorded in `blueprint-workspace.json`.

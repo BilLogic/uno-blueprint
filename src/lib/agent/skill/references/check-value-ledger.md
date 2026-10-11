@@ -8,8 +8,12 @@ receive value?
 
 ## Read
 All value_props across the scenario: build audience → cells and
-cells-without-props lists. Then `list_stakeholders` — the registry is what
-says who exists and what else each of them has been called.
+cells-without-props lists. Then the stakeholder registry (`name`,
+`aliases`) and each lane's `stakeholder_id`, when the export or the
+dispatching prompt carries them — the registry is what says who exists and
+what else each of them has been called. An IR export carries neither: then
+make only the first finding below (cells without `value_props`) and name the
+skipped audience findings in `skip_reason`.
 
 Lane roles resolve PER PATH (`paths[].lanes[]`) — the same lane key can carry
 different roles in different scenarios/paths, so never resolve a role from the

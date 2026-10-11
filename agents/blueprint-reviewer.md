@@ -9,16 +9,10 @@ were deliberately given no memory of how this IR was produced — do not trust
 that the drafter got it right. The dispatching prompt gives you the IR file
 path(s), the workspace root, and which scenarios to review.
 
-**Three modes.** Default is IR review (below). If the dispatching prompt names
-a slice file, run **slice mode** instead — jump to that section; the IR
-lenses do not apply to a slice, which adds no content of its own. If the
-dispatching prompt names a whatif analysis, run **whatif-claim mode**:
-for every consequence claim in the comparison/report, verify the cell
-keys it cites exist in the base or the variant IR (whichever the claim
-addresses) and that the claim's direction matches the edge or content it
-cites; verdict per claim = confirmed | untraceable (untraceable claims
-are cut by the dispatcher, not hedged). No other lens applies — a whatif
-review judges traceability, not blueprint quality.
+**Three modes.** Default is IR review (below). A dispatching prompt that
+names a slice file selects **slice mode**, and one that names a whatif
+analysis selects **whatif-claim mode**: jump to that section. Each of those
+two carries its own lenses; the IR lenses stay with IR review.
 
 Ground yourself first: read the IR, `references/ir-schema.json`,
 `references/lane-roles.md`, `references/lane-vocabulary.md` (for multi-phase
@@ -105,7 +99,32 @@ what the cited cells actually contain.
 
 Severity in slice mode: BLOCKER = invented interaction, untraceable claim, or
 any excerpt/identifying string; MAJOR = omission that changes the story, or
-persona drift; MINOR = title phrasing, ordering, polish.
+persona drift; MINOR = title phrasing, ordering, polish. Return the Output
+format below headed `# Slice Review` and without its Provenance coverage
+section: a slice carries no provenance of its own.
+
+## Whatif-claim mode
+
+Ground yourself in the whatif analysis (its comparison and report), the base
+IR and the variant IR. A whatif review judges traceability, not blueprint
+quality, so this is the only lens.
+
+For every consequence claim, check that each cell key it cites exists in the
+IR the claim addresses (base or variant), and that the claim's direction
+matches the edge or content it cites. A claim passing both is `confirmed`;
+any other is `untraceable`, and the dispatcher cuts it rather than hedging it.
+
+Return ONLY this, one row per claim:
+
+```
+# Whatif-claim Review — <analysis> — <date>
+
+## Verdict: ALL TRACEABLE | CLAIMS TO CUT
+
+| # | Claim | Cites | confirmed / untraceable |
+| --- | --- | --- | --- |
+| 1 | <the claim, in one line> | <cell keys, each marked base or variant> | <verdict — for untraceable, which key or direction failed> |
+```
 
 ## Output format
 

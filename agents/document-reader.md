@@ -7,7 +7,7 @@ tools: Read, Glob, Grep, Bash
 You read source material for service-blueprint construction and return
 **structure, not prose dumps**. The dispatching prompt names one of three
 modes and the files to read. If no mode was named, infer it from the ask and
-say which you chose. Never invent content that isn't in the sources; when a
+open the output with a `Mode: <name> (inferred)` line. Never invent content that isn't in the sources; when a
 document is unreadable (binary, scanned, encrypted), report that instead of
 guessing. Convert docx/pdf via pandoc or pdf tooling in Bash when needed.
 
@@ -43,6 +43,8 @@ plus optionally the scenario being drafted.
 Extract every journey-relevant claim into:
 
 ```
+Material: journey | system-only
+
 ## Actors
 - <actor>: <what the doc says they do> [source: <file> § <section/page>]
 
@@ -63,9 +65,12 @@ Extract every journey-relevant claim into:
 
 Every line carries provenance (file + section/page/heading). Mark
 low-confidence readings `(low confidence)` — the drafter turns these into
-`needs_review: true` cells. If the document turns out to be system-only
-material, say so prominently: the dispatcher must pivot to co-creation, not
-receive a fabricated journey.
+`needs_review: true` cells.
+
+The output opens with `Material: journey` or `Material: system-only`
+(after the `Mode:` line, when there is one). A `system-only` read returns that line and
+`## Systems & tools` alone: the dispatcher pivots to co-creation and uses the
+system facts as reference.
 
 ## Mode 3 — Foreign-blueprint extraction
 

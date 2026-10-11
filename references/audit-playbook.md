@@ -87,7 +87,7 @@ that disagree on a separator split the finding history).
   convention slice-schema.json defines; IR cells carry lane+step — the
   rest of the path comes from their position in the tree). On a live
   canvas, cell ids stand in for keys (separate dedupe space, by design).
-- The note is NOT part of the fingerprint, and neither are severity,
+- The summary is NOT part of the fingerprint, and neither are severity,
   impact and effort — rewording or re-rating a finding updates the open row
   rather than duplicating it.
 - Zero-cell findings (e.g. "no scenario covers onboarding at all") use a
@@ -120,7 +120,7 @@ implement this table — execute, never improvise.
 | Incoming fingerprint matches… | Action |
 | --- | --- |
 | nothing | insert `open` |
-| an `open` row | update its note/severity/impact/effort/run_id in place |
+| an `open` row | update its summary/severity/impact/effort/run_id in place |
 | a `dismissed` row | drop silently — a human said no; re-detection does not overrule them |
 | a `resolved` row | reopen it (status → `open`, new run_id) — it came back |
 
@@ -155,7 +155,7 @@ ledger; on the canvas, `list_findings` returns it.
 
 1. Identify the row (by id if given; else by check + cell keys — confirm
    when ambiguous).
-2. Update `status` only. Never note, severity, impact, effort, or cells —
+2. Update `status` only. Never summary, severity, impact, effort, or cells —
    a triage is a human judgement about an agent statement, not an edit of
    the statement.
 3. Confirm back: check, cells, old → new status.

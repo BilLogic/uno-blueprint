@@ -132,10 +132,7 @@ No-DB: provisioning is a no-op (the template app ships the types).
 ### 3. Transactional scenario-replace import
 All-or-nothing per import. Scenario-scoped **delete-and-reinsert inside one
 transaction**: delete the scenario's rows (FK cascades handle children),
-insert in dependency order `paths → steps → path_steps → lanes → cells →
-cell_touchpoints → resources → cell_dependencies` (see
-`references/data-model.md`). Placements before resources: a resource may hang
-off a placement, and never off both a placement and a cell. A deliberately-invalid IR
+insert in the order `references/data-model.md` § import order gives. A deliberately-invalid IR
 must leave the target untouched. Never `on conflict do update` — removed IR
 rows must not survive as orphans. No-DB equivalent: the generated module is
 replaced wholesale and only written if generation fully succeeds.

@@ -80,4 +80,4 @@ in [docs/index.md](./docs/index.md); what the folders mean is in
   docs/engineering/checks.md, with docs/adr/ before anything that renames.
 - **An agent, any task** — AGENTS.md (auto-loaded) → CONTEXT.md → this table.
 
-54 protocol documents are indexed in [docs/index.md](./docs/index.md).
+55 protocol documents are indexed in [docs/index.md](./docs/index.md).

@@ -90,10 +90,12 @@ How each skill works, and the agents and hooks around them: [guide/03 — The pl
 
 ### One blueprint, every place you work
 
-- **In the app.** Ask the built-in agent and watch it point at the blueprint. Sign in and bring your own model key.
-- **With your coding agent.** In the terminal or the editor: Claude Code, Cursor, Codex.
-- **In your team Slack.** A bot on the same blueprint answers where questions are asked, and flags gaps to whoever owns that part.
-- **On your phone.** Take the blueprint with you. Read any journey and jump to any step.
+Open it in the app or on your phone, call it from your coding agent, or bring it into team chat. It plugs into the way your team already works.
+
+- **In the app.** Ask the built-in agent and watch it point at the blueprint. Bring your own model key.
+- **With your coding agent.** Call the skills from the terminal or the editor: Claude Code, Cursor, Codex.
+- **In team chat.** [Connect a bot](./SETUP.md#agent-search-and-other-readers) to the same blueprint: it answers where questions are asked, and flags gaps to whoever owns that part.
+- **On your phone.** Read any journey and jump to any step.
 
 ## Add a database
 

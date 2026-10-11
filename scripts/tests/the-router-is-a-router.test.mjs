@@ -33,7 +33,7 @@
  * spelled so they cannot be read as an address in either tree, which costs
  * nothing and saves the reader the same second it saves the scan.
  */
-import { test } from 'vitest'
+import { test, vi } from 'vitest'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
@@ -62,6 +62,7 @@ import {
   sweep as sweepRouters,
 } from '../check-pointers.mjs'
 import { descriptionOf } from '../always-loaded.mjs'
+import { forgetUnverified } from '../sweep.mjs'
 import { repoConfig } from '../repo-config.mjs'
 
 const ROOT = resolve(new URL('../..', import.meta.url).pathname)
@@ -133,8 +134,10 @@ test('the pass line names every file it counted', () => {
 
 /**
  * A throwaway repository holding one skill and one agent, each with a body the
- * description census has to leave alone. Every swept folder is present, so the
- * prose sweep has nothing to announce.
+ * description census has to leave alone. The census finds them whether or not
+ * the prose sweep's list names `skills` and `agents`; every folder on that list
+ * is present only so the sweep that hands over the router has nothing to
+ * announce.
  */
 function described({ skill, agent }) {
   const swept = Object.fromEntries(repoConfig.sweptDirs.map((dir) => [`${dir}/keep.md`, '']))
@@ -187,6 +190,74 @@ test('the committed descriptions sit inside their budget and its slack', () => {
   const { total } = measureDescriptions()
   assert.ok(total <= DESCRIPTIONS.budget, `${total} over ${DESCRIPTIONS.budget}`)
   assert.ok(DESCRIPTIONS.budget - total <= DESCRIPTIONS.slack, `${total} stale against ${DESCRIPTIONS.budget}`)
+})
+
+/**
+ * What `fn` wrote to stderr, which is where an unverified folder is announced,
+ * and what it returned. Nothing it writes reaches this run's own output.
+ */
+function stderrOf(fn) {
+  forgetUnverified()
+  const said = []
+  const spy = vi.spyOn(process.stderr, 'write').mockImplementation((text) => {
+    said.push(String(text))
+    return true
+  })
+  try {
+    return { said, value: fn() }
+  } finally {
+    spy.mockRestore()
+    forgetUnverified()
+  }
+}
+
+test('a repository with no skills or agents counts zero descriptions, quietly', () => {
+  const r = repo('# Router\n')
+  try {
+    const { said, value } = stderrOf(() => measureDescriptions(r.root))
+    assert.deepEqual(value, { counted: [], total: 0 })
+    assert.deepEqual(said, [], 'an absent skills/ or agents/ folder is zero descriptions, said by nobody')
+    assert.deepEqual(budgetVerdict(value, { ...DESCRIPTIONS, budget: 0, slack: 0 }).failures, [])
+  } finally {
+    r.done()
+  }
+})
+
+test('a repository with no skills or agents passes the ratchet over the router alone', () => {
+  const r = repo('# Router\n')
+  // Every folder the prose sweep is told to read is there and empty, so the
+  // sweep that hands over the router has nothing true to announce; none holds
+  // a skill or an agent, whichever repository's list this is.
+  for (const dir of repoConfig.sweptDirs) mkdirSync(join(r.root, dir), { recursive: true })
+  try {
+    const { said, value } = stderrOf(() => measureBans(r.root))
+    assert.deepEqual(value, { files: 1, counts: {}, total: 0 })
+    assert.deepEqual(negationVerdict(value, { files: 1, tokens: 0 }).failures, [])
+    for (const line of said) assert.doesNotMatch(line, /\b(?:skills|agents)\b/)
+  } finally {
+    r.done()
+  }
+})
+
+test('a hidden skill or agent is skipped, as every sweep skips a dot-entry', () => {
+  const r = repo('# Router\n', {
+    'skills/.draft/SKILL.md': '---\nname: draft\ndescription: Half written.\n---\n',
+    'agents/.draft.md': '---\nname: draft\ndescription: Half written.\n---\n',
+  })
+  try {
+    assert.deepEqual(measureDescriptions(r.root), { counted: [], total: 0 })
+  } finally {
+    r.done()
+  }
+})
+
+test('a skills or agents FILE holds no descriptions, and is not a crash', () => {
+  const r = repo('# Router\n', { skills: 'not a folder\n', agents: 'not a folder\n' })
+  try {
+    assert.deepEqual(measureDescriptions(r.root), { counted: [], total: 0 })
+  } finally {
+    r.done()
+  }
 })
 
 test('a description folds its indented continuation lines onto one line', () => {

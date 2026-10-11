@@ -60,6 +60,9 @@
  * a tier that every session pays for.
  */
 
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+
 /** Repo-relative paths, in load order. */
 export const ALWAYS_LOADED = ['AGENTS.md']
 
@@ -68,6 +71,33 @@ export const TIER_NOUN = 'always-loaded tier'
 
 /** The files whose frontmatter description is always loaded: one per skill, one per agent. */
 export const DESCRIBED = /^(?:skills\/[^/]+\/SKILL|agents\/[^/]+)\.md$/
+
+/**
+ * Every file matching `DESCRIBED` under `root`, repo-relative and sorted.
+ *
+ * Found by looking where a plugin host looks — `skills/<skill>/SKILL.md` and
+ * `agents/<agent>.md` — rather than through the prose sweep's folder list,
+ * because the two answer different questions: the sweep reads the folders a
+ * repository names as prose, and the host loads whatever skills and agents
+ * the repository holds. A folder that is not there — or a file where the
+ * folder would be — holds none, which is a fact about the tree and nothing to
+ * announce. A dot-entry is skipped, as every sweep skips one.
+ */
+function describedFiles(root) {
+  const entriesOfFolder = (dir) => {
+    const at = join(root, dir)
+    if (!statSync(at, { throwIfNoEntry: false })?.isDirectory()) return []
+    return readdirSync(at)
+      .filter((name) => !name.startsWith('.'))
+      .map((name) => `${dir}/${name}`)
+  }
+  return [
+    ...entriesOfFolder('agents'),
+    ...entriesOfFolder('skills').map((dir) => `${dir}/SKILL.md`),
+  ]
+    .filter((rel) => DESCRIBED.test(rel) && statSync(join(root, rel), { throwIfNoEntry: false })?.isFile())
+    .sort()
+}
 
 /** What the description census is called wherever it is printed. */
 export const DESCRIPTIONS_NOUN = 'skill and agent descriptions'
@@ -98,12 +128,12 @@ export function descriptionOf(text) {
 }
 
 /**
- * Every always-loaded description in a swept tree: `{ file, text }`, sorted by
- * path. `tier` is the `docs` sweep the caller already holds.
+ * Every always-loaded description in the repository at `root`: `{ file, text }`,
+ * sorted by path. A repository holding no skills or agents has none.
  */
-export function descriptionsIn(tier) {
-  return tier.files
-    .filter((rel) => DESCRIBED.test(rel))
-    .map((rel) => ({ file: rel, text: descriptionOf(tier.read(rel) ?? '') }))
+export function descriptionsIn(root = process.cwd()) {
+  const base = resolve(root)
+  return describedFiles(base)
+    .map((rel) => ({ file: rel, text: descriptionOf(readFileSync(join(base, rel), 'utf8')) }))
     .filter((one) => one.text !== null)
 }

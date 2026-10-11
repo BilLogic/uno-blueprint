@@ -101,10 +101,13 @@ export function measure(root = process.cwd(), files = ALWAYS_LOADED) {
  * The description census: one entry per skill or agent that carries a
  * frontmatter description, its chars, plus the total. Only the description is
  * counted; the body below it loads when the description fires.
+ *
+ * The files are found where a plugin host finds them, not through the prose
+ * sweep's folder list, so a repository holding no skills or agents counts
+ * zero and says nothing about the folders it does not have.
  */
 export function measureDescriptions(root = process.cwd()) {
-  const tier = sweep({ subject: 'docs', root, what: 'document' })
-  const counted = descriptionsIn(tier).map((one) => ({ file: one.file, chars: one.text.length }))
+  const counted = descriptionsIn(root).map((one) => ({ file: one.file, chars: one.text.length }))
   return { counted, total: counted.reduce((sum, one) => sum + one.chars, 0) }
 }
 

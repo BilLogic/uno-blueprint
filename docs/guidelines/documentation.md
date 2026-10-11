@@ -31,7 +31,7 @@ Folders are named for the class of thing inside them.
 | `guide/` | The numbered narrative, for a person reading start to finish. |
 | `guidelines/` | How we work: this file, and how to propose a change. `composition/` is the one exception inside it — one document per assembled surface, each claiming the files it documents (`docs/guidelines/composition/overview.md`). |
 | `engineering/` | Procedure for whoever runs the repository. |
-| `connectors/<name>/` | Everything about one external system this package talks to. |
+| `connectors/` | `backend-contract.md`, what any store answers to serve the app live; and `<name>/`, everything about one external system this package talks to. |
 | `assets/` | Every figure the README and the guides use. |
 
 `overview.md` is authored and says what a tree holds. `index.md` is generated

@@ -101,8 +101,10 @@ Sources in, one validated blueprint file out, then its companions:
 ## 4. Your own backend
 
 The app does not require Supabase. What any backend must satisfy is set out
-in [`references/adapter-contract.md`](../../references/adapter-contract.md),
-which is normative: the read shape, the write path, and the access rules.
+in [`references/adapter-contract.md`](../../references/adapter-contract.md)
+for import, and in [`docs/connectors/backend-contract.md`](../connectors/backend-contract.md)
+for serving the app live. Both are normative: the read shape, the write path,
+and the access rules.
 The worked path is to hand that document to your agent and ask it to
 implement the contract against your stack.
 

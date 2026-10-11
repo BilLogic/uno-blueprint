@@ -134,7 +134,8 @@ export const repoConfig = {
       ['Operations — who may do what once it is deployed', '`docs/guide/04-operations.md`'],
       ['Data model — the tables, columns, enums and import order', '`references/data-model.md`'],
       ['Blueprint file — what one has to contain', '`references/ir-schema.json`'],
-      ['Backend contract — what a backend satisfies to serve this app', '`references/adapter-contract.md`'],
+      ['Adapter contract — what an import, its target and its secrets require', '`references/adapter-contract.md`'],
+      ['Backend contract — what a store answers to serve this app live, Supabase or any other', '`docs/connectors/backend-contract.md` + `supabase/generated/portable-core.generated.sql`'],
       ['Canvas agent tools — which it may call, and which of them write', '`references/canvas-adapter.md`'],
       ['Lane roles and names — what a role does to rendering; what to call a lane', '`references/lane-roles.md` + `references/lane-vocabulary.md`'],
       ['Audit checks — writing or changing one', '`references/audit-playbook.md`'],
@@ -142,7 +143,6 @@ export const repoConfig = {
       ['Database — connecting the app, what a column means, row-level security', '`docs/connectors/supabase/database.md`'],
       ["Agent account — generating a deployment's from a connected database", '`docs/agents/blueprint.md`'],
       ['Migration history — desynced from upstream', '`docs/connectors/supabase/database.md`'],
-      ['Backends other than Supabase', '`references/adapter-contract.md` + `supabase/generated/portable-core.generated.sql`'],
       ['CI checks — what a red one defends', '`docs/engineering/checks.md`'],
       ['Releases — cutting one', '`docs/engineering/releasing.md`'],
       ['Renames — whether one is a breaking change', '`docs/adr/0001-two-contract-tiers-and-a-frozen-identifier-layer.md`'],
@@ -163,7 +163,7 @@ export const repoConfig = {
   the tasks come up.
 - **Deploying the template** — SETUP → \`docs/connectors/supabase/database.md\` →
   guide/04.
-- **Bringing your own backend** — \`references/adapter-contract.md\` →
+- **Bringing your own backend** — \`docs/connectors/backend-contract.md\` →
   \`supabase/generated/portable-core.generated.sql\` → guide/04.
 - **Working on this repository** — SETUP → \`docs/guidelines/contributing.md\` →
   \`docs/engineering/checks.md\`, with \`docs/adr/\` before anything that renames.

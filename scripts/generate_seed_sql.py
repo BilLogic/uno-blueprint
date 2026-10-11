@@ -226,8 +226,9 @@ def seed_dependency_fields(edge: dict) -> dict:
     adapters, which is parity by absence rather than by accident.
 
     Called `seed_trigger_fields` until IR 2026.09.09. The name is part of the
-    adapter contract's parity claim (references/adapter-contract.md § 1), so it
-    moved with the field it reads rather than being left as the one place a
+    adapter contract's parity claim (references/adapter-contract.md § The two
+    v1 adapters), so it moved with the field it reads rather than being left as
+    the one place a
     consumer still meets the retired word.
     """
     return {

@@ -2,9 +2,24 @@
 
 Get your human and AI teammates on the same page.
 
-An open-source toolkit for context engineering: a canvas for your team, a harness for your agents. One service blueprint that people read as a canvas and agents read as structured data. Your product knowledge is spread across PRDs, designs, code, dashboards and threads; the blueprint shows how it fits together.
+An open-source toolkit for context engineering: a canvas for your team, a harness for your agents. One service blueprint that people read as a canvas and agents read as structured data.
 
-[Website](https://uno-blueprint.netlify.app) · [Try the demo](https://uno-blueprint.netlify.app/demo/) · [Agent guide](https://uno-blueprint.netlify.app/uno-blueprint.md)
+[Website](https://uno-blueprint.netlify.app) · [Try the demo](https://uno-blueprint.netlify.app/demo/) · [Agent guide](https://uno-blueprint.netlify.app/uno-blueprint.md) · [Changelog](./CHANGELOG.md) · [Latest release](https://github.com/BilLogic/uno-blueprint/releases/latest)
+
+## Your context is everywhere. Your agents need a map.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/why-now.dark.svg">
+  <img src="./docs/assets/why-now.svg" alt="Why teams need a service blueprint — checked at a quarterly, twice-yearly or yearly review, it drifts out of date between reviews; checked almost daily, by people and agents, it stays true">
+</picture>
+
+MCP connects your agents to your tools, and search finds the passages that match. The blueprint adds how they fit together, so your agents find the right context the first time.
+
+A blueprint lays one service out step by step, by who does the work, and links every cell to the sources behind it. Your docs stay in their tools. The blueprint organizes what they hold and links back.
+
+## How a blueprint is laid out
+
+Service > phase > scenario > path. One path is one blueprint: a grid of lanes (one actor each: the customer, frontstage, backstage, support and others) and steps. Where a lane meets a step, one cell holds the detail: owner, status, value, dependencies and the sources behind it. The full model is in [guide/01 — The blueprint model](./docs/guide/01-the-blueprint-model.md); the specification is [references/data-model.md](./references/data-model.md).
 
 ## Quick start
 
@@ -33,7 +48,7 @@ claude plugin marketplace add BilLogic/uno-blueprint
 claude plugin install ub@ub-marketplace
 ```
 
-That installs the skills as slash commands, in any project. Cursor and Codex find them in `.agents/skills/`, and any other agent routes through `AGENTS.md`: see [In other coding agents](#in-other-coding-agents).
+That installs the skills as slash commands, in any project. Cursor and Codex find them in `.agents/skills/`, and any other agent routes through `AGENTS.md`: see [guide/03 § In other coding agents](./docs/guide/03-the-plugin.md#5-in-other-coding-agents).
 
 To work on the template itself, clone it instead:
 
@@ -44,16 +59,15 @@ npm install
 npm run dev
 ```
 
-## Your context is everywhere. Your agents need a map.
+## Example requests
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/why-now.dark.svg">
-  <img src="./docs/assets/why-now.svg" alt="Why teams need a service blueprint — checked at a quarterly, twice-yearly or yearly review, it drifts out of date between reviews; checked almost daily, by people and agents, it stays true">
-</picture>
+Once the skills are installed, ask your coding agent in plain words:
 
-MCP connects your agents to your tools. Uno Blueprint shows them how it all fits together, so they find the right context the first time.
-
-A blueprint lays one service out step by step, by who does the work, and links every cell to the sources behind it. Your docs stay in their tools. The blueprint organizes what they hold and links back.
+- Read the docs in this folder and draft a blueprint of our checkout. List what you could not find.
+- Who owns payment retries in checkout? Cite the cell.
+- What breaks if we add a guest checkout? Change nothing yet.
+- Audit the checkout blueprint: steps with no owner, conflicts, stale sources.
+- Cut the support team's lane out of the checkout blueprint for a new hire.
 
 ## What's inside
 
@@ -74,44 +88,18 @@ Four skills teach your agents to build the map from your docs, keep it accurate,
 
 How each skill works, and the agents and hooks around them: [guide/03 — The plugin](./docs/guide/03-the-plugin.md).
 
-#### In other coding agents
-
-The repo ships the skills under `.agents/skills/` as well, so a checkout or a workspace works in coding agents that read that folder, with no plugin install. Checked by hand:
-
-| Agent | How you call a skill |
-| --- | --- |
-| Claude Code (plugin) | `/ub:map` |
-| Cursor | `ub:map`, or describe a map task |
-| Codex | `$ub:map` |
-
-Gemini CLI, Copilot and Windsurf document the same `.agents/skills/` convention and are expected to find the skills too. Any other agent that reads markdown can run them from `AGENTS.md`. Why you edit `skills/` and sync the mirror: [guide/03 § In other coding agents](./docs/guide/03-the-plugin.md#5-in-other-coding-agents).
-
-### Works on top of MCP
-
-Uno Blueprint works on top of MCP, not instead of it. `ub:map` reads a FigJam or Figma board through MCP when one is connected, and writes to Supabase through the Supabase MCP or your own CLI credentials: [references/adapter-contract.md](./references/adapter-contract.md).
-
 ### One blueprint, every place you work
 
-- **In the app.** Ask the built-in agent and watch it point at the blueprint. Sign in and bring your own model key.
-- **With your coding agent.** Run the four skills from Claude Code, Cursor, or any agent that reads markdown.
-- **In your team Slack.** Put a bot on the same blueprint, and answers arrive where the questions are asked. You build this one; the template does not ship it. It reads with the publishable key under the [adapter contract's read-consumer rules](./references/adapter-contract.md#read-consumers-bots-agent-tools-external-integrations).
-- **On your phone.** Take the blueprint with you. Read any journey and jump to any step.
+Open it in the app or on your phone, call it from your coding agent, or bring it into team chat. It plugs into the way your team already works.
 
-## How a blueprint is laid out
+- **In the app.** Ask the built-in agent and watch it point at the blueprint. Bring your own model key.
+- **With your coding agent.** Call the skills from the terminal or the editor: Claude Code, Cursor, Codex.
+- **In team chat.** [Connect a bot](./SETUP.md#agent-search-and-other-readers) to the same blueprint: it answers where questions are asked, and flags gaps to whoever owns that part.
+- **On your phone.** Read any journey and jump to any step.
 
-Service > phase > scenario > path. One path is one blueprint: a grid of lanes (one actor each: the customer, frontstage, backstage, support and others) and steps. Where a lane meets a step, one cell holds the detail: owner, status, value, dependencies and the sources behind it. The full model is in [guide/01 — The blueprint model](./docs/guide/01-the-blueprint-model.md); the specification is [references/data-model.md](./references/data-model.md).
+## Add a database
 
-## Get set up
-
-Hand this section to your agent; it can run all of it. Each subsection also works as manual steps. [SETUP.md](./SETUP.md) is the long form, with a success check for every step.
-
-### Run locally
-
-The [Quick start](#quick-start) is the whole of it. With no `VITE_SUPABASE_*` variables the app runs in **no-database mode** and renders the bundled sample, generated by [`scripts/generate_sample_blueprint.mjs`](./scripts/generate_sample_blueprint.mjs) into both `src/data/sampleBlueprint.ts` (the offline fallback) and `supabase/seed.sql` (the database seed).
-
-### Add a database
-
-Your blueprint lives in your own database. Supabase is the reference setup and works as shipped:
+The canvas runs on its sample blueprint until your team is ready to share one. Your blueprint then lives in your own database. Supabase is the reference setup and works as shipped:
 
 ```bash
 cp .env.example .env
@@ -120,102 +108,9 @@ npm run supabase:reset       # applies migrations + sample seed
 npm run dev
 ```
 
-Copy `API URL` and `anon key` from the CLI output into `.env`. For a hosted project: `supabase link`, `supabase db push`, then `supabase db query --file supabase/seed.sql --linked`, and set `.env` from **Settings → API**. Keep every key and connection string in `.env`, never in a tracked file.
+Copy `API URL` and `anon key` from the CLI output into `.env`, then run `npm run check:target`: it asks the database which schema it carries, because a page that renders does not prove the migration ran. Keep every key and connection string in `.env`, never in a tracked file. Who can read what, table by table: [SETUP.md § Who can read what](./SETUP.md#who-can-read-what).
 
-Then run `npm run check:target` once. It asks the database which schema it carries. The app falls back to bundled content when it cannot reach a project, so a page that renders does not prove the migration ran.
-
-> **Exposure note:** every table carries a public `SELECT` policy (read-only anon access) except these: `agent_sessions` and `agent_messages` (agent chat transcripts) are readable only by their author, `business_models` (propositions) only after sign-in, and `service_account_emails` (the emails that become service accounts at sign-up) only by the service role. Everything else you deploy is publicly readable, so keep client-sensitive content out of a public deployment.
-
-`supabase/seed.sql` is the **meta-blueprint**: the service blueprint of this template itself. One generator emits it and the no-database fallback from the same source, so both serve the same content. Replace it with your own service ([SETUP.md § 5](./SETUP.md#5-put-your-own-content-in)); until then it doubles as documentation.
-
-### The portable Postgres core
-
-**The portable Postgres core is the contract. Supabase is one conformant reference recipe, fully supported and not required.** Any other Postgres host takes the core plus a small data layer you write against the adapter contract.
-
-The migrations carry partition marks, [scripts/generate-portable-core.mjs](./scripts/generate-portable-core.mjs) emits both halves from them, and every pull request applies the core to a stock `postgres:17` with no Supabase in front of it, then the recipe on top. If the core stops being portable, the build goes red.
-
-| File | What it is |
-| --- | --- |
-| [supabase/generated/portable-core.generated.sql](./supabase/generated/portable-core.generated.sql) | **The contract.** Tables, columns, constraints, indexes, views, triggers, function bodies. Runs on any Postgres. |
-| [supabase/generated/supabase-recipe.generated.sql](./supabase/generated/supabase-recipe.generated.sql) | **One recipe.** `auth.uid()` defaults, the anon / authenticated / service_role grants, RLS policies, the storage bucket. The shipped app runs on this. |
-| [supabase/generated/portable-core.schema.sql](./supabase/generated/portable-core.schema.sql) | **The same core, as the database it builds.** `pg_dump --schema-only` of a stock Postgres that replayed the series. You apply the series; you read this. |
-
-All three are generated. Edit a migration, then run `npm run generate:portable-core` and `npm run generate:portable-schema`; CI reverts a hand-edit.
-
-- **What the app reads and writes through** is the generated database type, [`src/types/database.ts`](./src/types/database.ts): every table, column and RPC signature the core declares, emitted from the migrations and re-checked by CI. Change the core, regenerate the type, and every call site that no longer agrees stops building.
-- **What a store has to answer** to serve the app live is [docs/connectors/backend-contract.md](./docs/connectors/backend-contract.md). The shipped Supabase call sites are the worked example.
-
-Where your work starts:
-
-- **Auth stops at the anon / authenticated split.** The tier reader ([`src/lib/identity.ts`](./src/lib/identity.ts)) asks the database one question, what this session may do, and leaves how you answer it to you. Supabase Auth is the shipped recipe.
-- **One blueprint workspace per database.** There is no tenant column, and RLS does not scope by one.
-- **Backup and restore belong to your host.** `supabase/migrations/` is append-only: an undo is a new migration.
-- **Migration ops stop at the shipped chain.** `db push` and `db reset` are supported; branching, squashing and multi-environment promotion are yours. Desync has a runbook: [docs/connectors/supabase/database.md § Migration desync](./docs/connectors/supabase/database.md#migration-desync-the-repair).
-- **Adapters for other backends, and hosting, are yours to bring.**
-
-### Deploy
-
-Any static host works: the build always produces a plain `dist/`. Live-database mode needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` at **build time**. `netlify.toml` carries the build command, the `dist/` publish folder, the Node version and the redirect table: a 404 for `/assets/*` above the SPA fallback (`/* /index.html 200`). `public/_headers` carries the CSP and the one-year immutable cache for `/assets/*`. `npm run check:hosting` holds both files. Blueprint-specific gotchas: [skills/map/references/deploy-notes.md](./skills/map/references/deploy-notes.md).
-
-To serve from a path (`https://example.org/demo/` rather than a domain root), set `BASE_PATH=/demo/` at build time. The output lands in `dist/demo/`, every URL the app reads or writes keeps the prefix, and the build writes the redirect and cache rules for `/demo/`. Details, and the one-line Netlify rewrite for showing the app under a path on another site: [guide/04 § Serving from a path](./docs/guide/04-operations.md#serving-from-a-path).
-
-## Reference
-
-### Scripts
-
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Vite dev server |
-| `npm run build` | Typecheck + production build |
-| `npm run lint` | ESLint |
-| `npm test` | Skill-mirror check, then the Vitest suite |
-| `npm run test:ir` | Round-trip test suite for the blueprint pipeline (`scripts/tests/run_tests.sh`) |
-| `npm run supabase:start` / `stop` / `reset` | Local Supabase stack |
-| `npm run check:target` | Ask the configured database which schema it carries |
-| `npm run generate:database-types` / `check:database-types` | Regenerate `src/types/database.ts` from the database the portable core builds, or diff it against what is committed |
-| `node scripts/generate_sample_blueprint.mjs` | Regenerate the sample content (fallback module + seed) |
-| `python3 scripts/validate_ir.py <blueprint.json>` | Validate a blueprint file (stdlib only) |
-| `python3 scripts/generate_fallbacks.py <blueprint.json> --locale <tag> --register` | Blueprint to no-database data module + offline nav, into this repository's own marker blocks |
-| `python3 scripts/generate_fallbacks.py <blueprint.json> --locale <tag> --registry-out <path> --nav-out <path>` | The same two halves as standalone modules, for a deployment that mounts this package |
-| `python3 scripts/generate_seed_sql.py <blueprint.json> --locale <tag>` | Blueprint to transactional Supabase seed |
-| `python3 scripts/compute_signoff_hash.py <blueprint.json>` | Per-scenario sign-off content hashes |
-| `python3 skills/audit/scripts/audit_tools.py` | Helpers the audit runs on: fingerprint, export, dedupe, validate, rank and report findings |
-| `python3 skills/slice/scripts/slice_tools.py` | Helpers for composing and validating a slice |
-
-The checks to run before pushing are in [SETUP.md § Before you push](./SETUP.md#before-you-push).
-
-### Repo map
-
-| Path | Purpose |
-| --- | --- |
-| [INDEX.md](./INDEX.md) | Where to find things: routes by task, generated from the docs' frontmatter |
-| [CONTEXT.md](./CONTEXT.md) | The domain language: scenario, path, phase, step, cell, lane, touchpoint, the line of visibility, dependency, slice, finding |
-| [SETUP.md](./SETUP.md) | Getting the repository running, and the checks to run before pushing |
-| [AGENTS.md](./AGENTS.md) | The agent router: which skill answers which intent |
-| [.claude-plugin/plugin.json](./.claude-plugin/plugin.json) | Claude Code plugin manifest; this makes the repo installable as a plugin |
-| [.agents/skills/](./.agents/skills/) | The skills' `SKILL.md` files, mirrored for Cursor, Codex and other agents that read that folder. Generated by `npm run sync:skills`; edit `skills/` instead |
-| [packages/create-uno-blueprint/](./packages/create-uno-blueprint/) | The initialiser behind `npm create uno-blueprint` |
-| [skills/](./skills/) | Four skills, one directory each (`map`, `slice`, `audit`, `whatif`): `SKILL.md` entry point plus that skill's own `references/` and `scripts/` |
-| [agents/](./agents/) | Five subagents: `document-reader`, `blueprint-reviewer` (adversarial pre-sign-off review), `render-checker`, `auditor` (one check at a time, blind to the others), `impact-tracer` (walks the dependency graph) |
-| [references/](./references/) | Shared core every skill uses: data model, blueprint schema, adapter contract, canvas adapter, lane-role and lane vocabularies, the interface-to-schema map, customization, audit playbook |
-| [scripts/](./scripts/) | Shared blueprint pipeline: validator, fallback and seed generators, sign-off hasher, tests |
-| [hooks/](./hooks/) | Session status, blueprint auto-validation on edit, service-role secret guard |
-| `src/components/blueprint/` | Blueprint grid, paths, dependency arrows |
-| [src/styles/](./src/styles/) | The token layers, in the order they resolve: `colors.css` (the ramps), `semantic.css` (what each colour is *for*), `theme.css` (the Tailwind bindings), `themes/` (light and dark) |
-| `src/lib/classList.ts`, `typeWeight.ts`, `typeInk.ts` | The type doctrine, enforced: one working weight, 600 for headings only, and ink named as a rung rather than dialled as an opacity. [ADR 0012](./docs/adr/0012-a-rung-owns-size-and-leading.md) |
-| `src/components/editor/` | Canvas and slide editor shell |
-| [src/lib/laneRoles.ts](./src/lib/laneRoles.ts) | `lane_role` rendering contract |
-| [src/data/blueprintFallbacks.ts](./src/data/blueprintFallbacks.ts) | No-database fallback registry (sample content) |
-| [supabase/migrations/](./supabase/migrations/) | Schema migrations: base template plus the authoring and agent-surface layers |
-| [supabase/seed.sql](./supabase/seed.sql) | Generated sample seed |
-| [supabase/generated/](./supabase/generated/) | The portable core and the Supabase recipe, generated from the migrations' partition marks |
-| [docs/guide/](./docs/guide/) | The four guides: the model, using it, the plugin, operations |
-| [docs/adr/](./docs/adr/) | The decisions, numbered. The list is [docs/adr/overview.md](./docs/adr/overview.md) |
-| [docs/connectors/supabase/](./docs/connectors/supabase/) | The reference recipe as an operated database: columns, row-level security, the migration desync runbook |
-| [docs/engineering/](./docs/engineering/) | Cutting a release, and every guard behind a red build |
-| [docs/guidelines/](./docs/guidelines/) | Writing documentation here, and proposing a change |
-| [docs/assets/](./docs/assets/) | Every figure in this README and the guides |
-| [docs/erd.mmd](./docs/erd.mmd) | Attribute-level ERD |
+A hosted project, the exposure note table by table, any other Postgres host through the portable core, what stays yours to bring, and deploying: [SETUP.md § Adopting it for a team](./SETUP.md#adopting-it-for-a-team).
 
 ## Going deeper
 
@@ -227,7 +122,7 @@ The checks to run before pushing are in [SETUP.md § Before you push](./SETUP.md
 | [04 — Operations](./docs/guide/04-operations.md) | Whoever runs it | Who may do what, and what happens when it changes |
 | [05 — Customizing a deployment](./docs/guide/05-customizing-a-deployment.md) | The engineer fitting it to one organisation | Theming, config fields, composition claims, agent search, bundling |
 
-Every other document, with what it answers, and the routing table an agent matches its task against, is in [INDEX.md](./INDEX.md); [docs/overview.md](./docs/overview.md) says what the folders mean. Work in flight lives in [issues](https://github.com/BilLogic/uno-blueprint/issues), so you can see what is already under way before proposing something.
+Every other document is in [INDEX.md](./INDEX.md); the checks to run before pushing are in [SETUP.md § Before you push](./SETUP.md#before-you-push), every guard CI runs is in [docs/engineering/checks.md](./docs/engineering/checks.md), and the repo map is in [docs/overview.md](./docs/overview.md#the-repository-at-the-top-level).
 
 ## Credits
 

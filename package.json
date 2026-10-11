@@ -150,5 +150,13 @@
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12",
     "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "postcss-selector-parser": "^7.1.6",
+    "tinypool": "~2.1.2"
+  },
+  "resolutions": {
+    "postcss-selector-parser": "^7.1.6",
+    "tinypool": "~2.1.2"
   }
 }

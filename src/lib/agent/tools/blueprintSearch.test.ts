@@ -43,19 +43,35 @@ const ROW = {
   total_matched: 3,
 }
 
+/**
+ * supabase-js client methods read `this`, so a fake that ignores its receiver
+ * passes a detached call the real client would throw on. Every fake below goes
+ * through this, so each test also proves the client stayed attached.
+ */
+function requireReceiver<T extends object>(fake: T): T {
+  const attached = {} as Record<string, unknown>
+  for (const [key, method] of Object.entries(fake)) {
+    attached[key] = function (this: unknown, ...args: unknown[]) {
+      if (this !== attached) throw new TypeError(`${key} called without its client`)
+      return (method as (...a: unknown[]) => unknown)(...args)
+    }
+  }
+  return attached as T
+}
+
 function fakeClient(
   answers: Array<{ data: unknown; error: { message: string } | null }>,
 ): { client: SupabaseClient<Database>; calls: RpcCall[] } {
   const calls: RpcCall[] = []
   let index = 0
-  const client = {
+  const client = requireReceiver({
     rpc: (name: string, args: Record<string, unknown>) => {
       calls.push({ name, args })
       const answer = answers[Math.min(index, answers.length - 1)]
       index += 1
       return Promise.resolve(answer)
     },
-  } as unknown as SupabaseClient<Database>
+  }) as unknown as SupabaseClient<Database>
   return { client, calls }
 }
 
@@ -196,7 +212,7 @@ function signalRecordingClient(phases: Array<{ name: string; service_id: string 
   signalled: string[]
 } {
   const signalled: string[] = []
-  const client = {
+  const client = requireReceiver({
     rpc: (name: string) => {
       const answer = { data: [{ ...ROW, phase: 'Onboarding' }], error: null }
       return {
@@ -219,7 +235,7 @@ function signalRecordingClient(phases: Array<{ name: string; service_id: string 
       }
       return builder
     },
-  } as unknown as SupabaseClient<Database>
+  }) as unknown as SupabaseClient<Database>
   return { client, signalled }
 }
 
@@ -230,7 +246,7 @@ describe('searchBlueprint under a service scope', () => {
     answer: { data: unknown; error: { message: string } | null },
   ): { client: SupabaseClient<Database>; calls: RpcCall[] } {
     const calls: RpcCall[] = []
-    const client = {
+    const client = requireReceiver({
       rpc: (name: string, args: Record<string, unknown>) => {
         calls.push({ name, args })
         return Promise.resolve(answer)
@@ -245,7 +261,7 @@ describe('searchBlueprint under a service scope', () => {
         }
         return builder
       },
-    } as unknown as SupabaseClient<Database>
+    }) as unknown as SupabaseClient<Database>
     return { client, calls }
   }
 

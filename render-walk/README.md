@@ -333,7 +333,7 @@ What your side has to provide:
   asserts rather than on anything it can name. Both are generated in one run of
   `scripts/generate_fallbacks.py` with `--registry-out` and `--nav-out`, which
   write them as modules of your own that name their types by package name;
-  `references/customization.md` § The offline board is two fields has the
+  `docs/guide/05-customizing-a-deployment.md` § The offline board is two fields has the
   command and the shape.
 
   **Either form of that second field walks.** `sample.blueprints` takes the
@@ -345,7 +345,7 @@ What your side has to provide:
   behind it is whole. A no-database build is exactly the build a loader IS
   called in, which is what makes the walk the guard that exercises it. This
   repository's own board is a value, so the run above walks the eager form;
-  `references/customization.md` § Eagerly or behind a loader says which to
+  `docs/guide/05-customizing-a-deployment.md` § Eagerly or behind a loader says which to
   supply and why.
 
 A deployment that wants this in its own CI can copy the `render-walk` job out

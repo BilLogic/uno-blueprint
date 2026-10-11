@@ -132,13 +132,14 @@ export const repoConfig = {
       ['Practice — what I do with a blueprint', '`docs/guide/02-using-it-in-practice.md`'],
       ['Plugin machinery — how it works, and what lands on my disk', '`docs/guide/03-the-plugin.md`'],
       ['Operations — who may do what once it is deployed', '`docs/guide/04-operations.md`'],
+      ['Customizing a deployment — theming, config fields, agent search, bundling', '`docs/guide/05-customizing-a-deployment.md`'],
       ['Data model — the tables, columns, enums and import order', '`references/data-model.md`'],
       ['Blueprint file — what one has to contain', '`references/ir-schema.json`'],
       ['Backend contract — what a backend satisfies to serve this app', '`references/adapter-contract.md`'],
       ['Canvas agent tools — which it may call, and which of them write', '`references/canvas-adapter.md`'],
       ['Lane roles and names — what a role does to rendering; what to call a lane', '`references/lane-roles.md` + `references/lane-vocabulary.md`'],
       ['Audit checks — writing or changing one', '`references/audit-playbook.md`'],
-      ['Customization — forking this template for my org', '`references/customization.md`'],
+      ['Upgrades — taking a new template release into a workspace', '`references/customization.md`'],
       ['Database — connecting the app, what a column means, row-level security', '`docs/connectors/supabase/database.md`'],
       ["Agent account — generating a deployment's from a connected database", '`docs/agents/blueprint.md`'],
       ['Migration history — desynced from upstream', '`docs/connectors/supabase/database.md`'],
@@ -162,7 +163,7 @@ export const repoConfig = {
     readingPaths: `- **Adopting the plugin** — README → SETUP → guide/03, then \`references/\` as
   the tasks come up.
 - **Deploying the template** — SETUP → \`docs/connectors/supabase/database.md\` →
-  guide/04.
+  guide/04 → guide/05.
 - **Bringing your own backend** — \`references/adapter-contract.md\` →
   \`supabase/generated/portable-core.generated.sql\` → guide/04.
 - **Working on this repository** — SETUP → \`docs/guidelines/contributing.md\` →

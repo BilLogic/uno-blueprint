@@ -110,7 +110,7 @@ locale translation fans out to generic subagents.
 | Anything touching an import target | `references/adapter-contract.md` |
 | Reading/writing workspace state or sign-off | `skills/map/references/workspace-state.md` |
 | Before anything goes public; deploy gotchas | `skills/map/references/deploy-notes.md` (⚠ public-exposure warning lives here) |
-| Theming, lane roles, portfolio/client conventions, template upgrades | `references/customization.md` |
+| Template upgrades, lane roles, portfolio/client conventions, theming | `references/customization.md` |
 | Generating the workspace handoff doc | `assets/HANDOFF.md.template` |
 
 Correctness-critical steps (validation, seed-SQL/fallback generation,

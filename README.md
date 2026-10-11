@@ -124,7 +124,7 @@ Copy `API URL` and `anon key` from the CLI output into `.env`. For a hosted proj
 
 Then run `npm run check:target` once. It asks the database which schema it carries. The app falls back to bundled content when it cannot reach a project, so a page that renders does not prove the migration ran.
 
-> **Exposure note:** every blueprint table carries a public `SELECT` policy (read-only anon access). Agent chat transcripts are the exception, readable only by their author, and the service-account email list is closed to everyone but the service role. Anything else you deploy is publicly readable, so keep client-sensitive content out of a public deployment.
+> **Exposure note:** every table carries a public `SELECT` policy (read-only anon access) except these: `agent_sessions` and `agent_messages` (agent chat transcripts) are readable only by their author, `business_models` (propositions) only after sign-in, and `service_account_emails` (the emails that become service accounts at sign-up) only by the service role. Everything else you deploy is publicly readable, so keep client-sensitive content out of a public deployment.
 
 `supabase/seed.sql` is the **meta-blueprint**: the service blueprint of this template itself. One generator emits it and the no-database fallback from the same source, so both serve the same content. Replace it with your own service ([SETUP.md § 5](./SETUP.md#5-put-your-own-content-in)); until then it doubles as documentation.
 

@@ -31,6 +31,9 @@ Apply user edits to the IR; after **any** hand or model edit, the
 auto-validate hook re-runs `scripts/validate_ir.py` — never proceed on a
 failing validator.
 
+Steps 1–2 are done when every `needs_review` cell is confirmed or corrected
+and the validator exits 0.
+
 ### 3. Adversarial review
 
 Dispatch the `blueprint-reviewer` agent (fresh context — it never saw the

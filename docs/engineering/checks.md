@@ -146,7 +146,7 @@ The parts of all three that can be wrong without a database ARE held in CI:
 session is handed before it decides anything, here and in a workspace
 scaffolded from here. Beside it sit the skill and agent frontmatter
 descriptions, which a plugin host puts in context on every turn
-([ADR 0030](../adr/0030-a-description-is-always-loaded-and-budgeted.md)).
+([ADR 0031](../adr/0031-a-description-is-always-loaded-and-budgeted.md)).
 `scripts/always-loaded.mjs` is the single list of what is in that tier and, at
 length, what is deliberately out — the plugin manifests included, because the
 host reads those at install time rather than handing them to a session. All

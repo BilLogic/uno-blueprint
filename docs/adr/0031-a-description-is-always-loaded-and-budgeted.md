@@ -2,7 +2,7 @@
 summary: Skill and agent frontmatter descriptions are always-loaded context — a plugin host puts every one in front of the session on every turn — so they are counted as a second census beside the router, with their own downward-only char budget, and the negation ratchet sweeps them; the router's budget is not widened to hold them, because one number over both would let a cut in one hide growth in the other.
 ---
 
-# 30. A description is always loaded, and is budgeted like the router
+# 31. A description is always loaded, and is budgeted like the router
 
 **Status** Accepted — 2026-10-11.
 **Context** `scripts/always-loaded.mjs`, `scripts/check-router-budget.mjs`,

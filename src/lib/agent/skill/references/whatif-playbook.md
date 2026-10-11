@@ -48,9 +48,7 @@ on this route, and the findings exit condition is met by it.
 **replay** — "run scenario X as if CHANGE were true."
 1. Copy base IR → variant; apply the change.
 2. Dispatch `impact-tracer` (seed = changed cells) on the BASE export —
-   the trace tells you which claims need re-examination. (An IR export
-   carries both kinds since 2026.08.26; an export written before that
-   carries only `leads_to` edges, and the tracer says so in its output.)
+   the trace tells you which claims need re-examination.
 3. Walk the affected chain in the variant: which cells' content is now
    wrong, which dependencies dangle, which lanes gain/lose work.
 4. `blueprint-reviewer` (whatif-claim mode) verifies every replay claim
@@ -75,8 +73,9 @@ per-signal reasoning:
   an assumption-heavy "priority" is really a research task);
 - proposition expression (does the cell carry the value the business_models
   claim — value_props where present);
-- backstage `enables` chain depth (impact-tracer, reversed: how much
-  machinery makes this moment possible).
+- backstage `enables` chain depth (impact-tracer with `direction:
+  upstream`: how much machinery makes this moment possible; when it
+  returns `enables_expressible: false`, report the depth as unknown).
 Quick-win warnings: cells that look cheap but sit on deep `enables` chains
 get a "load-bearing" caveat.
 

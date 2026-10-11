@@ -70,7 +70,7 @@ triage rules, and the check-authoring template.
   replaces its own previous open findings in one transaction; a check that
   fails leaves its previous findings untouched. Never wipe the whole run's
   findings up front.
-- ⚠ **REQUIRED — no verbatim excerpts in notes.** Findings are
+- ⚠ **REQUIRED — no verbatim excerpts in a summary.** Findings are
   public-read rows. Cite cell keys and titles; never paste evidence text,
   proposition figures, or interviewee words.
 - ⚠ **REQUIRED — confirm the import target** before any DB write;
@@ -149,8 +149,8 @@ reportable result, not a failure.
   (check, severity `info|warn|critical`, impact and effort
   `low|medium|high`, cell keys, summary). Blind to other checks. Tools:
   Read, Glob, Grep, Bash.
-- `impact-tracer` — used by `channel-conflict` when a suspected conflict
-  needs its downstream chain walked (shared with the whatif skill).
+- `impact-tracer` — its Method is the walk the `channel-conflict` auditor
+  runs itself when a chain is unclear.
 
 ## References
 

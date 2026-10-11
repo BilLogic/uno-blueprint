@@ -95,7 +95,7 @@ erDiagram
 | `steps` | Scenario-scoped step columns, SHARED across paths | A step exists once per scenario; paths select/ordr via `path_steps`. `summary` is the moment's one sentence across every lane, rendered as the storyboard caption |
 | `path_steps` | Which steps a path uses and in what column order | `position` unique per path |
 | `lanes` | Swimlanes, per PATH (each path carries its own lane rows) | `name` free-form any language; `lane_role` semantic key (see `references/lane-roles.md`) |
-| `cells` | Grid content at (lane × step) on a path | `unique (lane_id, step_id)`; `content` newline-separated items render as pills on pill-role lanes |
+| `cells` | Grid content at (lane × step) on a path | `unique (lane_id, step_id, position)`, see § Cell slots; `content` newline-separated items render as pills on pill-role lanes |
 | `touchpoints` | The deployment's touchpoint registry — the apps, documents, channels and things a moment happens through | One pool, unique by `name` across the whole deployment; no `service_id` — a service "has" a touchpoint exactly when one of its cells places it, so there is no palette to author and the name is the identity. The import mints a row for every placement name it meets and links the placement; `kind`, `summary` and `url` are the touchpoint's own, once, not per cell. `stakeholder_id` names the actor who owns it, null until somebody says; an actor leaving the cast un-names its touchpoints rather than being refused. `tone` is the palette family its face is drawn in and `aliases` the other spellings that mean the row — the pair `src/lib/touchpointColors.ts` resolves a label through, so a deployment's own tools and colours are rows rather than a literal every adopter would have to fork. Both are nullable and mean "nobody has said": an unchosen tone falls back deterministically, and `aliases` is nullable where `stakeholders.aliases` is `NOT NULL DEFAULT '{}'` because null distinguishes "not considered" from "considered, and there are none" |
 | `stakeholders` | The deployment's cast list — the actors a lane picks from | One pool, unique by `name` across the whole deployment; no `service_id` — a service "has" an actor exactly when one of its lanes names it, so the cast is shared the way the tools are and the name is the identity. `kind` is `recipient` \| `staff` \| `partner` \| `provider` \| `team`. A lane names its actor by `stakeholder_id`, null on a structural lane, and a touchpoint names its owner the same way; both `on delete set null`, so removing an actor un-names rather than pins |
 | `cell_touchpoints` | One touchpoint, used at one cell | Owns the summary and role for THIS moment — the same tool describes a different screen at a different step. What it points at (its design link, its screenshots) are `resources` rows carrying `cell_touchpoint_id`; `21000119000000` moved the two URL columns there. Names its touchpoint one of two ways and exactly one (`cell_touchpoints_one_identity`): `touchpoint_id` into the registry, or `name` alone when the registry lacks it — a **name-only placement**, drawn dashed, offered "Link to registry" in the panel. `sync_cell_touchpoints` follows a cell's text: a new line mints a registry row, a line that left keeps its writing as a name-only row or goes |
@@ -171,11 +171,13 @@ before any adapter runs.
 ## ⚠ REQUIRED: import order
 
 ```
-paths → steps → path_steps → lanes → cells → cell_dependencies
+paths → steps → path_steps → lanes → cells → cell_touchpoints → resources → cell_dependencies
 ```
 
 (with `services → phases → scenarios` before all of the
-above). Any other order violates FKs or the integrity trigger.
+above). Placements come before resources because a resource may hang off a
+placement, and never off both a placement and a cell. Any other order
+violates FKs or the integrity trigger.
 
 ## Re-import semantics
 

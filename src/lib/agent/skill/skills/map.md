@@ -51,6 +51,7 @@ Then route:
 | Existing template clone, no IR yet | Ask: ingest or co-create | playbook per answer |
 | Stale clone (schema_version mismatch vs plugin/template) | Upgrade recipe before any content work | `references/customization.md` |
 | Mid-pipeline (workspace state shows drafted/unreviewed scenarios) | Resume at the first unmet exit condition | `skills/map/references/review-import-playbook.md` |
+| Imported, never deployed (scenarios `imported`, `deploy_url` null) | Public-exposure warning → build gate → deploy | `skills/map/references/deploy-notes.md` |
 | Deployed, needs update | Delta edits/docs → IR → re-sign-off → re-import → redeploy | playbook for the delta + `skills/map/references/review-import-playbook.md`, `skills/map/references/deploy-notes.md` |
 | Inherited workspace (state file present, unknown provenance) | Read state + `HANDOFF.md`, verify sign-off hash, resume | `skills/map/references/workspace-state.md` |
 

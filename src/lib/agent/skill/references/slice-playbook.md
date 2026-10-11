@@ -64,6 +64,8 @@ Defaults worth knowing: one frame per step; `--path` defaults to the
 scenario's first path; a lane's empty intersections are skipped rather than
 framed blank.
 
+Done when the user approves the frame list (steps × cells), shown as a table.
+
 ## 3. Write the prose
 
 Per frame: a title (the moment) and a caption (what happens, and what it
@@ -141,9 +143,4 @@ before the first upload of a slice.
 
 ## Exit conditions
 
-| Step | Condition |
-| --- | --- |
-| Selection | `slice_tools.py validate` exit 0 |
-| Review | `blueprint-reviewer` in slice mode passes: every claim traces to a cited cell, no invented interactions, no verbatim excerpts |
-| Import | Transaction committed + read-back counts match the file |
-| Present | `render-checker` confirms `?slice=<id>` renders every frame |
+The exit table is `skills/slice/SKILL.md` § Deterministic exit conditions.

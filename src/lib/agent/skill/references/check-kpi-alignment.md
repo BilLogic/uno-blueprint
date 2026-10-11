@@ -19,7 +19,7 @@ Two directions, one finding each per lane:
   cell_keys = the lane's cells (or scope-key if the lane is empty).
 - A dominant cell activity no KPI rewards (enacted but never measured) →
   info; cell_keys = the strongest example cells.
-Note cites the KPI text and keys — no invented metrics.
+The summary cites the KPI text and keys — no invented metrics.
 
 ## Impact and effort
 Rate both on every finding, from the anchors below. Pick the level whose

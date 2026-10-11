@@ -63,13 +63,5 @@ conversation feels finished.
 
 ## Canvas note
 
-On the app canvas this playbook's judgment applies unchanged — the
-spine question, right-sizing, skeleton preview, one scenario at a time,
-provenance tagging. Its mechanics translate per the canvas adapter:
-the skeleton preview is the adapter's nod-gated outline; writes go
-through the write tools; there is no `validate_ir.py` (the database
-constraints are the validator — a rejected call is your validation
-error) and no `blueprint-workspace.json` (the human's Save gate and the
-change ledger replace drafted-state tracking). The exit condition
-becomes: every promised cell exists with content, and the outline's nod
-covered them all.
+On the app canvas, mechanics translate per `references/canvas-adapter.md`;
+this playbook's judgement applies unchanged.

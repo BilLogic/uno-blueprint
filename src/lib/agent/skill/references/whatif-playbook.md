@@ -86,9 +86,7 @@ Same table, `source = 'whatif'`, same fingerprint algorithm as audit
 (audit-playbook §2–§4). Whatif findings never supersede audit findings
 and vice versa — fingerprints keep them disjoint by construction.
 
-Every whatif finding carries a severity, an impact and an effort, exactly
-as an audit finding does, and one missing either rating fails validation
-the same way. The report orders them by the audit's priority groups
+The report orders whatif findings by the audit's priority groups
 (audit-playbook §3.5).
 
 ## §3.1 Impact and effort

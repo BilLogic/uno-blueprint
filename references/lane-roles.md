@@ -24,34 +24,21 @@ refused at authoring time by `scripts/validate_ir.py` — an unconstrained
 column is how a lane goes unclassified, and the divider lines are drawn from
 the role.
 
-| Role | Rendering | Typical lane |
-| --- | --- | --- |
-| `customer_actions` | Text cells; **interaction line draws after this lane** | The spine actor's actions |
-| `frontstage_actions` | Text cells; **visibility line draws after** | Staff actions the spine actor sees |
-| `frontstage_touchpoints` | Touchpoint cells (one per newline-separated item); visibility line draws after it *unless* a `frontstage_actions` lane immediately follows (then the line follows the actions lane) | Touchpoints the customer meets directly |
-| `backstage_actions` | Text cells; **internal interaction line draws after** it when a `support_actions` lane immediately follows | Staff actions out of sight |
-| `backstage_touchpoints` | Touchpoint cells | Touchpoints only staff meet |
-| `support_actions` | Text cells; the internal interaction line anchors on it | Supporting teams, vendors, infrastructure |
-| `partner_actions` | Text cells | A party outside the service, acting where the customer can see them |
-| `storyboard` | Storyboard frame row (image cells, no text) | Journey frames |
+`LANE_ROLES` in `src/lib/laneRoles.ts` holds the Label and Definition
+columns. A role's **label** is the word the lane badge prints; its
+**definition** is the sentence the badge's hover shows underneath, and it
+opens past the label, which the badge above it has already said.
 
-### How each role is named and defined in the UI
-
-`LANE_ROLES` in `src/lib/laneRoles.ts` holds exactly this table. A role's
-**label** is the word the lane badge prints; its **definition** is the sentence
-the badge's hover shows underneath. The definition never opens by naming the
-label again: the badge above it has already said the word.
-
-| Role | Label | Definition |
-| --- | --- | --- |
-| `customer_actions` | Customer actions | The spine of the journey. The interaction line draws below it. |
-| `frontstage_actions` | Frontstage | Staff actions the customer can see. |
-| `frontstage_touchpoints` | Frontstage touchpoints | What the customer meets: apps, documents, places and channels. |
-| `backstage_actions` | Backstage | Staff actions out of sight. |
-| `backstage_touchpoints` | Backstage touchpoints | The tools and artifacts staff use out of sight. |
-| `support_actions` | Support | Teams, vendors and infrastructure behind the work. |
-| `partner_actions` | Partner | A party outside the service, acting where the customer can see them. |
-| `storyboard` | Storyboard | The frames for each step, not text. A step's frames across the lanes are its strip. |
+| Role | Label | Definition | Rendering | Typical lane |
+| --- | --- | --- | --- | --- |
+| `customer_actions` | Customer actions | The spine of the journey. The interaction line draws below it. | Text cells; **interaction line draws after this lane** | The spine actor's actions |
+| `frontstage_actions` | Frontstage | Staff actions the customer can see. | Text cells; **visibility line draws after** | Staff actions the spine actor sees |
+| `frontstage_touchpoints` | Frontstage touchpoints | What the customer meets: apps, documents, places and channels. | Touchpoint cells (one per newline-separated item); visibility line draws after it *unless* a `frontstage_actions` lane immediately follows (then the line follows the actions lane) | Touchpoints the customer meets directly |
+| `backstage_actions` | Backstage | Staff actions out of sight. | Text cells; **internal interaction line draws after** it when a `support_actions` lane immediately follows | Staff actions out of sight |
+| `backstage_touchpoints` | Backstage touchpoints | The tools and artifacts staff use out of sight. | Touchpoint cells | Touchpoints only staff meet |
+| `support_actions` | Support | Teams, vendors and infrastructure behind the work. | Text cells; the internal interaction line anchors on it | Supporting teams, vendors, infrastructure |
+| `partner_actions` | Partner | A party outside the service, acting where the customer can see them. | Text cells | A party outside the service, acting where the customer can see them |
+| `storyboard` | Storyboard | The frames for each step, not text. A step's frames across the lanes are its strip. | Storyboard frame row (image cells, no text) | Journey frames |
 
 ## Line-anchoring semantics
 
@@ -140,9 +127,9 @@ In order:
    `references/customization.md` § The versioning rule.
 3. **The validator.** `CANONICAL_ROLES` in `scripts/validate_ir.py`.
 4. **The renderer.** `CANONICAL_LANE_ROLES` and `LANE_ROLES` (label and
-   definition both) in `src/lib/laneRoles.ts`, the label/definition table
-   above, and a fill in `src/lib/blueprintTheme.ts`.
-5. **The documents.** The table above, `docs/erd.mmd` (held to the constraint
+   definition both) in `src/lib/laneRoles.ts`, the role table above, and a
+   fill in `src/lib/blueprintTheme.ts`.
+5. **The documents.** `docs/erd.mmd` (held to the constraint
    by `scripts/tests/erd-enums.test.mjs`) and `README.md`.
 
 A role that only needs a different label, not different rendering, is not a

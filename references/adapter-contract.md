@@ -13,10 +13,9 @@ an adapter is this contract's acceptance test.
 | No-DB fallback (`scripts/generate_fallbacks.py`) | Regenerate the app's data module from the IR (per locale) | Static hosting anywhere — the truly any-host option |
 | Supabase (`scripts/generate_seed_sql.py` + CLI/MCP) | Run a transactional seed against a local or hosted project (per locale) | Requires the live-DB read path below |
 
-Present these as **co-equal options and ask** — never default-assume
-Supabase (⚠ REQUIRED, see SKILL.md hard rules). Without a configured
-project the app runs the no-DB adapter, so **no-DB is the first run**:
-zero configuration, Supabase opted into.
+The user picks one per locale (§1). Without a configured project the app
+runs the no-DB adapter, so **no-DB is the first run**: zero configuration,
+Supabase opted into.
 
 **Same IR in, same render out — checked, not claimed.** Both v1 adapters
 project one shared model through one shared field list
@@ -89,16 +88,29 @@ same contract.
 An adapter must implement all of these:
 
 ### 1. Target identification + confirmation
+**⚠ REQUIRED — the backend is the user's choice.** Present the no-DB
+fallback and live-DB as co-equal options and ask which, per locale, with
+the trade-off: fallback = zero infra, static hosting anywhere; live-DB =
+Supabase or a store that answers § Live backend surface. Supabase is one
+answer among two, chosen by the user.
+
 Identify exactly what will be written to (Supabase project ref / output file
 paths), echo it to the user, and get confirmation **before any write**
 (wrong-project protection). Locale-scoped: one target per locale, tracked in
 `blueprint-workspace.json` (see `skills/map/references/workspace-state.md`).
 
+**Connector reachable (live-DB).** Confirm the Supabase MCP can see the
+project before importing. A connector added mid-session (e.g. `claude mcp
+add` for the import account) goes live at the next Claude Code reload: when
+the target is unreachable even though the user just authenticated, say so
+and prompt the reload, rather than retrying.
+
 **Multi-account Supabase:** a connector sees ONE account/org. A bare
 `permission denied` / "project not found" means the connected account
-cannot see the target project — not that the SQL is wrong; don't retry.
-Connector setup mechanics and the session-reload requirement live in
-`skills/map/references/review-import-playbook.md` §6.
+cannot see the target project — the SQL is fine; retrying changes nothing.
+Connect one connector per account, the same pattern as multiple
+Slack/Notion/Figma connectors, and use that account's tools for its target,
+addressed per § 7 "MCP tool addressing".
 
 ### 2. Schema provisioning
 Ensure the target carries the template schema at a compatible
@@ -183,8 +195,11 @@ not "done" until read-back matches** — this is the phase's deterministic exit
 condition.
 
 ### 7. Secrets rules
-- Anon/publishable key: allowed in `.env` **only after verifying the file is
-  gitignored**.
+- Anon/publishable key, and any other key a skill handles (image-model keys
+  such as Gemini `AIza…` or OpenAI `sk-…`): allowed in `.env` **only after
+  verifying the file is gitignored**, and nowhere else on disk or in chat.
+  The anon key, publishable by design, may also live in a host's build-env
+  settings.
 - Service-role key: **never written to disk by the skill, never pasted
   through chat**. Writes that need elevated rights go through user-run CLI
   commands with their own credentials, or the Supabase MCP's

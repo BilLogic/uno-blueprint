@@ -20,13 +20,11 @@ Prompts go to a third-party image model. Strip, every time:
 - Emails, phone numbers, URLs, ticket ids, account numbers
 - Anything lifted verbatim from evidence or interview notes
 
-Describe a **persona archetype**: "a first-week field technician in their twenties,
-working out of a service van". Never the interviewee. If a frame's narrative
-cannot be turned into a prompt without naming someone, the prompt is wrong,
-not the rule.
+Describe a **persona archetype** ("a first-week field technician in their
+twenties, working out of a service van"), per the persona rule in
+`skills/slice/SKILL.md` § Hard rules.
 
-Image-model keys (Gemini `AIza…`, OpenAI `sk-…`) come from a
-verified-gitignored `.env`. Never on disk elsewhere, never through chat.
+Image-model keys follow `references/adapter-contract.md` §7.
 
 ## Character reference
 

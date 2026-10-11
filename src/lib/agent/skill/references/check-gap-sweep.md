@@ -28,10 +28,6 @@ moment with no frontstage cell at all (not only when the finding is
 itself that moment).
 
 ## Impact and effort
-Rate both on every finding, from the anchors below. Pick the level whose
-anchor the finding matches most closely; between two, rate impact the lower
-and effort the higher — a finding has to earn Do first.
-
 | Level | Impact — how much filling the gap matters | Effort — how much work filling it takes |
 | --- | --- | --- |
 | low | A declared step no path includes: untidy, but no reader is misled | One cell to write, whose content the flanking cells already state |

@@ -15,10 +15,6 @@ what else each of them has been called. An IR export carries neither: then
 make only the first finding below (cells without `value_props`) and name the
 skipped audience findings in `skip_reason`.
 
-Lane roles resolve PER PATH (`paths[].lanes[]`) — the same lane key can carry
-different roles in different scenarios/paths, so never resolve a role from the
-key alone.
-
 ## Resolve audiences through the registry, not by string match
 An audience matches a stakeholder when it equals the stakeholder's `name` or
 any of its `aliases`, case-insensitively. `tech` and `Field Technician` are one
@@ -48,10 +44,6 @@ blueprint's own scaffolding, 224 of 299 lane rows. Never ask who they are for.
 - Value claimed for a stakeholder the scenario never touches → info.
 
 ## Impact and effort
-Rate both on every finding, from the anchors below. Pick the level whose
-anchor the finding matches most closely; between two, rate impact the lower
-and effort the higher — a finding has to earn Do first.
-
 | Level | Impact — how much closing the ledger hole matters | Effort — how much work closing it takes |
 | --- | --- | --- |
 | low | One frontstage cell without `value_props` while its siblings have them | One alias or one `value_props` entry that the cell's content already implies |

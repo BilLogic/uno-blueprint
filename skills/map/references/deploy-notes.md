@@ -32,9 +32,8 @@ the template to get a build through.
 `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are baked in at build time,
 not read at runtime. Set them in the host's build environment before the
 build runs; changing them requires a rebuild, not a redeploy of old
-artifacts. Fallback mode needs neither. The anon key is publishable by
-design — it may live in host build-env settings, but in the repo only in a
-verified-gitignored `.env`.
+artifacts. Fallback mode needs neither. Where the anon key may be stored:
+`references/adapter-contract.md` §7.
 
 ## SPA redirect (the classic silent failure)
 

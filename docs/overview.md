@@ -32,7 +32,7 @@ anything.
 | [`guide/`](./guide/) | Four numbered parts, for a person reading start to finish: the model, using it, the plugin, operations. The guide links into the protocol rather than restating it. |
 | [`guidelines/`](./guidelines/) | How we work — writing documentation, and proposing a change. |
 | [`engineering/`](./engineering/) | Procedure for whoever runs the repository: cutting a release, and the guard set behind every red build. |
-| [`connectors/`](./connectors/) | One folder per external system this package talks to. Today that is `supabase/`, the reference recipe: the operated database, its row-level security, and the migration desync runbook. |
+| [`connectors/`](./connectors/) | `backend-contract.md`, what any store answers to serve the app live, and one folder per external system this package talks to. Today that is `supabase/`, the reference recipe: the operated database, its row-level security, and the migration desync runbook. |
 | [`assets/`](./assets/) | Every figure the README and the guides use. Authored here; the cover build copies what it needs. |
 | [`erd.mmd`](./erd.mmd) | The attribute-level entity relationship diagram. |
 

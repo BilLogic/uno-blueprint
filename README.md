@@ -143,7 +143,7 @@ The migrations carry partition marks, [scripts/generate-portable-core.mjs](./scr
 All three are generated. Edit a migration, then run `npm run generate:portable-core` and `npm run generate:portable-schema`; CI reverts a hand-edit.
 
 - **What the app reads and writes through** is the generated database type, [`src/types/database.ts`](./src/types/database.ts): every table, column and RPC signature the core declares, emitted from the migrations and re-checked by CI. Change the core, regenerate the type, and every call site that no longer agrees stops building.
-- **What a store has to answer** to serve the app live is [references/adapter-contract.md](./references/adapter-contract.md) § Live backend surface (beyond import). The shipped Supabase call sites are the worked example.
+- **What a store has to answer** to serve the app live is [docs/connectors/backend-contract.md](./docs/connectors/backend-contract.md). The shipped Supabase call sites are the worked example.
 
 Where your work starts:
 

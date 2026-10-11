@@ -6,6 +6,7 @@ import { errorMessage } from '@/lib/utils'
 import type { Database } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+/** A read's answer, keyed by its query status — `loading`, `ready` or `error`: a fact about the data, never about the screen. */
 export type QueryResult<T> =
   | { status: 'loading' }
   | { status: 'ready'; data: T; source: 'database' | 'fallback' }

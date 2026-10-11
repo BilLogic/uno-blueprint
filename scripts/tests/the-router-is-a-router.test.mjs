@@ -41,10 +41,8 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
 import {
-  BUDGET,
-  SLACK,
-  DESCRIPTIONS_BUDGET,
-  DESCRIPTIONS_SLACK,
+  ROUTER,
+  DESCRIPTIONS,
   measure as measureChars,
   measureDescriptions,
   verdict as budgetVerdict,
@@ -63,6 +61,7 @@ import {
   pointersIn,
   sweep as sweepRouters,
 } from '../check-pointers.mjs'
+import { descriptionOf } from '../always-loaded.mjs'
 import { repoConfig } from '../repo-config.mjs'
 
 const ROOT = resolve(new URL('../..', import.meta.url).pathname)
@@ -108,16 +107,17 @@ test('the committed always-loaded tier is under its budget', () => {
 
 test('a tier over budget fails, and the failure says by how much', () => {
   const { failures } = budgetVerdict({
-    counted: [{ file: 'AGENTS.md', chars: BUDGET + 42 }],
-    total: BUDGET + 42,
+    counted: [{ file: 'AGENTS.md', chars: ROUTER.budget + 42 }],
+    total: ROUTER.budget + 42,
   })
   assert.equal(failures.length, 1)
   assert.match(failures[0], /over budget/)
   assert.match(failures[0], /42 over/)
+  assert.match(failures[0], /move the body into the document the line names/)
 })
 
 test('a tier far under budget fails too, asking for the budget to be lowered', () => {
-  const total = BUDGET - SLACK - 1
+  const total = ROUTER.budget - ROUTER.slack - 1
   const { failures } = budgetVerdict({ counted: [{ file: 'AGENTS.md', chars: total }], total })
   assert.equal(failures.length, 1, 'a budget that no longer describes the file is a stale budget')
   assert.match(failures[0], /lower router\.budget in scripts\/repo-config\.mjs/)
@@ -160,22 +160,24 @@ test('the description census counts each skill and agent description, and nothin
   }
 })
 
-test('descriptions over their budget fail, and the failure names the descriptions budget', () => {
-  const total = DESCRIPTIONS_BUDGET + 7
+test('descriptions over their budget fail, with advice for a description rather than the router', () => {
+  const total = DESCRIPTIONS.budget + 7
   const { failures } = budgetVerdict(
     { counted: [{ file: 'skills/map/SKILL.md', chars: total }], total },
-    { budget: DESCRIPTIONS_BUDGET, slack: DESCRIPTIONS_SLACK, key: 'descriptions.budget' },
+    DESCRIPTIONS,
   )
   assert.equal(failures.length, 1)
   assert.match(failures[0], /7 over/)
   assert.match(failures[0], /descriptions\.budget/)
+  assert.match(failures[0], /one trigger per case/)
+  assert.doesNotMatch(failures[0], /move the body into the document the line names/)
 })
 
 test('descriptions far under their budget fail, asking for that budget to be lowered', () => {
-  const total = DESCRIPTIONS_BUDGET - DESCRIPTIONS_SLACK - 1
+  const total = DESCRIPTIONS.budget - DESCRIPTIONS.slack - 1
   const { failures } = budgetVerdict(
     { counted: [{ file: 'skills/map/SKILL.md', chars: total }], total },
-    { budget: DESCRIPTIONS_BUDGET, slack: DESCRIPTIONS_SLACK, key: 'descriptions.budget' },
+    DESCRIPTIONS,
   )
   assert.equal(failures.length, 1)
   assert.match(failures[0], /lower descriptions\.budget in scripts\/repo-config\.mjs/)
@@ -183,8 +185,22 @@ test('descriptions far under their budget fail, asking for that budget to be low
 
 test('the committed descriptions sit inside their budget and its slack', () => {
   const { total } = measureDescriptions()
-  assert.ok(total <= DESCRIPTIONS_BUDGET, `${total} over ${DESCRIPTIONS_BUDGET}`)
-  assert.ok(DESCRIPTIONS_BUDGET - total <= DESCRIPTIONS_SLACK, `${total} stale against ${DESCRIPTIONS_BUDGET}`)
+  assert.ok(total <= DESCRIPTIONS.budget, `${total} over ${DESCRIPTIONS.budget}`)
+  assert.ok(DESCRIPTIONS.budget - total <= DESCRIPTIONS.slack, `${total} stale against ${DESCRIPTIONS.budget}`)
+})
+
+test('a description folds its indented continuation lines onto one line', () => {
+  assert.equal(descriptionOf('---\ndescription: Picks one\n  and stops.\nname: x\n---\n'), 'Picks one and stops.')
+})
+
+test('a folded block-scalar description is read as the host reads it, one line', () => {
+  const text = '---\nname: pick\ndescription: >-\n  Picks one\n  and stops.\ntools: Read\n---\n'
+  assert.equal(descriptionOf(text), 'Picks one and stops.')
+})
+
+test('a literal block-scalar description keeps its line breaks', () => {
+  const text = '---\nname: pick\ndescription: |\n  Picks one.\n  Then stops.\n---\n'
+  assert.equal(descriptionOf(text), 'Picks one.\nThen stops.')
 })
 
 test('the ratchet counts a prohibition in a description, and not one in the body under it', () => {
@@ -232,7 +248,7 @@ test('a fall passes, with the new number to record', () => {
   assert.deepEqual(failures, [])
   assert.match(
     line,
-    new RegExp(`Down 2: lower router\\.prohibitions\\.tokens in scripts/repo-config\\.mjs to ${RECORDED.tokens}\\.`),
+    new RegExp(`Down 2: lower prohibitions\\.tokens in scripts/repo-config\\.mjs to ${RECORDED.tokens}\\.`),
   )
 })
 

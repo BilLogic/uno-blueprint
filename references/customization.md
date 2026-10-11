@@ -143,9 +143,8 @@ above from step 4.
 
 ## Lane roles
 
-The vocabulary is closed — eight roles or `null`; a lane none of the eight
-names takes `null`: `references/lane-roles.md` § No custom roles, and
-§ Adding a role for the multi-file act a ninth takes.
+The roles a lane may take, and the act a new one takes:
+`references/lane-roles.md` § No custom roles and § Adding a role.
 
 ## Layouts & path kinds
 
@@ -164,8 +163,8 @@ not reintroduce any.
 Schema and frontend support unbounded lanes/steps/paths — more actors just
 means more lanes. The validator emits **soft warnings** above ergonomic
 thresholds, never errors; the shipped sample content (8 paths across 6
-scenarios, one 7-lane roster, widest board 8 lanes × 10 steps, one custom
-role) is the proof fixture.
+scenarios, one 7-lane roster, widest board 8 lanes × 10 steps) is the proof
+fixture.
 
 ## Agent account
 
@@ -214,9 +213,21 @@ repository's file.
 
 The theme files' brand seam, the brand dials, edge weight and pinned touchpoint palettes: `docs/guide/05-customizing-a-deployment.md` § 1.
 
+### Pinning an org touchpoint palette
+
+Moved: `docs/guide/05-customizing-a-deployment.md` § Pinning an org touchpoint palette.
+
 ## Deployment inputs and their config homes
 
-The config field that replaced each deployment-owned file, including § The offline board is two fields and § Eagerly or behind a loader: `docs/guide/05-customizing-a-deployment.md` § 2.
+The config field that replaced each deployment-owned file: `docs/guide/05-customizing-a-deployment.md` § 2.
+
+### The offline board is two fields
+
+Moved: `docs/guide/05-customizing-a-deployment.md` § The offline board is two fields.
+
+### Eagerly or behind a loader
+
+Moved: `docs/guide/05-customizing-a-deployment.md` § Eagerly or behind a loader.
 
 ## Composition claims: what a deployment still documents
 

@@ -440,8 +440,8 @@ def standalone_registry_module(data_specifier: str, nav_label: str) -> str:
 // This deployment's offline board, in the shape `sample.blueprints` takes.
 // Hand it to the config with the nav generated in the same run ({nav_label}).
 // Why both, and why the type comes by package name:
-// references/customization.md § The offline board is two fields, in the
-// installed package.
+// docs/guide/05-customizing-a-deployment.md § The offline board is two
+// fields, in the installed package.
 import type {{ SampleBlueprintRegistry }} from '{PACKAGE_NAME}'
 import {{ GENERATED_PATH_FALLBACKS_BY_SCENARIO }} from '{data_specifier}'
 

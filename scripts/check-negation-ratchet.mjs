@@ -72,7 +72,7 @@ export const PROHIBITION_TOKENS = ['never', "don't", 'do not', 'cannot', 'must n
 export const METRIC = 'prohibition tokens'
 
 /** The baseline: what the tier scored when this repository last recorded it. */
-export const RECORDED = repoConfig.router.prohibitions
+export const RECORDED = repoConfig.prohibitions
 
 const PROHIBITION = new RegExp(`\\b(${PROHIBITION_TOKENS.join('|')})\\b`, 'gi')
 const stripQuoted = (text) => text.replace(/"[^"\n]*"/g, '""').replace(/`[^`\n]*`/g, '``')
@@ -133,7 +133,7 @@ export function verdict({ files, counts, total }, recorded = RECORDED) {
         `${recorded.files} this count was recorded over.\n` +
         '  -> A ratchet fails only when the count RISES, so a tier that lost a file passes\n' +
         '     every time, and passes with a SMALLER number that reads like progress. If a\n' +
-        '     file left the tier on purpose, re-record router.prohibitions in\n' +
+        '     file left the tier on purpose, re-record prohibitions in\n' +
         '     scripts/repo-config.mjs and say which, and why.',
     )
   } else if (total > recorded.tokens) {
@@ -142,7 +142,7 @@ export function verdict({ files, counts, total }, recorded = RECORDED) {
         '  -> state the target behaviour instead of banning its opposite. A ban that is a real\n' +
         '     guardrail keeps its place — a rule that holds for every skill is that category —\n' +
         '     but pair it with the positive so attention lands on what to do. If the rise is\n' +
-        '     deliberate, raise router.prohibitions.tokens in scripts/repo-config.mjs and say why.',
+        '     deliberate, raise prohibitions.tokens in scripts/repo-config.mjs and say why.',
     )
   }
   const fell = total < recorded.tokens
@@ -152,7 +152,7 @@ export function verdict({ files, counts, total }, recorded = RECORDED) {
       `[negation] ${total} ${METRIC} (${PROHIBITION_TOKENS.join(' / ')}) across the ` +
       `${TIER_NOUN}, against a recorded ${recorded.tokens} — ${census}` +
       (fell
-        ? `. Down ${recorded.tokens - total}: lower router.prohibitions.tokens in ` +
+        ? `. Down ${recorded.tokens - total}: lower prohibitions.tokens in ` +
           `scripts/repo-config.mjs to ${total}.`
         : '.'),
   }

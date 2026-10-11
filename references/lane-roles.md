@@ -37,7 +37,7 @@ opens past the label, which the badge above it has already said.
 | `backstage_actions` | Backstage | Staff actions out of sight. | Text cells; **internal interaction line draws after** it when a `support_actions` lane immediately follows | Staff actions out of sight |
 | `backstage_touchpoints` | Backstage touchpoints | The tools and artifacts staff use out of sight. | Touchpoint cells | Touchpoints only staff meet |
 | `support_actions` | Support | Teams, vendors and infrastructure behind the work. | Text cells; the internal interaction line anchors on it | Supporting teams, vendors, infrastructure |
-| `partner_actions` | Partner | A party outside the service, acting where the customer can see them. | Text cells | A party outside the service, acting where the customer can see them |
+| `partner_actions` | Partner | A party outside the service, acting where the customer can see them. | Text cells | Partners and third-party providers the customer deals with |
 | `storyboard` | Storyboard | The frames for each step, not text. A step's frames across the lanes are its strip. | Storyboard frame row (image cells, no text) | Journey frames |
 
 ## Line-anchoring semantics

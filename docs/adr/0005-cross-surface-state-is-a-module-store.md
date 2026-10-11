@@ -67,13 +67,3 @@ prop-drilling felt tedious is a store nobody can find the writer of.
 application code: a deployment that mounts this template gets them as they
 are, and the rule that decides where a NEW piece of state goes is what this
 record is for.
-
-## Vocabulary
-
-**active service** — the single service the URL slug names, resolved once at
-the surface root into a module store (`contexts/activeService.ts`) as its id,
-slug and name together. There is no inactive service and no flag that marks
-one; a reader who takes it as a filter over many gets a plural where the code
-means a singular. A service-scoped read takes the id as a parameter and
-resolves nothing; given none, it reads nothing — never the first service,
-never all of them.

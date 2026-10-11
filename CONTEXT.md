@@ -9,9 +9,9 @@ A term is defined here when getting it wrong changes what an agent writes: a
 database row, a blueprint file, a skill, a document, a check or a tool
 definition. Where a term is spelled differently in the database, the
 blueprint file and the app, every spelling is given. A word that matters only
-inside `src/` is defined in the decision record under `docs/adr/` that governs
-it: arrival in 0007, the camera in 0028, the active service in 0005, the
-session's four axes in 0011, query keys in 0016, and type in 0012.
+inside `src/` — arrival, the camera, the session's parts and query keys, and
+type — is defined in
+[`docs/engineering/app-vocabulary.md`](docs/engineering/app-vocabulary.md).
 
 Definitions only, held there by `scripts/check-glossary-only.mjs`. Renames:
 [`scripts/retired-vocabulary.mjs`](scripts/retired-vocabulary.mjs). Words
@@ -407,3 +407,16 @@ further call offered no tools, so it answers from what it learned rather than
 stopping mid-work. A turn whose final round answers in prose is finished and
 makes no such call.
 
+## Five words for arrival
+
+**Arrival words** — entrance, boot, revealStage, hold and query status, five
+words for *not there yet* that matter only inside `src/`; each is defined in
+[`docs/engineering/app-vocabulary.md`](docs/engineering/app-vocabulary.md)
+§ Five words for arrival.
+
+## The camera
+
+**Camera words** — jump, flight and jump verdict, the words for a camera move
+somebody is waiting on; each is defined in
+[`docs/engineering/app-vocabulary.md`](docs/engineering/app-vocabulary.md)
+§ The camera.

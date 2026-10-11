@@ -32,12 +32,6 @@ export const repoConfig = {
     budget: 3700,
     /** How far under `budget` the tier may sit before the budget is stale. */
     slack: 740,
-    /**
-     * The prohibition-token baseline across the tier and the descriptions
-     * (`check-negation-ratchet.mjs`): the files it was measured over — the
-     * router plus one per description — and the count it scored.
-     */
-    prohibitions: { files: 10, tokens: 0 },
   },
 
   /**
@@ -52,6 +46,13 @@ export const repoConfig = {
     /** How far under `budget` the descriptions may sit before the budget is stale. */
     slack: 500,
   },
+
+  /**
+   * The prohibition-token baseline across the router and the descriptions
+   * (`check-negation-ratchet.mjs`): the files it was measured over — the
+   * router plus one per description — and the count it scored.
+   */
+  prohibitions: { files: 10, tokens: 0 },
 
   /**
    * Folders whose markdown every prose sweep reads, beside the root docs

@@ -11,8 +11,8 @@ summary: Open views stay mounted while they are in the working set, so switching
 The shell used to mount only the current view. Switching away unmounted the
 canvas; coming back remounted it and restarted **revealStage**. Query **status**
 was often already `ready`. The load was the screen, not the read. ADR 0007
-split the shell's **entrance** from the canvas's reveal ladder *because* that
-remount restarted the reveal ladder; the two clocks remain. What changes is the remount.
+split the shell's **entrance** from the canvas ladder *because* that remount
+restarted the ladder; the two clocks remain. What changes is the remount.
 
 **Decision.** Open views are **warm** or **cold**. A warm tree stays mounted
 and frozen: no camera motion, no agent commands on that canvas; data may still

@@ -8,7 +8,8 @@ summary: A camera move toward a named target is awaited through one module that 
 `canvasNavigationOutcome.ts`, deleted in the same change.
 **Context** `src/lib/canvasJump.ts`, `src/lib/agent/uiBridge.ts`,
 `src/components/mobile/mobileAgentBridge.ts`,
-`src/hooks/useZoomPanViewport.ts`, § Vocabulary below. Sits under
+`src/hooks/useZoomPanViewport.ts`, § The camera in
+[`CONTEXT.md`](../../CONTEXT.md). Sits under
 [7](0007-the-canvas-and-the-shell-run-on-separate-clocks.md), whose
 one-directional read this handshake obeys rather than reopens.
 
@@ -199,35 +200,3 @@ single number is, and the first override reintroduces the relationship between
 deadlines that nothing can express. An override earns its place by arriving
 with a measurement that shows a real difference, and by moving the
 justification into the file that overrides.
-
-## Vocabulary
-
-Three words for a camera move that somebody is waiting on. They belong to the
-move itself rather than to any one caller: the canvas publishes them, and the
-desktop navigation tools, the agent's cell focus and the phone's ✦ sheet all
-read the same words.
-
-**Jump** — one camera move toward a named target, awaited by whoever asked for
-it. The target is a scenario, a phase or a cell. The awaiting is what
-separates a jump from any other camera move: a reader's own pan answers to
-nobody, while a jump is asked for and answered.
-
-**Flight** — the camera's own move between two transforms, run by the
-viewport: the thing a jump verdict is a claim about. A jump is asked for and
-answered; a flight is the movement itself, and a jump may involve none at all
-— a cell the board does not hold is answered without anything having flown.
-**Not a persistence flight** — `AgentPersistenceFlight` in
-`src/lib/agent/persistenceReadiness.ts` is one run of a piece of parked
-database work, and nothing moves on screen for it.
-
-**Jump verdict** — a jump's one settled answer, in four words: `landed`,
-`cancelled`, `superseded`, `unanswered`. The first three are the canvas's own
-claim about a flight it owned; `unanswered` is what silence is called, and
-belongs to the deadline alone. **Not a check's verdict** — that word is how a
-check's run came out, four values of its own, defined in
-`docs/engineering/checks.md`. And not a status: a jump verdict is said once,
-about one camera move, and describes a move rather than a thing on the board.
-**And not persistence's `superseded`** — there the word asks whether the
-account a read was made for is still the one signed in, and the answer is a
-boolean a piece of work reads about itself rather than a verdict anyone
-publishes.

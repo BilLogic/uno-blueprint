@@ -75,8 +75,11 @@ export const DESCRIPTIONS_NOUN = 'skill and agent descriptions'
 /**
  * A document's frontmatter `description`, or null when it carries none.
  *
- * The value as the host hands it over: one line, plus any indented
- * continuation lines folded onto it with a single space.
+ * The value as the host hands it over. A plain value is one line plus any
+ * indented continuation lines, folded onto it with a single space. A YAML
+ * block scalar reads the same way: `>` folds its lines with a space, `|`
+ * keeps each line break, and a chomping indicator after either (`>-`, `|+`)
+ * changes only trailing newlines, which a description never carries.
  */
 export function descriptionOf(text) {
   const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)
@@ -84,12 +87,14 @@ export function descriptionOf(text) {
   const lines = front[1].split(/\r?\n/)
   const at = lines.findIndex((line) => /^description:/.test(line))
   if (at === -1) return null
-  const parts = [lines[at].replace(/^description:\s*/, '')]
+  const head = lines[at].replace(/^description:\s*/, '')
+  const block = /^([>|])[-+]?$/.exec(head)
+  const parts = block ? [] : [head]
   for (const line of lines.slice(at + 1)) {
     if (!/^\s+\S/.test(line)) break
     parts.push(line.trim())
   }
-  return parts.join(' ').trim()
+  return parts.join(block?.[1] === '|' ? '\n' : ' ').trim()
 }
 
 /**

@@ -1,5 +1,5 @@
 ---
-summary: A text style is a type rung, a weight and an ink — the type rung owns size and leading, the call site owns weight, tracking and a named ink rung rather than an opacity, two type ladders are selected by type scope, a semantic type-role layer is the alternative this tree already tried, and the four panel judgements that layer held live in this record.
+summary: A text style is a rung, a weight and an ink — the rung owns size and leading, the call site owns weight, tracking and a named ink rung rather than an opacity, two ladders are selected by face, a semantic type-role layer is the alternative this tree already tried, and the four panel judgements that layer held live in this record.
 ---
 
 # 12. A rung owns size and leading; a call site owns weight and tracking
@@ -24,16 +24,16 @@ authored tree (per JSX line, excluding vendored `ui/` primitives and tests):
 657 call sites improvise size and weight because no role exists; 185 pick a
 weight with no doctrine; 70 hand-write a leading (an earlier count of 120
 included the vendored primitives this record does not edit); 31 reach for
-monospace with no usage rule. Zero of those sites name a type rung that already
+monospace with no usage rule. Zero of those sites name a rung that already
 exists and then misspell it — the defect is that the rungs do not carry
 enough, not that they are unused.
 
-A second problem the first one hides: the type ladder's small end goes four rungs
+A second problem the first one hides: the ladder's small end goes four rungs
 below anything legible. `text-2xs` (11px) through `text-5xs` (8px) carry 110
 call sites between them. Two of those rungs exist because a container was
 sized first and the text shrunk to fit it.
 
-The type ladder below was derived by measuring shipped CSS rather than by
+The ladder below was derived by measuring shipped CSS rather than by
 inference, and two of the numbers that measurement offered are deliberately
 not taken. Adopting a mechanism while refusing values that came with it looks
 like an oversight in six months unless the refusal is written down, so it is
@@ -41,8 +41,8 @@ written down here.
 
 ## Decision
 
-**A text style has five axes: size, weight, family, leading, ink.** A type
-rung owns size and leading. A call site owns weight, tracking and ink, and writes
+**A text style has five axes: size, weight, family, leading, ink.** A rung
+owns size and leading. A call site owns weight, tracking and ink, and writes
 each of those three by naming one of a closed set — never by dialling a
 number of its own. Family is chosen by which of three registers the text
 belongs to, not by feel.
@@ -61,7 +61,7 @@ text-muted-foreground` where it stands, and a reader sees the whole style.
 3.9% after two years is evidence the shape is wrong, not that the effort was
 insufficient.
 
-### A type rung is declared twice and a ratio once
+### A rung is declared twice and a ratio once
 
 Sans sizes live on `:root`. Mono sizes are scoped to
 `.font-mono, code, kbd, pre, samp`, **sizes only**. The
@@ -71,7 +71,7 @@ replaces.
 
 The second block is scoped to monospace, not a leftover default. Monospace
 renders optically smaller at the same nominal size — the reason browsers
-default `monospace` to 13px against 16px — so the sans type ladder is Tailwind's
+default `monospace` to 13px against 16px — so the sans ladder is Tailwind's
 minus 2px from `sm` up, and mono keeps the unshrunk one. `xs` is the single
 rung where both agree, at 12px. A reader who does not know that will delete
 the second block as a duplicate.
@@ -81,7 +81,7 @@ meeting a larger size yields a larger box, and the mono column lands on
 upstream Tailwind's boxes without restating them. Pair the ratio, not the
 number, so a rung can be retuned later without its leading being redesigned.
 
-Nothing below `xs` exists in either type scope. The floor is 12px.
+Nothing below `xs` exists in either scope. The floor is 12px.
 
 No root `font-size`, on any platform. Root follows the browser and the
 user's own setting. Setting it per breakpoint would override that preference
@@ -101,10 +101,10 @@ and rescale every rem-derived spacing and radius token.
 
 ### Two numbers declined, and why the refusals are written down
 
-**A normal weight above 400 is declined; both type scopes stay at 400.** A
-sans type scope set to 450 is a compensation for a typeface that reads light at 400.
+**A normal weight above 400 is declined; both scopes stay at 400.** A sans
+scope set to 450 is a compensation for a typeface that reads light at 400.
 Ubuntu Sans holds its colour at 400 down to 12px, so the compensation would
-correct a problem this tree does not have. Declaring the weight *per type scope*
+correct a problem this tree does not have. Declaring the weight *per scope*
 is worth keeping — the knob has to exist for the day a face needs it — and
 that is what is taken here: the mechanism, at the value this face wants.
 
@@ -120,8 +120,8 @@ weight. At 400 there are three clean steps:
   slide title.
 - **700** — retired.
 
-This is the load-bearing decision of the type system. Under the new type
-ladder the two content rungs are 12px and 13px. One pixel is not a signal, so the
+This is the load-bearing decision of the type system. Under the new ladder
+the two content rungs are 12px and 13px. One pixel is not a signal, so the
 hierarchy that size used to carry moves onto weight and colour.
 
 ### Family is three registers, not one
@@ -144,7 +144,7 @@ Register 2 is the only one that may pair with a numeric utility; register 3
 is the only one that may pair with tracking. Sans is the default and covers
 everything not named above, including all canvas cell text.
 
-### A type rung is chosen for the text's job, never to fit a container
+### A rung is chosen for the text's job, never to fit a container
 
 When a container cannot hold the smallest legible rung, the container
 changes or the text goes. The rung does not shrink. This is the rule that
@@ -213,7 +213,7 @@ are rules here, written at the call site as a rung, a weight and a colour:
   colour.
 - **value** — authored prose, the thing the panel exists to show.
 
-Under the type ladder, title and value share `sm`; meta and sectionLabel share
+Under the ladder, title and value share `sm`; meta and sectionLabel share
 `xs`. Weight and colour separate them: 600 / 400 and 500 / 400-muted.
 
 **One register for monospace**, "machine-generated, full stop." It breaks
@@ -232,7 +232,7 @@ Responsive type stays a per-utility `md:` decision.
 - **A guard, not a constant, holds the rules.** Roster, floor, weight,
   family, display floor. Each is written with a class-*list* reader, because
   a type rule is almost never about one utility.
-- **Expand, then contract.** The new type ladder lands on the names the tree
+- **Expand, then contract.** The new ladder lands on the names the tree
   already uses while the sub-12px rungs still exist, call sites migrate in
   batches, then the old rungs are deleted. Deleting a rung before its call
   sites move cannot land green.
@@ -243,35 +243,3 @@ Responsive type stays a per-utility `md:` decision.
   muted-only.** Presentation inherited editor rungs by accident.
 - **A sixth divergence belongs here rather than in a commit message.** Same
   duty ADR 0008 already accepted for colour.
-
-## Vocabulary
-
-Eight words for how text is sized, weighted and faced. They are set out
-together because the axes look interchangeable until each is named. The
-three that the canvas's reveal ladder and the writing ladder also use carry
-*type* in front.
-
-**type rung** — one named size on the type scale: `xs`, `sm`, `base`, and so
-on. A type rung owns its size and, through pairing, its line-height.
-
-**type ladder** — the ordered set of type rungs a face may use. Two exist,
-selected by type scope.
-
-**type scope** — which face a type ladder applies to. Sans sizes live on the
-root; mono sizes are scoped to monospace elements, sizes only, because
-monospace renders optically smaller at the same nominal value.
-
-**pairing** — the line-height ratio declared once on the root for each type
-rung, so the same ratio meeting a larger mono size yields a larger box.
-
-**leading** — the line box a type rung carries. A call site does not write a
-leading utility unless it overrides for geometry.
-
-**tracking** — letter-spacing. A call-site decision; the type rung does not
-own it.
-
-**working weight** — 400, the weight of all content. 500 is the one emphasis;
-600 is headings only.
-
-**density** — which surface the text is on, and therefore which type rung it
-asks for: canvas chrome, editor UI, panel, presentation.

@@ -236,7 +236,9 @@ carries these rules, each learned the hard way from a bot that shipped
 
 Serving the app live, beyond import, is
 [`docs/connectors/backend-contract.md`](../docs/connectors/backend-contract.md);
-each heading below points at its section there.
+each heading below points at its section there. They carry no number, so
+§ 1–§ 7 here always mean the required operations above; each keeps its old
+anchor.
 
 ### Two conformance levels
 
@@ -250,23 +252,33 @@ each heading below points at its section there.
 
 [`docs/connectors/backend-contract.md` § How the Supabase adapter renders it](../docs/connectors/backend-contract.md#how-the-supabase-adapter-renders-it).
 
-### 1. The authoring RPC roster
+<a id="1-the-authoring-rpc-roster"></a>
+
+### Backend surface: the authoring RPC roster
 
 [`docs/connectors/backend-contract.md` § 1. The authoring RPC roster](../docs/connectors/backend-contract.md#1-the-authoring-rpc-roster).
 
-### 2. The direct table-write surface
+<a id="2-the-direct-table-write-surface"></a>
+
+### Backend surface: the direct table-write surface
 
 [`docs/connectors/backend-contract.md` § 2. The direct table-write surface](../docs/connectors/backend-contract.md#2-the-direct-table-write-surface).
 
-### 3. Non-transactional multi-statement writes exist
+<a id="3-non-transactional-multi-statement-writes-exist"></a>
+
+### Backend surface: non-transactional multi-statement writes exist
 
 [`docs/connectors/backend-contract.md` § 3. Non-transactional multi-statement writes exist](../docs/connectors/backend-contract.md#3-non-transactional-multi-statement-writes-exist).
 
-### 4. Read timeout
+<a id="4-read-timeout"></a>
+
+### Backend surface: read timeout
 
 [`docs/connectors/backend-contract.md` § 4. Read timeout](../docs/connectors/backend-contract.md#4-read-timeout).
 
-### 5. Findings dedupe semantics and operators
+<a id="5-findings-dedupe-semantics-and-operators"></a>
+
+### Backend surface: findings dedupe semantics and operators
 
 [`docs/connectors/backend-contract.md` § 5. Findings dedupe semantics and operators](../docs/connectors/backend-contract.md#5-findings-dedupe-semantics-and-operators).
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.8.3
+
+**Agent search works on deployments again.** Every `search_blueprint` call
+failed with `this.rest` undefined before any request went out, because the
+tool called the client's `rpc` method without its client. It now keeps the
+client attached. Only deployments that turn on `agent.search` were affected.
+
+### Upgrading a deployment
+
+- **Bump the pin.** The fix is in the bundled app code, so there is nothing to
+  copy and no migration.
+
+### Patch Changes
+
+- 94408fb: Agent search works on deployments again: `search_blueprint` calls the database function with its client still attached, where every call used to fail with `this.rest` undefined before any request went out. Only deployments that turn on `agent.search` reached the broken call; nothing else changes.
+
 ## 2.8.2
 
 **A repository without skills or agents counts zero descriptions, quietly.**
@@ -10653,8 +10669,8 @@ accent: BRAND.accent }, content: { workspaceTitle: coverContent.title } }`. The
   constraint violation rather than as anything the authoring tools had said
   (#204):
 
-                                                                                                                                                                                                                                                    ERROR: new row for relation "lanes" violates check constraint
-                                                                                                                                                                                                                                                    "lanes_lane_role_check" … compliance_review
+                                                                                                                                                                                                                                                      ERROR: new row for relation "lanes" violates check constraint
+                                                                                                                                                                                                                                                      "lanes_lane_role_check" … compliance_review
 
   That error at least names the value. Meeting it after validation has passed is
   the wrong moment.

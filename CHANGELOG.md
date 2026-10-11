@@ -1,5 +1,58 @@
 # Changelog
 
+## 2.8.1
+
+**The agent-facing documents read the same way every run.** The router,
+skills, playbooks, check docs, sub-agent prompts and shared references were
+reviewed against one writing standard. Agents are only asked what they can do,
+each rule lives in one place, and what loads every turn shrank: skill and agent
+descriptions fell from 5,322 to 3,336 chars and are now budgeted and
+negation-checked beside the router. The front-end how-to moved out of the
+customization reference into `docs/guide/05-customizing-a-deployment.md`, and
+the backend-implementer half of the adapter contract into
+`docs/connectors/backend-contract.md`; every old anchor still resolves. The
+README now says why before how, in 128 lines.
+
+### Upgrading a deployment
+
+- **Mirror the canvas adapter edits** into the deployment's own
+  `deployment/agent/canvas-adapter.md` override: the read and write surface
+  stated once, the audit run's rating tie-break and per-path lane roles, and
+  positive rules in place of its prohibitions.
+- **Take the new guard copies** (`scripts/always-loaded.mjs`,
+  `check-router-budget.mjs`, `check-negation-ratchet.mjs` and the router test)
+  if held byte-identical, then add `descriptions: { budget, slack }` to the
+  deployment's `scripts/repo-config.mjs` (zero when it holds no skills or
+  agents of its own) and move `router.prohibitions` to a top-level
+  `prohibitions` entry, re-recording `files`.
+- **Repoint deployment doc links** into the moved customization and
+  adapter-contract sections at the guide and connector doc; the old anchors
+  still resolve through pointer stubs.
+- **Then bump the pin.** No migration.
+
+### Patch Changes
+
+- 32e4882: The agent-facing documents read the same way every run.
+
+  - Agents are only asked what they can do. The auditor walks a dependency chain itself by the impact tracer's Method, and the value-ledger check reads stakeholders only from what it receives. The impact tracer takes `direction` (`downstream` by default, `upstream` for what-if's prioritize step) and reports `enables_expressible`. A finding's text is `summary` everywhere. The data model's import order includes touchpoint placements and resources, and its cell uniqueness rule includes `position`. Map routes an imported but never deployed workspace to deploy, slice has one exit table, co-create and elicitation share one right-sizing rule and ask the language question before any cell, and the blueprint reviewer's what-if-claim mode and the document reader's system-only verdict each have an output format.
+  - Each harness rule lives in one place and every other mention points to it. Sign-off semantics live in the workspace-state reference; backend choice, connector reload and secrets in the adapter contract (§1 and §7); the rating tie-break and per-path lane roles in the auditor's prompt; each wave-2 skip condition in its check's `wave:` header; dedupe and the audit's write rule in one hard rule each; `authorship` in the slice playbook; the citing and persona rules in the slice hard rules; the lane-role table and "no custom roles" in the lane-roles reference; layout history in the glossary. Each skill's path preamble is one line pointing at the router.
+  - What every turn loads is small and stays small. The four skill descriptions and five agent descriptions lead with when to reach for each, one trigger per case, and fall from 5,322 to 3,336 chars. A plugin host loads them on every turn, so they are now counted beside the router: `check:budget` holds them to their own downward-only budget (`descriptions` in `scripts/repo-config.mjs`), and `check:negation` sweeps them. The router drops its self-description and hand-listed agent names, and points at the glossary only for writing a domain word. The canvas adapter states its read and write surface once and loses its no-ops and stacked prohibitions.
+  - The index routes by task. Its routing table falls from 48 rows to 30: every row leads with the noun it is about and points at a backticked path, the decision records for renames and moves keep their own rows, every other record is reached through the decision-record overview (which now lists 0029), and the row pointing back at the router is gone.
+  - The harness reads in the present tense. The glossary opens with three pointers instead of its own history, defines a leading word as the standard does, and keeps retired-value and migration history in `scripts/check-dependency-kinds.mjs` and `scripts/value-set-claims.mjs`; the data model and customization guide point at `scripts/retired-vocabulary.mjs` for retired values. The adapter contract, lane roles, data model and value-ledger check state the present rule where they told how it came to be, no issue numbers remain in skills, references, agents or the glossary, what-if hands promotion to map without describing it, the render checker says "layout" throughout, and the canvas adapter's audit run carries the rating tie-break and per-path lane roles.
+  - An import reads the adapter contract it needs. `references/adapter-contract.md` keeps the operations, secrets and read-consumer rules, with the import checklist beside the operations; the live backend surface, the authoring RPC roster, the auth contract and the read timeout move to `docs/connectors/backend-contract.md`, and each old heading points at its new section, so every link into the contract still resolves. The pointer headings carry no number, so § 1–§ 7 in the contract always mean the required operations, and each keeps its old anchor.
+  - The glossary holds the words that change what an agent writes. The words that matter only inside `src/` — arrival and the query status, the camera, the session's parts and query keys, and type — move to `docs/engineering/app-vocabulary.md`, and the glossary's arrival and camera headings point there. The type words are qualified as type rung, type ladder and type scope, and the canvas's ladder as the reveal ladder, so the glossary's writing ladder stands without disclaimers.
+  - An upgrade reads the customization reference's recipe first. `references/customization.md` keeps its path and opens on the template upgrade recipe, then lane roles and layouts; theming and brand dials, deployment inputs, composition claims, agent search and bundling move to `docs/guide/05-customizing-a-deployment.md`, and each keeps a heading at its old anchor with one pointer line, as do § The offline board is two fields, § Eagerly or behind a loader and § Pinning an org touchpoint palette. The offline-board registry `scripts/generate_fallbacks.py` writes cites the guide's section directly.
+
+  Upgrading a deployment: mirror the canvas adapter edits into the deployment's own override, then bump the pin. A deployment holding `scripts/always-loaded.mjs`, `check-router-budget.mjs`, `check-negation-ratchet.mjs` and the router test byte-identical takes the new copies and adds a `descriptions: { budget, slack }` entry to its own `scripts/repo-config.mjs` (zero budget when it holds no skills or agents of its own), and moves `router.prohibitions` to a top-level `prohibitions` entry, since the baseline now covers the router and the descriptions, re-recording its `files` as one plus its description count. A deployment document that links into `references/customization.md` § Theming & branding, § Deployment inputs and their config homes, § Composition claims, § Agent search or § Bundling the agent's tool definitions, or into `references/adapter-contract.md` § Live backend surface and the sections under it, still resolves through the pointer stubs; repoint it at `docs/guide/05-customizing-a-deployment.md` or `docs/connectors/backend-contract.md`, where the content now lives. A deployment regenerating its offline board with `scripts/generate_fallbacks.py --registry-out` gets the new citation on its next run.
+
+- 0167854: The README says what v2.8.0 ships. The exposure note no longer claims every table is publicly readable. It names the three exceptions: `agent_sessions` and `agent_messages` (agent chat transcripts) are readable only by their author, `business_models` (propositions) only after sign-in, and `service_account_emails` only by the service role. The repo map's domain-language row drops "need", the dependency kind the schema retired, and names touchpoint and the line of visibility as the glossary spells them. The audit helpers' row lists what they do now, ranking included, and the repo map gains the `.agents/skills/` mirror and the `create-uno-blueprint` initialiser.
+
+  Upgrading a deployment: no action; it comes with the pin.
+
+- a86daf0: The README says why before how, in about 130 lines. Why a team needs a blueprint comes first, as the site orders it: MCP connects agents to tools and search finds matching passages, and the blueprint adds how they fit together. How a blueprint is laid out follows, then the quick start, five example requests from the site, what's inside, and a short "Add a database". The header links the changelog and the latest release, so an adopting team sees what changed since its pin. The exposure note table by table, the portable Postgres core, where an adopter's own work starts, how `ub:map` reads FigJam or Figma boards and writes through the Supabase MCP, pointers for agent search and read consumers such as a Slack bot, and deploying move to SETUP.md § Adopting it for a team. The everyday commands move to SETUP.md § Everyday commands, and the repo map, top-level files and folders only, moves to docs/overview.md, retitled "What is where".
+
+  Upgrading a deployment: no action; it comes with the pin.
+
 ## 2.8.0
 
 **The audit ranks each finding by impact and effort.** Beside its severity,
@@ -10578,8 +10631,8 @@ accent: BRAND.accent }, content: { workspaceTitle: coverContent.title } }`. The
   constraint violation rather than as anything the authoring tools had said
   (#204):
 
-                                                                                                                                                                                                                                                ERROR: new row for relation "lanes" violates check constraint
-                                                                                                                                                                                                                                                "lanes_lane_role_check" … compliance_review
+                                                                                                                                                                                                                                                  ERROR: new row for relation "lanes" violates check constraint
+                                                                                                                                                                                                                                                  "lanes_lane_role_check" … compliance_review
 
   That error at least names the value. Meeting it after validation has passed is
   the wrong moment.

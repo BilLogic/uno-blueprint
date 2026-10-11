@@ -5,28 +5,20 @@ Definitions only: what a word denotes, not how to use it. Procedure lives in
 `docs/`, the schema in `references/data-model.md`, and the routes to both in
 `INDEX.md`.
 
-A term is defined here when getting it wrong changes what an agent writes to
-the database. Where a term is spelled differently in the database, the
-blueprint file and the app, every spelling is given.
+A term is defined here when getting it wrong changes what an agent writes: a
+database row, a blueprint file, a skill, a document, a check or a tool
+definition. Where a term is spelled differently in the database, the
+blueprint file and the app, every spelling is given. A word that matters only
+inside `src/` — arrival, the camera, the session's parts and query keys, and
+type — is defined in
+[`docs/engineering/app-vocabulary.md`](docs/engineering/app-vocabulary.md).
 
-**This file is definitions and nothing else.** That constraint is its whole
-value: an agent or a person can read it end to end before touching anything,
-and it stays readable because it never grows a second job. It said so while
-three of its six sections were something else, which is how a promise nothing
-enforces ends up. `scripts/check-glossary-only.mjs` holds it there now, so the
-sentence has a build behind it rather than a habit.
-
-Three reference sections used to live here and now live where they are
-enforced. The rename map is
-[`scripts/retired-vocabulary.mjs`](scripts/retired-vocabulary.mjs), the one
-list three checks read, and its header carries why each name went and which
-renames the word lists deliberately leave out. The four words retired as
-identifiers rather than as words are the header of
-[`scripts/check-retired-identifiers.mjs`](scripts/check-retired-identifiers.mjs),
-beside the exemption list that applies them. Every panel label and the column
-behind it is
-[`references/interface-schema-map.md`](references/interface-schema-map.md),
-generated from the list CI acts on.
+Definitions only, held there by `scripts/check-glossary-only.mjs`. Renames:
+[`scripts/retired-vocabulary.mjs`](scripts/retired-vocabulary.mjs). Words
+retired as identifiers:
+[`scripts/check-retired-identifiers.mjs`](scripts/check-retired-identifiers.mjs).
+Panel labels:
+[`references/interface-schema-map.md`](references/interface-schema-map.md).
 
 ## The application
 
@@ -180,14 +172,10 @@ above are what exists.
 Structure is *where a thing sits* — a cell's lane, step and path — and moves
 only through an authoring RPC. Spec is *what it is like*, and carries a
 column-scoped grant so a panel can edit it without opening the board's shape to
-the same path. That split is why the word is load-bearing: `skills/audit`
-instructs an agent to read "the spec columns" and skip gracefully when they are
-empty, and until now this file had never heard of them.
+the same path. `skills/audit` reads "the spec columns" by this word.
 
-**Not a UI word.** The interface says Function, Form, Value proposition,
-Owner — never "spec fields". The ban is on the *interface*, not the glossary,
-and reading it as both is how a word the skills are told to use went undefined
-on both sides.
+**A glossary word, not a UI word.** The interface names each field — Function,
+Form, Value proposition, Owner — and the skills and this glossary say *spec*.
 
 **Cell field** — one column of a cell, with everything the application says
 about it: the label and hint a person sees, the group (structure, content or
@@ -214,39 +202,13 @@ happen. A handoff, rendered as an arrow.
 possible without causing it. A precondition, never drawn, because a blueprint
 in which every relationship is an arrow cannot be read. Both kinds read
 source-first: `A enables B` puts the precondition at the source, the same end
-`A leads_to B` puts the cause. (The `needs` that `21000114000000` retired put it at the target, so
-those edges turned around in `21000114000000`.) The panel names each end:
+`A leads_to B` puts the cause. The panel names each end:
 **Follows** and **Leads to** for the drawn kind, **Enabled by** and
 **Enables** for the recorded one.
 
 > The test that separates the two: remove the other cell and ask what happens.
 > If this one never starts, that was a `leads_to`. If it starts but goes wrong,
 > that was an `enables`.
-
-The retired values — `cell_dependencies.kind = 'trigger'` and
-`cell_dependencies.kind = 'needs'` — are values, not identifiers, so the
-identifier sweep has no fragment to key on and the copy sweep no reader-facing
-word: a database *trigger* is a live subject in these documents, and "needs"
-is English. `scripts/check-dependency-kinds.mjs` holds them instead, across
-every rulebook tree an agent or reader follows — in their code-span form, and
-in the short list of phrases where either word can only be a dependency kind
-("trigger-vs-needs", the slashed pair, either word beside "edge"), which is
-what caught the two documents that spelled the pair with no backticks at all.
-
-The same is true of `scenarios.layout = 'side-by-side'`,
-`scenarios.layout = 'integrated'`, `paths.kind = 'unhappy'` and
-`paths.kind = 'alternative'`, which `21000116000000` folded into `stacked`,
-`exception` and `variant`, of `scenarios.layout = 'single'`, which
-`21000117000000` folded into `stacked`, and of `resources.kind = 'other'`,
-which `21000118000000` folded into `attachment`: values, so no fragment and
-no copy word. `cell_touchpoints.url` and `cell_touchpoints.screenshots`, which
-`21000119000000` moved into `resources` as a featured link and attachments,
-retire no fragment either: `url` is a live column on `resources`, and
-"screenshots" is English wherever a render check takes them.
-`scripts/value-set-claims.mjs` holds them — a list in any swept document
-that names one is stale, unless the sentence records the retirement and
-cites the migration — and holds every documented value set to the CHECK
-that defines it, read off the schema dump.
 
 ## What the skills produce
 
@@ -276,20 +238,7 @@ naming it after the audit would be wrong in the direction a slice would notice
 first. The cell is the claim the source grounds, and it is the one thing every
 evidence row the agent can write names.
 
-That row said **nobody** until the agent gained `create_evidence` and
-`update_evidence`, and "nobody" was a fact about the roster rather than a
-position: the panel was the only writer, so no tool named the table. The
-moment one did, the honest answer had to be a real owner — which is what
-rule 2 of `who-writes-what` exists to force.
-
-**And no record at all belongs to what-if**, which is worth saying rather than
-leaving as an absence: it walks the dependency graph and returns a trace, on a
-copy. Where it does record something it records a finding, and a finding is the
-audit's — the what-if skill says so itself. So the vocabulary still has to be
-able to say **nobody**; what-if is what it says it about, which is why the owner
-column is prose rather than a name drawn from a list of readers. A category
-covering all four was always going to strain, because one of the four readers
-has nothing of its own in it.
+**What-if owns no record**; a finding it raises is the audit's.
 
 So write the owner you mean — *the slice's record*, *the audit's findings*,
 *the cell's evidence*. Where a statement genuinely covers all four — a grant, a
@@ -327,11 +276,9 @@ defect the `slides` rename fixed, which
 calling one a screen is that defect wearing a third word.
 
 The slice AUTHORING FORMAT says the same words as the columns it writes:
-`kind`, `summary`, `authorship`, `position`, `slides`. It used to say `type`,
-`description`, `origin`, `order`, `frames` and `narrative`, so an author had to hold two
-vocabularies to write one file, and the tooling carried a comment explaining
-the split. There is no alias for the old keys — a file that uses one is
-refused by name, told which word replaced which.
+`kind`, `summary`, `authorship`, `position`, `slides`. One vocabulary, no
+aliases: a file using a retired key is refused by name and told its
+replacement.
 
 **Finding** — one triageable observation about a blueprint, raised by a
 consistency check or a change trace. A finding carries a severity, an
@@ -359,76 +306,6 @@ that cell came from, and when it was observed. A cell with no evidence is an
 assumption; that state is derived from the absence of evidence rows and is
 never stored as a flag.
 
-## Five words for arrival
-
-Five words for *not there yet*, naming five different things. Two belong to the
-shell, one to the canvas, one is a duration, and one is about the data rather
-than the screen. They are set out together because apart they read as spellings
-of one idea, and they are spelled here in lower case as the code spells them:
-each is a value or a constant, not a thing on the board. Where the halves they
-belong to meet is `docs/adr/0007-the-canvas-and-the-shell-run-on-separate-clocks.md`.
-
-**entrance** — the shell's from-state as it arrives: `idle`, `pending`, `shown`.
-`pending` lasts a single frame, and exists so that the fade which follows has
-somewhere to start. Nothing is waiting on data while it runs, which is what
-separates it from every other word here.
-
-**boot** — the sidebar's once-per-entry latch: `off`, `armed`, `skeletoning`. It
-answers whether this is the reader arriving or a surface they have already
-loaded coming back — a question no rung of the canvas's ladder can answer,
-because a canvas that stayed mounted does not restart that ladder, and one that
-remounts does. `skeletoning` was called *staging* until the collision with the
-rung below was named.
-
-**revealStage** — the canvas's ladder, six rungs from `CANVAS_REVEAL_STAGING` to
-`CANVAS_REVEAL_DONE`. It says how much of the board is painted and nothing about
-the shell around it. The canvas is the only thing that sets it; everything else
-reads it.
-
-**hold** — `SKELETON_HOLD_MS`, 250 ms: how long a surface may load before its
-skeleton is allowed to paint. **A duration, not a state** — the one word here
-measured in milliseconds rather than spelled as values, and the reason a fast
-load shows no placeholder at all instead of one that flashes.
-
-**status** — what a query returned: `loading`, `ready` or `error`. It is a fact
-about the data and not about the screen, so a bar can be `ready` while the
-sidebar is still `skeletoning` without the two contradicting each other. **Not
-the board's *Status*** above, the six-value word for how far along a cell or a
-path is: that one is stored in a column, this one only ever describes a read.
-
-## The camera
-
-Three words for a camera move that somebody is waiting on. They belong to the
-move itself rather than to any one caller: the canvas publishes them, and the
-desktop navigation tools, the agent's cell focus and the phone's ✦ sheet all
-read the same words. Where the halves they cross meet is
-`docs/adr/0028-a-jump-is-awaited-through-one-module.md`.
-
-**Jump** — one camera move toward a named target, awaited by whoever asked for
-it. The target is a scenario, a phase or a cell. The awaiting is what
-separates a jump from any other camera move: a reader's own pan answers to
-nobody, while a jump is asked for and answered.
-
-**Flight** — the camera's own move between two transforms, run by the
-viewport: the thing a jump verdict is a claim about. A jump is asked for and
-answered; a flight is the movement itself, and a jump may involve none at all
-— a cell the board does not hold is answered without anything having flown.
-**Not a persistence flight** — `AgentPersistenceFlight` in
-`src/lib/agent/persistenceReadiness.ts` is one run of a piece of parked
-database work, and nothing moves on screen for it.
-
-**Jump verdict** — a jump's one settled answer, in four words: `landed`,
-`cancelled`, `superseded`, `unanswered`. The first three are the canvas's own
-claim about a flight it owned; `unanswered` is what silence is called, and
-belongs to the deadline alone. **Not a check's verdict** — that word is how a
-check's run came out, four values of its own, defined in
-`docs/engineering/checks.md`. And not a status: a jump verdict is said once,
-about one camera move, and describes a move rather than a thing on the board.
-**And not persistence's `superseded`** — there the word asks whether the
-account a read was made for is still the one signed in, and the answer is a
-boolean a piece of work reads about itself rather than a verdict anyone
-publishes.
-
 ## The writing vocabulary
 
 Five words for how a document is written and reached, shared with the
@@ -445,23 +322,20 @@ decides whether a session gets there. What a pointer points at is a
 **Ladder** — where a piece of writing sits by how immediately a session needs
 it: an in-file step, then an in-file reference, then a **disclosed** reference
 behind a pointer. A skill's `SKILL.md` is the top rung of its own ladder, and
-the reference files it names are the rungs below. **Not the canvas's reveal
-ladder** in § Five words for arrival, and **not the type ladder** in § The type
-system.
+the reference files it names are the rungs below.
 
 **Disclosed** — a reference pushed out of the always-loaded tier and behind a
 pointer, loaded only when that pointer fires. Everything under `docs/`,
 `skills/` and `references/` is disclosed; `AGENTS.md` is the tier itself, and
 `scripts/always-loaded.mjs` is the list that says which is which.
 
-**Leading word** — the first word of a routing item, chosen so that it is the
-word carrying the branch — *vocabulary*, *routing*, *editing* — and front-loaded
-so a scanned pointer triggers on it. `scripts/check-pointers.mjs` is what holds
-it there.
+**Leading word** — a compact word the model already knows that anchors
+behaviour (*tracer bullet*); a pointer front-loads it, held by
+`scripts/check-pointers.mjs`.
 
 **Sprawl** — a document too long even when every line of it is live: attention
 thins across the whole of it. The cure is the ladder rather than a shorter
-sentence. Distinct from *bloat*, which is dead weight.
+sentence.
 
 ## The agent
 
@@ -533,59 +407,16 @@ further call offered no tools, so it answers from what it learned rather than
 stopping mid-work. A turn whose final round answers in prose is finished and
 makes no such call.
 
-## The session
+## Five words for arrival
 
-**identity** — whether anyone is signed in.
+**Arrival words** — entrance, boot, revealStage, hold and query status, five
+words for *not there yet* that matter only inside `src/`; each is defined in
+[`docs/engineering/app-vocabulary.md`](docs/engineering/app-vocabulary.md)
+§ Five words for arrival.
 
-**tier** — regular creator, or the editing privilege the database reports
-for this session.
+## The camera
 
-**build** — a dev server, or a production bundle.
-
-**config** — whether a database is connected.
-
-**active service** — the single service the URL slug names, resolved once at
-the surface root into a module store as its id, slug and name together. There is no
-inactive service and no flag that marks one; a reader who takes it as a
-filter over many gets a plural where the code means a singular. A
-service-scoped read takes the id as a parameter and resolves nothing; given
-none, it reads nothing — never the first service, never all of them.
-
-**query key** — the name a read caches under, built in one place
-(`queryKeys`) that the read hook and the write both use. A **family** is a
-prefix and the keys under it (`slice:` and one slice's `slice:<id>`); the
-**structural set** is the families a phase, scenario, path, step, lane or
-cell write can change. A key is invalidated by the mutation module that
-changed its rows (ADR 0016), never by a panel or the agent.
-
-## The type system
-
-Eight words for how text is sized, weighted and faced. They are set out
-together because the axes look interchangeable until each is named, and
-because **ladder** and **rung** already mean something else in this file.
-
-**rung** — one named size on the type scale: `xs`, `sm`, `base`, and so on. A
-rung owns its size and, through pairing, its line-height. **Not a rung of
-the canvas's reveal ladder**, and not a rung of the writing ladder.
-
-**ladder** — the ordered set of type rungs a face may use. Two exist, selected
-by scope. **Not the writing ladder** above, and **not the canvas's reveal
-ladder**.
-
-**scope** — which face a ladder applies to. Sans sizes live on the root; mono
-sizes are scoped to monospace elements, sizes only, because monospace renders
-optically smaller at the same nominal value.
-
-**pairing** — the line-height ratio declared once on the root for each rung,
-so the same ratio meeting a larger mono size yields a larger box.
-
-**leading** — the line box a rung carries. A call site does not write a
-leading utility unless it overrides for geometry.
-
-**tracking** — letter-spacing. A call-site decision; the rung does not own it.
-
-**working weight** — 400, the weight of all content. 500 is the one emphasis;
-600 is headings only.
-
-**density** — which surface the text is on, and therefore which rung it asks
-for: canvas chrome, editor UI, panel, presentation.
+**Camera words** — jump, flight and jump verdict, the words for a camera move
+somebody is waiting on; each is defined in
+[`docs/engineering/app-vocabulary.md`](docs/engineering/app-vocabulary.md)
+§ The camera.

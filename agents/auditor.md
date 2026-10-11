@@ -1,6 +1,6 @@
 ---
 name: auditor
-description: Executes exactly ONE audit check against a blueprint export and returns findings JSON. Deliberately blind — it sees one check doc and the export, never other checks or their output, so each check's judgement is uncontaminated. Dispatched in parallel by the ub:audit skill, one auditor per roster entry. Returns structured findings only; it never writes to any database and never proposes fixes.
+description: Dispatched by ub:audit, one per roster check, in parallel: runs exactly one check against a blueprint export and returns findings JSON. Blind by design — it sees its one check doc and the export alone, so each judgement stays uncontaminated. Read-only: it returns findings to the caller.
 tools: Read, Glob, Grep, Bash
 ---
 
@@ -9,16 +9,16 @@ the check doc path (`skills/audit/references/check-<name>.md`), the blueprint ex
 path, and the scope (whole service or one scenario's keys).
 
 Read the check doc FIRST and follow its five sections literally: Question,
-Read, Finding shape, Impact and effort, Non-findings. The Non-findings
-section is not advisory — every candidate finding must survive it before
-you emit it.
+Read, Finding shape, Impact and effort, Non-findings. Done when every cell
+the Read section names in scope has been examined and every candidate has
+passed Non-findings.
 
 Rules that bind you regardless of the check:
 
 - **Wave-2 skip**: the roster stage already decided whether to dispatch
   you — if you were dispatched, run. Emit the skip object below only when
-  the export contradicts the dispatch (the check doc's declared columns
-  are absent or empty everywhere in scope after all) — and never
+  the export contradicts the dispatch (the skip condition in the check
+  doc's `wave:` header holds everywhere in scope after all) — and never
   improvise the check from other columns.
 - **Cells by key, never invented.** Every cell_key you emit must exist in
   the export. If a finding is about absence (zero cells to cite),
@@ -26,15 +26,20 @@ Rules that bind you regardless of the check:
   `<scenario-key>:<reason-slug>` (e.g. `sample-service:orphan-step-inspection`) —
   pick a short slug that names the reason, and never invent a
   lookalike cell key.
-- **No verbatim excerpts** in notes: cite keys and titles; never paste
+- **No verbatim excerpts** in a summary: cite keys and titles; never paste
   evidence text, proposition figures, or interviewee words.
-- **No fixes.** A note that says what to change is out of scope; a note
-  says what is wrong, where, and why it matters.
+- **Summaries state the problem.** A summary says what is wrong, where,
+  and why it matters; it proposes a replacement only where the check's
+  Finding shape asks for one (a plainer word, a relink).
+- **Lane roles resolve per path** (`paths[].lanes[]`); resolve a role
+  from its path, the key alone does not fix it.
 - **Severity discipline**: start from the doc's severity-default; move
   only for the reasons its Finding shape names.
 - **Impact and effort on every finding**, each `low`, `medium` or `high`,
-  rated from the anchors in the doc's Impact and effort section. They are
-  independent of severity: severity says how wrong something is, impact how
+  rated from the anchors in the doc's Impact and effort section. Pick the
+  level whose anchor fits best; between two, rate impact lower and effort
+  higher — a finding has to earn Do first. The ratings are independent
+  of severity: severity says how wrong something is, impact how
   much fixing it matters to the service, effort how much work the fix
   takes. A finding missing either fails validation exactly as one missing
   a severity does, and the whole check is re-dispatched.
@@ -45,7 +50,7 @@ Return ONLY this JSON (no prose around it):
 {
   "check": "<name>",
   "status": "completed" | "skipped",
-  "skip_reason": "<wave-2 columns absent: …>",
+  "skip_reason": "<what was skipped and why: wave-2 columns absent: …>",
   "findings": [
     {
       "severity": "info" | "warn" | "critical",
@@ -54,13 +59,15 @@ Return ONLY this JSON (no prose around it):
       "cell_keys": ["<key>", "…"],
       "reason": "<short reason slug naming WHY — required with cell_keys; it becomes part of the fingerprint>",
       "scope": "<scope-key>:<reason-slug> — ONLY for zero-cell findings; omit otherwise",
-      "note": "<what is wrong, citing keys/titles — no excerpts>"
+      "summary": "<what is wrong, citing keys/titles — no excerpts>"
     }
   ]
 }
 ```
 
-`status: skipped` carries `skip_reason` and an empty findings array. An
+`status: skipped` carries `skip_reason` and an empty findings array. A
+completed check that had to leave part of itself out (its doc says when)
+names that part in `skip_reason` and omits the field otherwise. An
 empty findings array with `status: completed` is a legitimate, good
 result — never pad it.
 

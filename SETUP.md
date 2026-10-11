@@ -202,9 +202,8 @@ reverts a hand-edit.
   by CI. Change the core, regenerate the type, and every call site that no
   longer agrees stops building.
 - **What a store has to answer** to serve the app live is
-  [references/adapter-contract.md](./references/adapter-contract.md) § Live
-  backend surface (beyond import). The shipped Supabase call sites are the
-  worked example.
+  [docs/connectors/backend-contract.md](./docs/connectors/backend-contract.md).
+  The shipped Supabase call sites are the worked example.
 
 ### Where your work starts
 
@@ -227,8 +226,8 @@ reverts a hand-edit.
 - **MCP:** `ub:map` reads FigJam or Figma boards through MCP and writes
   through the Supabase MCP or your own CLI credentials:
   [references/adapter-contract.md](./references/adapter-contract.md).
-- **Agent search on your own vector index:** [references/customization.md §
-  Agent search](./references/customization.md#agent-search).
+- **Agent search on your own vector index:** [guide/05 § Agent
+  search](./docs/guide/05-customizing-a-deployment.md#4-agent-search).
 - **A Slack bot, or any other reader:** it reads with the publishable key
   under the [adapter contract's read-consumer
   rules](./references/adapter-contract.md#read-consumers-bots-agent-tools-external-integrations).

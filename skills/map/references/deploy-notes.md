@@ -32,9 +32,8 @@ the template to get a build through.
 `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are baked in at build time,
 not read at runtime. Set them in the host's build environment before the
 build runs; changing them requires a rebuild, not a redeploy of old
-artifacts. Fallback mode needs neither. The anon key is publishable by
-design — it may live in host build-env settings, but in the repo only in a
-verified-gitignored `.env`.
+artifacts. Fallback mode needs neither. Where the anon key may be stored:
+`references/adapter-contract.md` §7.
 
 ## SPA redirect (the classic silent failure)
 
@@ -75,3 +74,6 @@ if it doesn't, that's a template bug, not a hosting quirk to patch around.
 Verify with `render-checker` against the deployed URL (every scenario ×
 view type renders, no console errors), then update `blueprint-workspace.json`
 targets and regenerate `HANDOFF.md` if targets changed.
+
+Done when a deep link under each `deploy_url` loads, `render-checker`
+passes, and each `deploy_url` is recorded in `blueprint-workspace.json`.

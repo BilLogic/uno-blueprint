@@ -1,24 +1,10 @@
 # Data Model
 
-The template's blueprint data model. Source of truth:
-`supabase/migrations/20260716200000_template_schema.sql` plus the
-migrations that add the records about the board — filenames keep the
-spelling they shipped with (`20260729120000_derived_layer.sql`,
-`20260730090000_derived_layer_grants_hardening.sql`,
-`20260803001000_slices_origin_allows_human.sql`) and the authoring
-migrations (`20260818000000_authoring_foundation.sql` — provenance
-`origin` columns, `cells.cell_key` identity, `position`,
-the deletion archive, direct-column grants;
-`20260818001000_authoring_operations.sql` — the `SECURITY DEFINER` RPCs
-that are the only sanctioned write path for structure;
-`20260818002000_service_account_tier.sql` — OPTIONAL recipe splitting
-`authenticated` into service/regular tiers via RESTRICTIVE policies;
-`20260819000000_agent_surface.sql` — `agent_sessions`/`agent_messages`
-chat persistence plus the findings write path for in-app runs) (portable
-core: `supabase/generated/portable-core.generated.sql`, diagram:
-`docs/erd.mmd`). The IR
-(`references/ir-schema.json`) mirrors this shape one-to-one with locale maps
-and stable keys in place of UUIDs.
+The template's blueprint data model. Source of truth: the migrations in
+`supabase/migrations/`, collected as
+`supabase/generated/portable-core.generated.sql` (diagram: `docs/erd.mmd`). The
+IR (`references/ir-schema.json`) mirrors it with locale maps and stable keys in
+place of UUIDs.
 
 ## Contents
 
@@ -95,7 +81,7 @@ erDiagram
 | `steps` | Scenario-scoped step columns, SHARED across paths | A step exists once per scenario; paths select/ordr via `path_steps`. `summary` is the moment's one sentence across every lane, rendered as the storyboard caption |
 | `path_steps` | Which steps a path uses and in what column order | `position` unique per path |
 | `lanes` | Swimlanes, per PATH (each path carries its own lane rows) | `name` free-form any language; `lane_role` semantic key (see `references/lane-roles.md`) |
-| `cells` | Grid content at (lane × step) on a path | `unique (lane_id, step_id)`; `content` newline-separated items render as pills on pill-role lanes |
+| `cells` | Grid content at (lane × step) on a path | `unique (lane_id, step_id, position)`, see § Cell slots; `content` newline-separated items render as pills on pill-role lanes |
 | `touchpoints` | The deployment's touchpoint registry — the apps, documents, channels and things a moment happens through | One pool, unique by `name` across the whole deployment; no `service_id` — a service "has" a touchpoint exactly when one of its cells places it, so there is no palette to author and the name is the identity. The import mints a row for every placement name it meets and links the placement; `kind`, `summary` and `url` are the touchpoint's own, once, not per cell. `stakeholder_id` names the actor who owns it, null until somebody says; an actor leaving the cast un-names its touchpoints rather than being refused. `tone` is the palette family its face is drawn in and `aliases` the other spellings that mean the row — the pair `src/lib/touchpointColors.ts` resolves a label through, so a deployment's own tools and colours are rows rather than a literal every adopter would have to fork. Both are nullable and mean "nobody has said": an unchosen tone falls back deterministically, and `aliases` is nullable where `stakeholders.aliases` is `NOT NULL DEFAULT '{}'` because null distinguishes "not considered" from "considered, and there are none" |
 | `stakeholders` | The deployment's cast list — the actors a lane picks from | One pool, unique by `name` across the whole deployment; no `service_id` — a service "has" an actor exactly when one of its lanes names it, so the cast is shared the way the tools are and the name is the identity. `kind` is `recipient` \| `staff` \| `partner` \| `provider` \| `team`. A lane names its actor by `stakeholder_id`, null on a structural lane, and a touchpoint names its owner the same way; both `on delete set null`, so removing an actor un-names rather than pins |
 | `cell_touchpoints` | One touchpoint, used at one cell | Owns the summary and role for THIS moment — the same tool describes a different screen at a different step. What it points at (its design link, its screenshots) are `resources` rows carrying `cell_touchpoint_id`; `21000119000000` moved the two URL columns there. Names its touchpoint one of two ways and exactly one (`cell_touchpoints_one_identity`): `touchpoint_id` into the registry, or `name` alone when the registry lacks it — a **name-only placement**, drawn dashed, offered "Link to registry" in the panel. `sync_cell_touchpoints` follows a cell's text: a new line mints a registry row, a line that left keeps its writing as a name-only row or goes |
@@ -107,11 +93,7 @@ erDiagram
 - `scenarios.layout`: `stacked` \| `merged` — ONE vocabulary. The
   stored token is the token the UI names, and the header toggle writes it
   through `update_scenario_layout`, so a scenario left merged opens merged.
-  (It used to store `single | side-by-side | integrated` with a translation
-  module; all rows held `side-by-side` and the other two were unused, so
-  `21000116000000` folded both into `stacked` and the translation was
-  deleted. `21000117000000` then folded `single` into `stacked` — one path
-  stacked is one band — and made `merged` storable.)
+  Retired values: `scripts/retired-vocabulary.mjs`.
   - `stacked`: one full band per path on a shared step axis — any labeled
     variants ("as designed" vs "reality" is just the default labeling)
   - `merged`: the paths combined into one blueprint — one lane rail, one
@@ -171,11 +153,13 @@ before any adapter runs.
 ## ⚠ REQUIRED: import order
 
 ```
-paths → steps → path_steps → lanes → cells → cell_dependencies
+paths → steps → path_steps → lanes → cells → cell_touchpoints → resources → cell_dependencies
 ```
 
 (with `services → phases → scenarios` before all of the
-above). Any other order violates FKs or the integrity trigger.
+above). Placements come before resources because a resource may hang off a
+placement, and never off both a placement and a cell. Any other order
+violates FKs or the integrity trigger.
 
 ## Re-import semantics
 
@@ -248,7 +232,7 @@ deliberately never stored.
 
 | Table | What it is | Notes |
 |---|---|---|
-| `slices` | A saved 1D cut through the grid that REFERENCES cells (never copies them) | `title`, `summary`, `kind` (`journey`\|`step`\|`lane`\|`cell`\|`custom`), `actor`, `locale`, `position`, `authorship` (`generated` = safe to regenerate \| `customized` = skill output human-edited, regeneration must confirm \| `human` = authored in the app, never the skill's to regenerate) |
+| `slices` | A saved 1D cut through the grid that REFERENCES cells (never copies them) | `title`, `summary`, `kind` (`journey`\|`step`\|`lane`\|`cell`\|`custom`), `actor`, `locale`, `position`, `authorship` (`generated` \| `customized` \| `human`; what each allows on regeneration: `skills/slice/references/slice-playbook.md` §6) |
 | `slides` | One slide of a slice | `position` (unique per slice, deferrable), `cell_ids`/`cell_keys` (equal cardinality enforced; empty = title-only divider slide), `title`, `caption`, `shows_all_images` (untouched default: every cited cell's frames). Full-replacement semantics on rework |
 | `slide_images` | One member of a slide's authored image set | Exactly one of `cell_id` or `image_url`; unique `(slide_id, position)`. Replaced as a set, not patched. Empty with `shows_all_images` false means show nothing. Changing `slides.cell_ids` deletes members whose `cell_id` is no longer cited; remaining positions stay put |
 | `audit_findings` | One triageable audit/whatif finding | `source` (`audit`\|`whatif`\|`import-sweep`), `check_key`, `severity` (`info`\|`warn`\|`critical`), `impact` and `effort` (each `low`\|`medium`\|`high`; null on a finding recorded before the ratings existed, which reads as unrated and sorts last — audit-playbook §3.5), `summary`, `cell_ids`/`cell_keys`, `status` (`open`\|`resolved`\|`dismissed`), `run_id` (FK-less by design — no runs table), `fingerprint` (check_key + sorted-cell_keys hash + reason slug — audit-playbook §2) |
@@ -257,9 +241,8 @@ deliberately never stored.
 **Findings dedupe is DB-backed**: the partial unique index
 `findings_open_fingerprint_idx` on `(service_id, fingerprint)
 where status = 'open'` allows at most one OPEN finding per fingerprint.
-Skill-side rule it backstops: open updates in place, dismissed stays
-dismissed, resolved reopens as a new row (a reopen collision surfaces as
-23505 by design).
+It backstops the dedupe table in audit-playbook §3; a reopen that collides
+with an open row surfaces as 23505 by design.
 
 **Public count surface**: the `evidence_counts` view (`cell_id → n`)
 exposes evidence row counts — never content — to anonymous readers; it

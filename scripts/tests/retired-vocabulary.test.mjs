@@ -88,23 +88,23 @@ test('every copy spelling comes from an identifier the same row retired', () => 
  * an exemption list longer than the rule. That is a real judgement, and it has
  * to be written where a reader meets the thing it is about.
  *
- * THREE PLACES, NOT ONE, and the census is the point rather than a loophole.
- * Before #137 every one of these paragraphs was in `CONTEXT.md`, because the
- * glossary was the only file anybody read for a reason. #137 put each beside
- * what it is about: a NAME the checks skip is explained in the map's own header
- * (`description`, `business_model`, `cell_dependencies.label`); a spelling the
- * SWEEP skips is explained in the sweep's header; and a retired VALUE — the six
- * rows whose `was` is a `table.column = 'value'` or the columns folded into
- * `resources` — is explained in the glossary, because those are words a reader
- * meets on the board and `scripts/value-set-claims.mjs`, not an identifier
- * fragment, is what holds them. What the rule forbids is a row explained in
- * NONE of the three, which is how a deliberate silence becomes an oversight
- * somebody closes.
+ * FOUR PLACES, NOT ONE, and the census is the point rather than a loophole.
+ * Each explanation sits beside what it is about: a NAME the checks skip is
+ * explained in the map's own header (`description`, `business_model`,
+ * `cell_dependencies.label`); a spelling the SWEEP skips is explained in the
+ * sweep's header; a retired dependency KIND in the header of the check that
+ * holds the kinds; and every other retired VALUE — a `was` of the form
+ * `table.column = 'value'`, or a column folded into `resources` — in the
+ * header of `scripts/value-set-claims.mjs`, which is what holds them, since
+ * a value has no identifier fragment to sweep. What the rule forbids is a row
+ * explained in NONE of the four, which is how a deliberate silence becomes an
+ * oversight somebody closes.
  */
 const EXPLANATIONS = [
   ['scripts/retired-vocabulary.mjs', () => headerComment(readFileSync(MAP, 'utf8'))],
   ['scripts/check-retired-identifiers.mjs', () => headerComment(readFileSync(SWEEP, 'utf8'))],
-  ['CONTEXT.md', () => readFileSync(resolve(ROOT, 'CONTEXT.md'), 'utf8')],
+  ['scripts/check-dependency-kinds.mjs', () => headerComment(readFileSync(resolve(ROOT, 'scripts/check-dependency-kinds.mjs'), 'utf8'))],
+  ['scripts/value-set-claims.mjs', () => headerComment(readFileSync(resolve(ROOT, 'scripts/value-set-claims.mjs'), 'utf8'))],
 ]
 
 test('a row that enforces nothing is explained where its subject lives', () => {

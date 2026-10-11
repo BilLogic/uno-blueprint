@@ -48,9 +48,7 @@ on this route, and the findings exit condition is met by it.
 **replay** — "run scenario X as if CHANGE were true."
 1. Copy base IR → variant; apply the change.
 2. Dispatch `impact-tracer` (seed = changed cells) on the BASE export —
-   the trace tells you which claims need re-examination. (An IR export
-   carries both kinds since 2026.08.26; an export written before that
-   carries only `leads_to` edges, and the tracer says so in its output.)
+   the trace tells you which claims need re-examination.
 3. Walk the affected chain in the variant: which cells' content is now
    wrong, which dependencies dangle, which lanes gain/lose work.
 4. `blueprint-reviewer` (whatif-claim mode) verifies every replay claim
@@ -75,8 +73,9 @@ per-signal reasoning:
   an assumption-heavy "priority" is really a research task);
 - proposition expression (does the cell carry the value the business_models
   claim — value_props where present);
-- backstage `enables` chain depth (impact-tracer, reversed: how much
-  machinery makes this moment possible).
+- backstage `enables` chain depth (impact-tracer with `direction:
+  upstream`: how much machinery makes this moment possible; when it
+  returns `enables_expressible: false`, report the depth as unknown).
 Quick-win warnings: cells that look cheap but sit on deep `enables` chains
 get a "load-bearing" caveat.
 
@@ -87,9 +86,7 @@ Same table, `source = 'whatif'`, same fingerprint algorithm as audit
 (audit-playbook §2–§4). Whatif findings never supersede audit findings
 and vice versa — fingerprints keep them disjoint by construction.
 
-Every whatif finding carries a severity, an impact and an effort, exactly
-as an audit finding does, and one missing either rating fails validation
-the same way. The report orders them by the audit's priority groups
+The report orders whatif findings by the audit's priority groups
 (audit-playbook §3.5).
 
 ## §3.1 Impact and effort
@@ -115,15 +112,10 @@ When the human accepts a whatif's recommendation:
    `skills/whatif/references/change-request-schema.json` — the diff (cell-key
    addressed), affected scenario keys, the base sign-off hashes captured
    at analysis time, and the finding fingerprints it supersedes.
-2. Then STOP and tell the user to invoke ub:map (map-promote) — never
-   chain into promotion in the same turn; the gap between accept and
-   promote is a human gate. Map-promote's steps for reference:
-   verify hashes → edit IR → de-sign notice → re-sign → re-import →
-   `sweep_orphans.py` (planned — if the script is absent, skip the sweep
-   and say so in the report) → auto-resolve the superseded whatif
-   findings.
-3. Whole-request promote only in v1 — no cherry-picking diff entries; a
-   partial acceptance is a NEW, smaller whatif.
+2. Then stop and hand the user to ub:map (map-promote), which runs in a
+   later turn; the gap between accept and promote is a human gate.
+3. Promote the whole request; a partial acceptance is a new, smaller
+   whatif.
 
 The staleness guard is absolute, and the comparison is TWO checks per
 affected scenario, both against defined targets: (a) each embedded

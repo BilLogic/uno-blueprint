@@ -9,9 +9,7 @@ something the journey never shows?
 ## Read
 Per lane with non-empty `kpis`: the KPI list vs that lane's cells across
 all steps and paths. `tools` for whether the measured thing is even
-instrumented. Lane roles resolve PER PATH (`paths[].lanes[]`) — the same
-lane key can carry different roles in different scenarios/paths, so never
-resolve a role from the key alone.
+instrumented.
 
 ## Finding shape
 Two directions, one finding each per lane:
@@ -19,13 +17,9 @@ Two directions, one finding each per lane:
   cell_keys = the lane's cells (or scope-key if the lane is empty).
 - A dominant cell activity no KPI rewards (enacted but never measured) →
   info; cell_keys = the strongest example cells.
-Note cites the KPI text and keys — no invented metrics.
+The summary cites the KPI text and keys — no invented metrics.
 
 ## Impact and effort
-Rate both on every finding, from the anchors below. Pick the level whose
-anchor the finding matches most closely; between two, rate impact the lower
-and effort the higher — a finding has to earn Do first.
-
 | Level | Impact — how much aligning the measure matters | Effort — how much work aligning it takes |
 | --- | --- | --- |
 | low | An activity no KPI measures, in a lane off the journey's critical path | Naming the KPI in a cell, or adding the missing tool: the activity already happens |

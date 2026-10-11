@@ -1,6 +1,6 @@
 ---
 name: audit
-description: Runs consistency checks over an imported service blueprint and records what they find as triageable findings — gaps a scenario never covers, jargon customers would not say, channel conflicts, KPI drift, ownership mismatches, value dead-ends, invisible fees. Use when the user asks to "audit the blueprint", "check Map your service for gaps/inconsistencies", "what's wrong with this scenario", "re-run the checks", "sanity check my blueprint", "health check", "is my blueprint consistent", or wants a finding dismissed or resolved ("that jargon one is fine, dismiss it"). Requires an imported blueprint — for building or importing one, use the ub:map skill; for hypothetical changes, use ub:whatif.
+description: Blueprint audit — run the consistency-check roster over an imported blueprint (gaps, jargon, channel conflicts, KPI drift, ownership, value dead-ends, hidden fees), recording findings ranked by impact and effort; re-run the checks, or dismiss or resolve a finding. Building → ub:map; hypothetical changes → ub:whatif.
 ---
 
 # Blueprint Audit
@@ -15,14 +15,7 @@ severity (how wrong it is), impact (how much fixing it matters to the
 service) and effort (how much work the fix takes) — so the report can say
 what to fix first.
 
-All paths are relative to the plugin root — Claude Code's
-`${CLAUDE_PLUGIN_ROOT}`; anywhere else, the repository or workspace root: this
-skill's own materials (the check docs, `audit_tools.py`) live under
-`skills/audit/`, the shared core under `references/`, `scripts/`, and
-`agents/`; a scaffolded workspace carries the same files
-(workspaces scaffolded before this skill shipped may lack them — fall back
-to the plugin root, and suggest the upgrade recipe in
-`references/customization.md`).
+Paths resolve against the plugin root (`${CLAUDE_PLUGIN_ROOT}` in Claude Code) or the workspace root, per `AGENTS.md`.
 
 ## Entry-state detection (do this first)
 
@@ -46,40 +39,26 @@ triage rules, and the check-authoring template.
 
 ## Hard rules
 
-- ⚠ **REQUIRED — the audit writes `audit_findings` rows and nothing else.** Never
-  cells, never structure, never a "quick fix while I'm here". Humans may
-  change only `audit_findings.status`; the audit may supersede only its own
-  check's open findings.
+- ⚠ **REQUIRED — the audit's only writes are `audit_findings` rows**
+  (insert, update, its own check's supersede); humans change `status`.
+  Fixing what it finds is a separate, confirmed `ub:map` pass.
 - ⚠ **REQUIRED — one fresh-context auditor per check, blind.** Each
   `agents/auditor.md` dispatch gets ONE check doc and the blueprint export,
   and never sees other checks' output. Cross-check synthesis happens in the
   main context after all auditors return.
-- ⚠ **REQUIRED — dedupe by fingerprint; dismissed stays dismissed.**
-  `fingerprint = check_key + ':' + sha256 of the sorted cell_keys joined
-  with '\n' + ':' + reason-slug` — every finding carries a reason slug,
-  cell-bearing ones included (exact form + old-ledger migration note:
-  playbook §2). A duplicate fingerprint within one incoming batch is a
-  reported error, never a second insert. A
-  re-detected finding whose fingerprint matches a `dismissed` row is
-  dropped silently; matching a `resolved` row reopens it; matching an
-  `open` row updates it in place, ratings included — a re-run whose only
-  change is a rating moves the rating and adds no row. The DB backstop
-  (partial unique index on open fingerprints) makes violations an insert
-  error, not a silent dupe.
+- ⚠ **REQUIRED — dedupe by fingerprint through `audit_tools.py dedupe`**
+  (playbook §2–§3); dismissed stays dismissed.
 - ⚠ **REQUIRED — per-check atomic supersede.** A check that completes
   replaces its own previous open findings in one transaction; a check that
   fails leaves its previous findings untouched. Never wipe the whole run's
   findings up front.
-- ⚠ **REQUIRED — no verbatim excerpts in notes.** Findings are
+- ⚠ **REQUIRED — no verbatim excerpts in a summary.** Findings are
   public-read rows. Cite cell keys and titles; never paste evidence text,
   proposition figures, or interviewee words.
 - ⚠ **REQUIRED — confirm the import target** before any DB write;
   `references/adapter-contract.md` applies unchanged — wrong-project
   protection. (Vacuous on the no-DB route — no DB write ever happens
   there, so there is no target to hunt for.)
-- ⚠ **REQUIRED — an audit is reads + findings.** If the user asks the audit
-  to also fix what it finds, that is a separate, explicitly-confirmed pass
-  with the `ub:map` skill afterwards.
 
 ## The pipeline
 
@@ -96,8 +75,7 @@ imported blueprint (or IR files)
                validate`; a finding missing its severity, impact or effort
                is malformed output = check failed, re-dispatch once, then
                report the check as failed)
-  → dedupe    (fingerprint vs existing rows: drop dismissed, reopen
-               resolved, update open)
+  → dedupe    (audit_tools.py dedupe, playbook §3)
   → write     (one run_id for the run; per-check atomic supersede)
   → report    (open findings in priority order — Do first, Plan, Quick
                wins, Later, playbook §3.5 — then per-check counts +
@@ -126,12 +104,6 @@ mentions it.
 | 2 | `value-ledger` | Which cells deliver value to nobody, and which audiences receive none (`value_props`) |
 | 2 | `fee-visibility` | Where money changes hands invisibly to the customer journey |
 
-Wave-2 checks read spec columns (`kpis`/`tools` on lanes, the owner
-pair and `value_props` on cells). Both the IR schema and the template
-database carry them as optional fields; an export whose cells simply
-never filled them will see wave 2 return `status: skipped` — a correct,
-reportable result, not a failure.
-
 ## Deterministic exit conditions
 
 | Phase | Exit condition |
@@ -149,8 +121,8 @@ reportable result, not a failure.
   (check, severity `info|warn|critical`, impact and effort
   `low|medium|high`, cell keys, summary). Blind to other checks. Tools:
   Read, Glob, Grep, Bash.
-- `impact-tracer` — used by `channel-conflict` when a suspected conflict
-  needs its downstream chain walked (shared with the whatif skill).
+- `impact-tracer` — its Method is the walk the `channel-conflict` auditor
+  runs itself when a chain is unclear.
 
 ## References
 

@@ -12,34 +12,20 @@ wording lives in `skills/map/references/elicitation-protocol.md` — follow its 
 keep it dialogic: reflect back what you heard, propose structure, let the
 user correct. The user is the source of truth; you are the notation.
 
-## 1. Right-size first (⚠ do this before any service ceremony)
+## 1. Right-size, then find the spine
 
-The elicitation protocol's opening branch:
+Run elicitation Q0 (right-sizing) and Q1 (languages) first, and Q4 (the
+spine) at the start of each scenario — each gates everything after it.
+Partial completion (2 of 6 scenarios now) is first-class.
 
-- **Single flow?** ("I just want to map how refunds work") → auto-wrap in a
-  default service + one phase, skip straight to the scenario questions.
-  A founder mapping one flow must not sit through service taxonomy.
-- **Huge multi-actor journey?** → chunk it: outline all scenarios, then
-  build **one scenario per session**, tracked per-scenario in
-  `blueprint-workspace.json`. Partial completion (2 of 6 now) is first-class.
-- **In between** → the standard order: service → phases → scenarios.
-
-## 2. The spine question
-
-Ask explicitly: **"Whose journey is the spine?"** — the actor whose lane gets
-`customer_actions` and anchors the interaction line. B2B multi-stakeholder
-and internal-ops blueprints make this genuinely non-obvious, and "no spine"
-is a legal answer (no `customer_actions` lane, no interaction line — see
-`references/lane-roles.md`).
-
-## 3. Skeleton preview
+## 2. Skeleton preview
 
 Same rule as ingestion: propose the outline (service → phases → scenarios,
 then per-scenario: actors/lanes, step columns, path variants) as markdown
 and get agreement **before** writing IR. Structure mistakes are cheap here,
 expensive later.
 
-## 4. Build one scenario at a time
+## 3. Build one scenario at a time
 
 Per scenario, in this order (mirrors the elicitation protocol):
 
@@ -53,12 +39,13 @@ Per scenario, in this order (mirrors the elicitation protocol):
    `path_steps` and may add their own.
 5. Dependencies — "what kicks off what?" — only where arrows genuinely add
    information (same-path only).
-6. Locales — if bilingual, capture both languages as you go (locale maps),
-   don't bolt translation on later; flag domain terms for review.
+
+Write every language Q1 settled into each cell as you go (locale maps);
+flag domain terms for review.
 
 After each scenario: run `scripts/validate_ir.py`, fix to exit 0, mark
 `drafted` in `blueprint-workspace.json`, and offer to stop or continue —
-respect the chunking decision from step 1.
+respect the right-sizing decision from step 1.
 
 Content elicited from conversation carries no `provenance` (there is no
 source doc); if the user cites a document for a specific claim, record it.
@@ -76,13 +63,5 @@ conversation feels finished.
 
 ## Canvas note
 
-On the app canvas this playbook's judgment applies unchanged — the
-spine question, right-sizing, skeleton preview, one scenario at a time,
-provenance tagging. Its mechanics translate per the canvas adapter:
-the skeleton preview is the adapter's nod-gated outline; writes go
-through the write tools; there is no `validate_ir.py` (the database
-constraints are the validator — a rejected call is your validation
-error) and no `blueprint-workspace.json` (the human's Save gate and the
-change ledger replace drafted-state tracking). The exit condition
-becomes: every promised cell exists with content, and the outline's nod
-covered them all.
+On the app canvas, mechanics translate per `references/canvas-adapter.md`;
+this playbook's judgement applies unchanged.

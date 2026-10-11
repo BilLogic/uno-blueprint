@@ -32,6 +32,14 @@
  *      their Python too, because one of the two escapees was an eval and the
  *      other was a comment beside the code that walks the edges.
  *
+ * WHY A CHECK OF ITS OWN. `cell_dependencies.kind = 'trigger'` and
+ * `cell_dependencies.kind = 'needs'` are values, not identifiers, so the
+ * identifier sweep has no fragment to key on and the copy sweep no
+ * reader-facing word: a database *trigger* is a live subject in these
+ * documents, and "needs" is English. The `needs` edge put the precondition at
+ * its target; `enables` puts it at the source, so those edges turned around in
+ * 21000114000000 as well as being renamed.
+ *
  * SOURCE OF TRUTH: `supabase/generated/portable-core.generated.sql`, not the
  * migrations directly. It is generated FROM the migrations, and CI runs
  * `npm run check:portable-core` — which regenerates and diffs it — before it
@@ -148,8 +156,8 @@ const BARE_ALLOWED = [
     files: /./,
     text: /\bretired\b/i,
     why: "a sentence about the retirement has to spell the retired word."
-      + " CONTEXT.md's glossary note and references/ir-schema.json's `kind`"
-      + ' description both say which pair 21000114000000 withdrew, and a check'
+      + " references/ir-schema.json's `kind` description says which pair"
+      + ' 21000114000000 withdrew, and a check'
       + ' that flagged them would be asking the vocabulary not to explain'
       + ' itself.',
   },

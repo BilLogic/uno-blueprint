@@ -4,11 +4,8 @@ Every word a panel puts in front of a reader, and the name behind it.
 `scripts/retired-vocabulary.mjs` records the words that **changed**; this
 records what every current word is **bound to**, the agreements included. A
 table of divergences alone cannot say that the rest are fine — "not listed"
-would mean both "aligned" and "nobody looked", and that ambiguity is the state
-[#89](https://github.com/BilLogic/uno-blueprint/issues/89) was
-raised about: *"how come we have inconsistent naming from front and backend
-again (i.e., resources vs. links)?"* The complaint was never that the words
-differ. It was that no document said which of the differences were on purpose.
+would mean both "aligned" and "nobody looked". Words may differ; this map says
+which differences are on purpose.
 
 The interface word is a **panel label** — the word a panel puts above a field,
 a section, or a relation. For the cell panel those words are not written in JSX

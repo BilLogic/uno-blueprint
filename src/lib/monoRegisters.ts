@@ -8,13 +8,13 @@ import {
 import { declarationsIn } from '@/lib/tokenModel'
 
 /**
- * Monospace stays in three registers, and the guard knows the two ladders.
+ * Monospace stays in three registers, and the guard knows the two type ladders.
  *
  * Family is not "text a machine produced." A `font-mono` call site belongs
  * to exactly one of the three jobs named below, and the guard holds the tree
  * there. The scan is the class-list reader — a token present in
  * any order, including split across `cn()` arguments. Size is evaluated
- * against the ladder of the scope the site renders in: `text-sm` is 13px
+ * against the type ladder of the type scope the site renders in: `text-sm` is 13px
  * in prose and 14px inside `.font-mono`.
  *
  * This module classifies. The test file is the assertion.
@@ -328,7 +328,7 @@ export function staleNamed(
 }
 
 /**
- * The declared size of `rung` on `scope`'s ladder.
+ * The declared size of `rung` on `scope`'s type ladder.
  *
  * The nine running-text rungs are declared twice: sans on `@theme`, mono
  * sizes on `.font-mono, code, kbd, pre, samp`. Nothing below `xs` exists
@@ -337,7 +337,7 @@ export function staleNamed(
  * mono column yields 14px.
  *
  * @param rung - a type-scale name (`sm`, `xs`, …)
- * @param scope - which face's ladder to read
+ * @param scope - which type scope's ladder to read
  */
 export function rungSize(rung: string, scope: 'sans' | 'mono'): string | undefined {
   const name = `--text-${rung}`

@@ -1,6 +1,6 @@
 ---
 name: slice
-description: Cuts a stakeholder-ready view out of an existing service blueprint — one actor's journey, one moment across every lane, one lane end to end, or one cell read closely — and writes it back as a slice the app can present. Use when the user asks to "pull out the customer's journey", "show what everyone is doing at check-in", "make a storyboard from the blueprint", "what does the support team own", "turn this blueprint into something I can show the client/exec/team", or mentions a slice, journey summary, lane spec, cell brief, or storyboard of a blueprint that already exists. Requires an imported, signed-off blueprint — for creating or importing the blueprint itself, use the ub:map skill instead.
+description: Blueprint slice — cut a stakeholder view out of an imported, signed-off blueprint: one actor's journey, one moment across every lane, one lane end to end (what a team owns), one cell brief, or a slide-by-slide walkthrough, text or illustrated, for a client or exec; writes it back as a slice the app presents, and refreshes one whose cells changed. Building the blueprint → ub:map.
 ---
 
 # Blueprint Slices
@@ -15,14 +15,7 @@ It selects, orders, captions, and cites. Every claim points at a cell key.
 Regenerating a slice is therefore cheap and safe, which is the whole reason
 a slice is worth storing separately from the board at all.
 
-All paths are relative to the plugin root — Claude Code's
-`${CLAUDE_PLUGIN_ROOT}`; anywhere else, the repository or workspace root: this
-skill's own materials (playbook, templates, schema, `slice_tools.py`) live
-under `skills/slice/`, the shared core under `references/`, `scripts/`, and
-`agents/`; a scaffolded workspace carries the same files
-(workspaces scaffolded before this skill shipped may lack them — fall back
-to the plugin root, and suggest the upgrade recipe in
-`references/customization.md`).
+Paths resolve against the plugin root (`${CLAUDE_PLUGIN_ROOT}` in Claude Code) or the workspace root, per `AGENTS.md`.
 
 ## Entry-state detection (do this first)
 
@@ -32,50 +25,42 @@ selecting anything:
 | Entry state | Route |
 | --- | --- |
 | No workspace / no IR | Stop. This is the `ub:map` skill's job — a slice of nothing is a fabrication |
-| Workspace DB predates slices (`relation public.slices does not exist`) | Stop before any insert: apply the migrations that add the records about the board (`supabase/migrations/20260729120000_derived_layer.sql` onward — the filename keeps the spelling it shipped with) to the target, then resume — never hand-create the tables |
+| Workspace DB predates slices (`relation public.slices does not exist`) | Stop before any insert: apply the migrations that add the records about the board (`supabase/migrations/20260729120000_derived_layer.sql` onward) to the target, then resume — never hand-create the tables |
 | IR exists, scenario not signed off | Finish review first: a slice of unsigned IR cites cells review may still change |
 | Signed off, not imported | Import the scenario, then slice |
-| Imported, no slices yet | Read `skills/slice/references/slice-playbook.md`, then select |
+| Imported, no slices yet | Select |
 | Slices exist, user wants another | Select; reuse the existing slice keys' naming conventions |
 | Slices exist, user wants this one changed | Check `authorship` before touching it (playbook §6) |
-| Slice cites keys that no longer resolve | Stale after a key rename — re-select, re-apply prose. Never substitute a lookalike key |
+| Slice cites keys that no longer resolve | Stale after a key rename — re-select by the current keys, re-apply prose |
 | Text slices exist, user wants pictures | Storyboard sub-flow — `skills/slice/references/storyboard-prompts.md` |
 
-**Playbook gating**: read `skills/slice/references/slice-playbook.md` before executing any
-of these routes. It carries the selection rules, the framing defaults, and
-the regeneration branches this skill's correctness depends on.
+Read `skills/slice/references/slice-playbook.md` before executing any route; it carries the gates.
 
 ## Hard rules
 
 Everything else here is guidance you may adapt. These are where the system
 actually breaks:
 
-- ⚠ **REQUIRED — never write cells.** Slices write `slices` and
-  `slides`, nothing else. If a slice needs a cell that does not exist,
-  or an interaction the blueprint does not record, that is a blueprint edit:
-  hand it to the `ub:map` skill, re-sign, re-import, then
-  slice. A slice that asserts an unrecorded interaction is an invention
-  wearing a citation.
+- ⚠ **REQUIRED — slices write `slices` and `slides` only.** A missing cell
+  or interaction goes to `ub:map` as a blueprint edit: re-sign, re-import,
+  then slice.
 - ⚠ **REQUIRED — every claim traces to a cited cell.** Titles and
   captions may only say what the cells in that slide support. This is the
   single check `blueprint-reviewer` slice mode exists to run.
-- ⚠ **REQUIRED — no verbatim excerpts, ever.** Slices are written to
-  public-read tables and to docs that get shared. Reference evidence and
-  business_models by cell key or title; never paste excerpt text or figures.
-  Personas, never participants ("a first-week field technician", not a name).
+- ⚠ **REQUIRED — cite by cell key or title; describe personas.** Slices land
+  in public-read tables and shared docs, so evidence and business models are
+  referenced by key or title, and people appear as personas ("a first-week
+  field technician").
 - ⚠ **REQUIRED — validate before import.** `skills/slice/scripts/slice_tools.py validate`
   must exit 0. It catches unresolvable cell keys, duplicate cells, and
   multi-scenario slices — each of which renders as silently wrong rather
   than as an error.
-- ⚠ **REQUIRED — respect `authorship`.** `generated` regenerates freely;
-  `customized` needs explicit confirmation; `human` is never overwritten by
-  an agent.
+- ⚠ **REQUIRED — regenerate per `authorship`** — playbook §6.
 - ⚠ **REQUIRED — confirm the import target** (project ref / service id)
-  before any write, and never default-assume Supabase — the adapter rules in
-  `references/adapter-contract.md` apply to slices unchanged.
-- ⚠ **REQUIRED — secrets.** Image-model keys (Gemini `AIza…`, OpenAI `sk-…`)
-  live in a verified-gitignored `.env` only. Never on disk elsewhere, never
-  through chat.
+  before any write; `references/adapter-contract.md` §1 applies to slices
+  unchanged.
+- ⚠ **REQUIRED — secrets**, image-model keys included, follow
+  `references/adapter-contract.md` §7.
 
 ## The pipeline
 
@@ -96,7 +81,7 @@ reimplement its logic in-context.** Its cell-id derivation must agree
 byte-for-byte with the blueprint import, or the slice points at rows that do
 not exist.
 
-## The four questions, and their types
+## The questions, and their types
 
 | Question | Type |
 | --- | --- |

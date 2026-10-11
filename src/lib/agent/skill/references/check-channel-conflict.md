@@ -13,16 +13,13 @@ dependencies that fan out from one cell to multiple same-step targets.
 
 ## Finding shape
 One finding per (step × contested resource). cell_keys = the competing
-cells. Note names the actor/channel and the collision, by key. An actor
+cells. The summary names the actor/channel and the collision, by key. An actor
 required in N places at one step → warn; the spine actor blocked by it →
-critical. If the chain is unclear, dispatch impact-tracer on the
-suspected cells and cite its downstream list.
+critical. If the chain is unclear, walk it yourself by the Method in
+`agents/impact-tracer.md` (visited set, depth cap 8) and cite the
+downstream keys.
 
 ## Impact and effort
-Rate both on every finding, from the anchors below. Pick the level whose
-anchor the finding matches most closely; between two, rate impact the lower
-and effort the higher — a finding has to earn Do first.
-
 | Level | Impact — how much resolving the collision matters | Effort — how much work resolving it takes |
 | --- | --- | --- |
 | low | Contention for a tool where a workaround is already normal, such as a shared inbox two people watch | Re-sequencing inside the step: the cells already allow one use after the other |

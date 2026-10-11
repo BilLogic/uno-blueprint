@@ -57,7 +57,7 @@
         "authorship": {
           "enum": ["generated", "customized", "human"],
           "default": "generated",
-          "description": "generated = agent-authored, safe to regenerate in place. customized = agent-authored then hand-edited; regeneration needs explicit confirmation. human = authored in the app; agents never overwrite it."
+          "description": "Who last authored the slice; what each value allows on regeneration is skills/slice/references/slice-playbook.md §6."
         },
         "position": {
           "type": "integer",

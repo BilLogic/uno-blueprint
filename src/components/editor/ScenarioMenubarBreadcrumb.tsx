@@ -30,7 +30,7 @@ type ScenarioMenubarBreadcrumbProps = {
  * The scenario header's trail, and the header's ONLY title.
  *
  * `Phase › Scenario` on one baseline, both crumbs on the list's one rung
- * (13px on this ladder) with the vendored 14px chevron between them. The
+ * (13px on the type ladder) with the vendored 14px chevron between them. The
  * current crumb is not a quieter echo of a title printed beside it — it IS the
  * title. The header used to render the phase as a lone 12px grey word next to
  * a separate 14px title, which said the same name twice and read as a floating

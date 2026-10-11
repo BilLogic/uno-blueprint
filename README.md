@@ -120,6 +120,7 @@ A hosted project, the exposure note table by table, any other Postgres host thro
 | [02 — Using it in practice](./docs/guide/02-using-it-in-practice.md) | The designer or PM fitting it into their week | What a team does with it, day to day |
 | [03 — The plugin](./docs/guide/03-the-plugin.md) | The adopter installing it, the engineer extending it | How the skills and agents work, and what lands on disk |
 | [04 — Operations](./docs/guide/04-operations.md) | Whoever runs it | Who may do what, and what happens when it changes |
+| [05 — Customizing a deployment](./docs/guide/05-customizing-a-deployment.md) | The engineer fitting it to one organisation | Theming, config fields, composition claims, agent search, bundling |
 
 Every other document is in [INDEX.md](./INDEX.md); the checks to run before pushing are in [SETUP.md § Before you push](./SETUP.md#before-you-push), every guard CI runs is in [docs/engineering/checks.md](./docs/engineering/checks.md), and the repo map is in [docs/overview.md](./docs/overview.md#the-repository-at-the-top-level).
 

@@ -14,20 +14,27 @@
  * says which side it means rather than saying "here".
  *
  * WHAT COUNTS AS ALWAYS-LOADED. A file is in this tier when the harness hands
- * it to the session without the session choosing. On both sides that is
- * `AGENTS.md` and nothing else: neither repository tracks a `CLAUDE.md` or a
- * `.claude/` bundle at its root, and no prompt assembler builds one.
+ * it to the session without the session choosing. On both sides the one
+ * whole file in it is `AGENTS.md`: neither repository tracks a `CLAUDE.md` or
+ * a `.claude/` bundle at its root, and no prompt assembler builds one.
  *
- * A plugin manifest is the near miss, and it is OUT on purpose. The template
- * ships one, because the template IS the plugin; a deployment ships none of
- * its own, because it installs the package rather than publishing a plugin.
- * Where a manifest exists it is read by the plugin HOST at install time, to
- * learn the plugin's name, version and where its skills live; nothing puts
- * its bytes in front of a session. What the host does hand a session from it
- * is skill FRONTMATTER, and a skill's frontmatter is loaded because the
- * session invoked that skill — a branch, not a boot. So a manifest is a fact
- * about installation, and the tier is a fact about context, which is why the
- * list below is the same on both sides.
+ * DESCRIPTIONS ARE IN, as a second census. A plugin host that loads skills
+ * and agents — Claude Code is one — puts every skill's and every agent's
+ * frontmatter `description` in front of the session on every turn, so that
+ * the session can decide to reach for one. The body loads when the pointer
+ * fires; the description is the pointer, and it is paid for whether or not it
+ * fires. So the `description` field of each `skills/<skill>/SKILL.md` and each
+ * `agents/<agent>.md` is counted, and nothing else in those files. It is a
+ * separate census from the router's because it has its own budget: the two
+ * shrink for different reasons, and one number over both would let a cut in
+ * one hide growth in the other. A repository holding no skills or agents of
+ * its own counts none, and holds that census at zero.
+ *
+ * A plugin manifest is the near miss, and it is OUT on purpose. The plugin
+ * host reads it at install time, to learn the plugin's name, version and
+ * where its skills live; nothing puts its bytes in front of a session. So a
+ * manifest is a fact about installation, and the tier is a fact about
+ * context.
  *
  * WHAT ELSE IS DELIBERATELY OUT, and why each is a Tier-2 read rather than an
  * omission:
@@ -40,9 +47,9 @@
  *     budget on the router meaningless.
  *   - a `README.md`, and any contributor or security policy beside it,
  *     addresses a human arriving at the repository.
- *   - a skill's own `SKILL.md`, and the reference documents it reads, load
- *     when that skill is invoked, which is the whole point of the routing
- *     table.
+ *   - a skill's own `SKILL.md` below its frontmatter, an agent's prompt, and
+ *     the reference documents either reads, load when the description fires,
+ *     which is the whole point of the description.
  *   - a hook — the secret guard is one — runs. It is executed, never read
  *     into context.
  *
@@ -58,3 +65,45 @@ export const ALWAYS_LOADED = ['AGENTS.md']
 
 /** What the reports say they counted, so a number is never printed bare. */
 export const TIER_NOUN = 'always-loaded tier'
+
+/** The files whose frontmatter description is always loaded: one per skill, one per agent. */
+export const DESCRIBED = /^(?:skills\/[^/]+\/SKILL|agents\/[^/]+)\.md$/
+
+/** What the description census is called wherever it is printed. */
+export const DESCRIPTIONS_NOUN = 'skill and agent descriptions'
+
+/**
+ * A document's frontmatter `description`, or null when it carries none.
+ *
+ * The value as the host hands it over. A plain value is one line plus any
+ * indented continuation lines, folded onto it with a single space. A YAML
+ * block scalar reads the same way: `>` folds its lines with a space, `|`
+ * keeps each line break, and a chomping indicator after either (`>-`, `|+`)
+ * changes only trailing newlines, which a description never carries.
+ */
+export function descriptionOf(text) {
+  const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)
+  if (!front) return null
+  const lines = front[1].split(/\r?\n/)
+  const at = lines.findIndex((line) => /^description:/.test(line))
+  if (at === -1) return null
+  const head = lines[at].replace(/^description:\s*/, '')
+  const block = /^([>|])[-+]?$/.exec(head)
+  const parts = block ? [] : [head]
+  for (const line of lines.slice(at + 1)) {
+    if (!/^\s+\S/.test(line)) break
+    parts.push(line.trim())
+  }
+  return parts.join(block?.[1] === '|' ? '\n' : ' ').trim()
+}
+
+/**
+ * Every always-loaded description in a swept tree: `{ file, text }`, sorted by
+ * path. `tier` is the `docs` sweep the caller already holds.
+ */
+export function descriptionsIn(tier) {
+  return tier.files
+    .filter((rel) => DESCRIBED.test(rel))
+    .map((rel) => ({ file: rel, text: descriptionOf(tier.read(rel) ?? '') }))
+    .filter((one) => one.text !== null)
+}

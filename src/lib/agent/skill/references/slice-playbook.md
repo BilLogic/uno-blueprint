@@ -64,21 +64,16 @@ Defaults worth knowing: one frame per step; `--path` defaults to the
 scenario's first path; a lane's empty intersections are skipped rather than
 framed blank.
 
+Done when the user approves the frame list (steps × cells), shown as a table.
+
 ## 3. Write the prose
 
 Per frame: a title (the moment) and a caption (what happens, and what it
 costs the actor). Per slice: a title and a summary that says who it is
 for and what question it answers.
 
-Rules that are not style preferences:
-
-- **Cite, never quote.** Slices land in public-read tables. Reference
-  evidence by cell key or title; never paste an interview excerpt or a
-  proposition figure into a title, caption, or doc.
-- **Personas, not people.** "A first-week field technician", never a participant's name,
-  employer, or contact string.
-- **No claim without a cell.** If a sentence cannot point at a cell in its own
-  frame, delete the sentence or add the cell.
+The citing, persona and traced-claim rules are `skills/slice/SKILL.md`
+§ Hard rules; they bind every title, caption and doc.
 
 Merge slides when two steps are one moment for the actor; split when one step
 hides two. Frame count is an editorial choice — cell membership is not.
@@ -141,9 +136,4 @@ before the first upload of a slice.
 
 ## Exit conditions
 
-| Step | Condition |
-| --- | --- |
-| Selection | `slice_tools.py validate` exit 0 |
-| Review | `blueprint-reviewer` in slice mode passes: every claim traces to a cited cell, no invented interactions, no verbatim excerpts |
-| Import | Transaction committed + read-back counts match the file |
-| Present | `render-checker` confirms `?slice=<id>` renders every frame |
+The exit table is `skills/slice/SKILL.md` § Deterministic exit conditions.

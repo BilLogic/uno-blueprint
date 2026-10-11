@@ -33,7 +33,10 @@
  * identifier, and `Say "I don't know"` is an instruction TO do something.
  *
  * SCOPE is the always-loaded tier — the files in `scripts/always-loaded.mjs`,
- * which cost every session their whole length before any task begins.
+ * which cost every session their whole length before any task begins, and
+ * every skill and agent frontmatter description, which costs every turn the
+ * same way. A description scores under its file's name with ` (description)`
+ * after it, and counts as one file measured.
  * Everything else loads when a pointer fires, and the decision records are
  * append-only: a record saying "X is not reversible" ADDS prohibitions by
  * doing its job, so a ratchet over them would rise by construction.
@@ -56,7 +59,7 @@
  *
  * Run: node scripts/check-negation-ratchet.mjs   (also: npm run check:negation)
  */
-import { ALWAYS_LOADED, TIER_NOUN } from './always-loaded.mjs'
+import { ALWAYS_LOADED, TIER_NOUN, descriptionsIn } from './always-loaded.mjs'
 import { repoConfig } from './repo-config.mjs'
 import { sweep } from './sweep.mjs'
 import { whenRun } from './verdict.mjs'
@@ -69,7 +72,7 @@ export const PROHIBITION_TOKENS = ['never', "don't", 'do not', 'cannot', 'must n
 export const METRIC = 'prohibition tokens'
 
 /** The baseline: what the tier scored when this repository last recorded it. */
-export const RECORDED = repoConfig.router.prohibitions
+export const RECORDED = repoConfig.prohibitions
 
 const PROHIBITION = new RegExp(`\\b(${PROHIBITION_TOKENS.join('|')})\\b`, 'gi')
 const stripQuoted = (text) => text.replace(/"[^"\n]*"/g, '""').replace(/`[^`\n]*`/g, '``')
@@ -105,7 +108,13 @@ export function measure(root = process.cwd(), files = ALWAYS_LOADED) {
     if (n > 0) counts[rel] = n
     total += n
   }
-  return { files: files.length, counts, total }
+  const described = descriptionsIn(tier)
+  for (const one of described) {
+    const n = countProhibitions(one.text)
+    if (n > 0) counts[`${one.file} (description)`] = n
+    total += n
+  }
+  return { files: files.length + described.length, counts, total }
 }
 
 /**
@@ -124,7 +133,7 @@ export function verdict({ files, counts, total }, recorded = RECORDED) {
         `${recorded.files} this count was recorded over.\n` +
         '  -> A ratchet fails only when the count RISES, so a tier that lost a file passes\n' +
         '     every time, and passes with a SMALLER number that reads like progress. If a\n' +
-        '     file left the tier on purpose, re-record router.prohibitions in\n' +
+        '     file left the tier on purpose, re-record prohibitions in\n' +
         '     scripts/repo-config.mjs and say which, and why.',
     )
   } else if (total > recorded.tokens) {
@@ -133,7 +142,7 @@ export function verdict({ files, counts, total }, recorded = RECORDED) {
         '  -> state the target behaviour instead of banning its opposite. A ban that is a real\n' +
         '     guardrail keeps its place — a rule that holds for every skill is that category —\n' +
         '     but pair it with the positive so attention lands on what to do. If the rise is\n' +
-        '     deliberate, raise router.prohibitions.tokens in scripts/repo-config.mjs and say why.',
+        '     deliberate, raise prohibitions.tokens in scripts/repo-config.mjs and say why.',
     )
   }
   const fell = total < recorded.tokens
@@ -143,7 +152,7 @@ export function verdict({ files, counts, total }, recorded = RECORDED) {
       `[negation] ${total} ${METRIC} (${PROHIBITION_TOKENS.join(' / ')}) across the ` +
       `${TIER_NOUN}, against a recorded ${recorded.tokens} — ${census}` +
       (fell
-        ? `. Down ${recorded.tokens - total}: lower router.prohibitions.tokens in ` +
+        ? `. Down ${recorded.tokens - total}: lower prohibitions.tokens in ` +
           `scripts/repo-config.mjs to ${total}.`
         : '.'),
   }

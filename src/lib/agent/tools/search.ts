@@ -83,10 +83,14 @@ function searchRpc(
    */
   signal?: AbortSignal,
 ): Promise<SearchResponse> {
-  const call = client.rpc as unknown as (
-    name: 'search_blueprint',
-    args: SearchBlueprintArgs,
-  ) => { abortSignal(signal: AbortSignal): PromiseLike<SearchResponse> } & PromiseLike<SearchResponse>
+  // Bound, because supabase-js's `rpc` is a method that reads `this.rest`: a
+  // detached copy throws before any request goes out.
+  const call = (
+    client.rpc as unknown as (
+      name: 'search_blueprint',
+      args: SearchBlueprintArgs,
+    ) => { abortSignal(signal: AbortSignal): PromiseLike<SearchResponse> } & PromiseLike<SearchResponse>
+  ).bind(client)
   const builder = call('search_blueprint', args)
   return Promise.resolve(signal ? builder.abortSignal(signal) : builder)
 }

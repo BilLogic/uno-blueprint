@@ -455,6 +455,69 @@ describe('searchBlueprint when the meaning arm cannot run', () => {
   })
 })
 
+/*
+ * supabase-js's `rpc` is a METHOD: it reaches the request builder through
+ * `this.rest`. The arrow-function fakes above never touch `this`, so a call
+ * that drops the receiver passes them all and fails on every real client. This
+ * fake is shaped like the real one — a class whose `rpc` reads an instance
+ * field — so a detached call throws here exactly as it does in a browser.
+ */
+class ReceiverReadingClient {
+  readonly calls: RpcCall[] = []
+  private readonly rest: {
+    call: (
+      name: string,
+      args: Record<string, unknown>,
+    ) => { abortSignal: (signal: AbortSignal) => Promise<unknown> } & PromiseLike<unknown>
+  }
+
+  constructor(answers: Array<{ data: unknown; error: { message: string } | null }>) {
+    let index = 0
+    this.rest = {
+      call: (name, args) => {
+        this.calls.push({ name, args })
+        const answer = answers[Math.min(index, answers.length - 1)]
+        index += 1
+        return {
+          abortSignal: () => Promise.resolve(answer),
+          then: (onF, onR) => Promise.resolve(answer).then(onF, onR),
+        }
+      },
+    }
+  }
+
+  rpc(name: string, args: Record<string, unknown>) {
+    return this.rest.call(name, args)
+  }
+}
+
+describe('searchBlueprint calls rpc as a method of its client', () => {
+  it('keeps the client as the receiver on the first call', async () => {
+    const fake = new ReceiverReadingClient([{ data: [ROW], error: null }])
+    const text = await searchBlueprint(fake as unknown as SupabaseClient<Database>, {
+      query: 'q',
+    })
+    expect(fake.calls).toHaveLength(1)
+    expect(text).toContain('cell-1')
+  })
+
+  it('keeps the client as the receiver on the retry without the vector', async () => {
+    stubEmbed()
+    const fake = new ReceiverReadingClient([
+      { data: null, error: { message: 'embedding model mismatch' } },
+      { data: [ROW], error: null },
+    ])
+    const text = await searchBlueprint(fake as unknown as SupabaseClient<Database>, {
+      query: 'q',
+      meaning: { index: GOOGLE_INDEX, apiKey: KEY },
+      signal: new AbortController().signal,
+    })
+    expect(fake.calls).toHaveLength(2)
+    expect(fake.calls[1].args.embed_model).toBeUndefined()
+    expect(text).toContain('cell-1')
+  })
+})
+
 describe('searchBlueprint argument guards', () => {
   it('refuses a rung outside the vocabulary before anything is embedded or read', async () => {
     const embed = stubEmbed()

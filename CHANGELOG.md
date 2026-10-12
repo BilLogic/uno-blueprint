@@ -1,5 +1,58 @@
 # Changelog
 
+## 2.8.5
+
+**An agent's slice write can no longer destroy a slice.** One mistyped cell id
+used to leave an empty slice behind on create, or wipe every slide on replace,
+because each write was several requests. Creating a slice, replacing its slides
+and undoing that replace are now one database function each, all-or-nothing.
+The agent's slice tools refuse a malformed or unknown cell id, or another
+service's slice, before they write, and a failed write shows the model the
+database's own text instead of "the details are in the console". A repeat read
+the loop declines now reads as neutral rather than as a failure. Two UI fixes
+ride along: Send and Stop sit inside the composer field, and the menubar hugs
+its content with `py-2`, with even room above and below.
+
+### Upgrading a deployment
+
+- **Apply two migrations before deploying:**
+  `21000304000000_a_slice_write_is_all_or_nothing.sql` (`create_slice`,
+  `replace_slides`) and `21000305000000_undoing_a_slice_replace_is_all_or_nothing.sql`
+  (`restore_slides`). Until they are applied, every slice create, slide save
+  and slide-save undo fails with "could not find the function", and nothing is
+  written. Neither moves rows.
+- **Then bump the pin.** No other change is needed.
+
+### Patch Changes
+
+- 47b393c: A slice write is all-or-nothing: a failed replace no longer empties the slice. Replacing a slice's slides used to delete them all and then insert the new set as a separate request, so an insert refused by one bad cell id left the slice with no slides; creating a slice inserted the row and then its slides, so the same refusal left an empty slice behind. Both now go through one database function each, `replace_slides` and `create_slice`, which write in one transaction: a refusal leaves the slice's prior slides and their image sets exactly as they were, and a refused create leaves no slice row. A cell that is not an id is refused in a sentence naming the slide. The editor's Save and the agent's slice tools both take the new path, and the change list and its undo behave as before — the undo of a replace now puts back the slides as the database held them when it removed them.
+
+  Upgrading a deployment: apply the migration `21000304000000_a_slice_write_is_all_or_nothing.sql` (`supabase db push`, or your usual migration step) before deploying this version. Until it is applied, every slice create and every slide save fails with "could not find the function", and nothing is written. It defines the two functions and their grants and moves no rows.
+
+- 47b393c: A suppressed repeat read renders as neutral, not as an error: the row the agent leaves when it declines to re-run a read the turn already answered now carries a muted minus icon in the row's usual colour, where it used to wear the red error icon and red tool name, so a turn that behaved correctly no longer reads as failing. Tool rows gain an optional `suppressed` field for this, separate from `isError`; genuine tool failures still render as errors. A suppressed row saved before the field existed is recognised by its summary and renders neutral too.
+
+  Upgrading a deployment: nothing to do.
+
+- 47b393c: The agent's slice write tools refuse malformed or unknown cell ids before they write. `create_slice` and `replace_slides` now check every cell id first. An id that is not in the 8-4-4-4-12 hex form is refused without asking the database. A well-formed id must name a cell under the active service. The refusal names each bad id and tells the model to copy ids verbatim from `get_slice` or `list_blueprint`. Before this, a seeded id copied with zeros dropped reached Postgres, which refused the uuid cast in the middle of a write that had already partly landed. `replace_slides` now needs an active service, as `create_slice` already did, and `replace_slides` and `update_slice` refuse a slice that is not the active service's before they write, pointing the model at `list_slices`. The eval harness's rehearsal client now answers the cell existence check — a select from `cells` that names its rows by `in('id', …)` — with those rows, so a rehearsed slice write still finds its cells.
+
+  Upgrading a deployment: nothing to do.
+
+- 47b393c: The agent sees the database's own text when a write fails. A refused write still shows a person the friendly sentence, but the tool result the model reads now carries the database's text beside it, as `Error: <sentence> (database: <raw>)`. Before, an untranslatable failure reached the model only as "The details are in the console", which it cannot open, so it re-read and retried blind. The transcript row keeps the sentence as its summary, and its expandable detail shows the same answer the model got. Failures that are not authoring errors are unchanged.
+
+  Upgrading a deployment: nothing to do.
+
+- 47b393c: The composer's Send button sits inside the field. It is anchored to the field's bottom-right corner, so it stays beside the last line as a draft grows, and the field's text wraps before it in both the field and the coloured copy behind it. While a turn runs, Stop takes the same slot instead of standing outside the field. Keyboard behaviour, disabled states, tooltips and labels are unchanged, and an empty draft no longer dims the whole field just because Send is disabled.
+
+  Upgrading a deployment: nothing to do.
+
+- 47b393c: The menubar hugs its content: the service, phase and scenario bars drop their fixed `h-[3.25rem]` for `py-2` around the identity block's pinned two-line height, and the room above the title now matches the room below the description (9px each, up from roughly 8px above and 4px below). The bar is 56px plus its border and holds that height with or without a summary line. The cell-detail drawer's fallback top follows the new height. A bar showing only a summary line, such as a failure or "No database connected", keeps that line centred.
+
+  Upgrading a deployment: nothing to do.
+
+- 47b393c: Undoing a slice replace is all-or-nothing too: a failed undo no longer empties the slice. The undo of a slide save used to read the slice's slides, delete them, and insert the captured ones as separate requests, so an insert refused after the delete left the slice with nothing. It now goes through one database function, `restore_slides`, which writes the captured slides and their image sets back verbatim, ids and timestamps included, in one transaction, and names the slides it dropped so their uploads are swept after it commits. A slide save whose reply carries no usable capture is still reported as saved, because it was, and records the slides read just before the write as its undo. Separately, a suppressed repeat-read row saved before the `suppressed` field existed now renders neutral rather than as an error, is not tagged "(error)" in a past session the agent reads back, and does not open a folded run of steps as a failure.
+
+  Upgrading a deployment: apply the migration `21000305000000_undoing_a_slice_replace_is_all_or_nothing.sql` (`supabase db push`, or your usual migration step) before deploying this version. Until it is applied, undoing a slide save fails with "could not find the function", and nothing is written. It defines the function and its grants and moves no rows.
+
 ## 2.8.4
 
 **The lockfile resolves no package with a patched advisory.** Six Dependabot
@@ -10693,8 +10746,8 @@ accent: BRAND.accent }, content: { workspaceTitle: coverContent.title } }`. The
   constraint violation rather than as anything the authoring tools had said
   (#204):
 
-                                                                                                                                                                                                                                                        ERROR: new row for relation "lanes" violates check constraint
-                                                                                                                                                                                                                                                        "lanes_lane_role_check" … compliance_review
+                                                                                                                                                                                                                                                          ERROR: new row for relation "lanes" violates check constraint
+                                                                                                                                                                                                                                                          "lanes_lane_role_check" … compliance_review
 
   That error at least names the value. Meeting it after validation has passed is
   the wrong moment.

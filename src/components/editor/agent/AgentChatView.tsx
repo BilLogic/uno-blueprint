@@ -661,20 +661,7 @@ export function AgentChatView({
             </Command>
           </PopoverContent>
         </Popover>
-        <div ref={composerRowRef} className="flex items-end gap-2">
-          {running ? (
-            <IconTooltip label="Stop — whatever landed stays, revertible">
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="outline"
-                aria-label="Stop"
-                onClick={() => stopAgent(session.id)}
-              >
-                <Square className="size-3" aria-hidden />
-              </Button>
-            </IconTooltip>
-          ) : null}
+        <div ref={composerRowRef} className="flex">
           {/* ONE field, the DS's own: the input group draws the border and
               the focus treatment (a single soft ring on the control, the same
               geometry every other input in the app has), and the recognised
@@ -764,21 +751,42 @@ export function AgentChatView({
                 : 'Add an API key in agent settings first'
             }
             disabled={!keyed}
+            // The field's own corner, and ONE button in it: Send is disabled
+            // for as long as a turn runs, so Stop takes its slot rather than
+            // standing beside a control that cannot be pressed.
+            action={
+              running ? (
+                <IconTooltip label="Stop — whatever landed stays, revertible">
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="outline"
+                    aria-label="Stop"
+                    onClick={() => stopAgent(session.id)}
+                  >
+                    <Square className="size-3" aria-hidden />
+                  </Button>
+                </IconTooltip>
+              ) : (
+                <IconTooltip label="Send">
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="default"
+                    aria-label="Send"
+                    disabled={
+                      !keyed ||
+                      sendBlocked ||
+                      (draft.trim() === '' && !attachment)
+                    }
+                    onClick={send}
+                  >
+                    <SendHorizontal className="size-3.5" aria-hidden />
+                  </Button>
+                </IconTooltip>
+              )
+            }
           />
-          <IconTooltip label="Send">
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="default"
-              aria-label="Send"
-              disabled={
-                !keyed || sendBlocked || (draft.trim() === '' && !attachment)
-              }
-              onClick={send}
-            >
-              <SendHorizontal className="size-3.5" aria-hidden />
-            </Button>
-          </IconTooltip>
         </div>
       </div>
     </div>

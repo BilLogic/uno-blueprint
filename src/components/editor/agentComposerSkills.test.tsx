@@ -502,6 +502,28 @@ describe('a token that nearly names a skill', () => {
     expect((composer as HTMLTextAreaElement).value).toBe(NEAR)
   })
 
+  it('keeps Send inside the field, and gives its slot to Stop during a run', async () => {
+    // One corner of the field holds the button that acts on the draft. Send
+    // is disabled mid-run anyway, so Stop takes its place rather than
+    // standing outside the field beside it.
+    let release = () => {}
+    provider.hold = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const composer = openComposer()
+    const group = composer.closest('[data-slot="input-group"]') as HTMLElement
+    type(composer, 'say hello')
+    fireEvent.click(within(group).getByRole('button', { name: 'Send' }))
+    await vi.waitFor(() => expect(provider.inputs.length).toBe(1))
+    expect(within(group).getByRole('button', { name: 'Stop' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Send' })).toBeNull()
+    release()
+    await vi.waitFor(() =>
+      expect(within(group).getByRole('button', { name: 'Send' })).toBeTruthy(),
+    )
+    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull()
+  })
+
   it('drops the question when the reader edits the draft it was about', async () => {
     // The question was about the draft as it stood, and its misses carry
     // offsets into that exact string. Left standing across an edit, the next

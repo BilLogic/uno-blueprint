@@ -21,7 +21,7 @@
  * `agentComposerSkills.test.tsx` — only the near-miss rewrite produces an
  * offset a jsdom assertion can tell apart from the value setter's own.
  */
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -44,7 +44,7 @@ import {
  * from the slash menu does. It is here rather than in the module because the
  * menu is the panel's and the rewrite is `skills.ts`'s.
  */
-function Harness() {
+function Harness({ action }: { action?: ReactNode }) {
   const [draft, setDraft] = useState('')
   const [caret, setCaret] = useState<number | null>(null)
   return (
@@ -69,12 +69,13 @@ function Harness() {
         setCaret(completed.caret)
       }}
       placeholder="Message the agent…"
+      action={action}
     />
   )
 }
 
-const openField = (): HTMLTextAreaElement => {
-  render(<Harness />)
+const openField = (action?: ReactNode): HTMLTextAreaElement => {
+  render(<Harness action={action} />)
   return screen.getByRole('textbox', {
     name: 'Message the agent',
   }) as HTMLTextAreaElement
@@ -150,7 +151,8 @@ describe('the field and its mirror wear one agreement', () => {
     // group's own `has-[>[data-align=...]]` rules and leaves the mirror full
     // width: every line from the first wrap down breaks somewhere else and
     // the colour drifts off the caret. The module renders the group itself
-    // and takes no children, so there is no add-on a caller can put there.
+    // and takes no children; the one add-on it places, the action, goes
+    // beside this box, which is pinned below.
     const field = openField()
     type(field, 'Hey can u /ub:audit the intake')
     const box = mirror()!.parentElement!
@@ -169,6 +171,36 @@ describe('the field and its mirror wear one agreement', () => {
     const field = openField()
     const group = field.closest('[data-slot="input-group"]')!
     expect(classesOn(group)).toContain('h-auto')
+  })
+})
+
+describe('the action sits inside the field', () => {
+  const sendButton = <button type="button" aria-label="Send" />
+
+  it('puts the action inside the group, after the box both copies measure', () => {
+    // Inside the border, so the field reads as one control with its button.
+    // A SIBLING of the positioned box, never inside it: the group's row is
+    // what narrows, so the field and the mirror lose the same width to the
+    // button and text wraps before reaching it in both copies alike.
+    const field = openField(sendButton)
+    type(field, 'Hey can u /ub:audit the intake')
+    const group = field.closest('[data-slot="input-group"]')!
+    const send = within(group as HTMLElement).getByRole('button', {
+      name: 'Send',
+    })
+    const slot = send.parentElement!
+    expect(slot.parentElement).toBe(group)
+    expect(slot.dataset.align).toBe('inline-end')
+    expect(slot.contains(mirror())).toBe(false)
+    expect(mirror()!.parentElement!.parentElement).toBe(group)
+  })
+
+  it('anchors the action to the bottom corner as the field grows', () => {
+    // The group centres its row; a draft that wraps must keep the button
+    // beside its last line, not floating halfway up the message.
+    openField(sendButton)
+    const slot = screen.getByRole('button', { name: 'Send' }).parentElement!
+    expect(classesOn(slot)).toContain('self-end')
   })
 })
 

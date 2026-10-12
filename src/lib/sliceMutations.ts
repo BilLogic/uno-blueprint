@@ -135,44 +135,62 @@ export type NewSlice = {
  * honest reading of a selection made by clicking cells one at a time, and
  * merging them afterwards is one click in the editor.
  *
- * The two inserts are not one transaction (PostgREST has no multi-statement
- * write). The slice row is therefore inserted first and the slides second: a
- * failure between them leaves an empty slice, which is visible and
- * deletable — the reverse order would leave orphan slides pointing at
- * nothing.
+ * One RPC, `create_slice`, writes the row and the slides in one transaction.
+ * As two requests a refused slide insert left an empty slice behind, and an
+ * agent's one mistyped cell id was enough to do it.
  */
 export async function createSlice(
   client: Client,
   input: NewSlice,
 ): Promise<Slice> {
-  const { data, error } = await client
-    .from('slices')
-    .insert({
-      service_id: input.serviceId,
-      title: input.title.trim(),
-      summary: input.summary.trim() || null,
-      kind: input.sliceKind,
-      actor: input.actor.trim() || null,
-      authorship: 'human',
-    })
-    .select()
-    .single()
-  if (error) throw toAuthoringError(error)
-
   const slides: DraftSlide[] =
     input.slides?.map((slide) => ({ ...slide })) ??
     input.cellIds.map((cellId) => ({ cells: [cellId], title: '', caption: '' }))
 
-  // `record: false` — the create is ONE change in the ledger, not a create
-  // followed by a slide replacement of nothing. Its inverse deletes the slice,
-  // which takes the slides with it.
-  await replaceSlides(client, data.id, slides, { record: false })
+  const { data, error } = await client.rpc('create_slice', {
+    p_service_id: input.serviceId,
+    p_title: input.title.trim(),
+    p_summary: input.summary.trim(),
+    p_kind: input.sliceKind,
+    p_actor: input.actor.trim(),
+    // A new slice has no prior slides to carry an image set from.
+    p_slides: slides.map((slide) => plannedSlide(slide, undefined)),
+  })
+  if (error) throw toAuthoringError(error)
+  const slice = data as unknown as Slice
+
+  sliceWritten(slice.id)
+  // ONE change in the ledger, not a create followed by a slide replacement of
+  // nothing. Its inverse deletes the slice, which takes the slides with it.
   recordChange(
     'create_slice',
-    { slice_id: data.id, title: data.title },
-    { fn: 'delete_slice_row', args: { slice_id: data.id } },
+    { slice_id: slice.id, title: slice.title },
+    { fn: 'delete_slice_row', args: { slice_id: slice.id } },
   )
-  return data
+  return slice
+}
+
+/**
+ * One slide as `replace_slides` and `create_slice` take it: the cells, the
+ * words, and the image set it carries — decided here, from the row it
+ * replaces, so the database writes what it is sent.
+ *
+ * `cell_keys` is written as the cell ids themselves. Human-authored slices
+ * have no IR key path to record — the slice skill fills real key paths when
+ * it generates one. The column is a recovery trail, and an id is a better
+ * trail than an empty array.
+ */
+function plannedSlide(slide: DraftSlide, prior: CapturedSlide | undefined) {
+  const carried = imageSetCarriedOntoReplacedSlide(prior, slide.cells)
+  return {
+    ...(prior ? { id: prior.id } : {}),
+    cell_ids: [...slide.cells],
+    cell_keys: [...slide.cells],
+    title: slide.title.trim() || null,
+    caption: slide.caption.trim() || null,
+    shows_all_images: carried.showsAllImages,
+    images: carried.members,
+  }
 }
 
 /**
@@ -183,22 +201,21 @@ export async function createSlice(
  * through unless every move is staged. Replacing sidesteps the whole class of
  * problem, and a slice has tens of slides, not thousands.
  *
- * `cell_keys` is written as the cell ids themselves. Human-authored slices
- * have no IR key path to record — the slice skill fills real key paths when
- * it generates one. The column is a recovery trail, and an id is a better
- * trail than an empty array.
+ * **The delete and the insert are one transaction.** `replace_slides` does
+ * both, with the slides' `slide_images`, so a refused insert — one bad cell
+ * id — leaves the slice exactly as it was. As separate requests the delete
+ * stood and the slice was left with nothing.
  *
- * **The prior rows are read before the delete and carried as the inverse.**
- * This is the most destructive write in the file — it removes every slide of
- * a slice — and it is reachable both from the editor's Save and from the
- * agent's `replace_slides` tool. Without the capture there was no ledger
- * row, no revert control, and nothing counted against the destructive-save
- * gate: an agent told to "reorder the slides" could empty a slice and the
- * change sheet would show that nothing had happened.
+ * **The prior rows are carried as the inverse.** This is the most destructive
+ * write in the file — it removes every slide of a slice — and it is reachable
+ * both from the editor's Save and from the agent's `replace_slides` tool.
+ * Without the capture there was no ledger row, no revert control, and
+ * nothing counted against the destructive-save gate. The capture is the one
+ * the function returns, taken under its lock, not the read below: that read
+ * only decides which image set each replacement slide carries.
  *
- * `record: false` is for callers that own a coarser entry — `createSlice`,
- * whose own inverse already takes the slides with it, and the revert path,
- * which must not log its own undo.
+ * `record: false` is for callers that own a coarser entry, and for the revert
+ * path, which must not log its own undo.
  *
  * Dropped slides leave their upload folders in the bucket. The inverse
  * captures those `image_url`s, and `restore_slides` writes them back
@@ -213,73 +230,36 @@ export async function replaceSlides(
 ): Promise<void> {
   const record = options?.record !== false
 
-  // Before the delete, or there is nothing left to capture. Ordered so the
-  // restored rows go back in the order they were read, which is the order
-  // `position` already encodes. The same read carries each authored image
-  // set onto the replacement row that still names that slide.
+  // Each authored image set is carried onto the replacement slide that still
+  // names its slide.
   const { data, error } = await client
     .from('slides')
     .select('*, slide_images(*)')
     .eq('slice_id', sliceId)
     .order('position', { ascending: true })
   if (error) throw toAuthoringError(error)
-  const existing = (data ?? []).map(asSlideWithImages)
-  const previous: CapturedSlide[] = record ? existing : []
+  const existing: CapturedSlide[] = (data ?? []).map(asSlideWithImages)
 
-  const { error: deleteError } = await client
-    .from('slides')
-    .delete()
-    .eq('slice_id', sliceId)
-  if (deleteError) throw toAuthoringError(deleteError)
-
-  if (slides.length > 0) {
-    const planned = slides.map((slide, position) => {
-      const prior = slide.id ? existing.find((row) => row.id === slide.id) : undefined
-      const carried = imageSetCarriedOntoReplacedSlide(prior, slide.cells)
-      return {
-        row: {
-          ...(prior ? { id: prior.id } : {}),
-          slice_id: sliceId,
-          position,
-          cell_ids: [...slide.cells],
-          cell_keys: [...slide.cells],
-          title: slide.title.trim() || null,
-          caption: slide.caption.trim() || null,
-          shows_all_images: carried.showsAllImages,
-        },
-        members: carried.members,
-      }
-    })
-
-    const { data: inserted, error: insertError } = await client
-      .from('slides')
-      .insert(planned.map((item) => item.row))
-      .select('id, position')
-    if (insertError) throw toAuthoringError(insertError)
-
-    const imageRows = planned.flatMap((item) => {
-      const copied = (inserted ?? []).find((row) => row.position === item.row.position)
-      if (!copied || item.members.length === 0) return []
-      return item.members.map((member) => ({
-        slide_id: copied.id,
-        position: member.position,
-        cell_id: member.cell_id,
-        image_url: member.image_url,
-      }))
-    })
-    if (imageRows.length > 0) {
-      const { error: imageError } = await client.from('slide_images').insert(imageRows)
-      if (imageError) throw toAuthoringError(imageError)
-    }
-  }
+  const { data: replaced, error: replaceError } = await client.rpc('replace_slides', {
+    p_slice_id: sliceId,
+    p_slides: slides.map((slide) =>
+      plannedSlide(slide, slide.id ? existing.find((row) => row.id === slide.id) : undefined),
+    ),
+  })
+  if (replaceError) throw toAuthoringError(replaceError)
 
   sliceWritten(sliceId)
   // After the write, like every other entry: the ledger records what landed.
+  // A reply without its capture is still recorded — an entry without a revert
+  // is recoverable from, a missing entry is not.
   if (record) {
+    const previous = (replaced as { previous?: unknown } | null)?.previous
     recordChange(
       'replace_slides',
       { slice_id: sliceId, slide_count: slides.length },
-      { fn: 'restore_slides', args: { slice_id: sliceId, rows: previous } },
+      Array.isArray(previous)
+        ? { fn: 'restore_slides', args: { slice_id: sliceId, rows: previous as CapturedSlide[] } }
+        : undefined,
     )
   }
 }

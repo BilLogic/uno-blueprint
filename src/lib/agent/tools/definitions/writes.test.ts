@@ -358,12 +358,19 @@ describe('the slice writes', () => {
   it('create_slice refuses no cells, and reads description as summary for a model taught the old wire', async () => {
     await expect(write(createSliceTool, { title: 'Caller view', kind: 'journey', cell_ids: [] })).rejects.toThrow(/non-empty array/)
     expect(toolSpec(createSliceTool).parameters.properties).not.toHaveProperty('description')
-    const { calls, text, ledger } = await write(
+    const { rpcs, text, ledger } = await write(
       createSliceTool,
       { title: 'Caller view', kind: 'journey', cell_ids: ['c-1', 'c-2'], description: 'What the caller sees' },
-      { slices: sliceRow, slides: [] },
+      {},
+      () => sliceRow,
     )
-    expect(calls[0]!.ops[0]).toEqual(['insert', { service_id: 'svc-1', title: 'Caller view', summary: 'What the caller sees', kind: 'journey', actor: null, authorship: 'human' }])
+    expect(rpcs).toEqual([
+      {
+        fn: 'create_slice',
+        args: expect.objectContaining({ p_service_id: 'svc-1', p_title: 'Caller view', p_summary: 'What the caller sees', p_kind: 'journey', p_actor: '' }),
+      },
+    ])
+    expect(rpcs[0]!.args.p_slides).toMatchObject([{ cell_ids: ['c-1'] }, { cell_ids: ['c-2'] }])
     expect(text).toBe('Created slice "Caller view" (sl-1) with one slide per cell — replace_slides regroups them.')
     expect(ledger).toEqual(['create_slice'])
   })
@@ -382,12 +389,22 @@ describe('the slice writes', () => {
 
   it('replace_slides refuses an empty list and replaces the slides wholesale', async () => {
     await expect(write(replaceSlidesTool, { slice_id: 'sl-1', slides: [] })).rejects.toThrow(/non-empty array/)
-    const { text, calls, ledger } = await write(replaceSlidesTool, { slice_id: 'sl-1', slides: [{ cells: ['c-1', 'c-2'], title: 'Arrive' }, { cells: ['c-3'] }] }, { slides: [] })
-    const inserted = calls.find((call) => call.table === 'slides' && call.ops.some(([op]) => op === 'insert'))!
-    expect(inserted.ops.find(([op]) => op === 'insert')![1]).toMatchObject([
-      { slice_id: 'sl-1', position: 0, cell_ids: ['c-1', 'c-2'], title: 'Arrive' },
-      { slice_id: 'sl-1', position: 1, cell_ids: ['c-3'], title: null },
-    ])
+    const { text, calls, rpcs, ledger } = await write(
+      replaceSlidesTool,
+      { slice_id: 'sl-1', slides: [{ cells: ['c-1', 'c-2'], title: 'Arrive' }, { cells: ['c-3'] }] },
+      { slides: [] },
+      () => ({ slice_id: 'sl-1', slide_count: 2, previous: [] }),
+    )
+    // One RPC swaps the slides in a transaction; nothing is deleted or inserted by the client.
+    expect(calls.some((call) => call.ops.some(([op]) => op === 'delete' || op === 'insert'))).toBe(false)
+    expect(rpcs.map((rpc) => rpc.fn)).toEqual(['replace_slides'])
+    expect(rpcs[0]!.args).toMatchObject({
+      p_slice_id: 'sl-1',
+      p_slides: [
+        { cell_ids: ['c-1', 'c-2'], title: 'Arrive' },
+        { cell_ids: ['c-3'], title: null },
+      ],
+    })
     expect(text).toBe("Replaced the slice's slides (2).")
     expect(ledger).toEqual(['replace_slides'])
   })

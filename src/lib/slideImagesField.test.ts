@@ -61,7 +61,7 @@ describe('replacing slides keeps the authored image set', () => {
     const start = mutations.indexOf('export async function replaceSlides')
     const end = mutations.indexOf('export async function duplicateSlice')
     const replaceFn = mutations.slice(start, end)
-    expect(replaceFn).toContain('.insert(planned.map')
+    expect(replaceFn).toContain("client.rpc('replace_slides'")
     expect(replaceFn).not.toContain('removeSlideUploadObjects')
   })
 })

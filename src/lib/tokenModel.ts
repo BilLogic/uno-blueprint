@@ -15,6 +15,8 @@ import {
   type Rgb,
 } from '@/lib/oklch'
 
+import { VENDORED } from '../../scripts/vendored-css.mjs'
+
 /**
  * One queryable model of the visual vocabulary. Test-time only.
  *
@@ -223,6 +225,20 @@ function layerOf(file: string): TokenLayer {
 let cachedSheets: Stylesheet[] | null = null
 
 /**
+ * Stylesheets under `src/styles` that are an upstream package's file rather
+ * than this app's, and so are not part of the model.
+ *
+ * `shadcn-tailwind.css` is `shadcn/tailwind.css` copied in byte for byte, so
+ * the app builds without the shadcn CLI installed; `check:vendored-css` holds
+ * it to upstream. It was read as a package import before it was copied, which
+ * put it outside the model, and it stays there: its timings and its
+ * `var(--spacing)` are upstream's, for the reason the vendored `ui/` layer
+ * keeps its own, and a guard that asked it to change would be asking for a
+ * fork.
+ */
+const VENDORED_SHEETS = new Set([VENDORED.slice(`src/${STYLES_PREFIX}`.length)])
+
+/**
  * Every stylesheet under `src/styles`, in cascade order.
  *
  * Order comes from the `@import` list in the entry sheet rather than from a
@@ -232,11 +248,13 @@ let cachedSheets: Stylesheet[] | null = null
  */
 export function stylesheets(): Stylesheet[] {
   if (cachedSheets) return cachedSheets
-  const sheets = filesOn('styles', (path) => path.endsWith('.css'))
-  const entryText = sourceOf(ENTRY)
-  const imported = [...entryText.matchAll(/@import\s+'\.\/([^']+)'/g)].map(
-    ([, path]) => path,
+  const sheets = filesOn('styles', (path) => path.endsWith('.css')).filter(
+    ({ file }) => !VENDORED_SHEETS.has(file.slice(STYLES_PREFIX.length)),
   )
+  const entryText = sourceOf(ENTRY)
+  const imported = [...entryText.matchAll(/@import\s+'\.\/([^']+)'/g)]
+    .map(([, path]) => path)
+    .filter((path) => !VENDORED_SHEETS.has(path))
   const swept = sheets.map(({ file }) => file.slice(STYLES_PREFIX.length))
   const ordered = [
     ...imported,

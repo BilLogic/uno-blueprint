@@ -131,11 +131,13 @@ const REPOSITORY_ONLY = [
 const REPOSITORY_ONLY_SCRIPTS = REPOSITORY_ONLY.map((entry) => entry.script)
 
 /**
- * The resolver itself, and the two files that describe the arrangement.
+ * The resolver itself, the two files that describe the arrangement, and a
+ * module that only names a path.
  *
  * `sweep.mjs` is the one module that answers where a subject is, and it cannot
- * be asked to import itself. The other two spell the application's root as the
- * PATTERN they look for, or hold the list this test reads.
+ * be asked to import itself. The next two spell the application's root as the
+ * PATTERN they look for, or hold the list this test reads. The last holds a
+ * path as a constant for others to resolve, and reads nothing itself.
  */
 const NOT_A_SWEEP = new Set([
   'scripts/sweep.mjs',
@@ -145,6 +147,11 @@ const NOT_A_SWEEP = new Set([
   // which is not a claim about where the application is.
   'scripts/tests/every-sweep-knows-what-it-measures.test.mjs',
   'scripts/roots-stated.mjs',
+  // The vendored stylesheet's path, named once and read nowhere here: the
+  // check that reads it resolves it through the `app` subject, and the token
+  // model reads it through its own source tree.
+  'scripts/vendored-css.mjs',
+  'scripts/vendored-css.d.mts',
 ])
 
 /**

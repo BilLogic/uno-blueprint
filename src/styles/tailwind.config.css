@@ -103,7 +103,9 @@
 @plugin '@tailwindcss/typography';
 @plugin '@tailwindcss/forms';
 @import 'tw-animate-css';
-@import 'shadcn/tailwind.css';
+/* shadcn's own variants and keyframes, vendored so the app builds without the
+ * shadcn CLI installed; the copy's header says how it is kept in step. */
+@import './shadcn-tailwind.css';
 /* The two faces theme.css names first — variable, so each is one file
  * across its whole weight axis. A fork that wants a different typeface
  * swaps these imports and the matching --font-sans/--font-mono defaults in

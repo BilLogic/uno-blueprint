@@ -1184,6 +1184,17 @@ export type Database = {
         }
         Returns: Json
       }
+      create_slice: {
+        Args: {
+          p_actor: string
+          p_kind: string
+          p_service_id: string
+          p_slides: Json
+          p_summary: string
+          p_title: string
+        }
+        Returns: Json
+      }
       delete_cell: { Args: { cell_id: string }; Returns: string }
       delete_path: { Args: { path_id: string }; Returns: string }
       delete_scenario: { Args: { scenario_id: string }; Returns: string }
@@ -1262,6 +1273,10 @@ export type Database = {
       reorder_steps: {
         Args: { path_id: string; step_ids: string[] }
         Returns: undefined
+      }
+      replace_slides: {
+        Args: { p_slice_id: string; p_slides: Json }
+        Returns: Json
       }
       restore_cell_content: {
         Args: { cell_id: string; content: string }

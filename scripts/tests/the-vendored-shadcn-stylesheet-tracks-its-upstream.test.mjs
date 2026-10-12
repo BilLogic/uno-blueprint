@@ -12,8 +12,11 @@
  */
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
-import { drift, judge, readVendored, vendor } from '../check-vendored-css.mjs'
+import { drift, installedUpstream, judge, readVendored, vendor } from '../check-vendored-css.mjs'
 
 const UPSTREAM = '@custom-variant data-open {\n  &:where([data-state="open"]) {\n    @slot;\n  }\n}\n'
 
@@ -56,4 +59,41 @@ test('a copy with no header naming its version is red rather than trusted', () =
   const found = drift({ vendored: UPSTREAM, upstream: UPSTREAM, installed: '9.9.9' })
   assert.equal(found.length, 1)
   assert.match(found[0], /names no upstream version/)
+})
+
+/* ------------------------------------------------------------ line endings */
+
+test('a copy checked out with CRLF line endings is still the upstream file', () => {
+  const crlf = (text) => text.replace(/\n/g, '\r\n')
+  const written = vendor(UPSTREAM, '9.9.9')
+  assert.deepEqual(drift({ vendored: crlf(written), upstream: UPSTREAM, installed: '9.9.9' }), [])
+  assert.deepEqual(drift({ vendored: written, upstream: crlf(UPSTREAM), installed: '9.9.9' }), [])
+  assert.deepEqual(readVendored(crlf(written)), { version: '9.9.9', body: UPSTREAM })
+})
+
+/* ------------------------------------------------------------ the package */
+
+test('the installed version is read off the shadcn package, however deep the file sits in it', () => {
+  const root = mkdtempSync(join(tmpdir(), 'vendored-css-'))
+  try {
+    const write = (path, text) => {
+      mkdirSync(join(root, path, '..'), { recursive: true })
+      writeFileSync(join(root, path), text)
+    }
+    write('package.json', JSON.stringify({ name: 'host' }))
+    write(
+      'node_modules/shadcn/package.json',
+      JSON.stringify({
+        name: 'shadcn',
+        version: '7.7.7',
+        exports: { './tailwind.css': './lib/styles/css/tailwind.css' },
+      }),
+    )
+    // A nested manifest that is not the package's own, which a walk has to pass.
+    write('node_modules/shadcn/lib/styles/package.json', JSON.stringify({ type: 'module' }))
+    write('node_modules/shadcn/lib/styles/css/tailwind.css', UPSTREAM)
+    assert.deepEqual(installedUpstream(root), { text: UPSTREAM, version: '7.7.7' })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })

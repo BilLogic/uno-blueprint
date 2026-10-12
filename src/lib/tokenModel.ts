@@ -15,6 +15,8 @@ import {
   type Rgb,
 } from '@/lib/oklch'
 
+import { VENDORED } from '../../scripts/vendored-css.mjs'
+
 /**
  * One queryable model of the visual vocabulary. Test-time only.
  *
@@ -234,7 +236,7 @@ let cachedSheets: Stylesheet[] | null = null
  * keeps its own, and a guard that asked it to change would be asking for a
  * fork.
  */
-const VENDORED_SHEETS = new Set(['shadcn-tailwind.css'])
+const VENDORED_SHEETS = new Set([VENDORED.slice(`src/${STYLES_PREFIX}`.length)])
 
 /**
  * Every stylesheet under `src/styles`, in cascade order.

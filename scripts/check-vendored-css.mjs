@@ -22,19 +22,28 @@
  * same each time: `npm run vendor:shadcn-css`, which rewrites the copy from the
  * installed package.
  *
+ * `shadcn` is pinned to an exact version for the same reason. A range would let
+ * a fresh install — and pnpm, yarn and bun do not read the npm lockfile — pick
+ * up a newer 4.x on its own and turn this check red with nobody having changed
+ * anything. A bump is a deliberate two-step: change the pin, then
+ * `npm run vendor:shadcn-css`.
+ *
+ * Line endings are compared as LF on both sides, so a checkout that converted
+ * the copy to CRLF is not drift; `.gitattributes` keeps the copy LF anyway.
+ *
  * Where `shadcn` is not installed — a deployment, which installs the template
  * without its devDependencies — there is nothing to compare against, and that
  * is said through the unverified register rather than passed or failed.
  */
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 
 import { sweep } from './sweep.mjs'
+import { VENDORED } from './vendored-css.mjs'
 import { whenRun } from './verdict.mjs'
 
-/** The copy, as an application path: a deployment reads it out of the package. */
-export const VENDORED = 'src/styles/shadcn-tailwind.css'
+export { VENDORED }
 
 /** The upstream file, as the package exports it. */
 const UPSTREAM = 'shadcn/tailwind.css'
@@ -58,8 +67,14 @@ export function vendor(upstream, version) {
   )
 }
 
+/** The text with CRLF line endings read as LF. */
+function lf(text) {
+  return text.replace(/\r\n/g, '\n')
+}
+
 /** The version and body of a copy `vendor` wrote, or null when it has no such header. */
-export function readVendored(text) {
+export function readVendored(raw) {
+  const text = lf(raw)
   const version = NAMED.exec(text)?.[1]
   if (!version) return null
   const end = text.indexOf(' */\n\n')
@@ -78,7 +93,10 @@ function firstDifference(a, b) {
  * What is wrong with the copy, one sentence each.
  * @param {{ vendored: string, upstream: string, installed: string }} sides
  */
-export function drift({ vendored, upstream, installed }) {
+export function drift(sides) {
+  const vendored = lf(sides.vendored)
+  const upstream = lf(sides.upstream)
+  const { installed } = sides
   const copy = readVendored(vendored)
   if (!copy) {
     return [`${VENDORED}:1 names no upstream version in its header`]
@@ -107,8 +125,27 @@ export function installedUpstream(root = process.cwd()) {
   } catch {
     return null
   }
-  const pkg = JSON.parse(readFileSync(join(dirname(dirname(path)), 'package.json'), 'utf8'))
-  return { text: readFileSync(path, 'utf8'), version: pkg.version }
+  return { text: readFileSync(path, 'utf8'), version: owningPackage(path)?.version }
+}
+
+/**
+ * The manifest of the package that holds `file`: the nearest `package.json`
+ * above it whose name is `shadcn`. Walked rather than assumed, so a release
+ * that moves the stylesheet deeper, or nests a manifest of its own beside it,
+ * still reports the version installed.
+ */
+function owningPackage(file) {
+  let dir = dirname(file)
+  for (;;) {
+    const manifest = join(dir, 'package.json')
+    if (existsSync(manifest)) {
+      const pkg = JSON.parse(readFileSync(manifest, 'utf8'))
+      if (pkg.name === 'shadcn') return pkg
+    }
+    const parent = dirname(dir)
+    if (parent === dir) return null
+    dir = parent
+  }
 }
 
 /**

@@ -1,0 +1,3 @@
+# The vendored shadcn stylesheet is compared byte for byte against upstream,
+# which ships LF; keep the checkout LF on every platform.
+src/styles/shadcn-tailwind.css text eol=lf

@@ -2615,3 +2615,23 @@ begin
   end if;
 end
 $proof$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000305000000_undoing_a_slice_replace_is_all_or_nothing.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- who may call it.
+--
+-- The posture of `replace_slides` and `create_slice`: closed to `public` and
+-- `anon`, open to `authenticated`, with the guard in the body deciding which
+-- authenticated caller may actually author.
+revoke execute on function public.restore_slides(uuid, jsonb) from public, anon;
+grant execute on function public.restore_slides(uuid, jsonb) to authenticated;
+
+do $proof$
+begin
+  if has_function_privilege('anon', 'public.restore_slides(uuid, jsonb)', 'execute') then
+    raise exception 'proof: anon can call restore_slides';
+  end if;
+end
+$proof$;

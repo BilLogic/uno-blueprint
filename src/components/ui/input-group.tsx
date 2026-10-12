@@ -14,14 +14,34 @@ import { Textarea } from "@/components/ui/textarea"
  * `input.tsx` sits on, so an add-on and the field it wraps read as one
  * control instead of a plate with a hole in it. Its own control slots
  * stay `bg-transparent` — they are inside this plate, not beside it.
+ *
+ * And one opt-in, `disabledScope`. The vendored group dims for ANY disabled
+ * descendant, which is right while the only thing that disables is the
+ * field. A group whose add-on disables itself on its own — a send with
+ * nothing to send — is waiting, not unavailable, so `"control"` scopes the
+ * same look to the field the group wraps.
  */
-function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
+const inputGroupDisabledLook = {
+  group: "has-disabled:bg-input/50 has-disabled:opacity-50 dark:has-disabled:bg-input/80",
+  control:
+    "has-[[data-slot=input-group-control]:disabled]:bg-input/50 has-[[data-slot=input-group-control]:disabled]:opacity-50 dark:has-[[data-slot=input-group-control]:disabled]:bg-input/80",
+} as const
+
+function InputGroup({
+  className,
+  disabledScope = "group",
+  ...props
+}: React.ComponentProps<"div"> & {
+  disabledScope?: keyof typeof inputGroupDisabledLook
+}) {
   return (
     <div
       data-slot="input-group"
+      data-disabled-scope={disabledScope}
       role="group"
       className={cn(
-        "group/input-group relative flex h-8 w-full min-w-0 items-center rounded-md border border-input bg-field transition-colors outline-none in-data-[slot=combobox-content]:focus-within:border-inherit in-data-[slot=combobox-content]:focus-within:ring-0 has-disabled:bg-input/50 has-disabled:opacity-50 has-[[data-slot=input-group-control]:focus-visible]:border-ring has-[[data-slot=input-group-control]:focus-visible]:ring-3 has-[[data-slot=input-group-control]:focus-visible]:ring-ring/50 has-[[data-slot][aria-invalid=true]]:border-destructive has-[[data-slot][aria-invalid=true]]:ring-3 has-[[data-slot][aria-invalid=true]]:ring-destructive/20 has-[>[data-align=block-end]]:h-auto has-[>[data-align=block-end]]:flex-col has-[>[data-align=block-start]]:h-auto has-[>[data-align=block-start]]:flex-col has-[>textarea]:h-auto dark:has-disabled:bg-input/80 dark:has-[[data-slot][aria-invalid=true]]:ring-destructive/40 has-[>[data-align=block-end]]:[&>input]:pt-3 has-[>[data-align=block-start]]:[&>input]:pb-3 has-[>[data-align=inline-end]]:[&>input]:pr-2 has-[>[data-align=inline-start]]:[&>input]:pl-2",
+        "group/input-group relative flex h-8 w-full min-w-0 items-center rounded-md border border-input bg-field transition-colors outline-none in-data-[slot=combobox-content]:focus-within:border-inherit in-data-[slot=combobox-content]:focus-within:ring-0 has-[[data-slot=input-group-control]:focus-visible]:border-ring has-[[data-slot=input-group-control]:focus-visible]:ring-3 has-[[data-slot=input-group-control]:focus-visible]:ring-ring/50 has-[[data-slot][aria-invalid=true]]:border-destructive has-[[data-slot][aria-invalid=true]]:ring-3 has-[[data-slot][aria-invalid=true]]:ring-destructive/20 has-[>[data-align=block-end]]:h-auto has-[>[data-align=block-end]]:flex-col has-[>[data-align=block-start]]:h-auto has-[>[data-align=block-start]]:flex-col has-[>textarea]:h-auto dark:has-[[data-slot][aria-invalid=true]]:ring-destructive/40 has-[>[data-align=block-end]]:[&>input]:pt-3 has-[>[data-align=block-start]]:[&>input]:pb-3 has-[>[data-align=inline-end]]:[&>input]:pr-2 has-[>[data-align=inline-start]]:[&>input]:pl-2",
+        inputGroupDisabledLook[disabledScope],
         className
       )}
       {...props}

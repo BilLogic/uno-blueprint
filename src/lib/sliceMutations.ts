@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { recordChange } from '@/lib/authoringSession'
-import { toAuthoringError } from '@/lib/authoringErrors'
+import { AuthoringError, toAuthoringError } from '@/lib/authoringErrors'
 import {
   asUpdatedAtToken,
   readWriteOutcome,
@@ -249,19 +249,37 @@ export async function replaceSlides(
   if (replaceError) throw toAuthoringError(replaceError)
 
   sliceWritten(sliceId)
-  // After the write, like every other entry: the ledger records what landed.
-  // A reply without its capture is still recorded — an entry without a revert
-  // is recoverable from, a missing entry is not.
+  // After the write, like every other entry: the ledger records what landed,
+  // and the capture is its undo. A reply without a well-formed capture is
+  // said, not recorded quietly without one — the most destructive write in
+  // the file must never sit in the ledger as a change nobody can revert.
   if (record) {
     const previous = (replaced as { previous?: unknown } | null)?.previous
+    if (!isCapture(previous)) {
+      throw new AuthoringError(
+        'The slides were replaced, but the slides they replaced could not be captured for undo.',
+        `replace_slides answered without a list of captured slides: ${JSON.stringify(replaced)}`,
+      )
+    }
     recordChange(
       'replace_slides',
       { slice_id: sliceId, slide_count: slides.length },
-      Array.isArray(previous)
-        ? { fn: 'restore_slides', args: { slice_id: sliceId, rows: previous as CapturedSlide[] } }
-        : undefined,
+      { fn: 'restore_slides', args: { slice_id: sliceId, rows: previous } },
     )
   }
+}
+
+/** A capture `restore_slides` can write back: a list of rows, each with its id. */
+function isCapture(value: unknown): value is CapturedSlide[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (row) =>
+        row !== null &&
+        typeof row === 'object' &&
+        typeof (row as { id?: unknown }).id === 'string',
+    )
+  )
 }
 
 /**

@@ -195,6 +195,17 @@ describe('the action sits inside the field', () => {
     expect(mirror()!.parentElement!.parentElement).toBe(group)
   })
 
+  it('does not grey the field out for a send that is only waiting', () => {
+    // Send is disabled on every empty draft; the composer is waiting, not
+    // unavailable, so the group dims for its own field alone.
+    openField(<button type="button" aria-label="Send" disabled />)
+    const group = document.querySelector('[data-slot="input-group"]')!
+    expect(classesOn(group).filter((name) => name.includes('has-disabled:'))).toEqual([])
+    expect(classesOn(group)).toContain(
+      'has-[[data-slot=input-group-control]:disabled]:opacity-50',
+    )
+  })
+
   it('anchors the action to the bottom corner as the field grows', () => {
     // The group centres its row; a draft that wraps must keep the button
     // beside its last line, not floating halfway up the message.

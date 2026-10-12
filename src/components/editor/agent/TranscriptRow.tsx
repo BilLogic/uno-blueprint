@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/marker'
 import { Message, MessageContent } from '@/components/ui/message'
 import { type TranscriptEvent } from '@/lib/agent/loop'
+import { REPEAT_READ_SUPPRESSED } from '@/lib/agent/tools/refusals'
 import { cn } from '@/lib/utils'
 
 /*
@@ -138,12 +139,16 @@ function ToolDetail({ label, body }: { label: string; body: string }) {
 function ToolRow({ event }: { event: ToolEvent }) {
   const [open, setOpen] = useState(false)
   const expandable = Boolean(event.args || event.result)
+  // A repeat persisted before the loop said `suppressed` carries only the
+  // sentence, flagged as a failure; read back, it is the same repeat.
+  const suppressed = event.suppressed || event.summary === REPEAT_READ_SUPPRESSED
+  const failed = event.isError && !suppressed
   const face = (
     <>
       <MarkerIcon>
-        {event.isError ? (
+        {failed ? (
           <XCircle aria-hidden />
-        ) : event.suppressed ? (
+        ) : suppressed ? (
           // Neither verdict: the call did not run, and nothing went wrong.
           // It keeps the row's muted colour rather than the error's.
           <CircleMinus aria-hidden />
@@ -162,7 +167,7 @@ function ToolRow({ event }: { event: ToolEvent }) {
 
   if (!expandable) {
     return (
-      <Marker className={cn(event.isError && 'text-destructive')}>
+      <Marker className={cn(failed && 'text-destructive')}>
         {face}
       </Marker>
     )
@@ -177,7 +182,7 @@ function ToolRow({ event }: { event: ToolEvent }) {
             className={cn(
               markerVariants({ variant: 'default' }),
               'cursor-pointer rounded-md transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              event.isError && 'text-destructive',
+              failed && 'text-destructive',
             )}
           >
             {face}

@@ -119,6 +119,20 @@ describe('replacing a slice’s slides', () => {
     ])
   })
 
+  it.each([
+    ['no previous', { slice_id: 'sl-1', slide_count: 1 }],
+    ['a previous that is not a list', { slice_id: 'sl-1', slide_count: 1, previous: {} }],
+    ['a captured slide without an id', { slice_id: 'sl-1', slide_count: 1, previous: [{ position: 0 }] }],
+  ])('refuses a reply with %s rather than record a change it cannot undo', async (_, reply) => {
+    const { client } = fakeClient({ slides: [prior], rpc: () => ({ data: reply, error: null }) })
+
+    const write = replaceSlides(client, 'sl-1', [{ cells: ['c-9'], title: '', caption: '' }])
+
+    await expect(write).rejects.toBeInstanceOf(AuthoringError)
+    await expect(write).rejects.toThrow(/could not be captured for undo/)
+    expect(sessionSnapshot()).toEqual([])
+  })
+
   it('translates a refusal and records nothing', async () => {
     const { client } = fakeClient({ slides: [prior], rpc: () => ({ data: null, error: refusal }) })
 

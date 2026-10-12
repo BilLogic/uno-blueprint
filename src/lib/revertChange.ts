@@ -49,11 +49,10 @@ import { restoreSlideImageSet, sliceWritten, type SlideImageMemberInput } from '
 import { requireRowsWritten } from '@/lib/optimisticConcurrency'
 import { invalidateAfterRpc } from '@/lib/authoringRpc'
 import { updateFinding, type FindingUpdate } from '@/lib/findingMutations'
-import type { Database } from '@/types/database'
+import type { Database, Json } from '@/types/database'
 
 type Client = SupabaseClient<Database>
 type EvidenceRowType = Database['public']['Tables']['evidence']['Row']
-type SlideRow = Database['public']['Tables']['slides']['Row']
 /** The subset of `slices` that `updateSliceMeta` writes, and so restores. */
 type SliceMetaFields = Pick<
   Database['public']['Tables']['slices']['Row'],
@@ -313,82 +312,33 @@ export async function executeRevert(
       return
     }
     case 'restore_slides': {
-      // Undo of "rebuilt a slice's slides": clear whatever is there now and
-      // put the captured rows back verbatim, original ids included, so a
-      // slide's identity survives the round trip. Same shape check and same
-      // reasoning as `restore_evidence_row` above.
+      // Undo of "rebuilt a slice's slides": one call to `restore_slides`,
+      // which clears whatever is there now and puts the captured rows back
+      // verbatim — original ids included, so a slide's identity survives the
+      // round trip — in a single transaction. As separate requests a refused
+      // insert after the delete left the slice with nothing. An empty capture
+      // is a real answer: the slice had no slides before the write.
       const sliceId = stringArg(revert.args, 'slice_id')
       const rows = revert.args.rows
       if (!Array.isArray(rows)) {
         throw new Error('This change’s captured slides are malformed.')
       }
-      const keepIds = new Set(
-        rows.flatMap((raw) =>
-          raw && typeof raw === 'object' && typeof (raw as { id?: unknown }).id === 'string'
-            ? [(raw as { id: string }).id]
-            : [],
-        ),
-      )
-      const { data: current, error: currentError } = await client
-        .from('slides')
-        .select('id')
-        .eq('slice_id', sliceId)
-      if (currentError) throw toAuthoringError(currentError)
-      const dropped = (current ?? []).filter((slide) => !keepIds.has(slide.id))
-      const cleared = await client
-        .from('slides')
-        .delete()
-        .eq('slice_id', sliceId)
-      if (cleared.error) throw toAuthoringError(cleared.error)
-      // An empty capture is a real answer, not a failure: the slice genuinely
-      // had no slides before the write, so putting none back IS the inverse.
-      if (rows.length > 0) {
-        const payloads: SlideRow[] = []
-        const memberSets: Array<{ slideId: string; members: SlideImageMemberInput[] }> = []
-        for (const raw of rows) {
-          if (!raw || typeof raw !== 'object') {
-            throw new Error('This change’s captured slides are malformed.')
-          }
-          const { slide_images, ...rest } = raw as SlideRow & {
-            slide_images?: SlideImageMemberInput[]
-          }
-          if (typeof rest.id !== 'string') {
-            throw new Error('This change’s captured slides are malformed.')
-          }
-          payloads.push(rest)
-          memberSets.push({
-            slideId: rest.id,
-            members: Array.isArray(slide_images)
-              ? slide_images.map((member) => ({
-                  position: member.position,
-                  cell_id: member.cell_id ?? null,
-                  image_url: member.image_url ?? null,
-                }))
-              : [],
-          })
-        }
-        const restored = await client.from('slides').insert(payloads)
-        if (restored.error) throw toAuthoringError(restored.error)
-        for (const set of memberSets) {
-          if (set.members.length === 0) continue
-          const inserted = await client.from('slide_images').insert(
-            set.members.map((member) => ({
-              slide_id: set.slideId,
-              position: member.position,
-              cell_id: member.cell_id,
-              image_url: member.image_url,
-            })),
-          )
-          if (inserted.error) throw toAuthoringError(inserted.error)
-        }
-      }
-      // Folders of slides the inverse does not restore — the forward write's
-      // leftovers. Captured rows keep theirs: replaceSlides left those
-      // objects so this verbatim `image_url` write still names a file.
-      for (const slide of dropped) {
-        await removeSlideUploadObjects(client, sliceId, slide.id)
-      }
+      const { data, error } = await client.rpc('restore_slides', {
+        p_slice_id: sliceId,
+        p_rows: rows as Json,
+      })
+      if (error) throw toAuthoringError(error)
       sliceWritten(sliceId)
+      // Folders of slides the inverse does not restore — the forward write's
+      // leftovers — swept after the commit, since storage is not in it.
+      // Captured rows keep theirs: replaceSlides left those objects so the
+      // verbatim `image_url` the restore wrote still names a file.
+      const dropped = (data as { dropped?: unknown } | null)?.dropped
+      for (const slideId of Array.isArray(dropped) ? dropped : []) {
+        if (typeof slideId === 'string') {
+          await removeSlideUploadObjects(client, sliceId, slideId)
+        }
+      }
       return
     }
     case 'delete_slice_row': {

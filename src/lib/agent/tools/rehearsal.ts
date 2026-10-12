@@ -125,7 +125,11 @@ function argumentType(field: unknown): string | null {
  *   sees its row come back rather than reading as a lost race;
  * - a plain select yields nothing for a list and a row for a `single` — so a
  *   before-read finds its row and a dedupe query finds no twin, which are the
- *   two shapes the writes read with.
+ *   two shapes the writes read with;
+ * - except a list select that names its rows by `in('id', […])`, which yields
+ *   one row per id named — so an existence check finds the rows it asked
+ *   after. A rehearsal cannot refuse what only real rows could refuse, and
+ *   answering "none of those exist" would be exactly that refusal.
  */
 export function rehearsalClient(
   placeholder: () => Placeholder,
@@ -196,6 +200,11 @@ export function rehearsalClient(
       const eq = call.ops.filter(([op, column]) => op === 'eq' && column === 'id').at(-1)
       return typeof eq?.[2] === 'string' ? eq[2] : placeholder()
     }
+    /** The ids a list select named with `in('id', […])`, when it named them. */
+    const named = () => {
+      const list = call.ops.filter(([op, column]) => op === 'in' && column === 'id').at(-1)?.[2]
+      return Array.isArray(list) ? list.filter((id): id is string => typeof id === 'string') : null
+    }
     /** The row a write would have produced: its payload, under an id. */
     const written = () => {
       const payload = call.ops.find(([op]) => op === 'insert' || op === 'upsert')?.[1]
@@ -239,7 +248,7 @@ export function rehearsalClient(
             : null
           : has('update', 'delete')
             ? [{ id: addressed() }]
-            : []
+            : (named() ?? []).map((id) => ({ ...selected(), id }))
       return Promise.resolve({ data, error: null })
     }
     const proxy: unknown = new Proxy(

@@ -28,7 +28,7 @@ import { sourceOf, sourcePathsOn } from '@/lib/sourceTree'
 const MUTATION_MODULE = /^lib\/[A-Za-z]+Mutations\.ts$/
 
 /** Writers outside the `*Mutations` family, each asserted to exist below. */
-const ALSO_WRITES: readonly string[] = ['lib/authoringRpc.ts']
+const ALSO_WRITES: readonly string[] = ['lib/authoringRpc.ts', 'lib/agent/tools/definitions/slices.ts']
 
 const RAW_THROW = /throw new Error\(\s*[A-Za-z_$][\w$]*\.message\s*\)/g
 

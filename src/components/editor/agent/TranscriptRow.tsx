@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/marker'
 import { Message, MessageContent } from '@/components/ui/message'
 import { type TranscriptEvent } from '@/lib/agent/loop'
-import { REPEAT_READ_SUPPRESSED } from '@/lib/agent/tools/refusals'
+import { isFailedRow, isSuppressedRow } from '@/lib/agent/tools/refusals'
 import { cn } from '@/lib/utils'
 
 /*
@@ -139,10 +139,8 @@ function ToolDetail({ label, body }: { label: string; body: string }) {
 function ToolRow({ event }: { event: ToolEvent }) {
   const [open, setOpen] = useState(false)
   const expandable = Boolean(event.args || event.result)
-  // A repeat persisted before the loop said `suppressed` carries only the
-  // sentence, flagged as a failure; read back, it is the same repeat.
-  const suppressed = event.suppressed || event.summary === REPEAT_READ_SUPPRESSED
-  const failed = event.isError && !suppressed
+  const suppressed = isSuppressedRow(event)
+  const failed = isFailedRow(event)
   const face = (
     <>
       <MarkerIcon>

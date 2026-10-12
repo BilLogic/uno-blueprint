@@ -123,13 +123,30 @@ describe('replacing a slice’s slides', () => {
     ['no previous', { slice_id: 'sl-1', slide_count: 1 }],
     ['a previous that is not a list', { slice_id: 'sl-1', slide_count: 1, previous: {} }],
     ['a captured slide without an id', { slice_id: 'sl-1', slide_count: 1, previous: [{ position: 0 }] }],
-  ])('refuses a reply with %s rather than record a change it cannot undo', async (_, reply) => {
+  ])('keeps a landed write, with the slides read before it as the inverse, on a reply with %s', async (_, reply) => {
     const { client } = fakeClient({ slides: [prior], rpc: () => ({ data: reply, error: null }) })
 
-    const write = replaceSlides(client, 'sl-1', [{ cells: ['c-9'], title: '', caption: '' }])
+    await replaceSlides(client, 'sl-1', [{ cells: ['c-9'], title: '', caption: '' }])
 
-    await expect(write).rejects.toBeInstanceOf(AuthoringError)
-    await expect(write).rejects.toThrow(/could not be captured for undo/)
+    expect(sessionSnapshot().map(({ fn, revert }) => ({ fn, revert }))).toEqual([
+      { fn: 'replace_slides', revert: { fn: 'restore_slides', args: { slice_id: 'sl-1', rows: [prior] } } },
+    ])
+  })
+
+  it('records an empty slice as the inverse when the slice had no slides and the reply carries none', async () => {
+    const { client } = fakeClient({ slides: [], rpc: () => ({ data: { slice_id: 'sl-1', slide_count: 1, previous: [] }, error: null }) })
+
+    await replaceSlides(client, 'sl-1', [{ cells: ['c-9'], title: '', caption: '' }])
+
+    expect(sessionSnapshot().map(({ revert }) => revert)).toEqual([
+      { fn: 'restore_slides', args: { slice_id: 'sl-1', rows: [] } },
+    ])
+  })
+
+  it('keeps a landed write and records nothing when neither the reply nor the read holds a capture', async () => {
+    const { client } = fakeClient({ slides: [{ position: 0 }], rpc: () => ({ data: null, error: null }) })
+
+    await expect(replaceSlides(client, 'sl-1', [{ cells: ['c-9'], title: '', caption: '' }])).resolves.toBeUndefined()
     expect(sessionSnapshot()).toEqual([])
   })
 

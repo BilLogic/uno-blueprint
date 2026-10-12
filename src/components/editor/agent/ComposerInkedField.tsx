@@ -358,6 +358,9 @@ export function ComposerInkedField({
         />
       </div>
       {action ? (
+        // `has-[>button]:mr-0` does match: the tooltip trigger renders AS the
+        // button, so the slot's direct child is one. It replaces the inline-end
+        // add-on's pull toward the border, which would eat the even inset.
         <InputGroupAddon
           align="inline-end"
           className="self-end p-1 has-[>button]:mr-0"

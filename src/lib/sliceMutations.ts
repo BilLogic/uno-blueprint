@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { recordChange } from '@/lib/authoringSession'
-import { AuthoringError, toAuthoringError } from '@/lib/authoringErrors'
+import { toAuthoringError } from '@/lib/authoringErrors'
 import {
   asUpdatedAtToken,
   readWriteOutcome,
@@ -250,22 +250,21 @@ export async function replaceSlides(
 
   sliceWritten(sliceId)
   // After the write, like every other entry: the ledger records what landed,
-  // and the capture is its undo. A reply without a well-formed capture is
-  // said, not recorded quietly without one — the most destructive write in
-  // the file must never sit in the ledger as a change nobody can revert.
+  // and the capture is its undo. The reply's capture is preferred: it was
+  // taken under the lock. A reply without a well-formed one cannot unmake the
+  // write, which has committed, so it is not reported as failed — the read
+  // above is the same rows, taken just before, and stands in as the inverse.
+  // Only when neither is a capture is nothing recorded.
   if (record) {
     const previous = (replaced as { previous?: unknown } | null)?.previous
-    if (!isCapture(previous)) {
-      throw new AuthoringError(
-        'The slides were replaced, but the slides they replaced could not be captured for undo.',
-        `replace_slides answered without a list of captured slides: ${JSON.stringify(replaced)}`,
+    const capture = isCapture(previous) ? previous : isCapture(existing) ? existing : null
+    if (capture) {
+      recordChange(
+        'replace_slides',
+        { slice_id: sliceId, slide_count: slides.length },
+        { fn: 'restore_slides', args: { slice_id: sliceId, rows: capture } },
       )
     }
-    recordChange(
-      'replace_slides',
-      { slice_id: sliceId, slide_count: slides.length },
-      { fn: 'restore_slides', args: { slice_id: sliceId, rows: previous } },
-    )
   }
 }
 

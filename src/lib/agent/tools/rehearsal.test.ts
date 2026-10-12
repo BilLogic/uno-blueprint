@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { clearSession } from '@/lib/authoringSession'
+import { clearSession, sessionSnapshot } from '@/lib/authoringSession'
+import { updateCellDependency } from '@/lib/authoringRpc'
 import { runTool } from '@/lib/agent/tools/definition'
 import { TOOL_DEFINITIONS } from '@/lib/agent/tools/definitions'
-import { REHEARSAL_SERVICE, rehearsalContext } from '@/lib/agent/tools/rehearsal'
+import { REHEARSAL_SERVICE, rehearsalClient, rehearsalContext } from '@/lib/agent/tools/rehearsal'
 
 /*
  * Every write tool, rehearsed: its own `run` against the rehearsal client,
@@ -118,5 +119,39 @@ describe('the rehearsal records which write was reached', () => {
     const run = rehearse('update_cell')
     await run.text
     expect(run.rpcs.map((rpc) => rpc.fn)).toContain('sync_cell_touchpoints')
+  })
+})
+
+/*
+ * What a rehearsal leaves on the ledger. A write that did not happen has
+ * nothing to undo, so a rehearsed edit must not record an inverse built from
+ * placeholder fields — and a rehearsed replace must still land, its inverse
+ * the slides the rehearsal read: none.
+ */
+describe('a rehearsal records no inverse it cannot honour', () => {
+  it('a rehearsed update_cell_dependency records no inverse', async () => {
+    const { client } = rehearsalClient(() => 'dry-1')
+    await updateCellDependency(client, { dependencyId: 'dep-1', kind: 'enables', targetCellId: 'c-2', note: null })
+    expect(sessionSnapshot().map(({ fn, revert }) => ({ fn, revert }))).toEqual([
+      { fn: 'update_cell_dependency', revert: undefined },
+    ])
+  })
+
+  it('a rehearsed replace_slides lands, with the empty slice it read as the inverse', async () => {
+    const run = rehearse('replace_slides')
+    expect(await run.text).toBe("Replaced the slice's slides (1).")
+    expect(sessionSnapshot().map(({ revert }) => revert)).toEqual([
+      { fn: 'restore_slides', args: { slice_id: 'sl-1', rows: [] } },
+    ])
+  })
+})
+
+describe('the rehearsal’s existence answers', () => {
+  it('finds the cells an existence check names, and nothing for any other table’s in(id)', async () => {
+    const { client } = rehearsalClient(() => 'dry-1')
+    const cells = await client.from('cells').select('id').in('id', [CELL_1])
+    const slides = await client.from('slides').select('id').in('id', [CELL_1])
+    expect(cells.data).toEqual([{ id: CELL_1 }])
+    expect(slides.data).toEqual([])
   })
 })

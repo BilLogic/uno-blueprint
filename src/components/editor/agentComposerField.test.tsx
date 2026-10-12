@@ -26,6 +26,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { ComposerInkedField } from '@/components/editor/agent/ComposerInkedField'
+import { IconTooltip } from '@/components/editor/IconTooltip'
 import { COMPOSER_FIELD_METRICS } from '@/components/editor/agent/composerFieldMetrics'
 import {
   AGENT_SKILL_COMMANDS,
@@ -204,6 +205,23 @@ describe('the action sits inside the field', () => {
     expect(classesOn(group)).toContain(
       'has-[[data-slot=input-group-control]:disabled]:opacity-50',
     )
+  })
+
+  it('insets the action evenly from the corner, the tooltip trigger being the button itself', () => {
+    // The trigger renders AS the button, not around it, so the slot's direct
+    // child is a button and the inline-end add-on's `has-[>button]` pull
+    // toward the border would apply. The slot overrides it with a margin of
+    // its own: the button sits its padding plus the border from both edges.
+    openField(
+      <IconTooltip label="Send">
+        <button type="button" aria-label="Send" />
+      </IconTooltip>,
+    )
+    const send = screen.getByRole('button', { name: 'Send' })
+    const slot = send.parentElement!
+    expect(slot.dataset.slot).toBe('input-group-addon')
+    expect(classesOn(slot)).toEqual(expect.arrayContaining(['p-1', 'has-[>button]:mr-0']))
+    expect(classesOn(slot).filter((name) => name.startsWith('has-[>button]:mr-['))).toEqual([])
   })
 
   it('anchors the action to the bottom corner as the field grows', () => {

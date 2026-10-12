@@ -32,6 +32,7 @@ import {
 import { agentSessionsSnapshot } from '@/lib/agent/sessions'
 import { loadPersistedEvents } from '@/lib/agent/persistence'
 import type { TranscriptEvent } from '@/lib/agent/loop'
+import { isFailedRow } from '@/lib/agent/tools/refusals'
 import {
   SCOPE_ALL,
   serviceStakeholderIds,
@@ -416,7 +417,7 @@ function renderTranscriptLine(event: TranscriptEvent): string {
     case 'assistant':
       return `assistant: ${event.text}`
     case 'tool':
-      return `tool ${event.name}${event.isError ? ' (error)' : ''}: ${event.summary}`
+      return `tool ${event.name}${isFailedRow(event) ? ' (error)' : ''}: ${event.summary}`
     case 'status':
       return `status: ${event.text}`
     // The row whose whole point is that a later reader — a person scrolling,

@@ -81,11 +81,16 @@ begin
       raise exception 'Captured slide % has no id — nothing was written.', v_ordinal;
     end if;
 
-    insert into public.slides
-    select (jsonb_populate_record(
-      null::public.slides,
-      (v_row - 'slide_images') || jsonb_build_object('slice_id', p_slice_id)
-    )).*;
+    -- Named columns, as `replace_slides` writes them: a positional `.*`
+    -- would put a value in whichever column a later migration added in its
+    -- place.
+    insert into public.slides (
+      id, slice_id, position, cell_ids, cell_keys, title, caption,
+      shows_all_images, created_at, created_by, updated_at
+    )
+    select r.id, p_slice_id, r.position, r.cell_ids, r.cell_keys, r.title, r.caption,
+           r.shows_all_images, r.created_at, r.created_by, r.updated_at
+      from jsonb_populate_record(null::public.slides, v_row - 'slide_images') as r;
 
     insert into public.slide_images (id, slide_id, position, cell_id, image_url)
     select coalesce((member ->> 'id')::uuid, gen_random_uuid()),

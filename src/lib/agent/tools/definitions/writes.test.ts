@@ -353,7 +353,7 @@ describe('the cast writes', () => {
 })
 
 describe('the slice writes', () => {
-  const sliceRow = { id: 'sl-1', title: 'Caller view', summary: null, kind: 'journey', actor: null, authorship: 'human', updated_at: '2026-01-01T00:00:00Z' }
+  const sliceRow = { id: 'sl-1', service_id: 'svc-1', title: 'Caller view', summary: null, kind: 'journey', actor: null, authorship: 'human', updated_at: '2026-01-01T00:00:00Z' }
   const C1 = 'a0000000-0000-4000-8000-000000040101'
   const C2 = 'a0000000-0000-4000-8000-000000040102'
   const C3 = 'a0000000-0000-4000-8000-000000040103'
@@ -435,7 +435,7 @@ describe('the slice writes', () => {
     const { text, calls, rpcs, ledger } = await write(
       replaceSlidesTool,
       { slice_id: 'sl-1', slides: [{ cells: [C1, C2], title: 'Arrive' }, { cells: [C3] }] },
-      { cells: serviceCells(C1, C2, C3), slides: [] },
+      { cells: serviceCells(C1, C2, C3), slices: sliceRow, slides: [] },
       () => ({ slice_id: 'sl-1', slide_count: 2, previous: [] }),
     )
     // One RPC swaps the slides in a transaction; nothing is deleted or inserted by the client.
@@ -454,7 +454,7 @@ describe('the slice writes', () => {
 
   it('replace_slides refuses a truncated id before any write', async () => {
     const truncated = 'a0000000-0000-4000-8000-00040106'
-    const { message, writes, rpcs, ledger } = await refused(replaceSlidesTool, { slice_id: 'sl-1', slides: [{ cells: [C1] }, { cells: [truncated] }] }, { cells: serviceCells(C1), slides: [] })
+    const { message, writes, rpcs, ledger } = await refused(replaceSlidesTool, { slice_id: 'sl-1', slides: [{ cells: [C1] }, { cells: [truncated] }] }, { cells: serviceCells(C1), slices: sliceRow, slides: [] })
     expect(message).toBe(`"${truncated}" is not a cell in this service — copy ids verbatim from get_slice or list_blueprint.`)
     expect(writes).toEqual([])
     expect(rpcs).toEqual([])
@@ -462,8 +462,39 @@ describe('the slice writes', () => {
   })
 
   it('replace_slides refuses a well-formed id the active service does not hold, before any write', async () => {
-    const { message, writes, ledger } = await refused(replaceSlidesTool, { slice_id: 'sl-1', slides: [{ cells: [C1, C2] }] }, { cells: serviceCells(C1), slides: [] })
+    const { message, writes, ledger } = await refused(replaceSlidesTool, { slice_id: 'sl-1', slides: [{ cells: [C1, C2] }] }, { cells: serviceCells(C1), slices: sliceRow, slides: [] })
     expect(message).toBe(`"${C2}" is not a cell in this service — copy ids verbatim from get_slice or list_blueprint.`)
+    expect(writes).toEqual([])
+    expect(ledger).toEqual([])
+  })
+
+  it.each([
+    ['another service', { ...sliceRow, service_id: 'svc-2' }],
+    ['no service, because it does not exist', null],
+  ])('replace_slides refuses a slice of %s before any write, pointing at list_slices', async (_, slice) => {
+    const { message, writes, rpcs, ledger } = await refused(replaceSlidesTool, { slice_id: 'sl-1', slides: [{ cells: [C1] }] }, { cells: serviceCells(C1), slices: slice, slides: [] })
+    expect(message).toBe('"sl-1" is not a slice in this service — copy its id from list_slices.')
+    expect(writes).toEqual([])
+    expect(rpcs).toEqual([])
+    expect(ledger).toEqual([])
+  })
+
+  it('replace_slides asks after the slice by its id and service in one read', async () => {
+    const { calls } = await write(
+      replaceSlidesTool,
+      { slice_id: 'sl-1', slides: [{ cells: [C1] }] },
+      { cells: serviceCells(C1), slices: sliceRow, slides: [] },
+      () => ({ slice_id: 'sl-1', slide_count: 1, previous: [] }),
+    )
+    const reads = calls.filter((call) => call.table === 'slices')
+    expect(reads).toHaveLength(1)
+    expect(reads[0]!.ops).toContainEqual(['select', 'id, service_id'])
+    expect(reads[0]!.ops).toContainEqual(['eq', 'id', 'sl-1'])
+  })
+
+  it('update_slice refuses a slice of another service before any write', async () => {
+    const { message, writes, ledger } = await refused(updateSliceTool, { slice_id: 'sl-1', title: 'Renamed' }, { slices: { ...sliceRow, service_id: 'svc-2' } })
+    expect(message).toBe('"sl-1" is not a slice in this service — copy its id from list_slices.')
     expect(writes).toEqual([])
     expect(ledger).toEqual([])
   })

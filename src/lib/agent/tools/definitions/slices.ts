@@ -9,6 +9,7 @@ import {
 } from '@/lib/agent/tools/definition'
 import { getSlice, listSlices, UUID } from '@/lib/agent/tools/read'
 import { sampleGetSlice, sampleListSlices } from '@/lib/agent/tools/sampleRead'
+import { toAuthoringError } from '@/lib/authoringErrors'
 import { createSlice, patchSliceMeta, replaceSlides } from '@/lib/sliceMutations'
 import type { Database } from '@/types/database'
 
@@ -77,7 +78,7 @@ async function refuseUnknownCells(
       .select('id, paths!inner(scenarios!inner(phases!inner(service_id)))')
       .in('id', wellFormed)
       .eq('paths.scenarios.phases.service_id', serviceId)
-    if (error) throw new Error(error.message)
+    if (error) throw toAuthoringError(error)
     for (const row of data ?? []) held.add(row.id)
   }
   const bad = distinct.filter((id) => !held.has(id))
@@ -85,6 +86,25 @@ async function refuseUnknownCells(
   throw new Error(
     `${bad.map((id) => `"${id}" is not a cell in this service`).join('; ')} — copy ids verbatim from get_slice or list_blueprint.`,
   )
+}
+
+/**
+ * Refuse a slice that is not the active service's, before it is written.
+ *
+ * A slice id is a bare uuid, and neither `replace_slides` nor the meta update
+ * asks which service the slice belongs to: an id carried over from another
+ * blueprint would be written to, out of the reader's sight. One read of the
+ * slice's own service settles it, and the refusal says where its ids come from.
+ */
+async function refuseForeignSlice(client: Client, serviceId: string, sliceId: string): Promise<void> {
+  const { data, error } = await client
+    .from('slices')
+    .select('id, service_id')
+    .eq('id', sliceId)
+    .maybeSingle()
+  if (error) throw toAuthoringError(error)
+  if (data?.service_id === serviceId) return
+  throw new Error(`"${sliceId}" is not a slice in this service — copy its id from list_slices.`)
 }
 
 export const createSliceTool = defineWriteTool({
@@ -127,8 +147,9 @@ export const updateSliceTool = defineWriteTool({
     kind: AGENT_SLICE_KIND.describe('omit to keep').optional(),
   }),
   aliases: SUMMARY_ALIAS,
-  run: async ({ slice_id, title, summary, actor, kind }, { client }) => {
-    const outcome = await patchSliceMeta(client, slice_id, {
+  run: async ({ slice_id, title, summary, actor, kind }, ctx) => {
+    await refuseForeignSlice(ctx.client, requireActiveService(ctx), slice_id)
+    const outcome = await patchSliceMeta(ctx.client, slice_id, {
       title,
       summary,
       actor,
@@ -158,9 +179,11 @@ export const replaceSlidesTool = defineWriteTool({
   }),
   run: async ({ slice_id, slides }, ctx) => {
     if (slides.length === 0) throw new Error('slides must be a non-empty array.')
+    const serviceId = requireActiveService(ctx)
+    await refuseForeignSlice(ctx.client, serviceId, slice_id)
     await refuseUnknownCells(
       ctx.client,
-      requireActiveService(ctx),
+      serviceId,
       slides.flatMap((slide) => slide.cells),
     )
     await replaceSlides(

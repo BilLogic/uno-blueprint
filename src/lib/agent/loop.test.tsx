@@ -71,17 +71,24 @@ vi.mock('@/lib/agent/tools/definitions/scope', async (importOriginal) => ({
   readScope: async () => ({ kind: 'service', serviceId: 'svc-1', serviceName: 'Rooftop Retrofit' }),
 }))
 
-/** The write, captured at the RPC wrapper: which service, and the id handed back. */
+/**
+ * The write, captured at the RPC wrapper: which service, and the id handed
+ * back. A case that sets `phaseFailure` makes the wrapper throw it instead,
+ * the way a refused write reaches the loop.
+ */
 const phasesCreated: { serviceId: string; name: string }[] = []
+const phaseFailure = vi.hoisted(() => ({ error: null as Error | null }))
 vi.mock('@/lib/authoringRpc', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/authoringRpc')>()),
   createPhase: async (_client: unknown, input: { serviceId: string; name: string }) => {
+    if (phaseFailure.error) throw phaseFailure.error
     phasesCreated.push(input)
     return 'phase-new'
   },
 }))
 
 import { setActiveService } from '@/contexts/activeService'
+import { AuthoringError } from '@/lib/authoringErrors'
 import { sendToAgent, stopAgent, useAgentRun } from '@/lib/agent/loop'
 import { AGENT_SKILL_COMMANDS } from '@/lib/agent/skills'
 import { ProviderError, wholeSystem } from '@/lib/agent/providers/provider'
@@ -164,6 +171,7 @@ beforeEach(() => {
   provider.turns = []
   provider.inputs = []
   phasesCreated.length = 0
+  phaseFailure.error = null
   board.reads = 0
 })
 
@@ -640,6 +648,52 @@ describe('a read the turn already ran', () => {
     // The move happened, so the observation after it runs.
     expect(answerTo('u3')).toMatchObject({ result: NO_UI_STATE })
     expect(answerTo('u3').isError).toBeUndefined()
+  })
+})
+
+/**
+ * A write the database refused. The person reads the friendly sentence; the
+ * model gets the database's own text beside it, because it cannot open the
+ * console the sentence points at, and a retry without the cause is a guess.
+ */
+describe('a write the database refuses', () => {
+  it('hands the model the database text and keeps the friendly sentence as the row summary', async () => {
+    setActiveService({ id: 'svc-1', slug: 'rooftop-retrofit', name: 'Rooftop Retrofit' })
+    phaseFailure.error = new AuthoringError('friendly', 'raw text')
+    provider.turns = [
+      { parts: [call('f1', 'create_phase', { name: 'Handover' })], stopReason: 'tool_use' },
+      { parts: [{ type: 'text', text: 'That failed.' }], stopReason: 'end' },
+    ]
+
+    const events = await send({ client, text: 'Add a Handover phase' })
+
+    expect(answerTo('f1')).toMatchObject({
+      result: 'Error: friendly (database: raw text)',
+      isError: true,
+    })
+    expect(events.find((event) => event.kind === 'tool')).toMatchObject({
+      name: 'create_phase',
+      summary: 'friendly',
+      isError: true,
+      result: 'Error: friendly (database: raw text)',
+    })
+  })
+
+  it('leaves a failure that is not an authoring error as its message alone', async () => {
+    setActiveService({ id: 'svc-1', slug: 'rooftop-retrofit', name: 'Rooftop Retrofit' })
+    phaseFailure.error = new Error('plain failure')
+    provider.turns = [
+      { parts: [call('f2', 'create_phase', { name: 'Handover' })], stopReason: 'tool_use' },
+      { parts: [{ type: 'text', text: 'That failed.' }], stopReason: 'end' },
+    ]
+
+    const events = await send({ client, text: 'Add a Handover phase' })
+
+    expect(answerTo('f2')).toMatchObject({ result: 'Error: plain failure', isError: true })
+    expect(events.find((event) => event.kind === 'tool')).toMatchObject({
+      summary: 'plain failure',
+      result: 'Error: plain failure',
+    })
   })
 })
 

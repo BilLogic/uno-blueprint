@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useSyncExternalStore } from 'react'
 import { errorMessage } from '@/lib/utils'
+import { AuthoringError } from '@/lib/authoringErrors'
 import type { Database } from '@/types/database'
 import { anthropicAdapter } from '@/lib/agent/providers/anthropic'
 import { googleAdapter } from '@/lib/agent/providers/google'
@@ -986,11 +987,19 @@ export async function sendToAgent(input: {
           })
         } catch (error) {
           const message = errorMessage(error)
+          // The friendly sentence points a person at the console, which the
+          // model cannot open, so the database's own text rides along for
+          // it. The row's detail shows the same, so a person reading the turn
+          // back sees what the model saw; its summary stays the sentence.
+          const answer =
+            error instanceof AuthoringError
+              ? `Error: ${message} (database: ${error.raw})`
+              : `Error: ${message}`
           results.parts.push({
             type: 'tool_result',
             toolCallId: call.id,
             name: call.name,
-            result: `Error: ${message}`,
+            result: answer,
             isError: true,
           })
           push(sessionId, {
@@ -999,7 +1008,7 @@ export async function sendToAgent(input: {
             summary: message,
             isError: true,
             args: detailText(call.args),
-            result: detailText(`Error: ${message}`),
+            result: detailText(answer),
           })
         }
       }

@@ -121,6 +121,10 @@ jobs:
       # literal, which nothing could see because a literal key works for the
       # module that writes it. The account is the script's header.
       - run: npm run check:storage-keys
+      # The app's stylesheet imports a vendored copy of `shadcn/tailwind.css`
+      # so a deployment installs no shadcn CLI. The copy names the version it
+      # came from; a bump nobody re-vendored, or an edit to the copy, is red.
+      - run: npm run check:vendored-css
       # `--require` is not passed here: the tag for a version is cut after the
       # release commit is on main, not on the pull request that proposes it
       # (docs/engineering/releasing.md). The fetch that makes the tags visible

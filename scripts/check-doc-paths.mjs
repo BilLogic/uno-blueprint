@@ -210,6 +210,11 @@ export const ABSENT_BY_DESIGN = [
   },
   {
     doc: 'docs/engineering/checks.md',
+    token: 'shadcn/tailwind.css',
+    why: "a package export specifier, not a repository path: the upstream file check:vendored-css holds the vendored copy to, which resolves out of node_modules",
+  },
+  {
+    doc: 'docs/engineering/checks.md',
     token: 'path.md',
     why: 'a placeholder standing for any pointer target, in the shape a pointer takes: `path.md` § Heading',
   },

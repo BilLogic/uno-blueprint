@@ -2589,3 +2589,49 @@ $posture$;
 -- those beside the ones it already could.
 
 grant update (impact, effort) on public.audit_findings to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000304000000_a_slice_write_is_all_or_nothing.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- who may call them.
+--
+-- The posture every authoring function since `21000120000000` takes: closed to
+-- `public` and `anon`, open to `authenticated`, with the guard in the body
+-- deciding which authenticated caller may actually author.
+revoke execute on function public.replace_slides(uuid, jsonb) from public, anon;
+grant execute on function public.replace_slides(uuid, jsonb) to authenticated;
+revoke execute on function public.create_slice(uuid, text, text, text, text, jsonb) from public, anon;
+grant execute on function public.create_slice(uuid, text, text, text, text, jsonb) to authenticated;
+
+do $proof$
+begin
+  if has_function_privilege('anon', 'public.replace_slides(uuid, jsonb)', 'execute') then
+    raise exception 'proof: anon can call replace_slides';
+  end if;
+  if has_function_privilege('anon',
+       'public.create_slice(uuid, text, text, text, text, jsonb)', 'execute') then
+    raise exception 'proof: anon can call create_slice';
+  end if;
+end
+$proof$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000305000000_undoing_a_slice_replace_is_all_or_nothing.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- who may call it.
+--
+-- The posture of `replace_slides` and `create_slice`: closed to `public` and
+-- `anon`, open to `authenticated`, with the guard in the body deciding which
+-- authenticated caller may actually author.
+revoke execute on function public.restore_slides(uuid, jsonb) from public, anon;
+grant execute on function public.restore_slides(uuid, jsonb) to authenticated;
+
+do $proof$
+begin
+  if has_function_privilege('anon', 'public.restore_slides(uuid, jsonb)', 'execute') then
+    raise exception 'proof: anon can call restore_slides';
+  end if;
+end
+$proof$;

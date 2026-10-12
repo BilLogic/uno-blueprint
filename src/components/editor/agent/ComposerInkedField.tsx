@@ -6,7 +6,11 @@ import {
   type ReactNode,
   type Ref,
 } from 'react'
-import { InputGroup, InputGroupTextarea } from '@/components/ui/input-group'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupTextarea,
+} from '@/components/ui/input-group'
 import { COMPOSER_FIELD_METRICS } from '@/components/editor/agent/composerFieldMetrics'
 import { findSkillTokens, type SkillTokenSpan } from '@/lib/agent/skills'
 import { cn } from '@/lib/utils'
@@ -151,6 +155,14 @@ type ComposerInkedFieldOwnProps = {
    * can see it no longer belongs.
    */
   onSelectionChange: (selection: FieldSelection) => void
+  /**
+   * The button that acts on the draft — Send, or Stop while a turn runs —
+   * drawn INSIDE the field's border, in its bottom-right corner. It is the
+   * one thing a caller may put in the group, and it goes where this module
+   * puts it: beside the box both copies measure, never inside it and never
+   * at an alignment of the caller's choosing.
+   */
+  action?: ReactNode
 }
 
 /** The field's selection, and the text it is an offset into. */
@@ -198,13 +210,21 @@ type ComposerFieldOwnedProps =
  * mechanism. Callers hand in the draft, the write-back and whatever a
  * textarea takes; they cannot reach the box the two copies measure, they
  * cannot hand in tokens read off some other string, and they cannot put an
- * add-on into the input group, because the group is in here and takes no
- * children from outside. That was the live hazard: an add-on in the group
- * narrows the FIELD through the group's own `has-[>[data-align=...]]` rules
- * and leaves the mirror full width, so every line from the first wrap down
- * breaks somewhere else and the colour drifts off the caret — a failure no
- * shared metrics string can see or undo. Inside this module the add-on would
- * land beside the box that sizes both copies, which narrows both or neither.
+ * arbitrary add-on into the input group, because the group is in here and
+ * takes no children from outside. That was the live hazard: an add-on in the
+ * group narrows the FIELD through the group's own `has-[>[data-align=...]]`
+ * rules and leaves the mirror full width, so every line from the first wrap
+ * down breaks somewhere else and the colour drifts off the caret — a failure
+ * no shared metrics string can see or undo.
+ *
+ * The one add-on there is, the `action`, is placed by this module for that
+ * reason: it lands beside the box that sizes both copies, so the row gives
+ * the button its width and the box — field and mirror together — keeps the
+ * rest. That is the field's right-hand reservation, and it is reserved once,
+ * for both copies, by layout rather than by a padding either could lose. It
+ * sits at the row's end (`self-end`) so it stays beside the LAST line as the
+ * draft grows, and its inset (`p-1`) is the gap a one-line field leaves
+ * around a `size-7` button, so the corner reads even on both sides.
  *
  * `h-auto` on the group is the other half of that box's cost, and it is load
  * bearing: the group grows for a DIRECT-child textarea
@@ -230,6 +250,7 @@ export function ComposerInkedField({
   caret,
   onCaretPlaced,
   onSelectionChange,
+  action,
   ...passthrough
 }: Omit<
   ComponentPropsWithoutRef<typeof InputGroupTextarea>,
@@ -294,7 +315,14 @@ export function ComposerInkedField({
   const mirroring = tokens.length > 0 && !composing
   const classes = composerFieldClasses(mirroring)
   return (
-    <InputGroup className="h-auto min-h-8 flex-1">
+    <InputGroup
+      className="h-auto min-h-8 flex-1"
+      // The group greys itself out for ANY disabled descendant by default,
+      // which was the field alone until the action moved in. Send is disabled
+      // on every empty draft, so the dimming is scoped to the field: a
+      // composer with nothing typed in it is waiting, not unavailable.
+      disabledScope="control"
+    >
       {/* ONE positioned box, sized by the field: that is what keeps the two
           copies wrapping alike, since the mirror is `absolute inset-0` and
           measures its nearest positioned ancestor. The module docblock above
@@ -329,6 +357,17 @@ export function ComposerInkedField({
           aria-label="Message the agent"
         />
       </div>
+      {action ? (
+        // `has-[>button]:mr-0` does match: the tooltip trigger renders AS the
+        // button, so the slot's direct child is one. It replaces the inline-end
+        // add-on's pull toward the border, which would eat the even inset.
+        <InputGroupAddon
+          align="inline-end"
+          className="self-end p-1 has-[>button]:mr-0"
+        >
+          {action}
+        </InputGroupAddon>
+      ) : null}
     </InputGroup>
   )
 }

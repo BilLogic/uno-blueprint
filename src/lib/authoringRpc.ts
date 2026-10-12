@@ -460,8 +460,11 @@ function deriveRevert(
       //
       // Every argument the function takes is in the returned row, so the
       // inverse is total: nothing the edit could change is left out of it.
+      // Which is also why a reply without them is no inverse at all: an undo
+      // that wrote an absent kind or target back would be a second edit, not
+      // the first one reversed.
       const before = data as CellDependencyBefore | null
-      return before?.id
+      return before?.id && before.kind && before.target_cell_id
         ? {
             fn: 'update_cell_dependency',
             args: {

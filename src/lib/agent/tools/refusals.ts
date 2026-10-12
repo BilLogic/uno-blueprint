@@ -179,3 +179,26 @@ export function repeatReadRefusal(name: string, args: string): string {
  * transcript.
  */
 export const REPEAT_READ_SUPPRESSED = 'Suppressed — already run this turn'
+
+/** The fields of a transcript tool row these two read. */
+type ToolRowFlags = { isError: boolean; suppressed?: true; summary: string }
+
+/**
+ * Whether a tool row is a repeat the loop answered instead of running. A row
+ * persisted before the loop said `suppressed` carries only the sentence, and
+ * is flagged as a failure; read back, it is the same repeat. APP-ONLY, as
+ * `REPEAT_READ_SUPPRESSED` is: it reads transcript rows, and the harness
+ * renders no transcript.
+ */
+export function isSuppressedRow(row: ToolRowFlags): boolean {
+  return row.suppressed === true || row.summary === REPEAT_READ_SUPPRESSED
+}
+
+/**
+ * Whether a tool row is a call that ran and failed — the one reading every
+ * place that shows or counts a failure uses, so a suppressed repeat is never
+ * one in one place and not in another. APP-ONLY, for the same reason.
+ */
+export function isFailedRow(row: ToolRowFlags): boolean {
+  return row.isError && !isSuppressedRow(row)
+}

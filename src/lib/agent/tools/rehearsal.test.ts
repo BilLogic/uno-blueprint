@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { clearSession } from '@/lib/authoringSession'
+import { clearSession, sessionSnapshot } from '@/lib/authoringSession'
+import { updateCellDependency } from '@/lib/authoringRpc'
 import { runTool } from '@/lib/agent/tools/definition'
 import { TOOL_DEFINITIONS } from '@/lib/agent/tools/definitions'
-import { REHEARSAL_SERVICE, rehearsalContext } from '@/lib/agent/tools/rehearsal'
+import { REHEARSAL_SERVICE, rehearsalClient, rehearsalContext } from '@/lib/agent/tools/rehearsal'
 
 /*
  * Every write tool, rehearsed: its own `run` against the rehearsal client,
@@ -14,6 +15,10 @@ import { REHEARSAL_SERVICE, rehearsalContext } from '@/lib/agent/tools/rehearsal
 
 const WRITES = TOOL_DEFINITIONS.filter((tool) => tool.surface === 'write')
 
+/** Cell ids as the database mints them: the slice writes refuse any other shape. */
+const CELL_1 = 'a0000000-0000-4000-8000-000000040101'
+const CELL_2 = 'a0000000-0000-4000-8000-000000040102'
+
 /** One valid call per write tool — what the harness would be handed by a model. */
 const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   create_stakeholder: { name: 'Dispatcher', kind: 'staff' },
@@ -23,9 +28,9 @@ const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   create_path: { scenario_id: 'sc-1', name: 'Late' },
   duplicate_path: { source_path_id: 'p-1', name: 'Copy' },
   duplicate_scenario: { source_scenario_id: 'sc-1', name: 'Intake (copy)' },
-  create_slice: { title: 'Caller view', kind: 'journey', cell_ids: ['c-1', 'c-2'] },
+  create_slice: { title: 'Caller view', kind: 'journey', cell_ids: [CELL_1, CELL_2] },
   update_slice: { slice_id: 'sl-1', title: 'Renamed' },
-  replace_slides: { slice_id: 'sl-1', slides: [{ cells: ['c-1'], title: 'Arrive' }] },
+  replace_slides: { slice_id: 'sl-1', slides: [{ cells: [CELL_1], title: 'Arrive' }] },
   create_step: { path_id: 'p-1', name: 'Verify' },
   create_lane: { scenario_id: 'sc-1', name: 'Backstage', lane_role: 'backstage_actions' },
   upsert_cell: { path_id: 'p-1', lane_id: 'l-1', step_id: 's-1', content: 'Caller books a slot' },
@@ -114,5 +119,39 @@ describe('the rehearsal records which write was reached', () => {
     const run = rehearse('update_cell')
     await run.text
     expect(run.rpcs.map((rpc) => rpc.fn)).toContain('sync_cell_touchpoints')
+  })
+})
+
+/*
+ * What a rehearsal leaves on the ledger. A write that did not happen has
+ * nothing to undo, so a rehearsed edit must not record an inverse built from
+ * placeholder fields — and a rehearsed replace must still land, its inverse
+ * the slides the rehearsal read: none.
+ */
+describe('a rehearsal records no inverse it cannot honour', () => {
+  it('a rehearsed update_cell_dependency records no inverse', async () => {
+    const { client } = rehearsalClient(() => 'dry-1')
+    await updateCellDependency(client, { dependencyId: 'dep-1', kind: 'enables', targetCellId: 'c-2', note: null })
+    expect(sessionSnapshot().map(({ fn, revert }) => ({ fn, revert }))).toEqual([
+      { fn: 'update_cell_dependency', revert: undefined },
+    ])
+  })
+
+  it('a rehearsed replace_slides lands, with the empty slice it read as the inverse', async () => {
+    const run = rehearse('replace_slides')
+    expect(await run.text).toBe("Replaced the slice's slides (1).")
+    expect(sessionSnapshot().map(({ revert }) => revert)).toEqual([
+      { fn: 'restore_slides', args: { slice_id: 'sl-1', rows: [] } },
+    ])
+  })
+})
+
+describe('the rehearsal’s existence answers', () => {
+  it('finds the cells an existence check names, and nothing for any other table’s in(id)', async () => {
+    const { client } = rehearsalClient(() => 'dry-1')
+    const cells = await client.from('cells').select('id').in('id', [CELL_1])
+    const slides = await client.from('slides').select('id').in('id', [CELL_1])
+    expect(cells.data).toEqual([{ id: CELL_1 }])
+    expect(slides.data).toEqual([])
   })
 })

@@ -372,6 +372,53 @@ end;
 $$;
 
 --
+-- Name: create_slice(uuid, text, text, text, text, jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.create_slice(p_service_id uuid, p_title text, p_summary text, p_kind text, p_actor text, p_slides jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare
+  v_title text := btrim(coalesce(p_title, ''));
+  v_slice public.slices;
+begin
+  if not public.is_service_account() then
+    raise exception 'This account cannot edit the blueprint' using errcode = '42501';
+  end if;
+
+  if v_title = '' then
+    raise exception 'A slice needs a title — nothing was written.';
+  end if;
+
+  -- `human`: this slice was authored here, so the slice skill never
+  -- regenerates over it. Blank prose is stored as null, the house rule.
+  insert into public.slices (service_id, title, summary, kind, actor, authorship)
+  values (
+    p_service_id,
+    v_title,
+    nullif(btrim(coalesce(p_summary, '')), ''),
+    p_kind,
+    nullif(btrim(coalesce(p_actor, '')), ''),
+    'human'
+  )
+  returning * into v_slice;
+
+  -- Inside this transaction: a refusal there takes the slice row with it.
+  perform public.replace_slides(v_slice.id, coalesce(p_slides, '[]'::jsonb));
+
+  select * into v_slice from public.slices where id = v_slice.id;
+  return to_jsonb(v_slice);
+end
+$$;
+
+--
+-- Name: FUNCTION create_slice(p_service_id uuid, p_title text, p_summary text, p_kind text, p_actor text, p_slides jsonb); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.create_slice(p_service_id uuid, p_title text, p_summary text, p_kind text, p_actor text, p_slides jsonb) IS 'Create a human-authored slice and its slides in one transaction. p_slides is the list replace_slides takes. A refusal anywhere leaves no slice row behind. Returns the slice row.';
+
+--
 -- Name: delete_cell(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1567,6 +1614,111 @@ end;
 $$;
 
 --
+-- Name: replace_slides(uuid, jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.replace_slides(p_slice_id uuid, p_slides jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $_$
+declare
+  v_previous jsonb;
+  v_slide    jsonb;
+  v_ordinal  bigint;
+  v_cell     text;
+  v_slide_id uuid;
+begin
+  if not public.is_service_account() then
+    raise exception 'This account cannot edit the blueprint' using errcode = '42501';
+  end if;
+
+  if p_slides is null or jsonb_typeof(p_slides) <> 'array' then
+    raise exception 'A slice''s slides are written as a list of slides — nothing was written.';
+  end if;
+
+  -- Locked, so the capture below is the state the delete removes and no other
+  -- write can slip a slide in between the two.
+  perform 1 from public.slices where id = p_slice_id for update;
+  if not found then
+    raise exception 'That slice no longer exists — nothing was written.';
+  end if;
+
+  -- Before the delete, or there is nothing left to capture. Each row whole,
+  -- with its image set, in the order `position` already encodes.
+  select coalesce(jsonb_agg(
+           to_jsonb(s) || jsonb_build_object(
+             'slide_images',
+             coalesce((select jsonb_agg(to_jsonb(i) order by i.position)
+                         from public.slide_images i
+                        where i.slide_id = s.id), '[]'::jsonb))
+           order by s.position), '[]'::jsonb)
+    into v_previous
+    from public.slides s
+   where s.slice_id = p_slice_id;
+
+  -- `slide_images` cascade with their slide.
+  delete from public.slides where slice_id = p_slice_id;
+
+  for v_slide, v_ordinal in
+    select value, ordinality from jsonb_array_elements(p_slides) with ordinality
+  loop
+    if jsonb_typeof(v_slide) <> 'object' then
+      raise exception 'Slide % is not a slide — nothing was written.', v_ordinal;
+    end if;
+
+    -- Said in a sentence rather than left to the uuid cast, whose message
+    -- names a type and no slide. A cell id is a soft reference with no
+    -- foreign key, so its shape is the one thing the database can hold it to.
+    for v_cell in
+      select jsonb_array_elements_text(coalesce(v_slide -> 'cell_ids', '[]'::jsonb))
+    loop
+      if v_cell !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
+        raise exception 'Slide % names a cell that is not an id (%) — nothing was written.',
+          v_ordinal, v_cell;
+      end if;
+    end loop;
+
+    insert into public.slides (
+      id, slice_id, position, cell_ids, cell_keys, title, caption, shows_all_images
+    )
+    values (
+      coalesce((v_slide ->> 'id')::uuid, gen_random_uuid()),
+      p_slice_id,
+      v_ordinal - 1,
+      array(select jsonb_array_elements_text(coalesce(v_slide -> 'cell_ids', '[]'::jsonb)))::uuid[],
+      -- A slide sent without keys records its cell ids as them, which is what
+      -- a human-authored slide has always stored there.
+      array(select jsonb_array_elements_text(
+        coalesce(v_slide -> 'cell_keys', v_slide -> 'cell_ids', '[]'::jsonb))),
+      nullif(btrim(coalesce(v_slide ->> 'title', '')), ''),
+      nullif(btrim(coalesce(v_slide ->> 'caption', '')), ''),
+      coalesce((v_slide ->> 'shows_all_images')::boolean, true)
+    )
+    returning id into v_slide_id;
+
+    insert into public.slide_images (slide_id, position, cell_id, image_url)
+    select v_slide_id,
+           (member ->> 'position')::int,
+           (member ->> 'cell_id')::uuid,
+           member ->> 'image_url'
+      from jsonb_array_elements(coalesce(v_slide -> 'images', '[]'::jsonb)) as member;
+  end loop;
+
+  return jsonb_build_object(
+    'slice_id', p_slice_id,
+    'slide_count', jsonb_array_length(p_slides),
+    'previous', v_previous
+  );
+end
+$_$;
+
+--
+-- Name: FUNCTION replace_slides(p_slice_id uuid, p_slides jsonb); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.replace_slides(p_slice_id uuid, p_slides jsonb) IS 'Replace a slice''s slides, and their slide_images, whole and in one transaction. Each element of p_slides is one slide in order: cell_ids, cell_keys, title, caption, shows_all_images, images, and optionally the id it keeps. A refusal anywhere leaves the prior slides as they were. Returns previous: the deleted slides with their image sets as they stood, which restore_slides writes back.';
+
+--
 -- Name: restore_cell_content(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1778,6 +1930,86 @@ $$;
 --
 
 COMMENT ON FUNCTION public.restore_placement(p_row jsonb, p_resources jsonb) IS 'The inverse of remove_placement: the row back under its own id, resources included.';
+
+--
+-- Name: restore_slides(uuid, jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.restore_slides(p_slice_id uuid, p_rows jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare
+  v_row     jsonb;
+  v_ordinal bigint;
+  v_dropped jsonb;
+begin
+  if not public.is_service_account() then
+    raise exception 'This account cannot edit the blueprint' using errcode = '42501';
+  end if;
+
+  if p_rows is null or jsonb_typeof(p_rows) <> 'array' then
+    raise exception 'A slice''s slides are written back as a list of slides — nothing was written.';
+  end if;
+
+  -- Locked, as the replace locks it, so nothing slips a slide in between the
+  -- read of what is there and the delete of it.
+  perform 1 from public.slices where id = p_slice_id for update;
+  if not found then
+    raise exception 'That slice no longer exists — nothing was written.';
+  end if;
+
+  select coalesce(jsonb_agg(s.id order by s.position), '[]'::jsonb)
+    into v_dropped
+    from public.slides s
+   where s.slice_id = p_slice_id
+     and s.id::text not in (
+       select r ->> 'id' from jsonb_array_elements(p_rows) r
+        where jsonb_typeof(r) = 'object' and r ->> 'id' is not null);
+
+  -- `slide_images` cascade with their slide.
+  delete from public.slides where slice_id = p_slice_id;
+
+  for v_row, v_ordinal in
+    select value, ordinality from jsonb_array_elements(p_rows) with ordinality
+  loop
+    if jsonb_typeof(v_row) <> 'object' or coalesce(v_row ->> 'id', '') = '' then
+      raise exception 'Captured slide % has no id — nothing was written.', v_ordinal;
+    end if;
+
+    -- Named columns, as `replace_slides` writes them: a positional `.*`
+    -- would put a value in whichever column a later migration added in its
+    -- place.
+    insert into public.slides (
+      id, slice_id, position, cell_ids, cell_keys, title, caption,
+      shows_all_images, created_at, created_by, updated_at
+    )
+    select r.id, p_slice_id, r.position, r.cell_ids, r.cell_keys, r.title, r.caption,
+           r.shows_all_images, r.created_at, r.created_by, r.updated_at
+      from jsonb_populate_record(null::public.slides, v_row - 'slide_images') as r;
+
+    insert into public.slide_images (id, slide_id, position, cell_id, image_url)
+    select coalesce((member ->> 'id')::uuid, gen_random_uuid()),
+           (v_row ->> 'id')::uuid,
+           (member ->> 'position')::int,
+           (member ->> 'cell_id')::uuid,
+           member ->> 'image_url'
+      from jsonb_array_elements(coalesce(v_row -> 'slide_images', '[]'::jsonb)) as member;
+  end loop;
+
+  return jsonb_build_object(
+    'slice_id', p_slice_id,
+    'slide_count', jsonb_array_length(p_rows),
+    'dropped', v_dropped
+  );
+end
+$$;
+
+--
+-- Name: FUNCTION restore_slides(p_slice_id uuid, p_rows jsonb); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.restore_slides(p_slice_id uuid, p_rows jsonb) IS 'Write a slice''s captured slides, and their slide_images, back whole and in one transaction: p_rows is the previous a replace_slides call returned. A refusal anywhere leaves the slice as it stood. Returns dropped: the ids of the slides it removed that the capture does not restore.';
 
 --
 -- Name: schema_comments(); Type: FUNCTION; Schema: public; Owner: -

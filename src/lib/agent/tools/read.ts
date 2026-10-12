@@ -32,6 +32,7 @@ import {
 import { agentSessionsSnapshot } from '@/lib/agent/sessions'
 import { loadPersistedEvents } from '@/lib/agent/persistence'
 import type { TranscriptEvent } from '@/lib/agent/loop'
+import { isFailedRow } from '@/lib/agent/tools/refusals'
 import {
   SCOPE_ALL,
   serviceStakeholderIds,
@@ -46,7 +47,7 @@ type Client = SupabaseClient<Database>
  * it is given; `.or()` does not — it takes raw filter grammar, where a comma
  * starts another clause.
  */
-const UUID =
+export const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
@@ -416,7 +417,7 @@ function renderTranscriptLine(event: TranscriptEvent): string {
     case 'assistant':
       return `assistant: ${event.text}`
     case 'tool':
-      return `tool ${event.name}${event.isError ? ' (error)' : ''}: ${event.summary}`
+      return `tool ${event.name}${isFailedRow(event) ? ' (error)' : ''}: ${event.summary}`
     case 'status':
       return `status: ${event.text}`
     // The row whose whole point is that a later reader — a person scrolling,

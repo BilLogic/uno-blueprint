@@ -111,6 +111,28 @@ describe('an empty field looks empty', () => {
   })
 })
 
+describe('a group dims for what is disabled', () => {
+  const tokens = (classes: string) => classes.split(/\s+/)
+
+  it('dims for any disabled descendant by default, as the vendored group does', () => {
+    const classes = tokens(classesOf('input-group', <InputGroup />))
+    expect(classes).toContain('has-disabled:opacity-50')
+    expect(classes).toContain('has-disabled:bg-input/50')
+  })
+
+  it('dims only for its own disabled control when scoped to it', () => {
+    // A group whose add-on disables itself on its own — a send with nothing
+    // to send — is not unavailable, so the look follows the control alone.
+    const classes = tokens(
+      classesOf('input-group', <InputGroup disabledScope="control" />),
+    )
+    expect(classes.filter((name) => name.includes('has-disabled:'))).toEqual([])
+    expect(classes).toContain('has-[[data-slot=input-group-control]:disabled]:opacity-50')
+    expect(classes).toContain('has-[[data-slot=input-group-control]:disabled]:bg-input/50')
+    expect(classes).toContain('dark:has-[[data-slot=input-group-control]:disabled]:bg-input/80')
+  })
+})
+
 describe('a locked value looks like a caption', () => {
   it('reads a read-only Input as caption ink on the ordinary border', () => {
     const classes = classesOf('input', <Input readOnly value="Live" />)

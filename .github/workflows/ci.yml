@@ -545,6 +545,12 @@ jobs:
       - name: A touchpoint edit lands whole, undoes whole, and is refused whole
         run: bash scripts/tests/update-touchpoint.test.sh
 
+      # `replace_slides` and `create_slice` swap a slice's slides, or write a
+      # slice and its slides, together or not at all. Only a loaded seed can
+      # show that a refused insert left the prior slides exactly as they were.
+      - name: A slice write lands whole or leaves the slice as it was
+        run: bash scripts/tests/slice-writes.test.sh
+
       # The vocabulary sweep, against the catalogue rather than the files.
       # `alter table … rename` moves the table and the column; the index, the
       # constraint, the policy, the trigger, the comment and every plpgsql body

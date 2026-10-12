@@ -68,7 +68,9 @@ type Placeholder = string
  * exists to abolish. `inserted` is true because a rehearsal creates and never
  * overwrites; `previous` is null because there is no row it wrote over, which
  * the ledger reads as "no inverse" — the honest answer for a write that did
- * not happen.
+ * not happen. The slide replace reads a missing capture the same way and
+ * falls back to the slides it read before writing, which in a rehearsal are
+ * none: an empty slice is what its undo would put back.
  */
 function rpcAnswer(ref: Placeholder): unknown {
   return { id: ref, inserted: true, previous: null, toString: () => ref }
@@ -125,11 +127,26 @@ function argumentType(field: unknown): string | null {
  *   sees its row come back rather than reading as a lost race;
  * - a plain select yields nothing for a list and a row for a `single` — so a
  *   before-read finds its row and a dedupe query finds no twin, which are the
- *   two shapes the writes read with.
+ *   two shapes the writes read with;
+ * - except the cell existence check — a list select from `cells` that names
+ *   its rows by `in('id', […])` — which yields one row per id named, so the
+ *   check finds the cells it asked after. A rehearsal cannot refuse what only
+ *   real rows could refuse, and answering "none of those exist" would be
+ *   exactly that refusal. Scoped to that one check: any other table's
+ *   `in('id')` is a read whose answer a write acts on, and inventing rows
+ *   there would rehearse a write over rows nobody has.
+ *
+ * And a row a rehearsal reads belongs to the service it rehearses under: a
+ * selected `service_id` the call does not carry answers that service, so a
+ * write that checks a row is the active service's finds it is.
  */
 export function rehearsalClient(
   placeholder: () => Placeholder,
-  rehearsed: { definition?: ToolDefinition; args?: Record<string, unknown> } = {},
+  rehearsed: {
+    definition?: ToolDefinition
+    args?: Record<string, unknown>
+    serviceId?: string
+  } = {},
 ): {
   client: Client
   calls: RehearsalCall[]
@@ -181,7 +198,10 @@ export function rehearsalClient(
       case 'boolean':
         return false
       default:
-        return rehearsed.args?.[column] ?? null
+        return (
+          rehearsed.args?.[column] ??
+          (column === 'service_id' ? (rehearsed.serviceId ?? null) : null)
+        )
     }
   }
   const calls: RehearsalCall[] = []
@@ -195,6 +215,12 @@ export function rehearsalClient(
     const addressed = () => {
       const eq = call.ops.filter(([op, column]) => op === 'eq' && column === 'id').at(-1)
       return typeof eq?.[2] === 'string' ? eq[2] : placeholder()
+    }
+    /** The cell ids the existence check named with `in('id', […])`, when it is that check. */
+    const named = () => {
+      if (table !== 'cells') return null
+      const list = call.ops.filter(([op, column]) => op === 'in' && column === 'id').at(-1)?.[2]
+      return Array.isArray(list) ? list.filter((id): id is string => typeof id === 'string') : null
     }
     /** The row a write would have produced: its payload, under an id. */
     const written = () => {
@@ -239,7 +265,7 @@ export function rehearsalClient(
             : null
           : has('update', 'delete')
             ? [{ id: addressed() }]
-            : []
+            : (named() ?? []).map((id) => ({ ...selected(), id }))
       return Promise.resolve({ data, error: null })
     }
     const proxy: unknown = new Proxy(
@@ -315,7 +341,11 @@ export function rehearsalContext(
   const { definition, args, placeholder, ...context } = overrides
   let issued = 0
   const ref = placeholder ?? (() => `dry-${(issued += 1)}`)
-  const { client, calls, rpcs } = rehearsalClient(ref, { definition, args })
+  const { client, calls, rpcs } = rehearsalClient(ref, {
+    definition,
+    args,
+    serviceId: REHEARSAL_SERVICE.id,
+  })
   return {
     ctx: {
       client,

@@ -1,4 +1,5 @@
 import { type TranscriptEvent } from '@/lib/agent/loop'
+import { isFailedRow } from '@/lib/agent/tools/refusals'
 
 /**
  * Transcript grouping (2026-08-17): a finished run's tool/status rows fold
@@ -47,7 +48,7 @@ export function blockTranscript(events: TranscriptEvent[]): TranscriptBlock[] {
     if (isStep) {
       if (runStart === -1) runStart = index
       if (
-        (event.kind === 'tool' && event.isError) ||
+        (event.kind === 'tool' && isFailedRow(event)) ||
         (event.kind === 'status' && /error/i.test(event.text))
       )
         runHasError = true

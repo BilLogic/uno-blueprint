@@ -5,7 +5,14 @@
  * hand-rolled lookalike.
  */
 import { Component, lazy, Suspense, useState, type ReactNode } from 'react'
-import { CheckCircle2, ChevronRight, Pencil, Slash, XCircle } from 'lucide-react'
+import {
+  CheckCircle2,
+  ChevronRight,
+  CircleMinus,
+  Pencil,
+  Slash,
+  XCircle,
+} from 'lucide-react'
 import { Eyebrow } from '@/components/blueprint/Eyebrow'
 import { Badge } from '@/components/ui/badge'
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
@@ -22,6 +29,7 @@ import {
 } from '@/components/ui/marker'
 import { Message, MessageContent } from '@/components/ui/message'
 import { type TranscriptEvent } from '@/lib/agent/loop'
+import { isFailedRow, isSuppressedRow } from '@/lib/agent/tools/refusals'
 import { cn } from '@/lib/utils'
 
 /*
@@ -131,11 +139,17 @@ function ToolDetail({ label, body }: { label: string; body: string }) {
 function ToolRow({ event }: { event: ToolEvent }) {
   const [open, setOpen] = useState(false)
   const expandable = Boolean(event.args || event.result)
+  const suppressed = isSuppressedRow(event)
+  const failed = isFailedRow(event)
   const face = (
     <>
       <MarkerIcon>
-        {event.isError ? (
+        {failed ? (
           <XCircle aria-hidden />
+        ) : suppressed ? (
+          // Neither verdict: the call did not run, and nothing went wrong.
+          // It keeps the row's muted colour rather than the error's.
+          <CircleMinus aria-hidden />
         ) : (
           <CheckCircle2 aria-hidden />
         )}
@@ -151,7 +165,7 @@ function ToolRow({ event }: { event: ToolEvent }) {
 
   if (!expandable) {
     return (
-      <Marker className={cn(event.isError && 'text-destructive')}>
+      <Marker className={cn(failed && 'text-destructive')}>
         {face}
       </Marker>
     )
@@ -166,7 +180,7 @@ function ToolRow({ event }: { event: ToolEvent }) {
             className={cn(
               markerVariants({ variant: 'default' }),
               'cursor-pointer rounded-md transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              event.isError && 'text-destructive',
+              failed && 'text-destructive',
             )}
           >
             {face}

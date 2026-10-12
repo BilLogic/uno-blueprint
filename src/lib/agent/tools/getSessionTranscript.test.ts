@@ -4,6 +4,7 @@ import type { Database } from '@/types/database'
 import type { TranscriptEvent } from '@/lib/agent/loop'
 import { attachAgentPersistence } from '@/lib/agent/persistenceReadiness'
 import { getSession } from '@/lib/agent/tools/read'
+import { REPEAT_READ_SUPPRESSED } from '@/lib/agent/tools/refusals'
 
 /**
  * WHAT AN AGENT READING A PAST SESSION IS OWED: the words, not the fact that
@@ -104,6 +105,21 @@ describe('get_session hands an agent the words, not the kind', () => {
     expect(await getSession('some-other-session')).toBe(
       'That session has no recorded turns.',
     )
+  })
+
+  it('tags a failed call as an error, and a suppressed repeat as none, however it was persisted', async () => {
+    attachTranscript([
+      { kind: 'tool', name: 'get_cell', summary: 'No cell with that id', isError: true },
+      { kind: 'tool', name: 'get_blueprint', summary: REPEAT_READ_SUPPRESSED, isError: false, suppressed: true },
+      // Persisted before the loop said `suppressed`: the sentence alone, flagged as a failure.
+      { kind: 'tool', name: 'get_blueprint', summary: REPEAT_READ_SUPPRESSED, isError: true },
+    ])
+    const lines = (await getSession(SESSION_ID)).split('\n').slice(1)
+    expect(lines).toEqual([
+      'tool get_cell (error): No cell with that id',
+      `tool get_blueprint: ${REPEAT_READ_SUPPRESSED}`,
+      `tool get_blueprint: ${REPEAT_READ_SUPPRESSED}`,
+    ])
   })
 
   it('renders no line as the bare kind', async () => {

@@ -57,6 +57,7 @@ import {
   BLUEPRINT_MENUBAR_FLAT_CLASS,
   BLUEPRINT_MENUBAR_HEADER_CLASS,
   BLUEPRINT_MENUBAR_IDENTITY_HEIGHT,
+  BLUEPRINT_MENUBAR_PADDING_Y,
   BLUEPRINT_MENUBAR_ROW_HEIGHT,
   BLUEPRINT_MENUBAR_SUMMARY_CLASS,
   CELL_DETAIL_PANEL_TOP_CLASS,
@@ -187,16 +188,18 @@ describe('EntityHeader height', () => {
   })
 })
 
-/* ------------------------------------------- the block fits its bar */
+/* ------------------------------------------- the bar hugs its block */
 
 /**
- * Three layout defects, each guarded as far as jsdom can see.
+ * The bar hugs the block: its height is the pinned block plus padding from
+ * the spacing scale, never a height of its own.
  *
  * jsdom applies no Tailwind and performs no layout, so nothing here can read
  * a pixel off the canvas. What it can read is the contract the pixels come
- * from: the row height the classes spell out, the bound on the summary, and
- * the outdent that cancels the title's inset. Each assertion names the
- * defect it would have caught.
+ * from: the block's pinned height (an inline length, so measurable), the
+ * padding step the classes name, and the shape of the column inside the
+ * block. Each assertion names the defect it would have caught; the pixels
+ * themselves are checked in the browser preview.
  */
 const rem = (length: string) => {
   const match = /^(\d+(?:\.\d+)?)rem$/.exec(length)
@@ -204,25 +207,54 @@ const rem = (length: string) => {
   return Number(match[1])
 }
 const classes = (className: string) => className.split(/\s+/).filter(Boolean)
+/** Tailwind's spacing step: `py-2` is two of these. */
+const SPACING_STEP_REM = 0.25
+const MENUBAR_CLASSES = [
+  ['header', BLUEPRINT_MENUBAR_HEADER_CLASS],
+  ['flat', BLUEPRINT_MENUBAR_FLAT_CLASS],
+] as const
 
-describe('the identity block fits its bar', () => {
-  it('the menubar row is taller than the pinned block, with even room either side', () => {
-    const room = rem(BLUEPRINT_MENUBAR_ROW_HEIGHT) - rem(BLUEPRINT_MENUBAR_IDENTITY_HEIGHT)
-    // The defect: a 36px row around a 42px block, so the summary sat on the
-    // bar's bottom border. Room must be positive, and split into two whole
-    // pixels at 16px/rem so the block centres without a half-pixel edge.
-    expect(room).toBeGreaterThan(0)
-    expect(((room * 16) / 2) % 1).toBe(0)
+describe('the bar hugs its block', () => {
+  it('holds no height of its own, so only the block and the padding size it', () => {
+    // The defect: a hand-written `h-[3.25rem]` that had to be kept in step
+    // with the block by hand. `h-auto` is allowed, and needed: the phase bar
+    // is a `Menubar`, whose own base class is a fixed `h-8`.
+    for (const [name, className] of MENUBAR_CLASSES) {
+      const heights = classes(className).filter((token) => /^h-/.test(token))
+      expect(heights, name).toEqual(['h-auto'])
+    }
   })
 
-  it('both row classes spell out that height, and nothing shorter', () => {
-    const height = `h-[${BLUEPRINT_MENUBAR_ROW_HEIGHT}]`
-    for (const [name, className] of [
-      ['header', BLUEPRINT_MENUBAR_HEADER_CLASS],
-      ['flat', BLUEPRINT_MENUBAR_FLAT_CLASS],
-    ] as const) {
-      const heights = classes(className).filter((token) => /^h-/.test(token))
-      expect(heights, name).toEqual([height])
+  it('takes its vertical padding from the spacing scale, one step on both classes', () => {
+    for (const [name, className] of MENUBAR_CLASSES) {
+      const padding = classes(className).filter((token) =>
+        /^(p|py|pt|pb)-/.test(token),
+      )
+      // One symmetric step and nothing arbitrary: `pt`/`pb` or `py-[…]` would
+      // let the two edges drift apart again.
+      expect(padding, name).toEqual(['py-2'])
+    }
+    expect(rem(BLUEPRINT_MENUBAR_PADDING_Y)).toBe(2 * SPACING_STEP_REM)
+  })
+
+  it('measures the block plus the padding above and below: 40px + 2 × 8px', () => {
+    expect(rem(BLUEPRINT_MENUBAR_IDENTITY_HEIGHT) * 16).toBe(40)
+    expect(rem(BLUEPRINT_MENUBAR_ROW_HEIGHT) * 16).toBe(56)
+  })
+
+  it('is the same height with a summary, without one, and while loading', () => {
+    // The padding is constant, so the block is where a summary landing late
+    // would show: it must measure the same in all three.
+    for (const element of [
+      <EntityHeader key="s" kind="scenario" id="scn-1" label="Name" summary="A sentence." />,
+      <EntityHeader key="n" kind="scenario" id="scn-1" label="Name" />,
+      <EntityHeader key="l" kind="scenario" status="loading" />,
+    ]) {
+      renderWithEntityDetail(
+        <div className={BLUEPRINT_MENUBAR_HEADER_CLASS}>{element}</div>,
+      )
+      expect(measure()).toBe(BLUEPRINT_MENUBAR_IDENTITY_HEIGHT)
+      cleanup()
     }
   })
 
@@ -232,13 +264,13 @@ describe('the identity block fits its bar', () => {
     expect(classes(BLUEPRINT_MENUBAR_HEADER_CLASS)).toContain('flex')
   })
 
-  it('the drawer\u2019s fallback top clears the same row', () => {
+  it('the drawer’s fallback top clears the same bar and its border', () => {
     expect(CELL_DETAIL_PANEL_TOP_CLASS).toContain(
       `calc(${BLUEPRINT_MENUBAR_ROW_HEIGHT}+1px+1rem)`,
     )
   })
 
-  it('the service bar renders its block inside a row of that height', () => {
+  it('the service bar renders its block inside a padded row with no height', () => {
     renderWithEntityDetail(
       <QueryClientProvider client={new QueryClient()}>
         <ServiceOverviewHeader />
@@ -246,9 +278,55 @@ describe('the identity block fits its bar', () => {
     )
     const row = block()?.parentElement
     expect(row?.closest('[data-editor-navbar]')).not.toBeNull()
-    expect(classes(row?.className ?? '')).toContain(
-      `h-[${BLUEPRINT_MENUBAR_ROW_HEIGHT}]`,
+    const tokens = classes(row?.className ?? '')
+    expect(tokens).toContain('py-2')
+    expect(tokens.filter((token) => /^h-/.test(token))).toEqual(['h-auto'])
+  })
+})
+
+/**
+ * Even room above the title and below the summary.
+ *
+ * The block's edges sit on the bar's padding, so the room is even exactly
+ * when the title's line is on the block's top edge and the summary's line on
+ * its bottom edge. The title affordance carries a `py-1` for its hover
+ * highlight, which put 4px more above the name than below the summary.
+ */
+describe('the room above the title equals the room below the summary', () => {
+  it('cancels the affordance’s vertical padding by exactly its own step', () => {
+    renderWithEntityDetail(
+      <EntityHeader kind="scenario" id="scn-1" label="Name" summary="A sentence." />,
     )
+    const padding = classes(titleSlot()!.className).find((token) =>
+      /^py-/.test(token),
+    )
+    expect(padding).toBeDefined()
+    const identity = document.querySelector(
+      '[data-entity-header-identity]',
+    ) as HTMLElement
+    expect(classes(identity.className)).toContain(
+      `-my-${padding!.slice('py-'.length)}`,
+    )
+  })
+
+  it('fills the pinned block, title on its top edge and summary on its bottom', () => {
+    renderWithEntityDetail(
+      <EntityHeader kind="scenario" id="scn-1" label="Name" summary="A sentence." />,
+    )
+    const column = summarySlot()!.parentElement!
+    expect(classes(column.className)).toEqual(
+      expect.arrayContaining(['flex-col', 'h-full']),
+    )
+    expect(classes(summarySlot()!.className)).toContain('mt-auto')
+  })
+
+  it('draws the skeleton to the same two edges', () => {
+    renderWithEntityDetail(<EntityHeader kind="service" status="loading" />)
+    const column = skeleton()!
+    expect(classes(column.className)).toContain('h-full')
+    expect(classes(column.parentElement!.className)).toContain('h-full')
+    const [, summaryRow] = [...column.children] as HTMLElement[]
+    expect(classes(summaryRow.className)).toContain('mt-auto')
   })
 })
 

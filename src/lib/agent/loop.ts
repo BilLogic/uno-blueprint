@@ -181,7 +181,16 @@ export type TranscriptEvent =
       kind: 'tool'
       name: string
       summary: string
+      /** The call ran and failed. Never set on a suppressed repeat. */
       isError: boolean
+      /**
+       * The loop declined to run the call because the turn already had its
+       * answer. A field of its own rather than a flavour of `isError`: the
+       * turn behaved as designed, and a reader hunting the call that broke
+       * must not find this one wearing the same colour. Absent on every
+       * other row, and on suppressed rows persisted before it existed.
+       */
+      suppressed?: true
       /**
        * What the row expands to show. Presentation only — nothing reads
        * these back into the conversation, and they are absent on rows
@@ -926,7 +935,8 @@ export async function sendToAgent(input: {
                 kind: 'tool',
                 name: call.name,
                 summary: REPEAT_READ_SUPPRESSED,
-                isError: true,
+                isError: false,
+                suppressed: true,
                 args: detailText(call.args),
                 result: detailText(admission.refusal),
               })

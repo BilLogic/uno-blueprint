@@ -5,7 +5,14 @@
  * hand-rolled lookalike.
  */
 import { Component, lazy, Suspense, useState, type ReactNode } from 'react'
-import { CheckCircle2, ChevronRight, Pencil, Slash, XCircle } from 'lucide-react'
+import {
+  CheckCircle2,
+  ChevronRight,
+  CircleMinus,
+  Pencil,
+  Slash,
+  XCircle,
+} from 'lucide-react'
 import { Eyebrow } from '@/components/blueprint/Eyebrow'
 import { Badge } from '@/components/ui/badge'
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
@@ -136,6 +143,10 @@ function ToolRow({ event }: { event: ToolEvent }) {
       <MarkerIcon>
         {event.isError ? (
           <XCircle aria-hidden />
+        ) : event.suppressed ? (
+          // Neither verdict: the call did not run, and nothing went wrong.
+          // It keeps the row's muted colour rather than the error's.
+          <CircleMinus aria-hidden />
         ) : (
           <CheckCircle2 aria-hidden />
         )}

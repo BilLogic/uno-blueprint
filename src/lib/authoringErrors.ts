@@ -6,9 +6,13 @@ import { reconcileSessionAfterDenial } from '@/lib/sessionReconcile'
  * An authoring failure, already phrased for a person.
  *
  * `message` is what the UI shows. `raw` is the database's own text, which
- * goes to the console and nowhere else: the trigger messages are precise and
+ * never reaches a person's eye unasked: the trigger messages are precise and
  * correct ("cells.step_id must be linked to cells.path_id in path_steps") and
- * mean nothing to someone drawing a blueprint.
+ * mean nothing to someone drawing a blueprint. It goes to the console, and to
+ * the agent: the loop hands it to the model beside the sentence, because the
+ * model cannot read the console and retries blind without the cause. The
+ * transcript row's expandable detail shows that same answer, so a person
+ * reading the turn back sees what the model saw; its summary stays `message`.
  */
 export class AuthoringError extends Error {
   readonly raw: string

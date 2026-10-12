@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useSyncExternalStore } from 'react'
 import { errorMessage } from '@/lib/utils'
+import { AuthoringError } from '@/lib/authoringErrors'
 import type { Database } from '@/types/database'
 import { anthropicAdapter } from '@/lib/agent/providers/anthropic'
 import { googleAdapter } from '@/lib/agent/providers/google'
@@ -181,7 +182,16 @@ export type TranscriptEvent =
       kind: 'tool'
       name: string
       summary: string
+      /** The call ran and failed. Never set on a suppressed repeat. */
       isError: boolean
+      /**
+       * The loop declined to run the call because the turn already had its
+       * answer. A field of its own rather than a flavour of `isError`: the
+       * turn behaved as designed, and a reader hunting the call that broke
+       * must not find this one wearing the same colour. Absent on every
+       * other row, and on suppressed rows persisted before it existed.
+       */
+      suppressed?: true
       /**
        * What the row expands to show. Presentation only — nothing reads
        * these back into the conversation, and they are absent on rows
@@ -926,7 +936,8 @@ export async function sendToAgent(input: {
                 kind: 'tool',
                 name: call.name,
                 summary: REPEAT_READ_SUPPRESSED,
-                isError: true,
+                isError: false,
+                suppressed: true,
                 args: detailText(call.args),
                 result: detailText(admission.refusal),
               })
@@ -986,11 +997,19 @@ export async function sendToAgent(input: {
           })
         } catch (error) {
           const message = errorMessage(error)
+          // The friendly sentence points a person at the console, which the
+          // model cannot open, so the database's own text rides along for
+          // it. The row's detail shows the same, so a person reading the turn
+          // back sees what the model saw; its summary stays the sentence.
+          const answer =
+            error instanceof AuthoringError
+              ? `Error: ${message} (database: ${error.raw})`
+              : `Error: ${message}`
           results.parts.push({
             type: 'tool_result',
             toolCallId: call.id,
             name: call.name,
-            result: `Error: ${message}`,
+            result: answer,
             isError: true,
           })
           push(sessionId, {
@@ -999,7 +1018,7 @@ export async function sendToAgent(input: {
             summary: message,
             isError: true,
             args: detailText(call.args),
-            result: detailText(`Error: ${message}`),
+            result: detailText(answer),
           })
         }
       }

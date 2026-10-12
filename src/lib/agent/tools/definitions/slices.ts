@@ -45,6 +45,44 @@ const AGENT_SLICE_KIND = z.enum(['journey', 'lane', 'step', 'custom'])
  */
 const SUMMARY_ALIAS = { description: 'summary' }
 
+/** A cell id as the database mints it: hex in 8-4-4-4-12, nothing dropped. */
+const CELL_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Refuse every cell id that is not a cell of the active service, before the
+ * slice write touches a row.
+ *
+ * A model copying a seeded id drops a run of zeros, and the database only
+ * says so by refusing the uuid cast halfway through a write that has already
+ * landed part of itself. So the ids are checked here first: a malformed one
+ * is refused without asking the database (it would fail the cast), and a
+ * well-formed one must name a cell under the active service. The refusal
+ * names each bad id and says where the real ones are to be copied from.
+ */
+async function refuseUnknownCells(
+  client: Parameters<typeof createSlice>[0],
+  serviceId: string,
+  cellIds: readonly string[],
+): Promise<void> {
+  const distinct = [...new Set(cellIds)]
+  const wellFormed = distinct.filter((id) => CELL_ID.test(id))
+  const held = new Set<string>()
+  if (wellFormed.length > 0) {
+    const { data, error } = await client
+      .from('cells')
+      .select('id, paths!inner(scenarios!inner(phases!inner(service_id)))')
+      .in('id', wellFormed)
+      .eq('paths.scenarios.phases.service_id', serviceId)
+    if (error) throw new Error(error.message)
+    for (const row of data ?? []) held.add(row.id)
+  }
+  const bad = distinct.filter((id) => !held.has(id))
+  if (bad.length === 0) return
+  throw new Error(
+    `${bad.map((id) => `"${id}" is not a cell in this service`).join('; ')} — copy ids verbatim from get_slice or list_blueprint.`,
+  )
+}
+
 export const createSliceTool = defineWriteTool({
   name: 'create_slice',
   description:
@@ -60,8 +98,10 @@ export const createSliceTool = defineWriteTool({
   run: async ({ title, summary, kind, actor, cell_ids }, ctx) => {
     if (cell_ids.length === 0)
       throw new Error('cell_ids must be a non-empty array of existing cell ids.')
+    const serviceId = requireActiveService(ctx)
+    await refuseUnknownCells(ctx.client, serviceId, cell_ids)
     const slice = await createSlice(ctx.client, {
-      serviceId: requireActiveService(ctx),
+      serviceId,
       title,
       summary: summary ?? '',
       sliceKind: kind,
@@ -112,10 +152,15 @@ export const replaceSlidesTool = defineWriteTool({
       )
       .describe('Full replacement, in order'),
   }),
-  run: async ({ slice_id, slides }, { client }) => {
+  run: async ({ slice_id, slides }, ctx) => {
     if (slides.length === 0) throw new Error('slides must be a non-empty array.')
+    await refuseUnknownCells(
+      ctx.client,
+      requireActiveService(ctx),
+      slides.flatMap((slide) => slide.cells),
+    )
     await replaceSlides(
-      client,
+      ctx.client,
       slice_id,
       slides.map((slide) => ({
         cells: slide.cells,

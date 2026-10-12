@@ -14,6 +14,10 @@ import { REHEARSAL_SERVICE, rehearsalContext } from '@/lib/agent/tools/rehearsal
 
 const WRITES = TOOL_DEFINITIONS.filter((tool) => tool.surface === 'write')
 
+/** Cell ids as the database mints them: the slice writes refuse any other shape. */
+const CELL_1 = 'a0000000-0000-4000-8000-000000040101'
+const CELL_2 = 'a0000000-0000-4000-8000-000000040102'
+
 /** One valid call per write tool — what the harness would be handed by a model. */
 const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   create_stakeholder: { name: 'Dispatcher', kind: 'staff' },
@@ -23,9 +27,9 @@ const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   create_path: { scenario_id: 'sc-1', name: 'Late' },
   duplicate_path: { source_path_id: 'p-1', name: 'Copy' },
   duplicate_scenario: { source_scenario_id: 'sc-1', name: 'Intake (copy)' },
-  create_slice: { title: 'Caller view', kind: 'journey', cell_ids: ['c-1', 'c-2'] },
+  create_slice: { title: 'Caller view', kind: 'journey', cell_ids: [CELL_1, CELL_2] },
   update_slice: { slice_id: 'sl-1', title: 'Renamed' },
-  replace_slides: { slice_id: 'sl-1', slides: [{ cells: ['c-1'], title: 'Arrive' }] },
+  replace_slides: { slice_id: 'sl-1', slides: [{ cells: [CELL_1], title: 'Arrive' }] },
   create_step: { path_id: 'p-1', name: 'Verify' },
   create_lane: { scenario_id: 'sc-1', name: 'Backstage', lane_role: 'backstage_actions' },
   upsert_cell: { path_id: 'p-1', lane_id: 'l-1', step_id: 's-1', content: 'Caller books a slot' },

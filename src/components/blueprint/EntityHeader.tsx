@@ -84,17 +84,19 @@ function EntityHeaderSkeleton() {
     <div
       data-entity-header-skeleton=""
       aria-hidden
-      className="flex w-full min-w-0 flex-col gap-1"
+      className="flex h-full w-full min-w-0 flex-col gap-1"
     >
-      {/* The affordance's own 24px box — a 20px `text-sm` line inside
-          `py-1`. No inset: the affordance's `px-2` is cancelled by the
-          header's matching negative margin, so the name lands at the column's
-          edge, and the placeholder holds the space where it will land. */}
-      <div className="flex h-6 items-center">
+      {/* The title's 20px `text-sm` line, on the block's top edge — the
+          affordance's `py-1` is cancelled there, so the line is what lands.
+          No inset: the affordance's `px-2` is cancelled by the header's
+          matching negative margin, so the name lands at the column's edge,
+          and the placeholder holds the space where it will land. */}
+      <div className="flex h-5 items-center">
         <Skeleton className="h-3.5 w-40 max-w-full rounded-md" />
       </div>
-      {/* The summary's 16px `text-xs` row, on the same edge. */}
-      <div className="flex h-4 items-center">
+      {/* The summary's 16px `text-xs` row, on the same left edge and the
+          block's bottom edge, where the summary lands. */}
+      <div className="mt-auto flex h-4 items-center">
         <Skeleton className="h-2.5 w-64 max-w-full rounded-md" />
       </div>
     </div>
@@ -228,7 +230,7 @@ export function EntityHeader({
         loading={status === 'loading' || shellBooting}
         holdKey={ENTITY_HEADER_HOLD_KEY}
         skeleton={<EntityHeaderSkeleton />}
-        className="flex w-full min-w-0 flex-col items-start gap-1"
+        className="flex h-full w-full min-w-0 flex-col items-start gap-1"
       >
         {id && label ? (
           /*
@@ -238,10 +240,16 @@ export function EntityHeader({
             `items-center` against a title row the badge cannot grow — a 20px
             `h-5` badge inside a 24px row — so the two-line height this bar
             pins stays exactly what `BLUEPRINT_MENUBAR_IDENTITY_HEIGHT` says.
+
+            `-my-1` cancels the affordance's `py-1`, the vertical twin of the
+            `-ml-2` outdent below: the hover highlight keeps its breathing
+            room, reaching into the bar's padding, while the name's line sits
+            on the block's top edge. Counted in, that padding put 4px more
+            room above the name than below the summary.
           */
           <div
             data-entity-header-identity=""
-            className="flex min-w-0 max-w-full items-center gap-2"
+            className="-my-1 flex min-w-0 max-w-full items-center gap-2"
           >
             {/* `-ml-2` cancels the affordance's own `px-2`. The padding
                 is the hover highlight's breathing room and stays; the margin
@@ -261,9 +269,17 @@ export function EntityHeader({
           </div>
         ) : null}
         {caption ? (
+          /* Under a title, `mt-auto` puts the summary on the block's bottom
+             edge, the mirror of the title on its top, so the bar's padding is
+             the whole of the room on either side. Alone — a failure, or a
+             bar with nothing recorded — it centres, as one line in a
+             two-line block should, rather than hanging under an empty row. */
           <p
             data-entity-header-summary=""
-            className={BLUEPRINT_MENUBAR_SUMMARY_CLASS}
+            className={cn(
+              id && label ? 'mt-auto' : 'my-auto',
+              BLUEPRINT_MENUBAR_SUMMARY_CLASS,
+            )}
             title={caption}
           >
             {caption}

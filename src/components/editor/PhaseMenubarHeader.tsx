@@ -227,7 +227,7 @@ export function PhaseMenubarHeader({
     >
       {/*
         Title and summary as one block, the slice header band's shape adapted
-        to a 52px bar: identity first, then what this thing is, truncated. The
+        to the menubar: identity first, then what this thing is, truncated. The
         summary used to live only inside the title's hover tooltip, which is a
         strange place for the one sentence that says what you are looking at.
 

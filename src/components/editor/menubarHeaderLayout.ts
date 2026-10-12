@@ -4,9 +4,14 @@
   this class on a `Menubar`, which is flex by itself; the service bar renders
   it on a plain `<div>`, where `items-center` without `flex` did nothing and
   the identity block sat on the row's top edge instead of its middle.
+
+  No height of its own: the bar hugs the identity block, which pins its own
+  two-line height, plus `py-2` above and below — `BLUEPRINT_MENUBAR_ROW_HEIGHT`
+  says why. `h-auto` and not nothing, because the phase bar is a `Menubar`,
+  whose base class is a fixed `h-8` that would otherwise come back.
 */
 export const BLUEPRINT_MENUBAR_HEADER_CLASS =
-  'relative flex h-[3.25rem] w-full max-w-full shrink-0 items-center gap-3 rounded-none border-0 bg-transparent px-3 py-0 shadow-none'
+  'relative flex h-auto w-full max-w-full shrink-0 items-center gap-3 rounded-none border-0 bg-transparent px-3 py-2 shadow-none'
 
 /** Docked navbar bar — same surface/elevation as the side nav. */
 export const BLUEPRINT_NAVBAR_BAR_CLASS =
@@ -19,11 +24,14 @@ export const BLUEPRINT_NAVBAR_BAR_CLASS =
  * variable. The fallback is the base view's docked navbar — one menubar row
  * (`BLUEPRINT_MENUBAR_ROW_HEIGHT`) plus its 1px bottom border — and the 16px
  * gap; a slice tab, which stacks its header band on top, resolves taller and
- * no longer covers it. Written out for the same reason the bottom class is.
+ * no longer covers it. Written out for the same reason the bottom class is:
+ * the row height is derived below, and the layout test holds this literal to
+ * the derived value, so a change to the block or the padding that forgets the
+ * fallback fails there instead of opening the drawer under the bar.
  */
 export const CELL_DETAIL_PANEL_TOP_VAR = '--cell-detail-panel-top'
 export const CELL_DETAIL_PANEL_TOP_CLASS =
-  '!top-[var(--cell-detail-panel-top,calc(3.25rem+1px+1rem))]'
+  '!top-[var(--cell-detail-panel-top,calc(3.5rem+1px+1rem))]'
 
 /** Gap between the canvas top edge and the panel — matches its right inset. */
 export const CELL_DETAIL_PANEL_TOP_GAP_PX = 16
@@ -53,7 +61,7 @@ export const CANVAS_REGION_SELECTOR = '[data-slide-canvas]'
 
 /** Flattens the menubar when it sits inside the docked navbar bar. */
 export const BLUEPRINT_MENUBAR_FLAT_CLASS =
-  'relative h-[3.25rem] rounded-none border-0 bg-transparent px-0 py-0 shadow-none'
+  'relative h-auto rounded-none border-0 bg-transparent px-0 py-2 shadow-none'
 
 /**
  * Left-aligned title + paths control row. Right padding keeps the row clear
@@ -84,25 +92,48 @@ export const BLUEPRINT_MENUBAR_SUMMARY_CLASS =
  *
  * A LENGTH and not a Tailwind class, so the bars agree on one value a test
  * can read back off the box: the claim is that five different states measure
- * the same, and a class name cannot be measured. 24px title row (a 20px
- * `text-sm` line box inside `EntityTitleAffordance`'s `py-1`) + 2px for the
- * block's `gap-1` + a 16px `text-xs` summary line.
+ * the same, and a class name cannot be measured. A 20px `text-sm` title line
+ * + 4px for the block's `gap-1` + a 16px `text-xs` summary line.
+ *
+ * The title line and not the title's box. `EntityTitleAffordance` pads its
+ * hover highlight with `py-1`; counted into the block, that padding sat above
+ * the name and nothing matched it below the summary, so the bar looked 4px
+ * roomier on top than underneath. The identity row cancels it with the
+ * matching negative margin and the summary is pushed onto the block's bottom
+ * edge, so both lines sit on the block's edges and the bar's padding is the
+ * whole of the room either side. Where `text-sm` resolves to a shorter line,
+ * the gap between the two lines takes up the difference, not the edges.
  */
-export const BLUEPRINT_MENUBAR_IDENTITY_HEIGHT = '2.625rem'
+export const BLUEPRINT_MENUBAR_IDENTITY_HEIGHT = '2.5rem'
 
 /**
- * The menubar row's height: the identity block, plus even room above and
- * below it.
- *
- * The row was `h-9` — 36px around a 42px block — so the block overflowed its
- * own bar by 3px at each edge and the summary line sat on the bar's bottom
- * border, over the canvas. 52px holds the block with 5px either side, inside
- * the border.
- *
- * Tailwind reads source text, so the classes above spell this value out as a
- * literal; the layout test keeps the literals and this constant in step.
+ * The bar's vertical padding — the length behind the `py-2` both menubar
+ * classes spell out, the same 8px step as the `--spacing-sm` token. Tailwind
+ * reads source text, so the classes carry the class and this carries the
+ * length; the layout test keeps the two in step.
  */
-export const BLUEPRINT_MENUBAR_ROW_HEIGHT = '3.25rem'
+export const BLUEPRINT_MENUBAR_PADDING_Y = '0.5rem'
+
+const sumRem = (...lengths: string[]) =>
+  `${lengths.reduce((total, length) => total + Number.parseFloat(length), 0)}rem`
+
+/**
+ * The menubar row's height: the identity block, plus the padding above and
+ * below it. Derived, not written: the bar holds no height of its own, so its
+ * height is whatever the block and the padding make it, and this is that sum
+ * for the one thing that cannot measure the bar — the drawer's fallback top.
+ *
+ * The bar used to hold a fixed height, first `h-9` (36px around a 42px block,
+ * so the summary sat on the bar's bottom border) and then `h-[3.25rem]`. The
+ * fixed height was there to stop the bar growing when the summary arrives
+ * late or not at all, and the block's pinned height already guarantees that:
+ * a bar padded around a pinned block is just as still.
+ */
+export const BLUEPRINT_MENUBAR_ROW_HEIGHT = sumRem(
+  BLUEPRINT_MENUBAR_IDENTITY_HEIGHT,
+  BLUEPRINT_MENUBAR_PADDING_Y,
+  BLUEPRINT_MENUBAR_PADDING_Y,
+)
 
 export const BLUEPRINT_MENUBAR_TITLE_TEXT_CLASS =
   'shrink-0 text-sm font-semibold tracking-tight text-foreground'

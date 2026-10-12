@@ -46,7 +46,7 @@ type Client = SupabaseClient<Database>
  * it is given; `.or()` does not — it takes raw filter grammar, where a comma
  * starts another clause.
  */
-const UUID =
+export const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**

@@ -1295,6 +1295,10 @@ export type Database = {
         Args: { p_resources?: Json; p_row: Json }
         Returns: Json
       }
+      restore_slides: {
+        Args: { p_rows: Json; p_slice_id: string }
+        Returns: Json
+      }
       schema_comments: {
         Args: Record<PropertyKey, never>
         Returns: {

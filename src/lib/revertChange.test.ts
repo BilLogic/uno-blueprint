@@ -304,3 +304,89 @@ describe('reverting a cell edit whose captured placements predate a field', () =
     expect(calls.map((call) => call.fn)).toEqual(['sync_cell_touchpoints'])
   })
 })
+
+/**
+ * Undoing a slice replace is one call: `restore_slides` puts the captured
+ * slides back in a single transaction, so a refusal partway leaves the slice
+ * as the replace left it rather than emptied. What this side still owns is
+ * the payload, the refusal it translates, and sweeping the upload folders of
+ * the slides the database says it dropped — after the commit, never before.
+ */
+describe('executeRevert restores a replaced slice’s slides', () => {
+  const captured = {
+    id: 'slide-1',
+    slice_id: 'sl-1',
+    position: 0,
+    cell_ids: ['c-1'],
+    cell_keys: ['c-1'],
+    title: 'Arrive',
+    caption: null,
+    shows_all_images: false,
+    created_at: '2026-01-01T00:00:00Z',
+    created_by: null,
+    updated_at: '2026-01-01T00:00:00Z',
+    slide_images: [{ id: 'img-1', slide_id: 'slide-1', position: 0, cell_id: null, image_url: 'https://x/a.png' }],
+  }
+
+  function slideClient(answer: { data: unknown; error: unknown }) {
+    const rpcs: Array<{ fn: string; args: unknown }> = []
+    const tableWrites: string[] = []
+    const listed: string[] = []
+    const client = {
+      from: (table: string) => {
+        tableWrites.push(table)
+        throw new Error(`restore_slides touched ${table} directly`)
+      },
+      rpc: (fn: string, args: unknown) => {
+        rpcs.push({ fn, args })
+        return Promise.resolve(answer)
+      },
+      storage: {
+        from: () => ({
+          list: (folder: string) => {
+            listed.push(folder)
+            return Promise.resolve({ data: [], error: null })
+          },
+          remove: () => Promise.resolve({ data: [], error: null }),
+        }),
+      },
+    } as unknown as Parameters<typeof executeRevert>[0]
+    return { client, rpcs, tableWrites, listed }
+  }
+
+  it('is one RPC carrying the captured rows verbatim, then sweeps only the dropped slides', async () => {
+    const { client, rpcs, tableWrites, listed } = slideClient({
+      data: { slice_id: 'sl-1', slide_count: 1, dropped: ['slide-new'] },
+      error: null,
+    })
+
+    await executeRevert(client, entry('restore_slides', { slice_id: 'sl-1', rows: [captured] }))
+
+    expect(tableWrites).toEqual([])
+    expect(rpcs).toEqual([{ fn: 'restore_slides', args: { p_slice_id: 'sl-1', p_rows: [captured] } }])
+    expect(listed).toHaveLength(1)
+    expect(listed[0]).toContain('slide-new')
+    expect(listed[0]).not.toContain('slide-1')
+  })
+
+  it('translates a refusal and sweeps nothing', async () => {
+    const { client, listed } = slideClient({
+      data: null,
+      error: { message: 'Captured slide 1 has no id — nothing was written.', code: 'P0001', details: '', hint: '' },
+    })
+
+    const undo = executeRevert(client, entry('restore_slides', { slice_id: 'sl-1', rows: [captured] }))
+
+    await expect(undo).rejects.toThrow(/Captured slide 1 has no id/)
+    expect(listed).toEqual([])
+  })
+
+  it('refuses a capture that is not a list before calling anything', async () => {
+    const { client, rpcs } = slideClient({ data: null, error: null })
+
+    await expect(
+      executeRevert(client, entry('restore_slides', { slice_id: 'sl-1', rows: 'nope' })),
+    ).rejects.toThrow(/captured slides are malformed/)
+    expect(rpcs).toEqual([])
+  })
+})

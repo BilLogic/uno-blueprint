@@ -69,13 +69,13 @@ describe('replacing slides keeps the authored image set', () => {
 const revert = sourceOf('lib/revertChange.ts')
 
 describe('restoring slides keeps captured upload URLs', () => {
-  it('writes image_url verbatim and only deletes folders the inverse does not restore', () => {
+  it('writes the capture back in one call and only deletes folders the inverse does not restore', () => {
     const restoreFn = revert.slice(revert.indexOf("case 'restore_slides'"))
-    expect(restoreFn).toContain('image_url: member.image_url ?? null')
-    expect(restoreFn).toContain('image_url: member.image_url')
-    const droppedAt = restoreFn.indexOf('for (const slide of dropped)')
+    const rpcAt = restoreFn.indexOf("client.rpc('restore_slides'")
+    const droppedAt = restoreFn.indexOf('for (const slideId of')
     const storageAt = restoreFn.indexOf('removeSlideUploadObjects')
-    expect(droppedAt).toBeGreaterThan(-1)
+    expect(rpcAt).toBeGreaterThan(-1)
+    expect(droppedAt).toBeGreaterThan(rpcAt)
     expect(storageAt).toBeGreaterThan(droppedAt)
   })
 })

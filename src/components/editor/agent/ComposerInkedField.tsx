@@ -316,15 +316,12 @@ export function ComposerInkedField({
   const classes = composerFieldClasses(mirroring)
   return (
     <InputGroup
-      className={cn(
-        'h-auto min-h-8 flex-1',
-        // The group greys itself out for ANY disabled descendant, which was
-        // the field alone until the action moved in. Send is disabled on
-        // every empty draft, so the dimming is narrowed back to the field:
-        // a composer with nothing typed in it is waiting, not unavailable.
-        'has-disabled:bg-field has-disabled:opacity-100 dark:has-disabled:bg-field',
-        'has-[[data-slot=input-group-control]:disabled]:bg-input/50 has-[[data-slot=input-group-control]:disabled]:opacity-50 dark:has-[[data-slot=input-group-control]:disabled]:bg-input/80',
-      )}
+      className="h-auto min-h-8 flex-1"
+      // The group greys itself out for ANY disabled descendant by default,
+      // which was the field alone until the action moved in. Send is disabled
+      // on every empty draft, so the dimming is scoped to the field: a
+      // composer with nothing typed in it is waiting, not unavailable.
+      disabledScope="control"
     >
       {/* ONE positioned box, sized by the field: that is what keeps the two
           copies wrapping alike, since the mirror is `absolute inset-0` and

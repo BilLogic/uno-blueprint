@@ -41,6 +41,42 @@ describe("a tool row", () => {
     expect(screen.getByText(REPEAT_READ_SUPPRESSED)).toBeTruthy();
   });
 
+  // Rows persisted before the loop said `suppressed` carried only the
+  // sentence, flagged as a failure. Read back, they are the same repeat.
+  it("renders a repeat persisted before the flag existed muted, from its summary", () => {
+    render(
+      <TranscriptRow
+        event={{
+          kind: "tool",
+          name: "list_blueprint",
+          summary: REPEAT_READ_SUPPRESSED,
+          isError: true,
+          args: "{}",
+          result: "Already run this turn.",
+        }}
+      />
+    );
+    const row = rowOf("list_blueprint");
+    expect(row.className).not.toMatch(/text-destructive/);
+    expect(row.querySelector(".lucide-circle-x, .lucide-x-circle")).toBeNull();
+    expect(row.querySelector(".lucide-circle-minus, .lucide-minus-circle")).not.toBeNull();
+  });
+
+  it("renders a flat repeat persisted before the flag existed muted too", () => {
+    const { container } = render(
+      <TranscriptRow
+        event={{
+          kind: "tool",
+          name: "list_blueprint",
+          summary: REPEAT_READ_SUPPRESSED,
+          isError: true,
+        }}
+      />
+    );
+    expect(container.innerHTML).not.toMatch(/text-destructive/);
+    expect(container.querySelector(".lucide-circle-x, .lucide-x-circle")).toBeNull();
+  });
+
   it("still renders a genuine failure as an error", () => {
     render(
       <TranscriptRow

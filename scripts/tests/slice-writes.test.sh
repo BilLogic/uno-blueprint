@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# What `replace_slides` and `create_slice` do to ROWS, which is why they need a
-# database.
+# What `replace_slides`, `restore_slides` and `create_slice` do to ROWS, which
+# is why they need a database.
 #
 # The migration that creates them proves their posture on every apply —
 # SECURITY DEFINER, closed to anon — and an empty replay is enough for that.
@@ -21,7 +21,11 @@
 #   6. a create whose slides fail to insert leaves no slice row behind;
 #   7. a create with a blank title is refused;
 #   8. a signed-in reader without the service claim changes nothing, and anon
-#      cannot call either function.
+#      cannot call any of the three;
+#   9. a restore whose captured rows fail to insert leaves the slice as the
+#      replace left it, and a restore of what the replace returned puts the
+#      slice back exactly — ids and stamps included — naming the slides it
+#      dropped.
 #
 # It replays the migration series behind the shim, loads the sample seed, and
 # calls the functions in the role and with the claims a deployed author or
@@ -35,7 +39,7 @@ export PGOPTIONS="${PGOPTIONS:---client-min-messages=warning}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DATABASE_NAME="${1:-slice_writes_test}"
 RERUN="bash scripts/tests/slice-writes.test.sh"
-MIGRATION="supabase/migrations/21000304000000_a_slice_write_is_all_or_nothing.sql"
+MIGRATION="supabase/migrations/21000304000000_a_slice_write_is_all_or_nothing.sql and 21000305000000_undoing_a_slice_replace_is_all_or_nothing.sql"
 CREATED=0
 
 cleanup() {
@@ -186,11 +190,15 @@ expect_refused "a signed-in reader without the service claim replaced slides" \
 expect_refused "a signed-in reader without the service claim created a slice" \
   "cannot edit the blueprint" "$READER_CLAIMS" \
   "select public.create_slice('$SERVICE', 'Reader slice', null, 'custom', null, '[]'::jsonb)"
+expect_refused "a signed-in reader without the service claim restored slides" \
+  "cannot edit the blueprint" "$READER_CLAIMS" \
+  "select public.restore_slides('$SLICE', '[]'::jsonb)"
 expect_eq "a reader's refused call changed the slice" "$ORIGINAL" "$(slice_state)"
 expect_eq "a reader's refused create left a slice" "0" "$(slices_titled 'Reader slice')"
 
 for call in \
   "replace_slides('$SLICE', '[]'::jsonb)" \
+  "restore_slides('$SLICE', '[]'::jsonb)" \
   "create_slice('$SERVICE', 'Anon slice', null, 'custom', null, '[]'::jsonb)"; do
   if output="$(trap - ERR; psql -At -X -q -v ON_ERROR_STOP=1 -d "$DATABASE_NAME" 2>&1 <<SQL
 begin;
@@ -245,6 +253,36 @@ expect_eq "previous did not carry the columns a verbatim restore writes back" \
   "$(owner "select concat_ws('|', p ->> 'slice_id', p ->> 'shows_all_images')
             from (select '$RESULT'::jsonb -> 'previous' -> 0 as p) s")"
 
+# ── 9. Undoing the replace is all-or-nothing too ───────────────────────────
+#
+# The ledger's revert writes `previous` back through `restore_slides`. A
+# restore refused partway — here the last captured slide's image member names
+# nothing — must leave the slice as the replace left it, not emptied.
+
+REPLACED="$(slice_state)"
+expect_refused "a restore whose image insert failed was accepted" \
+  "slide_images_one_source" "$AUTHOR_CLAIMS" \
+  "select public.restore_slides('$SLICE',
+     jsonb_set('$RESULT'::jsonb -> 'previous', '{3,slide_images}', '[{\"position\": 0}]'::jsonb))"
+expect_eq "a refused restore deleted the slice's slides or their image sets" "$REPLACED" "$(slice_state)"
+
+expect_refused "a restore with a captured slide that has no id was accepted" \
+  "Captured slide 1 has no id" "$AUTHOR_CLAIMS" \
+  "select public.restore_slides('$SLICE', '[{\"cell_ids\": []}]'::jsonb)"
+expect_refused "a restore on a slice that does not exist was accepted" \
+  "That slice no longer exists" "$AUTHOR_CLAIMS" \
+  "select public.restore_slides('$MISSING_SLICE', '[]'::jsonb)"
+expect_refused "a restore with no list of slides was accepted" \
+  "a list of slides" "$AUTHOR_CLAIMS" \
+  "select public.restore_slides('$SLICE', '{}'::jsonb)"
+expect_eq "a refused restore changed the slice" "$REPLACED" "$(slice_state)"
+
+ADDED_SLIDE="$(owner "select id from public.slides where slice_id = '$SLICE' and position = 1")"
+RESTORED="$(as_author "select public.restore_slides('$SLICE', '$RESULT'::jsonb -> 'previous')")"
+expect_eq "a restore of previous did not put the slice back exactly" "$ORIGINAL" "$(slice_state)"
+expect_eq "a restore did not name the slide it dropped" "[\"$ADDED_SLIDE\"]" \
+  "$(owner "select '$RESTORED'::jsonb -> 'dropped'")"
+
 # ── 5. A create lands the slice and its slides in one call ─────────────────
 
 CREATED_ROW="$(as_author "select public.create_slice('$SERVICE', '  Caller view ', '  ', 'journey', ' Caller ',
@@ -279,4 +317,4 @@ expect_refused "a create with a blank title was accepted" \
   "A slice needs a title" "$AUTHOR_CLAIMS" \
   "select public.create_slice('$SERVICE', '   ', null, 'journey', null, '[]'::jsonb)"
 
-echo "replace_slides / create_slice: 8 claims hold — whole replace, inverse, two rollbacks, sentence refusals, whole create, no half-made slice, blank title, guard."
+echo "replace_slides / restore_slides / create_slice: 9 claims hold — whole replace, inverse, two rollbacks, sentence refusals, whole create, no half-made slice, blank title, guard, whole restore."

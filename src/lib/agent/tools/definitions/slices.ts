@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import {
   arg,
@@ -6,9 +7,12 @@ import {
   requireActiveService,
   requireScope,
 } from '@/lib/agent/tools/definition'
-import { getSlice, listSlices } from '@/lib/agent/tools/read'
+import { getSlice, listSlices, UUID } from '@/lib/agent/tools/read'
 import { sampleGetSlice, sampleListSlices } from '@/lib/agent/tools/sampleRead'
 import { createSlice, patchSliceMeta, replaceSlides } from '@/lib/sliceMutations'
+import type { Database } from '@/types/database'
+
+type Client = SupabaseClient<Database>
 
 /** The tools that read and author a slice — a stakeholder's view of the journey. */
 
@@ -45,27 +49,27 @@ const AGENT_SLICE_KIND = z.enum(['journey', 'lane', 'step', 'custom'])
  */
 const SUMMARY_ALIAS = { description: 'summary' }
 
-/** A cell id as the database mints it: hex in 8-4-4-4-12, nothing dropped. */
-const CELL_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 /**
  * Refuse every cell id that is not a cell of the active service, before the
- * slice write touches a row.
+ * slice write is asked for.
  *
- * A model copying a seeded id drops a run of zeros, and the database only
- * says so by refusing the uuid cast halfway through a write that has already
- * landed part of itself. So the ids are checked here first: a malformed one
- * is refused without asking the database (it would fail the cast), and a
- * well-formed one must name a cell under the active service. The refusal
+ * The authority is the database: `replace_slides`, which `create_slice` runs
+ * too, refuses a cell that is not an id in its own transaction, so nothing
+ * lands either way. This check is the agent's fail-fast. A model copying a
+ * seeded id drops a run of zeros, and the function's refusal names the slide
+ * but not where real ids come from; and an id that is well formed but names
+ * another service's cell, or no cell, the function has no foreign key to
+ * catch. So a malformed id is refused here without asking the database, and
+ * a well-formed one must name a cell under the active service. The refusal
  * names each bad id and says where the real ones are to be copied from.
  */
 async function refuseUnknownCells(
-  client: Parameters<typeof createSlice>[0],
+  client: Client,
   serviceId: string,
   cellIds: readonly string[],
 ): Promise<void> {
   const distinct = [...new Set(cellIds)]
-  const wellFormed = distinct.filter((id) => CELL_ID.test(id))
+  const wellFormed = distinct.filter((id) => UUID.test(id))
   const held = new Set<string>()
   if (wellFormed.length > 0) {
     const { data, error } = await client

@@ -202,7 +202,7 @@ describe('the row-level modules', () => {
   })
 
   it("a slice's slides refetch the catalog and the slice's own detail", async () => {
-    await replaceSlides(fakeClient([]), 'sl1', [])
+    await replaceSlides(fakeClient([], { previous: [] }), 'sl1', [])
     expect(invalidated).toEqual([queryKeys.slices.prefix, queryKeys.slice.of('sl1')])
   })
 

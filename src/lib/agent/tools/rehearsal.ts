@@ -66,12 +66,13 @@ type Placeholder = string
  * the report is about. Keyed by nothing: no RPC name and no tool name appears
  * here, because a table of those is exactly the hand-kept thing this module
  * exists to abolish. `inserted` is true because a rehearsal creates and never
- * overwrites; `previous` is null because there is no row it wrote over, which
- * the ledger reads as "no inverse" — the honest answer for a write that did
- * not happen.
+ * overwrites, so the upsert callers never read `previous`; it is an empty
+ * list because the one caller that does read it, the slide replace, reads it
+ * as the slides it wrote over — none, the honest answer for a write that did
+ * not happen — and refuses a reply that carries no list at all.
  */
 function rpcAnswer(ref: Placeholder): unknown {
-  return { id: ref, inserted: true, previous: null, toString: () => ref }
+  return { id: ref, inserted: true, previous: [], toString: () => ref }
 }
 
 /**

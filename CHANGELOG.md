@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.8.7
+
+**The skill menu leaves with the sidebar.** Typing `/` in the docked agent's
+composer opens the skill menu, and going back to the cover page, starting a
+presentation or collapsing the sidebar left it floating over the page that
+replaced the workspace. It now shuts with the sidebar; the draft is kept, and
+the menu reopens on it when the sidebar comes back. The floating agent is
+unaffected.
+
+### Upgrading a deployment
+
+- **Bump the pin.** Nothing else to do: `AgentDock` gains an optional
+  `asideHidden` prop, and a deployment that mounts the template's shell gets
+  it wired already.
+
+### Patch Changes
+
+- 1396a17: The skill menu leaves with the sidebar: a `/` typed in the docked agent's composer opens the skill menu, and going back to the cover page, starting a presentation or collapsing the sidebar now shuts it, where it used to stay floating over the page that replaced the workspace. The draft is kept, and the menu reopens on it when the sidebar comes back. `AgentDock` gains an optional `asideHidden` prop for this; the floating agent is unaffected.
+
 ## 2.8.6
 
 **A deployment no longer installs the shadcn CLI.** The app's stylesheet took
@@ -10770,8 +10789,8 @@ accent: BRAND.accent }, content: { workspaceTitle: coverContent.title } }`. The
   constraint violation rather than as anything the authoring tools had said
   (#204):
 
-                                                                                                                                                                                                                                                            ERROR: new row for relation "lanes" violates check constraint
-                                                                                                                                                                                                                                                            "lanes_lane_role_check" … compliance_review
+                                                                                                                                                                                                                                                              ERROR: new row for relation "lanes" violates check constraint
+                                                                                                                                                                                                                                                              "lanes_lane_role_check" … compliance_review
 
   That error at least names the value. Meeting it after validation has passed is
   the wrong moment.

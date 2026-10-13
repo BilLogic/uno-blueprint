@@ -83,6 +83,7 @@ vi.mock('@/contexts/SupabaseProvider', () => ({
 vi.mock('@/hooks/useMobileShell', () => ({ isMobileViewport: () => false }))
 
 import { AgentPanel } from '@/components/editor/AgentPanel'
+import { AgentConcealedContext } from '@/components/editor/agent/agentConcealed'
 import { PathSelectionProvider } from '@/contexts/PathSelectionContext'
 import {
   agentSessionsSnapshot,
@@ -359,6 +360,37 @@ describe('the composer opens a skill lookup wherever a slash opens a word', () =
     expect(menuOption('/ub:audit')).toBeTruthy()
     type(composer, 'Hey can u /aud ')
     expect(menuOption('/ub:audit')).toBeNull()
+  })
+})
+
+describe('the menu while the agent is off screen', () => {
+  // The docked agent stays mounted when the sidebar hides (the cover page, a
+  // presentation, a collapse), and the menu is portalled out of it — so it is
+  // the menu that has to know, or it floats over whatever replaced the
+  // workspace with the draft that opened it still standing.
+  const panel = (concealed: boolean) => (
+    <AgentConcealedContext.Provider value={concealed}>
+      <PathSelectionProvider>
+        <AgentPanel />
+      </PathSelectionProvider>
+    </AgentConcealedContext.Provider>
+  )
+
+  it('shuts while the agent is concealed, and reopens on the same draft when it is back', () => {
+    const { rerender } = render(panel(false))
+    fireEvent.click(screen.getByRole('button', { name: 'New session' }))
+    const composer = screen.getByRole('textbox', {
+      name: 'Message the agent',
+    }) as HTMLTextAreaElement
+    type(composer, '/')
+    expect(menuOption('/ub:map')).toBeTruthy()
+
+    rerender(panel(true))
+    expect(screen.queryByLabelText('Agent skills')).toBeNull()
+    expect(composer.value).toBe('/')
+
+    rerender(panel(false))
+    expect(menuOption('/ub:map')).toBeTruthy()
   })
 })
 

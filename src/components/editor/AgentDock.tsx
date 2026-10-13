@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, GripHorizontal, X } from 'lucide-react'
 import { AgentPanel } from '@/components/editor/AgentPanel'
+import { AgentConcealedContext } from '@/components/editor/agent/agentConcealed'
 import { IconTooltip } from '@/components/editor/IconTooltip'
 import { AGENT_FLOAT_MIN } from '@/lib/layoutTokens'
 import {
@@ -117,10 +118,26 @@ function AgentDockChrome({
  * a second drag handler for one window on screen. Keeping the gate hook-free
  * makes "one window" and "one set of listeners" the same statement.
  */
-export function AgentDock({ visible }: { visible: boolean }) {
+export function AgentDock({
+  visible,
+  concealed = false,
+}: {
+  visible: boolean
+  /**
+   * Mounted but off screen: the docked posture inside a sidebar that has
+   * hidden without unmounting. The window stays (its draft, scroll and run
+   * survive the trip), and what it portals out of the sidebar's clip shuts —
+   * `agentConcealed.ts`.
+   */
+  concealed?: boolean
+}) {
   const placement = useAgentPlacement()
   if (!visible || !placement.open) return null
-  return <AgentDockWindow />
+  return (
+    <AgentConcealedContext.Provider value={concealed}>
+      <AgentDockWindow />
+    </AgentConcealedContext.Provider>
+  )
 }
 
 function AgentDockWindow() {

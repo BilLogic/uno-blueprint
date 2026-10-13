@@ -696,7 +696,7 @@ function DesktopEditorShell() {
           <SlideModeSidebarNav panel={panel} />
         </SidebarProvider>
         {agentDocked ? <AgentDockDivider columnRef={panelColumnRef} /> : null}
-        <AgentDock visible={canAgent && agentDocked} concealed={asideHidden} />
+        <AgentDock visible={canAgent && agentDocked} asideHidden={asideHidden} />
       </div>
     </div>
   )

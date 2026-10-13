@@ -4,7 +4,7 @@ claims:
   - src/components/editor/AgentDock.tsx
   - src/components/editor/AgentMarkdown.tsx
   - src/components/editor/AgentPanel.tsx
-  - src/components/editor/agent/agentConcealed.ts
+  - src/components/editor/agent/agentAsideHidden.ts
   - src/components/editor/agent/AgentChatView.tsx
   - src/components/editor/agent/AgentSessionsView.tsx
   - src/components/editor/agent/AgentSettingsRailButton.tsx
@@ -99,9 +99,9 @@ drop you back to the session list.
 reader's collapse take the aside to zero width and leave the docked panel
 mounted, so nothing needs saving. What does need handling is anything the panel
 portals out of the aside's clip and does not close on an outside press — the
-composer's slash menu, which is shut by the draft alone. The shell tells the
-dock it is `concealed`, and that menu stays shut while it is
-(`agentConcealed.ts`); the draft reopens it when the sidebar comes back.
+composer's slash menu, which is shut by the draft alone. The shell hands the
+dock its `asideHidden`, and that menu stays shut while it is true
+(`agentAsideHidden.ts`); the draft reopens it when the sidebar comes back.
 
 **Those four facts are one module because every rule worth having spans
 them.** They were three — a panel-state store, a sessions store, an

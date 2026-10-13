@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, GripHorizontal, X } from 'lucide-react'
 import { AgentPanel } from '@/components/editor/AgentPanel'
-import { AgentConcealedContext } from '@/components/editor/agent/agentConcealed'
+import { AgentAsideHiddenContext } from '@/components/editor/agent/agentAsideHidden'
 import { IconTooltip } from '@/components/editor/IconTooltip'
 import { AGENT_FLOAT_MIN } from '@/lib/layoutTokens'
 import {
@@ -120,23 +120,18 @@ function AgentDockChrome({
  */
 export function AgentDock({
   visible,
-  concealed = false,
+  asideHidden = false,
 }: {
   visible: boolean
-  /**
-   * Mounted but off screen: the docked posture inside a sidebar that has
-   * hidden without unmounting. The window stays (its draft, scroll and run
-   * survive the trip), and what it portals out of the sidebar's clip shuts —
-   * `agentConcealed.ts`.
-   */
-  concealed?: boolean
+  /** The docked posture's aside is hidden but mounted — `agentAsideHidden.ts`. */
+  asideHidden?: boolean
 }) {
   const placement = useAgentPlacement()
   if (!visible || !placement.open) return null
   return (
-    <AgentConcealedContext.Provider value={concealed}>
+    <AgentAsideHiddenContext.Provider value={asideHidden}>
       <AgentDockWindow />
-    </AgentConcealedContext.Provider>
+    </AgentAsideHiddenContext.Provider>
   )
 }
 

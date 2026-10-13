@@ -45,6 +45,7 @@ import {
   ComposerInkedField,
   type FieldSelection,
 } from '@/components/editor/agent/ComposerInkedField'
+import { useAgentAsideHidden } from '@/components/editor/agent/agentAsideHidden'
 import { ChangeCount } from '@/components/editor/agent/ChangeCount'
 import { RenameSessionDialog } from '@/components/editor/agent/SessionDialogs'
 import { blockTranscript } from '@/components/editor/agent/transcriptBlocks'
@@ -226,7 +227,10 @@ export function AgentChatView({
   // next keystroke or the next caret move, so the menu is never shut for a
   // token the reader has not seen it open on.
   const [slashDismissed, setSlashDismissed] = useState(false)
-  const slashOpen = slashMatches.length > 0 && !slashDismissed
+  // And one fact about the shell: a hidden aside keeps this view mounted
+  // (agentAsideHidden.ts). The draft reopens the menu when it is back.
+  const asideHidden = useAgentAsideHidden()
+  const slashOpen = slashMatches.length > 0 && !slashDismissed && !asideHidden
   // Arrow keys and hover move one highlight through the *pickable* matches
   // (cmdk drives hover via onValueChange; the arrows below drive the rest).
   // Derived-with-a-guard, the house pattern: as typing reshapes the matches,

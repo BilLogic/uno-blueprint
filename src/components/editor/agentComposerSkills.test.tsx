@@ -83,6 +83,7 @@ vi.mock('@/contexts/SupabaseProvider', () => ({
 vi.mock('@/hooks/useMobileShell', () => ({ isMobileViewport: () => false }))
 
 import { AgentPanel } from '@/components/editor/AgentPanel'
+import { AgentAsideHiddenContext } from '@/components/editor/agent/agentAsideHidden'
 import { PathSelectionProvider } from '@/contexts/PathSelectionContext'
 import {
   agentSessionsSnapshot,
@@ -359,6 +360,34 @@ describe('the composer opens a skill lookup wherever a slash opens a word', () =
     expect(menuOption('/ub:audit')).toBeTruthy()
     type(composer, 'Hey can u /aud ')
     expect(menuOption('/ub:audit')).toBeNull()
+  })
+})
+
+describe('the menu while the aside is hidden', () => {
+  // A hidden aside keeps the docked agent mounted — agentAsideHidden.ts.
+  const panel = (asideHidden: boolean) => (
+    <AgentAsideHiddenContext.Provider value={asideHidden}>
+      <PathSelectionProvider>
+        <AgentPanel />
+      </PathSelectionProvider>
+    </AgentAsideHiddenContext.Provider>
+  )
+
+  it('shuts while the aside is hidden, and reopens on the same draft when it is back', () => {
+    const { rerender } = render(panel(false))
+    fireEvent.click(screen.getByRole('button', { name: 'New session' }))
+    const composer = screen.getByRole('textbox', {
+      name: 'Message the agent',
+    }) as HTMLTextAreaElement
+    type(composer, '/')
+    expect(menuOption('/ub:map')).toBeTruthy()
+
+    rerender(panel(true))
+    expect(screen.queryByLabelText('Agent skills')).toBeNull()
+    expect(composer.value).toBe('/')
+
+    rerender(panel(false))
+    expect(menuOption('/ub:map')).toBeTruthy()
   })
 })
 

@@ -196,8 +196,8 @@ first.
   Every wayfinder grilling ticket on this map calls `domain-modeling`, so a
   second, split glossary is one grilling session away. Our
   `docs/agents/domain.md` still says `CONTEXT.md`, which partly steers the
-  skills back, but the skill's own text wins on file creation. The rename
-  touches 51 tracked files, including ten guard scripts.
+  skills back, but the skill's own text wins on file creation. 51 tracked
+  files mention `CONTEXT.md`, 28 of them under `scripts/`.
 - **Fit: adopt, decided on the rename ticket.** Until it lands, every
   grilling session on this map should be told to write terms into
   `CONTEXT.md`, and a stray `GLOSSARY.md` should be treated as a bug.

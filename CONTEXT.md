@@ -256,7 +256,14 @@ which is why it belongs under **Spec** above. Its fields live in
 **Slice** — a saved one-dimensional cut through the grid, taken for one
 audience: an actor's journey, a single moment, one lane, one cell, or a custom
 selection. A slice *references* the cells it presents and never copies them,
-so the blueprint stays the single source of the text.
+so the blueprint stays the single source of the text. A slice may cut across
+more than one service's blueprint when its audience needs it.
+
+**Audience** — the reader, or group of readers, a slice is cut for: a new
+hire, a partner, a customer. What a slice shows is what its audience may see;
+the cells it leaves out stay out of their reach, for learning and for
+privacy alike. **Not a stakeholder**: a stakeholder holds a stake in the
+service, an audience reads a slice of it.
 
 **Slide** — one row of a slice: one moment of it, as a reader meets it. Table
 `slides`, carrying `position`, the cited `cell_ids`/`cell_keys`, a `title`, a
@@ -305,6 +312,12 @@ impact, more effort), Quick wins (lesser impact, low effort), or Later
 that cell came from, and when it was observed. A cell with no evidence is an
 assumption; that state is derived from the absence of evidence rows and is
 never stored as a flag.
+
+**Owner-confirmed** — a cell value the business owner set or approved. It
+outranks anything the agent inferred: the agent never overwrites it without
+asking, and an owner's edit sends the agent to check what depends on it.
+**Not evidence**: evidence says where a claim came from, owner-confirmed
+says who stands behind it.
 
 ## The writing vocabulary
 

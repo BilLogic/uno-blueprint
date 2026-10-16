@@ -213,7 +213,7 @@ $$;
 -- Name: create_path(uuid, text, text, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.create_path(scenario_id uuid, name text, kind text DEFAULT 'alternative'::text, lane_source_path_id uuid DEFAULT NULL::uuid) RETURNS uuid
+CREATE FUNCTION public.create_path(scenario_id uuid, name text, kind text DEFAULT 'variant'::text, lane_source_path_id uuid DEFAULT NULL::uuid) RETURNS uuid
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
     AS $$
@@ -227,12 +227,14 @@ begin
   end if;
 
   source_path_id := coalesce(
-    lane_source_path_id,
-    (select id from public.paths where scenario_id = scenario_id order by created_at limit 1)
+    create_path.lane_source_path_id,
+    (select p.id from public.paths p
+      where p.scenario_id = create_path.scenario_id
+      order by p.created_at limit 1)
   );
 
   insert into public.paths (scenario_id, name, kind, origin)
-  values (scenario_id, name, kind, 'app')
+  values (create_path.scenario_id, create_path.name, create_path.kind, 'app')
   returning id into new_path_id;
 
   insert into public.lanes (path_id, name, lane_role, position, origin)

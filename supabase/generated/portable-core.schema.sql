@@ -94,7 +94,7 @@ CREATE FUNCTION public.add_step(path_id uuid, name text, at_position integer DEF
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
     AS $$
 declare
-  scenario_id uuid;
+  v_scenario_id uuid;
   new_step_id uuid;
   target int;
 begin
@@ -103,8 +103,9 @@ begin
       using errcode = '42501';
   end if;
 
-  select scenario_id into scenario_id from public.paths where id = add_step.path_id;
-  if scenario_id is null then
+  select p.scenario_id into v_scenario_id
+  from public.paths p where p.id = add_step.path_id;
+  if v_scenario_id is null then
     raise exception 'Unknown path';
   end if;
 
@@ -118,7 +119,7 @@ begin
     where path_steps.path_id = add_step.path_id and position >= target;
 
   insert into public.steps (scenario_id, name, origin)
-  values (scenario_id, coalesce(nullif(trim(name), ''), 'Untitled step'), 'app')
+  values (v_scenario_id, coalesce(nullif(trim(add_step.name), ''), 'Untitled step'), 'app')
   returning id into new_step_id;
 
   insert into public.path_steps (path_id, step_id, position)

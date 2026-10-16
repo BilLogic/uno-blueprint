@@ -14192,7 +14192,10 @@ $proof$;
 --
 --   select scenario_id into scenario_id from public.paths where id = …
 --
--- `scenario_id` is both the variable and the column. plpgsql's
+-- `scenario_id` is both the variable and the column. The variable was safe
+-- when the column was `service_scenario_id`; 21000107000000 renamed the
+-- column to the variable's own word, and its body sweep rewrote the column
+-- reference without seeing the clash. plpgsql's
 -- `variable_conflict` is `error`, so every call raises "column reference
 -- \"scenario_id\" is ambiguous" before a row is touched — whatever path,
 -- name or position it is given. `create_path` carried the same fault and is
@@ -14202,8 +14205,8 @@ $proof$;
 -- `remove_lane`, `rename_path`, `reorder_lanes` and `set_cell_dependency`.
 --
 -- The body is restated here with the variable renamed to `v_scenario_id`, as
--- `duplicate_path` names its own, and the column read through an alias.
--- Nothing else in it changes.
+-- `duplicate_path` names its own, the column read through an alias, and the
+-- `name` argument written by the function's name. Nothing else in it changes.
 --
 -- `create or replace` keeps the function's oid and with it every grant. No
 -- rows are read or moved.
@@ -14268,7 +14271,7 @@ declare
   pth uuid;
   first_step uuid;
   second_step uuid;
-  v_scen uuid;
+  got_scen uuid;
   v_pos int;
   done boolean := false;
   msg text;
@@ -14298,10 +14301,10 @@ begin
 
     -- 1. AT THE END. The statement that could not be planned runs first.
     first_step := public.add_step(pth, 'fixture first step');
-    select s.scenario_id into v_scen from public.steps s where s.id = first_step;
-    if v_scen is distinct from scen then
+    select s.scenario_id into got_scen from public.steps s where s.id = first_step;
+    if got_scen is distinct from scen then
       raise exception 'add_step put its step in scenario %, expected %',
-        coalesce(v_scen::text, '<null>'), scen;
+        coalesce(got_scen::text, '<null>'), scen;
     end if;
     select ps.position into v_pos
       from public.path_steps ps where ps.path_id = pth and ps.step_id = first_step;

@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.8.8
+
+**Two authoring functions run again.** `create_path` and `add_step` each
+failed on every call: both read a column through a name that was also an
+argument or a local variable, and Postgres refuses that as ambiguous. Adding a
+step from the canvas or an agent, and making a new path, are back. `create_path`
+also defaulted `kind` to `alternative`, which the path kind check refuses; a
+path made without a kind is now a variant, as `duplicate_path` already did.
+The other authoring functions that take a scenario or a path were called
+against a fresh replay of the portable core and run.
+
+### Upgrading a deployment
+
+- **Bump the pin and apply two migrations:**
+  `21000306000000_a_path_kind_left_out_is_a_variant.sql` and
+  `21000307000000_add_step_runs_again.sql` (`supabase db push`, or your usual
+  migration step). Each replaces one function, keeps its grants, moves no rows
+  and proves itself in a fixture it rolls back.
+- **If the deployment rewrote `create_path` or `add_step` for itself,**
+  compare bodies first: each migration restates the template's body in full.
+
+### Patch Changes
+
+- 2f3754d: A path made without a kind is a variant, and `create_path` runs again. `create_path` defaulted `kind` to `alternative`, a spelling the path kind check refuses, so any call that left `kind` out failed; it now defaults to `variant`, as `duplicate_path` does. Making it provable turned up a larger fault: the function chose the path to copy lanes from with a reference that was both an argument and a column, which Postgres refuses as ambiguous, so every call failed whatever it passed. The body now names each reference unambiguously and is otherwise unchanged.
+
+  Upgrading a deployment: apply the migration `21000306000000_a_path_kind_left_out_is_a_variant.sql` (`supabase db push`, or your usual migration step). It replaces one function, keeps its grants, and moves no rows. A deployment that already rewrote `create_path` for itself should compare bodies first — the migration restates the template's body in full.
+
+- e5d79fa: `add_step` runs again. It failed on every call, from the canvas and from an agent alike. The function kept the path's scenario in a local variable with the same name as the column it read, and Postgres refuses that as ambiguous. The variable and the column are now named apart, and nothing else in the body changes. The other authoring functions that take a scenario or a path were called against a fresh replay of the portable core and run; `create_path`, which carried the same fault, is fixed separately.
+
+  Upgrading a deployment: apply the migration `21000307000000_add_step_runs_again.sql` (`supabase db push`, or your usual migration step). It replaces one function, keeps its grants, and moves no rows. A deployment that already rewrote `add_step` for itself should compare bodies first — the migration restates the template's body in full.
+
 ## 2.8.7
 
 **The skill menu leaves with the sidebar.** Typing `/` in the docked agent's
@@ -10789,8 +10820,8 @@ accent: BRAND.accent }, content: { workspaceTitle: coverContent.title } }`. The
   constraint violation rather than as anything the authoring tools had said
   (#204):
 
-                                                                                                                                                                                                                                                              ERROR: new row for relation "lanes" violates check constraint
-                                                                                                                                                                                                                                                              "lanes_lane_role_check" … compliance_review
+                                                                                                                                                                                                                                                                ERROR: new row for relation "lanes" violates check constraint
+                                                                                                                                                                                                                                                                "lanes_lane_role_check" … compliance_review
 
   That error at least names the value. Meeting it after validation has passed is
   the wrong moment.

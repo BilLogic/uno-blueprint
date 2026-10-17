@@ -336,6 +336,8 @@ export type Database = {
       cells: {
         Row: {
           cell_key: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
           content: string
           created_at: string
           form: string | null
@@ -356,6 +358,8 @@ export type Database = {
         }
         Insert: {
           cell_key?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           content?: string
           created_at?: string
           form?: string | null
@@ -376,6 +380,8 @@ export type Database = {
         }
         Update: {
           cell_key?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           content?: string
           created_at?: string
           form?: string | null
@@ -395,6 +401,12 @@ export type Database = {
           value_props?: NonNullable<Json>
         }
         Relationships: [
+          {
+            foreignKeyName: "cells_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cells_lane_id_fkey"
             columns: ["lane_id"]
@@ -420,6 +432,7 @@ export type Database = {
           added_by: string | null
           cell_id: string | null
           cell_key: string | null
+          contributed_by: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -435,6 +448,7 @@ export type Database = {
           added_by?: string | null
           cell_id?: string | null
           cell_key?: string | null
+          contributed_by?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -450,6 +464,7 @@ export type Database = {
           added_by?: string | null
           cell_id?: string | null
           cell_key?: string | null
+          contributed_by?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -462,6 +477,12 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "evidence_contributed_by_fkey"
+            columns: ["contributed_by"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "evidence_service_id_fkey"
             columns: ["service_id"]
@@ -662,6 +683,52 @@ export type Database = {
             foreignKeyName: "phases_service_id_fkey"
             columns: ["service_id"]
             referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          dismissed_nudges: string[]
+          display_name: string
+          id: string
+          last_run_at: string | null
+          may_confirm: boolean
+          register: string
+          stakeholder_id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          dismissed_nudges?: string[]
+          display_name: string
+          id?: string
+          last_run_at?: string | null
+          may_confirm?: boolean
+          register?: string
+          stakeholder_id: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          dismissed_nudges?: string[]
+          display_name?: string
+          id?: string
+          last_run_at?: string | null
+          may_confirm?: boolean
+          register?: string
+          stakeholder_id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_stakeholder_id_fkey"
+            columns: ["stakeholder_id"]
+            referencedRelation: "stakeholders"
             referencedColumns: ["id"]
           },
         ]
@@ -1048,6 +1115,67 @@ export type Database = {
           },
         ]
       }
+      suggested_changes: {
+        Row: {
+          cell_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          evidence_id: string | null
+          id: string
+          proposed_content: string
+          status: string
+          suggested_by: string
+        }
+        Insert: {
+          cell_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          evidence_id?: string | null
+          id?: string
+          proposed_content: string
+          status?: string
+          suggested_by: string
+        }
+        Update: {
+          cell_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          evidence_id?: string | null
+          id?: string
+          proposed_content?: string
+          status?: string
+          suggested_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suggested_changes_cell_id_fkey"
+            columns: ["cell_id"]
+            referencedRelation: "cells"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suggested_changes_decided_by_fkey"
+            columns: ["decided_by"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suggested_changes_evidence_id_fkey"
+            columns: ["evidence_id"]
+            referencedRelation: "evidence"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suggested_changes_suggested_by_fkey"
+            columns: ["suggested_by"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       touchpoints: {
         Row: {
           aliases: string[] | null
@@ -1154,10 +1282,17 @@ export type Database = {
         Args: { at_position?: number; name: string; path_id: string }
         Returns: string
       }
+      approve_suggested_change: { Args: { p_id: string }; Returns: Json }
+      caller_profile_id: { Args: Record<PropertyKey, never>; Returns: string }
       cell_natural_key: { Args: { cell_id: string }; Returns: string }
       clear_cell_dependency: {
         Args: { dependency_id: string }
         Returns: undefined
+      }
+      confirm_cell: { Args: { p_cell_id: string }; Returns: Json }
+      confirming_profile_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       create_path: {
         Args: {
@@ -1218,6 +1353,14 @@ export type Database = {
       }
       is_service_account: { Args: Record<PropertyKey, never>; Returns: boolean }
       key_slug: { Args: { value: string }; Returns: string }
+      list_profile_stakeholders: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          display_name: string
+          profile_id: string
+          stakeholder_id: string
+        }[]
+      }
       mint_cell_key: {
         Args: { lane_id: string; path_id: string; step_id: string }
         Returns: string
@@ -1231,6 +1374,15 @@ export type Database = {
           revert?: Json
         }
         Returns: string
+      }
+      record_contribution: {
+        Args: {
+          p_cell_id: string
+          p_note: string
+          p_proposed_content: string
+          p_title: string
+        }
+        Returns: Json
       }
       remove_lane: {
         Args: { lane_name: string; scenario_id: string }

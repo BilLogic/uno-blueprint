@@ -130,6 +130,44 @@ end;
 $$;
 
 --
+-- Name: approve_suggested_change(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.approve_suggested_change(p_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'pg_temp'
+    AS $$
+declare
+  v_profile uuid := public.confirming_profile_id();
+  v_change public.suggested_changes;
+begin
+  select * into v_change from public.suggested_changes where id = p_id for update;
+  if v_change.id is null then
+    raise exception 'no suggested change %', p_id;
+  end if;
+  if v_change.status <> 'pending' then
+    raise exception 'suggested change % is already %', p_id, v_change.status;
+  end if;
+  update public.cells
+     set content = v_change.proposed_content,
+         confirmed_by = v_profile,
+         confirmed_at = now(),
+         updated_at = now()
+   where id = v_change.cell_id;
+  update public.suggested_changes
+     set status = 'approved', decided_by = v_profile, decided_at = now()
+   where id = p_id;
+  return jsonb_build_object('cell_id', v_change.cell_id, 'confirmed_by', v_profile);
+end
+$$;
+
+--
+-- Name: FUNCTION approve_suggested_change(p_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.approve_suggested_change(p_id uuid) IS 'Apply a pending suggested change to its cell and owner-confirm the cell in the caller''s name. Refused unless the caller''s profile may confirm.';
+
+--
 -- Name: authoring_changes_are_append_only(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -142,6 +180,27 @@ begin
     using errcode = '42501';
 end;
 $$;
+
+--
+-- Name: caller_profile_id(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.caller_profile_id() RETURNS uuid
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'pg_temp'
+    AS $$
+  select p.id
+    from public.profiles p
+   where p.user_id = nullif(
+     nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub', ''
+   )::uuid
+$$;
+
+--
+-- Name: FUNCTION caller_profile_id(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.caller_profile_id() IS 'The profile of the person making this request, read from the JWT claim sub; null when the caller has none.';
 
 --
 -- Name: cell_natural_key(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -207,6 +266,53 @@ begin
 
   delete from public.cell_dependencies where id = dependency_id;
 end;
+$$;
+
+--
+-- Name: confirm_cell(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.confirm_cell(p_cell_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'pg_temp'
+    AS $$
+declare
+  v_profile uuid := public.confirming_profile_id();
+begin
+  update public.cells
+     set confirmed_by = v_profile, confirmed_at = now()
+   where id = p_cell_id;
+  if not found then
+    raise exception 'no cell %', p_cell_id;
+  end if;
+  return jsonb_build_object('cell_id', p_cell_id, 'confirmed_by', v_profile);
+end
+$$;
+
+--
+-- Name: FUNCTION confirm_cell(p_cell_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.confirm_cell(p_cell_id uuid) IS 'Owner-confirm a cell as it stands, in the caller''s name. Refused unless the caller''s profile may confirm.';
+
+--
+-- Name: confirming_profile_id(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.confirming_profile_id() RETURNS uuid
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'pg_temp'
+    AS $$
+declare
+  v_profile public.profiles;
+begin
+  select * into v_profile from public.profiles where id = public.caller_profile_id();
+  if v_profile.id is null or not v_profile.may_confirm then
+    raise exception 'only someone who may confirm can approve a change or confirm a cell'
+      using errcode = '42501';
+  end if;
+  return v_profile.id;
+end
 $$;
 
 --
@@ -974,6 +1080,26 @@ end;
 $$;
 
 --
+-- Name: evidence_contributor_is_the_caller(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.evidence_contributor_is_the_caller() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'pg_catalog', 'pg_temp'
+    AS $$
+begin
+  if new.contributed_by is not null
+     and new.contributed_by is distinct from (case when tg_op = 'UPDATE' then old.contributed_by end)
+     and new.contributed_by is distinct from public.caller_profile_id()
+     and nullif(current_setting('request.jwt.claims', true), '') is not null then
+    raise exception 'evidence can be attributed only to the person giving it'
+      using errcode = '42501';
+  end if;
+  return new;
+end
+$$;
+
+--
 -- Name: is_service_account(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1013,6 +1139,31 @@ CREATE FUNCTION public.key_slug(value text) RETURNS text
     )
   end;
 $$;
+
+--
+-- Name: list_profile_stakeholders(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.list_profile_stakeholders() RETURNS TABLE(profile_id uuid, stakeholder_id uuid, display_name text)
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'pg_temp'
+    AS $$
+begin
+  if public.caller_profile_id() is null then
+    return;
+  end if;
+  return query
+    select p.id, p.stakeholder_id, p.display_name
+      from public.profiles p
+     order by p.display_name;
+end
+$$;
+
+--
+-- Name: FUNCTION list_profile_stakeholders(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.list_profile_stakeholders() IS 'Every profile''s stakeholder link and name, for a caller who has a profile: who else in the business talks to Uno. Nothing else about another person''s profile.';
 
 --
 -- Name: mint_cell_key(uuid, uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -1082,6 +1233,59 @@ $$;
 --
 
 COMMENT ON FUNCTION public.record_authoring_change(fn text, args jsonb, revert jsonb, author text, agent_session_id uuid) IS 'Append one authoring write to public.authoring_changes. Called by src/lib/authoringLog.ts after the write it records has already succeeded, so the log can never claim a change the database does not have.';
+
+--
+-- Name: record_contribution(uuid, text, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.record_contribution(p_cell_id uuid, p_title text, p_note text, p_proposed_content text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'pg_temp'
+    AS $$
+declare
+  v_profile uuid := public.caller_profile_id();
+  v_cell public.cells;
+  v_service uuid;
+  v_evidence uuid;
+  v_suggestion uuid;
+begin
+  if v_profile is null then
+    raise exception 'a contribution needs the profile of the person giving it'
+      using errcode = '42501';
+  end if;
+  if btrim(coalesce(p_title, '')) = '' then
+    raise exception 'a contribution needs a title saying where it came from';
+  end if;
+  select * into v_cell from public.cells where id = p_cell_id;
+  if v_cell.id is null then
+    raise exception 'no cell %', p_cell_id;
+  end if;
+  select ph.service_id into v_service
+    from public.paths pa
+    join public.scenarios sc on sc.id = pa.scenario_id
+    join public.phases ph on ph.id = sc.phase_id
+   where pa.id = v_cell.path_id;
+
+  insert into public.evidence (service_id, cell_id, cell_key, kind, title, note, contributed_by)
+  values (v_service, v_cell.id, coalesce(v_cell.cell_key, v_cell.id::text), 'interview', btrim(p_title),
+          nullif(btrim(coalesce(p_note, '')), ''), v_profile)
+  returning id into v_evidence;
+
+  if p_proposed_content is not null then
+    insert into public.suggested_changes (cell_id, evidence_id, proposed_content, suggested_by)
+    values (v_cell.id, v_evidence, p_proposed_content, v_profile)
+    returning id into v_suggestion;
+  end if;
+
+  return jsonb_build_object('evidence_id', v_evidence, 'suggested_change_id', v_suggestion);
+end
+$$;
+
+--
+-- Name: FUNCTION record_contribution(p_cell_id uuid, p_title text, p_note text, p_proposed_content text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.record_contribution(p_cell_id uuid, p_title text, p_note text, p_proposed_content text) IS 'What a person told Uno about a cell: evidence attributed to the caller''s profile and, when p_proposed_content is given, a pending suggested change to the cell''s content. Leaves the cell as it is. Returns {evidence_id, suggested_change_id}.';
 
 --
 -- Name: remove_lane(uuid, text); Type: FUNCTION; Schema: public; Owner: -
@@ -3421,6 +3625,9 @@ CREATE TABLE public.cells (
     cell_key text,
     "position" integer DEFAULT 0 NOT NULL,
     status public.entity_status DEFAULT 'live'::text NOT NULL,
+    confirmed_by uuid,
+    confirmed_at timestamp with time zone,
+    CONSTRAINT cells_confirmed_paired CHECK (((confirmed_by IS NULL) = (confirmed_at IS NULL))),
     CONSTRAINT cells_origin_check CHECK ((origin = ANY (ARRAY['import'::text, 'app'::text]))),
     CONSTRAINT cells_value_props_is_array CHECK ((jsonb_typeof(value_props) = 'array'::text))
 );
@@ -3498,6 +3705,18 @@ COMMENT ON COLUMN public.cells."position" IS 'Ordering within one (lane, step) s
 COMMENT ON COLUMN public.cells.status IS 'How far along the thing this cell describes is. Defaults to live — a current-state blueprint documents what is in use.';
 
 --
+-- Name: COLUMN cells.confirmed_by; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.cells.confirmed_by IS 'The profile that confirmed this cell''s value: set when someone who may confirm approves a change to it or vouches for it. Null when nobody has. Owner-confirmed outranks anything Uno inferred.';
+
+--
+-- Name: COLUMN cells.confirmed_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.cells.confirmed_at IS 'When confirmed_by confirmed this cell''s value. Set with it, cleared with it.';
+
+--
 -- Name: evidence; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3515,6 +3734,7 @@ CREATE TABLE public.evidence (
     created_by uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    contributed_by uuid,
     CONSTRAINT evidence_cell_key_paired CHECK (((cell_id IS NULL) = (cell_key IS NULL))),
     CONSTRAINT evidence_exactly_one_target CHECK ((num_nonnulls(cell_id, proposition_question_key) = 1)),
     CONSTRAINT evidence_kind_check CHECK ((kind = ANY (ARRAY['interview'::text, 'survey'::text, 'analytics'::text, 'doc'::text, 'meeting'::text, 'decision'::text, 'observation'::text, 'other'::text]))),
@@ -3544,6 +3764,12 @@ COMMENT ON COLUMN public.evidence.observed_at IS 'Date-only by design (timestamp
 --
 
 COMMENT ON COLUMN public.evidence.added_by IS 'Agent name or participant-coded author. Never the interviewee.';
+
+--
+-- Name: COLUMN evidence.contributed_by; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.evidence.contributed_by IS 'The profile whose words this evidence records, when a person told Uno. Only that person can set it to themselves.';
 
 --
 -- Name: evidence_counts; Type: VIEW; Schema: public; Owner: -
@@ -3736,6 +3962,73 @@ COMMENT ON COLUMN public.phases.business_impact IS 'Commercial impact notes: ope
 --
 
 COMMENT ON COLUMN public.phases.operational_requirements IS 'Process / system / people / legal requirements for this phase.';
+
+--
+-- Name: profiles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.profiles (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    stakeholder_id uuid NOT NULL,
+    user_id uuid,
+    display_name text NOT NULL,
+    may_confirm boolean DEFAULT false NOT NULL,
+    register text DEFAULT 'everyday'::text NOT NULL,
+    dismissed_nudges text[] DEFAULT '{}'::text[] NOT NULL,
+    last_run_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT profiles_display_name_check CHECK ((btrim(display_name) <> ''::text)),
+    CONSTRAINT profiles_register_check CHECK ((register = ANY (ARRAY['everyday'::text, 'precise'::text])))
+);
+
+--
+-- Name: TABLE profiles; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.profiles IS 'One person who talks to Uno: the stakeholder they are in the business, how Uno works with them, and whether they may confirm. Not a stakeholder: the stakeholder says who someone is, the profile says how Uno works with them. A person reads and edits only their own; list_profile_stakeholders shows everyone''s stakeholder link.';
+
+--
+-- Name: COLUMN profiles.stakeholder_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.profiles.stakeholder_id IS 'The cast-list row that says who this person is in the business.';
+
+--
+-- Name: COLUMN profiles.user_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.profiles.user_id IS 'The login account this person signs in with, when one exists. Linked by email by the pilot seed.';
+
+--
+-- Name: COLUMN profiles.display_name; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.profiles.display_name IS 'What Uno calls this person.';
+
+--
+-- Name: COLUMN profiles.may_confirm; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.profiles.may_confirm IS 'Whether this person approves changes to the blueprint and makes a cell owner-confirmed. Set by an operator, never by the person.';
+
+--
+-- Name: COLUMN profiles.register; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.profiles.register IS 'everyday | precise. The words Uno uses with this person.';
+
+--
+-- Name: COLUMN profiles.dismissed_nudges; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.profiles.dismissed_nudges IS 'Nudges this person dismissed, so Uno does not bring them again unless something changes.';
+
+--
+-- Name: COLUMN profiles.last_run_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.profiles.last_run_at IS 'When Uno last ran with this person: where the next session reads changes from.';
 
 --
 -- Name: resources; Type: TABLE; Schema: public; Owner: -
@@ -4134,6 +4427,42 @@ COMMENT ON COLUMN public.steps.scenario_id IS 'Scenario that owns this canonical
 COMMENT ON COLUMN public.steps.summary IS 'What this moment is, across every lane — the one sentence that makes the column legible without reading five cells. Shown as the caption on the storyboard frame. Null until an author writes it.';
 
 --
+-- Name: suggested_changes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.suggested_changes (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    cell_id uuid NOT NULL,
+    evidence_id uuid,
+    proposed_content text NOT NULL,
+    suggested_by uuid NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    decided_by uuid,
+    decided_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT suggested_changes_decision_paired CHECK (((status = 'pending'::text) = (decided_at IS NULL))),
+    CONSTRAINT suggested_changes_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'declined'::text])))
+);
+
+--
+-- Name: TABLE suggested_changes; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.suggested_changes IS 'A change to a cell''s content that someone who may not confirm suggested, waiting for someone who may. Written and decided through record_contribution and approve_suggested_change only.';
+
+--
+-- Name: COLUMN suggested_changes.proposed_content; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.suggested_changes.proposed_content IS 'The cell content the suggestion would set.';
+
+--
+-- Name: COLUMN suggested_changes.status; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.suggested_changes.status IS 'pending | approved | declined.';
+
+--
 -- Name: touchpoints; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4383,6 +4712,20 @@ ALTER TABLE ONLY public.phases
     ADD CONSTRAINT phases_pkey PRIMARY KEY (id);
 
 --
+-- Name: profiles profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.profiles
+    ADD CONSTRAINT profiles_pkey PRIMARY KEY (id);
+
+--
+-- Name: profiles profiles_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.profiles
+    ADD CONSTRAINT profiles_user_id_key UNIQUE (user_id);
+
+--
 -- Name: resources resources_cell_position_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4499,6 +4842,13 @@ ALTER TABLE ONLY public.stakeholders
 
 ALTER TABLE ONLY public.steps
     ADD CONSTRAINT steps_pkey PRIMARY KEY (id);
+
+--
+-- Name: suggested_changes suggested_changes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.suggested_changes
+    ADD CONSTRAINT suggested_changes_pkey PRIMARY KEY (id);
 
 --
 -- Name: touchpoints touchpoints_name_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -4665,6 +5015,12 @@ CREATE INDEX phases_service_id_idx ON public.phases USING btree (service_id);
 CREATE INDEX phases_service_order_idx ON public.phases USING btree (service_id, "position");
 
 --
+-- Name: profiles_stakeholder_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX profiles_stakeholder_id_idx ON public.profiles USING btree (stakeholder_id);
+
+--
 -- Name: resources_one_featured_attachment_per_cell; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4713,6 +5069,12 @@ CREATE INDEX slides_slice_id_idx ON public.slides USING btree (slice_id);
 CREATE INDEX steps_scenario_id_idx ON public.steps USING btree (scenario_id);
 
 --
+-- Name: suggested_changes_cell_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX suggested_changes_cell_id_idx ON public.suggested_changes USING btree (cell_id);
+
+--
 -- Name: touchpoints_stakeholder_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4735,6 +5097,12 @@ CREATE TRIGGER authoring_changes_no_truncate BEFORE TRUNCATE ON public.authoring
 --
 
 CREATE TRIGGER cells_validate_path_match BEFORE INSERT OR UPDATE ON public.cells FOR EACH ROW EXECUTE FUNCTION public.cells_validate_path_match();
+
+--
+-- Name: evidence evidence_contributor_is_the_caller; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER evidence_contributor_is_the_caller BEFORE INSERT OR UPDATE OF contributed_by ON public.evidence FOR EACH ROW EXECUTE FUNCTION public.evidence_contributor_is_the_caller();
 
 --
 -- Name: audit_findings set_audit_findings_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -4795,6 +5163,12 @@ CREATE TRIGGER set_paths_updated_at BEFORE UPDATE ON public.paths FOR EACH ROW E
 --
 
 CREATE TRIGGER set_phases_updated_at BEFORE UPDATE ON public.phases FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+--
+-- Name: profiles set_profiles_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 --
 -- Name: resources set_resources_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -4906,6 +5280,13 @@ ALTER TABLE ONLY public.cell_touchpoints
     ADD CONSTRAINT cell_touchpoints_touchpoint_id_fkey FOREIGN KEY (touchpoint_id) REFERENCES public.touchpoints(id) ON DELETE RESTRICT;
 
 --
+-- Name: cells cells_confirmed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cells
+    ADD CONSTRAINT cells_confirmed_by_fkey FOREIGN KEY (confirmed_by) REFERENCES public.profiles(id) ON DELETE SET NULL;
+
+--
 -- Name: cells cells_lane_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4925,6 +5306,13 @@ ALTER TABLE ONLY public.cells
 
 ALTER TABLE ONLY public.cells
     ADD CONSTRAINT cells_step_id_fkey FOREIGN KEY (step_id) REFERENCES public.steps(id) ON DELETE CASCADE;
+
+--
+-- Name: evidence evidence_contributed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.evidence
+    ADD CONSTRAINT evidence_contributed_by_fkey FOREIGN KEY (contributed_by) REFERENCES public.profiles(id) ON DELETE SET NULL;
 
 --
 -- Name: evidence evidence_service_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -4981,6 +5369,13 @@ ALTER TABLE ONLY public.phases
 
 ALTER TABLE ONLY public.phases
     ADD CONSTRAINT phases_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
+
+--
+-- Name: profiles profiles_stakeholder_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.profiles
+    ADD CONSTRAINT profiles_stakeholder_id_fkey FOREIGN KEY (stakeholder_id) REFERENCES public.stakeholders(id) ON DELETE RESTRICT;
 
 --
 -- Name: resources resources_cell_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -5044,6 +5439,34 @@ ALTER TABLE ONLY public.stakeholders
 
 ALTER TABLE ONLY public.steps
     ADD CONSTRAINT steps_scenario_id_fkey FOREIGN KEY (scenario_id) REFERENCES public.scenarios(id) ON DELETE CASCADE;
+
+--
+-- Name: suggested_changes suggested_changes_cell_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.suggested_changes
+    ADD CONSTRAINT suggested_changes_cell_id_fkey FOREIGN KEY (cell_id) REFERENCES public.cells(id) ON DELETE CASCADE;
+
+--
+-- Name: suggested_changes suggested_changes_decided_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.suggested_changes
+    ADD CONSTRAINT suggested_changes_decided_by_fkey FOREIGN KEY (decided_by) REFERENCES public.profiles(id) ON DELETE SET NULL;
+
+--
+-- Name: suggested_changes suggested_changes_evidence_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.suggested_changes
+    ADD CONSTRAINT suggested_changes_evidence_id_fkey FOREIGN KEY (evidence_id) REFERENCES public.evidence(id) ON DELETE SET NULL;
+
+--
+-- Name: suggested_changes suggested_changes_suggested_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.suggested_changes
+    ADD CONSTRAINT suggested_changes_suggested_by_fkey FOREIGN KEY (suggested_by) REFERENCES public.profiles(id) ON DELETE RESTRICT;
 
 --
 -- Name: touchpoints touchpoints_stakeholder_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -

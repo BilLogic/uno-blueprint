@@ -211,6 +211,7 @@ begin
     select p.oid,
            p.proname,
            pg_get_function_identity_arguments(p.oid) as identity_args,
+           p.proargtypes as arg_types,
            p.proacl as acl
       from pg_proc p
       join pg_namespace n on n.oid = p.pronamespace
@@ -231,6 +232,34 @@ begin
 
     -- Identity arguments are TYPES only, so the signature that named the old
     -- function names the new one too, and the grants below land on it.
+    --
+    -- The recreated function's ACL is whatever the HOST's default privileges
+    -- say, and that is not only PUBLIC: a hosted Supabase project created in
+    -- 2026 carries `alter default privileges for role postgres in schema
+    -- public grant all on functions to anon, authenticated, service_role`, so
+    -- the recreate hands anon its own grant, which a `revoke … from public`
+    -- does not take away. Every grantee the recreate landed on is revoked,
+    -- whoever it is, and only then is the captured ACL replayed — so the
+    -- result is the ACL this function had, on any host. Where the captured
+    -- ACL already matched this database's defaults the end state is the one
+    -- this file always produced; where it did not, this file used to stop at
+    -- the proof below and roll back, so no database ever applied it in the
+    -- shape this block now changes.
+    for grantee in
+      select distinct a.grantee::regrole::text
+        from pg_proc p
+        join pg_namespace n on n.oid = p.pronamespace,
+             aclexplode(p.proacl) a
+       where n.nspname = 'public'
+         and p.proname = target.proname
+         and p.proargtypes = target.arg_types
+         and a.grantee <> 0
+         and a.grantee <> p.proowner
+    loop
+      execute format('revoke execute on function public.%I(%s) from %s',
+                     target.proname, target.identity_args, grantee);
+    end loop;
+
     if target.acl is not null then
       execute format('revoke execute on function public.%I(%s) from public',
                      target.proname, target.identity_args);

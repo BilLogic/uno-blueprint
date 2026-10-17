@@ -24,6 +24,12 @@ export const POSTGREST_JWT = process.env.SLICE_POSTGREST_JWT ?? ''
 /** Whether this run is over PostgREST: both variables set. */
 export const overPostgrest = POSTGREST_URL !== '' && POSTGREST_JWT !== ''
 
+/** Adapt the project REST prefix to a standalone PostgREST endpoint. */
+export function postgrestFetch(url: string): typeof fetch {
+  const rest = `${url}/rest/v1`
+  return (input, init) => fetch(String(input).replace(rest, url), init)
+}
+
 export function postgrestClient(): SupabaseClient<Database> {
   if (!overPostgrest) {
     throw new Error('SLICE_POSTGREST_URL and SLICE_POSTGREST_JWT are both needed to reach PostgREST')
@@ -31,11 +37,8 @@ export function postgrestClient(): SupabaseClient<Database> {
   // supabase-js addresses a project's PostgREST at `/rest/v1`; a standalone
   // PostgREST serves at its root. The one place the two differ is the path,
   // so the client's fetch is the platform's with that prefix taken off.
-  const rest = `${POSTGREST_URL}/rest/v1`
-  const unprefixed: typeof fetch = (input, init) =>
-    fetch(String(input).replace(rest, POSTGREST_URL), init)
   return createClient<Database>(POSTGREST_URL, POSTGREST_JWT, {
     auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: `Bearer ${POSTGREST_JWT}` }, fetch: unprefixed },
+    global: { headers: { Authorization: `Bearer ${POSTGREST_JWT}` }, fetch: postgrestFetch(POSTGREST_URL) },
   })
 }

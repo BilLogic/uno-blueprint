@@ -21,6 +21,7 @@ export const listStakeholdersTool = defineTool({
   args: z.object({
     service: SERVICE_ARG,
   }),
+  browserBacked: false,
   availability: { sample: false, mobile: true },
   run: async ({ service }, ctx) => {
     const client = requireClient(ctx)

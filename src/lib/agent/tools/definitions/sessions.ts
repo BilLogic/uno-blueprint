@@ -16,6 +16,7 @@ export const listSessionsTool = defineTool({
     'Past chat sessions on this blueprint — titles, dates, edit counts, ids. Use when the user refers to something discussed earlier ("like we said last time"). Shows exactly the sessions the session switcher shows.',
   surface: 'read',
   args: z.object({}),
+  browserBacked: true,
   availability: { sample: true, mobile: true },
   run: async (_args, ctx) => listSessions(ctx.session.id),
 })
@@ -28,6 +29,7 @@ export const getSessionTool = defineTool({
   args: z.object({
     session_id: arg.text('Session id from list_sessions'),
   }),
+  browserBacked: true,
   availability: { sample: true, mobile: true },
   run: async ({ session_id }) => getSession(session_id),
 })
@@ -42,6 +44,7 @@ export const getChangeHistoryTool = defineTool({
   }),
   // The ledger is browser state, but the trial cannot write and so has no
   // history to show; it has never been offered this read.
+  browserBacked: true,
   availability: { sample: false, mobile: true },
   run: async ({ limit }, ctx) => {
     const cap = typeof limit === 'number' && limit > 0 ? limit : 30

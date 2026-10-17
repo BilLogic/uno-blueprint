@@ -101,6 +101,8 @@ const ADMITTED: Admission = Object.freeze({ admitted: true as const })
 /** The sentence each withholding ground answers a call with. */
 function withholdRefusal(ground: WithholdGround, name: string): string {
   switch (ground) {
+    case 'server-unavailable':
+      return noSuchToolRefusal(name)
     case 'not-enabled':
       // An ALLOW-LIST the deployment set does not list this name: the tool
       // exists in the template and not in this session, so the refusal says

@@ -943,6 +943,7 @@ export async function sendToAgent(input: {
               })
               break
             case 'not-enabled':
+            case 'server-unavailable':
             case 'no-search':
             case 'sample-trial':
             case 'mobile-reading':

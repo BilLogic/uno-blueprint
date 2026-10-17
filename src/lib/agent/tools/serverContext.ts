@@ -3,21 +3,17 @@ import type { Database } from '@/types/database'
 import type { ToolSpec } from '@/lib/agent/providers/provider'
 import { PACKAGE_OFFLINE_BOARD } from '@/data/blueprintFallbacks'
 import { runTool, toolSpec, type ToolContext, type ToolUi } from '@/lib/agent/tools/definition'
-import { sessionRoster } from '@/lib/agent/tools/roster'
-import { UI_SURFACE_READ_TOOLS } from '@/lib/agent/tools/definitions/ui'
-import { getChangeHistoryTool, getSessionTool, listSessionsTool } from '@/lib/agent/tools/definitions/sessions'
+import { sessionRoster, type RosterMode } from '@/lib/agent/tools/roster'
+import { admitToolCall } from '@/lib/agent/tools/admission'
+import { findToolDefinition } from '@/lib/agent/tools/definitions'
 import { noSuchToolRefusal } from '@/lib/agent/tools/refusals'
-
-/** Browser-backed history stays unavailable until it has a database reader. */
-const browserReads = new Set([
-  ...UI_SURFACE_READ_TOOLS,
-  listSessionsTool.name,
-  getSessionTool.name,
-  getChangeHistoryTool.name,
-])
 
 function noCanvas(): never {
   throw new Error('There is no canvas in a server tool context.')
+}
+
+function noServerWrites(): never {
+  throw new Error('Writes are not available on the server yet.')
 }
 
 const serverUi: ToolUi = {
@@ -44,29 +40,40 @@ export function createServerToolContext(options: {
   jwt: string
   sessionId: string
   scope: ToolContext['scope']
-  meaning?: ToolContext['meaning']
   signal?: AbortSignal
+  /** A transport adapter, for a standalone PostgREST without the project prefix. */
+  fetch?: typeof fetch
 }): ServerToolContext {
   const client = createClient<Database>(options.url, options.publishableKey, {
     accessToken: async () => options.jwt,
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: { fetch: options.fetch },
   })
-  const roster = sessionRoster({
+  const mode: RosterMode = {
+    server: true,
     sampleTrial: false, mobileReading: false, allowWrites: false,
-    searchOffered: options.meaning != null,
-  }).filter((tool) => tool.surface === 'read' && !browserReads.has(tool.name))
+    searchOffered: false,
+  }
+  const roster = sessionRoster(mode)
   const context: ToolContext = {
     client, scope: options.scope,
-    session: { id: options.sessionId, attributed: noCanvas },
+    session: { id: options.sessionId, attributed: noServerWrites },
     ui: serverUi, offlineBoard: PACKAGE_OFFLINE_BOARD, roster,
-    meaning: options.meaning, signal: options.signal,
+    signal: options.signal,
   }
   return {
     roster: roster.map(toolSpec),
     async call(name, args) {
-      const tool = roster.find((definition) => definition.name === name)
+      const tool = findToolDefinition(name)
+      const admission = admitToolCall({
+        mode, name,
+        facts: {
+          aborted: options.signal?.aborted ?? false,
+          isWrite: tool?.surface === 'write', writesThisSend: 0, repeatRead: false,
+        },
+      })
+      if (!admission.admitted) return admission.refusal
       if (!tool) return noSuchToolRefusal(name)
-      if (options.signal?.aborted) throw options.signal.reason
       return runTool(tool, args, context)
     },
   }

@@ -1,8 +1,9 @@
 import { createServer, type Server } from 'node:http'
 import { afterEach, expect, it } from 'vitest'
-import { createClient } from '@supabase/supabase-js'
-import { loadEnv } from 'vite'
 import { createServerToolContext } from '@/lib/agent/tools/serverContext'
+import { configureAgentTools } from '@/lib/agent/tools/roster'
+import { NO_SEARCH_REFUSAL, VIEW_ONLY_REFUSAL } from '@/lib/agent/tools/refusals'
+import { overPostgrest, POSTGREST_URL, POSTGREST_JWT, postgrestClient, postgrestFetch } from '@/test/postgrestDatabase'
 
 const scope = {
   kind: 'service' as const,
@@ -10,24 +11,32 @@ const scope = {
   serviceName: 'Subscription service',
 }
 
-function serverContext() {
+function serverContext(options: Partial<Parameters<typeof createServerToolContext>[0]> = {}) {
   return createServerToolContext({
     url: 'http://127.0.0.1:1', publishableKey: 'public-test-key',
-    jwt: 'caller-jwt', sessionId: 'server-session', scope,
+    jwt: 'caller-jwt', sessionId: 'server-session', scope, ...options,
   })
 }
 
 let server: Server | undefined
 afterEach(async () => {
+  configureAgentTools(undefined)
   if (server) await new Promise<void>((resolve) => server!.close(() => resolve()))
   server = undefined
 })
 
-it('reads the scoped business model with the caller JWT and no browser', async () => {
+it('answers an aborted call with the loop stopped refusal', async () => {
+  const controller = new AbortController()
+  controller.abort()
+  expect(await serverContext({ signal: controller.signal }).call('get_cell', {}))
+    .toBe('Stopped by the user before this call ran.')
+})
+
+it.each([false, true])('reads with the caller JWT and service scope (standalone transport: %s)', async (standalone) => {
   server = createServer((request, response) => {
     expect(request.headers.authorization).toBe('Bearer caller-jwt')
     const url = new URL(request.url!, 'http://localhost')
-    expect(url.pathname).toBe('/rest/v1/business_models')
+    expect(url.pathname).toBe(standalone ? '/business_models' : '/rest/v1/business_models')
     expect(url.searchParams.get('service_id')).toBe('eq.11111111-1111-4111-8111-111111111111')
     response.setHeader('Content-Type', 'application/json')
     response.end(JSON.stringify({
@@ -38,10 +47,9 @@ it('reads the scoped business model with the caller JWT and no browser', async (
   await new Promise<void>((resolve) => server!.listen(0, '127.0.0.1', resolve))
   const address = server.address()
   if (!address || typeof address === 'string') throw new Error('No test server port')
-  const context = createServerToolContext({
-    url: `http://127.0.0.1:${address.port}`, publishableKey: 'public-test-key',
-    jwt: 'caller-jwt', sessionId: 'server-session',
-    scope,
+  const url = `http://127.0.0.1:${address.port}`
+  const context = serverContext({
+    url, fetch: standalone ? postgrestFetch(url) : undefined,
   })
   expect(await context.call('get_business_model', {})).toContain('A monthly subscription')
 })
@@ -50,53 +58,42 @@ it.each([
   'open_phase', 'open_scenario', 'focus_cell', 'ui_command',
   'open_cell_panel', 'set_canvas_mode', 'set_sidebar', 'annotate_cells',
   'get_ui_state', 'list_ui_commands',
-])('withholds %s and refuses a direct call before validating its arguments', async (name) => {
-  const context = serverContext()
-  expect(context.roster.map((tool) => tool.name)).not.toContain(name)
-  expect(await context.call(name, {})).toBe(`There is no ${name} tool in this session.`)
+  'list_sessions', 'get_session', 'get_change_history',
+])('refuses the browser-backed tool %s before validating its arguments', async (name) => {
+  expect(await serverContext().call(name, {})).toBe(`There is no ${name} tool in this session.`)
 })
 
-it('withholds browser-backed history and writes until server implementations exist', async () => {
+it('answers withheld writes and search with the loop admission refusals', async () => {
+  expect(await serverContext().call('update_cell', {})).toBe(VIEW_ONLY_REFUSAL)
+  expect(await serverContext().call('search_blueprint', {})).toBe(NO_SEARCH_REFUSAL)
+})
+
+it('applies the deployment allowlist to both the roster and calls', async () => {
+  configureAgentTools(['get_cell', 'open_phase'])
   const context = serverContext()
-  for (const name of ['list_sessions', 'get_session', 'get_change_history', 'update_cell']) {
-    expect(context.roster.map((tool) => tool.name)).not.toContain(name)
-    expect(await context.call(name, {})).toBe(`There is no ${name} tool in this session.`)
-  }
+  expect(context.roster.map((tool) => tool.name)).toEqual(['get_cell'])
+  expect(await context.call('get_business_model', {})).toBe('There is no get_business_model tool in this session.')
 })
 
 it('validates arguments through the same tool boundary as the canvas', async () => {
   await expect(serverContext().call('get_cell', {})).rejects.toThrow(/cell_id/)
 })
 
-// Opt in with RUN_LOCAL_SUPABASE_TESTS=1. Credentials belong in the
-// gitignored .env; this test uses password sign-in and a public project key.
-it.runIf(process.env.RUN_LOCAL_SUPABASE_TESTS === '1')(
-  'reads a business model through the server context against local Supabase',
+// The runner builds the committed seed and mints the owner claim. Test setup
+// adds a business model to the seeded service; its read requires sign-in.
+it.runIf(overPostgrest)(
+  'reads a business model through the server context over PostgREST as a signed-in owner',
   async () => {
-    const env = loadEnv('test', process.cwd(), 'LOCAL_SUPABASE_')
-    const required = (name: string) => {
-      const value = env[`LOCAL_SUPABASE_${name}`]
-      if (!value) throw new Error(`Set LOCAL_SUPABASE_${name} in .env`)
-      return value
-    }
-    const url = required('URL')
-    if (!['localhost', '127.0.0.1', '[::1]'].includes(new URL(url).hostname)) {
-      throw new Error('The integration test requires a local Supabase URL.')
-    }
-    const publishableKey = required('ANON_KEY')
-    const auth = createClient(url, publishableKey, {
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    const serviceId = 'f0000000-0000-4000-8000-000000000010'
+    const { error } = await postgrestClient().from('business_models').upsert({
+      service_id: serviceId, pricing: 'A monthly subscription',
     })
-    const { data, error } = await auth.auth.signInWithPassword({
-      email: required('EMAIL'), password: required('PASSWORD'),
+    expect(error).toBeNull()
+    const context = serverContext({
+      url: POSTGREST_URL, publishableKey: POSTGREST_JWT, jwt: POSTGREST_JWT,
+      fetch: postgrestFetch(POSTGREST_URL),
+      scope: { kind: 'service', serviceId, serviceName: 'Keeping a blueprint true' },
     })
-    if (error || !data.session) throw new Error('Local Supabase password sign-in failed.')
-    const context = createServerToolContext({
-      url, publishableKey, jwt: data.session.access_token,
-      sessionId: crypto.randomUUID(),
-      scope: { kind: 'service', serviceId: required('SERVICE_ID'), serviceName: 'Test service' },
-    })
-    // Seed a known pricing value in the local fixture and record it in .env.
-    expect(await context.call('get_business_model', {})).toContain(required('EXPECTED_PRICING'))
+    expect(await context.call('get_business_model', {})).toContain('A monthly subscription')
   },
 )

@@ -40,7 +40,8 @@ answer; their register sets your words from here on. Re-run `state` with
 `--profile <id>` to read what changed since you last ran with them.
 
 When `profiles` is empty, an operator seeds them first
-(`node scripts/seed-pilot-profiles.mjs`, from `supabase/pilot/profiles.json`);
+(`node scripts/seed-pilot-profiles.mjs`, shaped by
+`supabase/pilot/profiles.example.json`);
 until then answer and suggest, and keep every write for later.
 **Done when** you know the person's profile id and whether they may confirm.
 

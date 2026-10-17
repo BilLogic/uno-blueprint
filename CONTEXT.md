@@ -352,6 +352,11 @@ sentence.
 
 ## The agent
 
+**Uno** — the agent's name as the people it works with meet it, in the
+canvas and in any agent tool. One agent and one identity, started by
+`/ub:init`; the canvas loads the same identity by default. The product stays
+Uno Blueprint.
+
 **Tool** — one thing the in-app agent may call: its name, its surface (read,
 interface or write), its argument schema, where it may run (without a database;
 on the mobile shell), and what it does. A tool is one definition under the

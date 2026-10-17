@@ -5,6 +5,7 @@ import { defineTool } from '@/lib/agent/tools/definition'
  * The interface, read. Two reads that report what the canvas is doing and
  * which controls exist right now; they touch neither the canvas nor a row.
  * The calls that DRIVE the canvas are `interface.ts`.
+ * These browser-backed reads intentionally omit the browser-independent opt-in.
  */
 
 /**

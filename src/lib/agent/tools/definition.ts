@@ -127,6 +127,8 @@ export type ToolDefinition<Args extends z.ZodObject = z.ZodObject> = {
    */
   description: string | (() => string)
   surface: ToolSurface
+  /** Reads must explicitly declare false to run on a server; absent fails closed. */
+  browserBacked?: boolean
   args: Args
   availability: ToolAvailability
   /**

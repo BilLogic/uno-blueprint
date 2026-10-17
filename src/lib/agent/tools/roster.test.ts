@@ -49,6 +49,13 @@ describe('the deployment allowlist', () => {
 })
 
 describe('the mode gates', () => {
+  it('offers server reads only when their definitions explicitly declare server availability', () => {
+    const server = sessionRoster({ ...DESKTOP, server: true, allowWrites: false })
+    expect(server.map((tool) => tool.name)).toEqual(TOOL_DEFINITIONS
+      .filter((tool) => tool.surface === 'read' && tool.browserBacked === false)
+      .map((tool) => tool.name))
+  })
+
   it('a viewer sees no write tool; an author sees every one', () => {
     const viewer = sessionRoster({ ...DESKTOP, allowWrites: false })
     expect(viewer.some((tool) => tool.surface === 'write')).toBe(false)

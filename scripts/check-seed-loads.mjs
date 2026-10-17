@@ -15,7 +15,7 @@
  * and reads it back AS `anon` — the role the deployed app's key resolves to:
  *
  *   1. supabase/portable/supabase-shim.sql        the role names + auth/storage
- *   2. supabase/portable/platform-defaults.sql    the platform's SELECT default
+ *   2. supabase/portable/platform-defaults.sql    the platform's default privileges
  *   3. supabase/generated/portable-core.generated.sql      the contract
  *   4. supabase/generated/supabase-recipe.generated.sql    Supabase's enforcement
  *   5. supabase/seed.sql                          the generated sample content

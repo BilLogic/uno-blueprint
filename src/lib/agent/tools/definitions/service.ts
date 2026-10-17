@@ -12,6 +12,7 @@ export const getBusinessModelTool = defineTool({
   args: z.object({}),
   // The bundled sample is a board, not a deployment: it carries no business
   // model to answer from, so the trial is not offered this read.
+  browserBacked: false,
   availability: { sample: false, mobile: true },
   run: async (_args, ctx) => getBusinessModel(requireClient(ctx), requireScope(ctx)),
 })

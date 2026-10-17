@@ -60,7 +60,7 @@ it.each([
   'get_ui_state', 'list_ui_commands',
   'list_sessions', 'get_session', 'get_change_history',
 ])('refuses the browser-backed tool %s before validating its arguments', async (name) => {
-  expect(await serverContext().call(name, {})).toBe(`There is no ${name} tool in this session.`)
+  expect(await serverContext().call(name, {})).toBe(`The ${name} tool is not available in this server context.`)
 })
 
 it('answers withheld writes and search with the loop admission refusals', async () => {

@@ -7,6 +7,10 @@
       "path": "skills/audit/SKILL.md"
     },
     {
+      "name": "init",
+      "path": "skills/init/SKILL.md"
+    },
+    {
       "name": "map",
       "path": "skills/map/SKILL.md"
     },
@@ -83,6 +87,10 @@
     {
       "name": "check-value-ledger",
       "path": "skills/audit/references/check-value-ledger.md"
+    },
+    {
+      "name": "uno",
+      "path": "skills/init/references/uno.md"
     },
     {
       "name": "cocreate-playbook",

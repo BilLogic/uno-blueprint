@@ -19,6 +19,7 @@ and run in any agent.
 
 | Invocation / intent | Read and follow |
 | --- | --- |
+| `ub:init` — start a session as Uno | `skills/init/SKILL.md` |
 | `ub:map` — create, import, translate, present or evolve a service blueprint; a directory holding `blueprint-workspace.json` or a `blueprint/` folder | `skills/map/SKILL.md` |
 | `ub:slice` — cut a stakeholder view (actor journey, moment, lane, cell brief) out of an existing blueprint | `skills/slice/SKILL.md` |
 | `ub:audit` — run the consistency-check roster, then record and triage findings | `skills/audit/SKILL.md` |

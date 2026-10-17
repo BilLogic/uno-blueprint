@@ -246,7 +246,7 @@ function appDocument(path) {
   return text
 }
 
-const ROLE = appDocument('src/lib/agent/role.md').trimEnd()
+const ROLE = `${appDocument(`${SKILL_REFERENCES}uno.md`).trimEnd()}\n\n${appDocument('src/lib/agent/role.md').trimEnd()}`
 const adapterDoc = appDocument(`${SKILL_REFERENCES}canvas-adapter.md`)
 
 /**

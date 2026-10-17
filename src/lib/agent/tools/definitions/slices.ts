@@ -22,6 +22,7 @@ export const listSlicesTool = defineTool({
   description: 'List existing slices (stakeholder views) with ids and types.',
   surface: 'read',
   args: z.object({}),
+  browserBacked: false,
   availability: { sample: true, mobile: true },
   run: async (_args, ctx) =>
     ctx.client ? listSlices(ctx.client, requireScope(ctx)) : sampleListSlices(),
@@ -35,6 +36,7 @@ export const getSliceTool = defineTool({
   args: z.object({
     slice_id: arg.text('Slice id from list_slices'),
   }),
+  browserBacked: false,
   availability: { sample: true, mobile: true },
   run: async ({ slice_id }, ctx) =>
     ctx.client ? getSlice(ctx.client, slice_id) : sampleGetSlice(slice_id),

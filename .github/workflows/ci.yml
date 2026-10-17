@@ -457,7 +457,7 @@ jobs:
       # as the owner; this one reads as the anon key the deployed app carries, so
       # a table the recipe forgot to expose — a blank screen in the browser —
       # fails here instead of shipping. check-seed-loads.mjs stands up its own
-      # fresh database (shim, the platform's SELECT default, core, recipe, seed)
+      # fresh database (shim, the platform's default privileges, core, recipe, seed)
       # and tears it down; the postgres:17 service and PG* env above are all it
       # needs. See docs/engineering/checks.md § The database.
       - name: The generated seed loads on a fresh core and renders as anon
@@ -492,6 +492,8 @@ jobs:
           chmod +x ~/.cache/postgrest/postgrest
       - name: The cell-edit slice runs over PostgREST, and goes red when a grant is revoked
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run slice:cell-edit:postgrest
+      - name: The server tool context reads with a minted service claim over PostgREST, and is refused without it
+        run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:server-context:postgrest
       - name: Profiles are private, and only someone who may confirm approves, over PostgREST
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:profiles:postgrest
 
@@ -509,16 +511,34 @@ jobs:
           npm run check:function-bodies -- --self-test
           npm run check:function-bodies
 
-      # The route a real Supabase project takes, in its own database.
-      - name: Replay every migration in order, behind the shim
+      # The route a real Supabase project takes, in its own database — with
+      # the default privileges a hosted project is created with, set before
+      # the first migration as project creation sets them. Without them a
+      # proof that asks as `authenticated` is refused by a missing grant
+      # before it reaches the trigger or the policy a hosted push meets, and a
+      # `revoke … from public` looks complete when anon still holds its own
+      # grant; both passed here and stopped a fresh hosted push.
+      #
+      # A proof that cannot ask as the role says so and passes, so the replay
+      # also fails if any proof or probe reports itself skipped: here, as the
+      # owner and with the platform's grants, every one of them can ask.
+      - name: Replay every migration in order, behind the shim and the platform defaults
         run: |
           set -euo pipefail
           createdb migration_replay
           psql -v ON_ERROR_STOP=1 -d migration_replay \
             -f supabase/portable/supabase-shim.sql
+          psql -v ON_ERROR_STOP=1 -d migration_replay \
+            -f supabase/portable/platform-defaults.sql
           for file in supabase/migrations/*.sql; do
             echo "--- $file"
-            psql -v ON_ERROR_STOP=1 -d migration_replay -f "$file"
+            psql -v ON_ERROR_STOP=1 -d migration_replay -f "$file" 2>&1 \
+              | tee /tmp/replay-step.log
+            if grep -E -q 'proof skipped|probe skipped|cannot become authenticated' \
+                 /tmp/replay-step.log; then
+              echo "::error file=$file::a proof skipped instead of asking as the role"
+              exit 1
+            fi
           done
 
       - name: The replay and the two halves agree

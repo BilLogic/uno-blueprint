@@ -28,11 +28,30 @@
 -- the thing that check is there to prove. Another host expresses the same
 -- baseline with its own auth; here it is one ALTER DEFAULT PRIVILEGES.
 
-grant usage on schema public to anon, authenticated;
+grant usage on schema public to anon, authenticated, service_role;
 
--- The default privilege, set before the core runs: every table and view the
--- migrations create in `public` is granted SELECT to the Data API roles, the
--- way project creation does it. The recipe's own GRANTs and REVOKEs then apply
--- on top, so the surgical departures (evidence, business_models) still win.
+-- The default privileges, set before the core runs, and set the way project
+-- creation sets them: ALL, not only SELECT, on every table, function and
+-- sequence the migrations create in `public`, to each of the three Data API
+-- roles BY NAME. Verified against a hosted project created 2026-10-17:
+-- `pg_default_acl` for role `postgres` in `public` carries
+-- `anon=arwdDxtm`, `authenticated=arwdDxtm`, `service_role=arwdDxtm` on
+-- tables and `anon=X`, `authenticated=X`, `service_role=X` on functions.
+-- Without `for role` these attach to whichever role runs this file, which is
+-- the role that then runs the migrations — `postgres`, as on a real project.
+--
+-- The SELECT is what a keyless read needs. The rest is what makes this a
+-- rehearsal of a real push rather than a friendlier one: the INSERT grant
+-- `authenticated` holds means a write is refused by row level security, or by
+-- a BEFORE ROW trigger that meets the row first, rather than by a missing
+-- grant; and the function grant to `anon` by name is one a migration's
+-- `revoke … from public` does not take away, which a stock Postgres would
+-- never show. Both shapes stopped a fresh hosted `supabase db push` before
+-- this file stood them in (21000116000000, 21000214000000). The recipe's own
+-- GRANTs and REVOKEs apply on top, so its departures still win.
 alter default privileges in schema public
-  grant select on tables to anon, authenticated;
+  grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public
+  grant all on functions to anon, authenticated, service_role;
+alter default privileges in schema public
+  grant all on sequences to anon, authenticated, service_role;

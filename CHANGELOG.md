@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.8.9
+
+**A fresh hosted project takes the whole migration chain.** `supabase db push`
+onto a brand-new hosted Supabase project stopped twice, because a hosted
+project grants every new table and function in `public` to `anon` and
+`authenticated` by name and the CI rehearsal did not. Both proofs are corrected
+in place, a new migration takes two authoring RPCs back from `anon` where the
+same gap had left them callable, and CI now replays the chain behind the hosted
+default privileges.
+
+### Upgrading a deployment
+
+- **Bump the pin and apply one migration:**
+  `21000308000000_anon_runs_no_authoring_write.sql` (`supabase db push`, or
+  your usual migration step). It revokes `anon`'s execute on `add_lane` and
+  `create_phase`, moves no rows, and raises naming any definer function guarded
+  by `is_service_account()` that `anon` can still execute — the deployment's
+  own included. A definer read such as `search_blueprint` is outside the rule.
+- **Nothing to do for `21000116000000` or `21000214000000`.** Both were edited
+  in place; the CLI does not re-run a recorded version, so a database that
+  applied them is unchanged.
+- **If the project was pushed with the default-privileges workaround,**
+  restore the default first: see `docs/connectors/supabase/database.md`
+  § A fresh hosted project.
+
+### Patch Changes
+
+- 3ec3bb5: `supabase db push` onto a brand-new hosted Supabase project runs the whole migration chain again. A hosted project grants every new function and table to `anon` and `authenticated` by name, which a stock Postgres does not, and two migrations' proofs stopped there: `21000116000000` (the recreated RPCs kept anon's own grant) and `21000214000000` (a test insert met the cells trigger before row level security). Both are corrected in place: the CLI never re-runs a recorded version, so no database that applied either file will differ, and the edits matter only where the original raised and rolled back. A new migration takes `add_lane` and `create_phase` back from `anon`, which the same restore had left callable on hosted projects with those defaults, and asserts that `anon` can execute no authoring write. CI now replays the chain behind the hosted default privileges and fails when a proof skips the authenticated path.
+
+  Upgrading a deployment: apply the migration `21000308000000_anon_runs_no_authoring_write.sql` (`supabase db push`, or your usual migration step). It revokes two grants and moves no rows. It raises, naming the function, if `anon` can still execute any `SECURITY DEFINER` function in `public` that guards itself with `is_service_account()` — a deployment's own included; a definer read such as the deployment's `search_blueprint` is outside the rule as long as its body does not call `is_service_account()`. A project pushed with `revoke execute on functions from anon, public` as a workaround should restore that default first; see `docs/connectors/supabase/database.md` § A fresh hosted project.
+
 ## 2.8.8
 
 **Two authoring functions run again.** `create_path` and `add_step` each
@@ -10820,8 +10851,8 @@ accent: BRAND.accent }, content: { workspaceTitle: coverContent.title } }`. The
   constraint violation rather than as anything the authoring tools had said
   (#204):
 
-                                                                                                                                                                                                                                                                ERROR: new row for relation "lanes" violates check constraint
-                                                                                                                                                                                                                                                                "lanes_lane_role_check" … compliance_review
+                                                                                                                                                                                                                                                                  ERROR: new row for relation "lanes" violates check constraint
+                                                                                                                                                                                                                                                                  "lanes_lane_role_check" … compliance_review
 
   That error at least names the value. Meeting it after validation has passed is
   the wrong moment.

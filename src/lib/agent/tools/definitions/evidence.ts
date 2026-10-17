@@ -25,6 +25,7 @@ export const listEvidenceTool = defineTool({
       'Restrict to evidence attached to this cell; omit for the newest 100 across the active service',
     ),
   }),
+  browserBacked: false,
   availability: { sample: false, mobile: true },
   run: async ({ cell_id }, ctx) => listEvidence(requireClient(ctx), cell_id, requireScope(ctx)),
 })
@@ -37,6 +38,7 @@ export const getEvidenceTool = defineTool({
   args: z.object({
     evidence_ids: arg.strings('Evidence ids from list_evidence'),
   }),
+  browserBacked: false,
   availability: { sample: false, mobile: true },
   run: async ({ evidence_ids }, ctx) => getEvidence(requireClient(ctx), evidence_ids),
 })

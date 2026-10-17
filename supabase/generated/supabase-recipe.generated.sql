@@ -1907,6 +1907,7 @@ declare
   orphan record;
   attempted integer := 0;
   granted boolean;
+  unsettled boolean;
 begin
   -- FIRST — the post-condition, over the whole schema this template owns.
   for orphan in
@@ -2003,6 +2004,7 @@ begin
 
     granted := has_table_privilege(
       'authenticated', 'public.' || quote_ident(removed.tbl), upper(removed.verb));
+    unsettled := false;
 
     begin
       perform set_config(
@@ -2012,11 +2014,31 @@ begin
       set local role authenticated;
       begin
         if removed.verb = 'insert' then
-          execute format('insert into public.%I default values', removed.tbl);
-          raise exception
-            'proof: an INSERT into public.% was ADMITTED for a signed-in '
-            'session — something opens that verb and the restriction removed '
-            'above was load-bearing', removed.tbl;
+          -- Where `authenticated` holds the INSERT grant — every hosted
+          -- Supabase project, whose default privileges grant ALL on new
+          -- tables in `public` to it — the privilege check passes and a
+          -- BEFORE ROW trigger meets the empty row before row level security
+          -- is asked: `cells_validate_path_match` raises P0001 on a null
+          -- lane. That is a refusal of the ROW, not of the write, so it
+          -- settles nothing; it is taken as unsettled, the way an UPDATE or
+          -- a DELETE is, and the second claim above carries the verdict.
+          -- Only where the grant exists: without it the privilege check
+          -- answers first, and a trigger raising there would be news.
+          begin
+            execute format('insert into public.%I default values', removed.tbl);
+          exception
+            when raise_exception then
+              if not granted then
+                raise;
+              end if;
+              unsettled := true;
+          end;
+          if not unsettled then
+            raise exception
+              'proof: an INSERT into public.% was ADMITTED for a signed-in '
+              'session — something opens that verb and the restriction '
+              'removed above was load-bearing', removed.tbl;
+          end if;
         elsif removed.verb = 'delete' then
           execute format('delete from public.%I where false', removed.tbl);
         else
@@ -2043,7 +2065,14 @@ begin
       when sqlstate 'UB001' then null;
     end;
 
-    if granted and removed.verb <> 'insert' then
+    if unsettled then
+      raise notice
+        'restriction proof: authenticated holds INSERT on public.% here and '
+        'a BEFORE ROW trigger refused the empty row before row level security '
+        'was asked, so the attempt settled nothing. What settles it for this '
+        'verb is the check above: no permissive policy admits it',
+        removed.tbl;
+    elsif granted and removed.verb <> 'insert' then
       raise notice
         'restriction proof: authenticated holds % on public.% here, so the '
         'attempt could not distinguish a refusal from an empty match — a '
@@ -2635,3 +2664,54 @@ begin
   end if;
 end
 $proof$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000308000000_anon_runs_no_authoring_write.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- `anon` is a role only the Supabase recipe creates, and which role
+-- may call a function is this deployment's enforcement of the contract, not
+-- the contract itself.
+
+revoke execute on function public.add_lane(uuid, text, text, integer) from anon;
+revoke execute on function public.create_phase(uuid, text, text) from anon;
+
+-- ---------------------------------------------------------------------------
+-- Proof — no authoring write is executable by `anon`.
+--
+-- An authoring write is a SECURITY DEFINER function in `public` that guards
+-- itself with `is_service_account()`: every structural RPC, and every one a
+-- fork writes the same way. Asked of the whole schema rather than of the two
+-- named above, because the census that missed these two was a census of the
+-- functions someone remembered to check.
+--
+-- Not every definer function: a deployment may supply a definer READ for the
+-- anon key on purpose — the ranked `search_blueprint` this schema leaves to
+-- the deployment is the expected one — and a rule that refused it would be a
+-- rule about how a deployment writes its search, which this file has no
+-- standing to make.
+-- ---------------------------------------------------------------------------
+do $anon_definer$
+declare
+  reachable text;
+begin
+  select string_agg(format('%s(%s)', p.proname,
+                           pg_get_function_identity_arguments(p.oid)),
+                    ', ' order by p.proname)
+    into reachable
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public'
+     and p.prosecdef
+     and p.prosrc ~ 'is_service_account\s*\('
+     and has_function_privilege('anon', p.oid, 'execute');
+
+  if reachable is not null then
+    raise exception
+      'proof: anon can execute authoring write(s) in public: % — a definer '
+      'function runs as its owner, so revoke execute from anon by name (a '
+      'revoke from public does not take a role''s own grant away)',
+      reachable;
+  end if;
+end
+$anon_definer$;

@@ -664,7 +664,7 @@ and say so in the file header.
 A hosted project is created with default privileges for role `postgres` in
 `public` that grant ALL on every new table, function and sequence to `anon`,
 `authenticated` and `service_role`, each by name. A stock Postgres grants
-none of that, and until v2.8.9 CI replayed the chain on a stock Postgres, so
+none of that, and before v2.8.9 CI replayed the chain on a stock Postgres, so
 two proofs passed there and stopped a fresh hosted `supabase db push`:
 
 - `21000116000000` dropped and recreated four RPCs and restored their ACL
@@ -675,9 +675,12 @@ two proofs passed there and stopped a fresh hosted `supabase db push`:
   security and raised `cells: lane_id does not exist`.
 
 Both files were corrected in place. That is the one case where editing a
-shipped migration is right: the edit changes behaviour only where the original
-raised and rolled back, so no database applied either file in the shape the
-edit changes, and the CLI does not re-run a version it has already recorded.
+shipped migration is right: the CLI does not re-run a version it has already
+recorded, so no database that applied either file will differ, and the edit
+matters only where the original raised and rolled back. (The `21000116000000`
+loop also drops an `authenticated` or `service_role` grant the recreate landed
+on that the captured ACL lacked; a project created under these defaults
+captured both, so that changes nothing there either.)
 `21000308000000` repairs what the same restore left on databases that did
 apply: `add_lane` and `create_phase` executable by `anon`, and a proof that no
 authoring write — a `SECURITY DEFINER` function in `public` that guards itself
@@ -692,8 +695,13 @@ for want of the role.
 running `alter default privileges for role postgres in schema public revoke
 execute on functions from anon, public` and applying part of `21000214000000`
 by hand with `supabase migration repair --status applied 21000214000000`, the
-schema you hold is the one the corrected chain builds — the skipped part of
-`21000214000000` is its proof, which writes nothing. Put the default back so
+tables, policies and functions you hold are the ones the corrected chain
+builds — the skipped part of `21000214000000` is its proof, which writes
+nothing. Function ACLs can differ: what was created under the workaround has no
+default grant to PUBLIC or `anon`, which a fresh install gives it. Nothing the
+app calls depends on that (every RPC anon needs is granted to it by name), and
+restoring the default does not change those functions retroactively. Put the
+default back so
 later migrations meet the project CI rehearses, then push:
 
 ```sql

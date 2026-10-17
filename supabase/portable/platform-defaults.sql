@@ -36,7 +36,9 @@ grant usage on schema public to anon, authenticated, service_role;
 -- roles BY NAME. Verified against a hosted project created 2026-10-17:
 -- `pg_default_acl` for role `postgres` in `public` carries
 -- `anon=arwdDxtm`, `authenticated=arwdDxtm`, `service_role=arwdDxtm` on
--- tables and `=X` for each of the three on functions.
+-- tables and `anon=X`, `authenticated=X`, `service_role=X` on functions.
+-- Without `for role` these attach to whichever role runs this file, which is
+-- the role that then runs the migrations — `postgres`, as on a real project.
 --
 -- The SELECT is what a keyless read needs. The rest is what makes this a
 -- rehearsal of a real push rather than a friendlier one: the INSERT grant

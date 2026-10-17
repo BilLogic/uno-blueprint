@@ -77,10 +77,11 @@ A React app (Vite, [shadcn/ui](https://ui.shadcn.com/), Tailwind v4). See how yo
 
 ### A harness for your agents
 
-Four skills teach your agents to build the map from your docs, keep it accurate, and test changes against it. Agents draft, check and suggest. Drafts need sign-off before they land.
+`ub:init` turns your agent into Uno, the keeper of your business's map, and four skills teach it to build the map from your docs, keep it accurate, and test changes against it. Agents draft, check and suggest. Drafts need sign-off before they land.
 
 | Skill | What it does |
 | --- | --- |
+| [`ub:init`](./skills/init/SKILL.md) | Start Uno, the agent that keeps your business's blueprint. |
 | [`ub:map`](./skills/map/SKILL.md) | Draft a blueprint from your docs. |
 | [`ub:slice`](./skills/slice/SKILL.md) | Cut a view for one audience: a journey, lane, step, cell or custom set. |
 | [`ub:audit`](./skills/audit/SKILL.md) | List gaps, conflicts and stale sources, ranked by what to fix first. |

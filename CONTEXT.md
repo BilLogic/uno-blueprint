@@ -59,8 +59,12 @@ tree it runs in is.
 
 ## The blueprint
 
-**Service** — the whole thing being blueprinted, and the top container. One
-service per deployment, normally.
+**Service** — one line of business, or one kind of experience, a business
+offers; the top container of a blueprint. A deployment is one business and
+holds as many services as it runs. Uno sorts what it hears into services:
+each topic lands in the service it belongs to, and a topic that fits none
+becomes a proposed new service the person confirms. Owners hear "part of
+your business".
 
 **Phase** — an ordered stage of a service. A phase may point back at an
 earlier phase (`loops_to_phase_id`), which is how a renewal or a repeat visit
@@ -144,6 +148,10 @@ deployment — the cast list — carrying the actor's kind, summary and aliases
 once; no service owns one, and a service "has" an actor exactly when one of
 its lanes names it (ADR 0003). A lane names its actor by `stakeholder_id`; a
 structural lane — the storyboard, the touchpoint rows — names nobody.
+
+A person who talks to Uno is a stakeholder too: their profile points at the
+stakeholder row that says who they are in the business, so the people Uno
+serves and the actors on the blueprint are one cast list.
 
 An actor may be *part of* another — `part_of_id` — so a deployment that
 names a function on one lane and a sub-function on another can still ask
@@ -313,9 +321,9 @@ that cell came from, and when it was observed. A cell with no evidence is an
 assumption; that state is derived from the absence of evidence rows and is
 never stored as a flag.
 
-**Owner-confirmed** — a cell value the business owner set or approved. It
-outranks anything the agent inferred: the agent never overwrites it without
-asking, and an owner's edit sends the agent to check what depends on it.
+**Owner-confirmed** — a cell value set or approved by someone who may
+confirm. It outranks anything Uno inferred: Uno never overwrites it without
+asking, and such an edit sends Uno to check what depends on it.
 **Not evidence**: evidence says where a claim came from, owner-confirmed
 says who stands behind it.
 
@@ -387,6 +395,23 @@ no service is active, in which case a call names its scope or is refused. A
 read covers its scope unless its `service` argument moves it; a write that
 creates under the service lands on the scope's service. A tool never
 resolves a slug — the shell did, once.
+
+For Uno, the default scope is the whole business — every service in the
+deployment — because a person talks about the business, not about one
+service.
+
+**Profile** — one person who talks to Uno: the stakeholder they are in the
+business, the register they want (everyday or precise), the nudges they have
+dismissed, when Uno last ran with them, and whether they **may confirm**. Held
+beside the blueprint, never in a file on someone's machine. **Not a
+stakeholder**: the stakeholder says who someone is in the service, the profile
+says how Uno works with them.
+
+**May confirm** — the right to approve a change to the blueprint and to make
+a cell owner-confirmed. Separate from who someone is: a consultant may hold it,
+an employee may not. Without it, what a person tells Uno is recorded as
+evidence in their name and as suggested changes waiting for someone who may
+confirm.
 
 **Skill** — one of the four flows a reader starts by naming it in the
 composer: `/ub:map`, `/ub:slice`, `/ub:audit`, `/ub:whatif`. The same

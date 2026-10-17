@@ -236,6 +236,7 @@ declare
   orphan record;
   attempted integer := 0;
   granted boolean;
+  unsettled boolean;
 begin
   -- FIRST — the post-condition, over the whole schema this template owns.
   for orphan in
@@ -332,6 +333,7 @@ begin
 
     granted := has_table_privilege(
       'authenticated', 'public.' || quote_ident(removed.tbl), upper(removed.verb));
+    unsettled := false;
 
     begin
       perform set_config(
@@ -341,11 +343,31 @@ begin
       set local role authenticated;
       begin
         if removed.verb = 'insert' then
-          execute format('insert into public.%I default values', removed.tbl);
-          raise exception
-            'proof: an INSERT into public.% was ADMITTED for a signed-in '
-            'session — something opens that verb and the restriction removed '
-            'above was load-bearing', removed.tbl;
+          -- Where `authenticated` holds the INSERT grant — every hosted
+          -- Supabase project, whose default privileges grant ALL on new
+          -- tables in `public` to it — the privilege check passes and a
+          -- BEFORE ROW trigger meets the empty row before row level security
+          -- is asked: `cells_validate_path_match` raises P0001 on a null
+          -- lane. That is a refusal of the ROW, not of the write, so it
+          -- settles nothing; it is taken as unsettled, the way an UPDATE or
+          -- a DELETE is, and the second claim above carries the verdict.
+          -- Only where the grant exists: without it the privilege check
+          -- answers first, and a trigger raising there would be news.
+          begin
+            execute format('insert into public.%I default values', removed.tbl);
+          exception
+            when raise_exception then
+              if not granted then
+                raise;
+              end if;
+              unsettled := true;
+          end;
+          if not unsettled then
+            raise exception
+              'proof: an INSERT into public.% was ADMITTED for a signed-in '
+              'session — something opens that verb and the restriction '
+              'removed above was load-bearing', removed.tbl;
+          end if;
         elsif removed.verb = 'delete' then
           execute format('delete from public.%I where false', removed.tbl);
         else
@@ -372,7 +394,14 @@ begin
       when sqlstate 'UB001' then null;
     end;
 
-    if granted and removed.verb <> 'insert' then
+    if unsettled then
+      raise notice
+        'restriction proof: authenticated holds INSERT on public.% here and '
+        'a BEFORE ROW trigger refused the empty row before row level security '
+        'was asked, so the attempt settled nothing. What settles it for this '
+        'verb is the check above: no permissive policy admits it',
+        removed.tbl;
+    elsif granted and removed.verb <> 'insert' then
       raise notice
         'restriction proof: authenticated holds % on public.% here, so the '
         'attempt could not distinguish a refusal from an empty match — a '

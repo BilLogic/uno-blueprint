@@ -43,6 +43,9 @@ Docker or a local database — a hosted project is enough.
    two generated `supabase/generated/*.sql` files are what those same migrations
    build, split into the portable half and the Supabase half, and CI proves the
    split matches. You apply the migrations; you read the generated halves.
+   Push onto the project as it was created — do not change its default
+   privileges first. The chain is rehearsed in CI against the defaults a
+   hosted project carries (§ [A fresh hosted project](#a-fresh-hosted-project)).
 4. **Load the seed.** `supabase db execute --file supabase/seed.sql --linked`.
    Out of the box that is the **META-BLUEPRINT** — the blueprint of this
    template itself (see [§ Sample seed](#sample-seed)), so the board is never
@@ -656,6 +659,53 @@ migration, which makes the remote authoritative and the divergence moot. The
 cost is a migration file that is a snapshot rather than a change, so do it once
 and say so in the file header.
 
+## A fresh hosted project
+
+A hosted project is created with default privileges for role `postgres` in
+`public` that grant ALL on every new table, function and sequence to `anon`,
+`authenticated` and `service_role`, each by name. A stock Postgres grants
+none of that, and until v2.8.9 CI replayed the chain on a stock Postgres, so
+two proofs passed there and stopped a fresh hosted `supabase db push`:
+
+- `21000116000000` dropped and recreated four RPCs and restored their ACL
+  with a `revoke … from public`, which does not take away anon's own grant;
+  its proof raised `the drop-and-recreate widened an RPC to anon`.
+- `21000214000000` asked an INSERT as `authenticated`; with the platform's
+  INSERT grant the row reached `cells_validate_path_match` before row level
+  security and raised `cells: lane_id does not exist`.
+
+Both files were corrected in place. That is the one case where editing a
+shipped migration is right: the edit changes behaviour only where the original
+raised and rolled back, so no database applied either file in the shape the
+edit changes, and the CLI does not re-run a version it has already recorded.
+`21000308000000` repairs what the same restore left on databases that did
+apply: `add_lane` and `create_phase` executable by `anon`, and a proof that no
+authoring write — a `SECURITY DEFINER` function in `public` that guards itself
+with `is_service_account()` — is. A definer read a deployment grants to `anon`
+on purpose, such as its own `search_blueprint`, is outside the rule.
+
+CI now replays the chain behind `supabase/portable/platform-defaults.sql`, which
+stands in those default privileges, and fails if any proof reports it skipped
+for want of the role.
+
+**A project pushed with the workaround.** If you got past the two failures by
+running `alter default privileges for role postgres in schema public revoke
+execute on functions from anon, public` and applying part of `21000214000000`
+by hand with `supabase migration repair --status applied 21000214000000`, the
+schema you hold is the one the corrected chain builds — the skipped part of
+`21000214000000` is its proof, which writes nothing. Put the default back so
+later migrations meet the project CI rehearses, then push:
+
+```sql
+alter default privileges for role postgres in schema public
+  grant execute on functions to anon, public;
+```
+
+```bash
+supabase db push
+npm run check:target
+```
+
 ## Migration authoring notes
 
 Ops lessons this repo carries as rules for anyone adding migrations:
@@ -665,7 +715,15 @@ Ops lessons this repo carries as rules for anyone adding migrations:
   `SECURITY DEFINER` RPC is callable by every role until you say
   otherwise. Pair every `create function` with
   `revoke execute ... from public, anon;` and an explicit `grant execute`
-  to the roles that should call it — in the same migration.
+  to the roles that should call it — in the same migration. Name `anon`:
+  on a hosted project it holds its own grant beside PUBLIC's, and a revoke
+  from PUBLIC leaves it. A drop-and-recreate that restores a captured ACL
+  revokes every grantee the recreate landed on first, then replays the ACL.
+- **A proof that asks as `authenticated` meets the platform's grants.** On a
+  hosted project the role holds ALL on every table, so a write is refused by
+  a policy or by a BEFORE ROW trigger, not by a missing grant. A proof that
+  only accepts 42501 will fail there and pass in a rehearsal without the
+  defaults; CI's replay carries them, so write the proof against that.
 - **Migration files are committed the same day they are applied** to any
   shared project. An applied-but-uncommitted migration makes the repo lie
   about the shared schema; the next contributor's `db reset` or diff runs

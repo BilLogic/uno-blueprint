@@ -492,7 +492,7 @@ jobs:
           chmod +x ~/.cache/postgrest/postgrest
       - name: The cell-edit slice runs over PostgREST, and goes red when a grant is revoked
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run slice:cell-edit:postgrest
-      - name: The server tool context reads with a minted owner claim over PostgREST
+      - name: The server tool context reads with a minted service claim over PostgREST, and is refused without it
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:server-context:postgrest
 
       # The one class of defect a dump cannot show and a catalogue sweep only

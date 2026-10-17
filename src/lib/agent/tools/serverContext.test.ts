@@ -79,21 +79,48 @@ it('validates arguments through the same tool boundary as the canvas', async () 
   await expect(serverContext().call('get_cell', {})).rejects.toThrow(/cell_id/)
 })
 
-// The runner builds the committed seed and mints the owner claim. Test setup
-// adds a business model to the seeded service; its read requires sign-in.
+// The runner builds the committed seed and mints a service claim
+// (`app_metadata.role = 'service'`, random `sub`). Test setup adds a business
+// model to the seeded service; anon holds no select on that table. The
+// publishable key is not a JWT, so the caller's token is the only thing that
+// can authenticate: if the access-token wiring fell back to the key, PostgREST
+// would refuse it.
+const seededServiceId = 'f0000000-0000-4000-8000-000000000010'
+
+async function seedBusinessModel() {
+  const { error } = await postgrestClient().from('business_models').upsert({
+    service_id: seededServiceId, pricing: 'A monthly subscription',
+  })
+  expect(error).toBeNull()
+}
+
+function liveContext(fetch: typeof globalThis.fetch) {
+  return serverContext({
+    url: POSTGREST_URL, jwt: POSTGREST_JWT, fetch,
+    scope: { kind: 'service', serviceId: seededServiceId, serviceName: 'Keeping a blueprint true' },
+  })
+}
+
 it.runIf(overPostgrest)(
-  'reads a business model through the server context over PostgREST as a signed-in owner',
+  'reads a business model through the server context over PostgREST with the minted service claim',
   async () => {
-    const serviceId = 'f0000000-0000-4000-8000-000000000010'
-    const { error } = await postgrestClient().from('business_models').upsert({
-      service_id: serviceId, pricing: 'A monthly subscription',
-    })
-    expect(error).toBeNull()
-    const context = serverContext({
-      url: POSTGREST_URL, publishableKey: POSTGREST_JWT, jwt: POSTGREST_JWT,
-      fetch: postgrestFetch(POSTGREST_URL),
-      scope: { kind: 'service', serviceId, serviceName: 'Keeping a blueprint true' },
-    })
+    await seedBusinessModel()
+    const context = liveContext(postgrestFetch(POSTGREST_URL))
     expect(await context.call('get_business_model', {})).toContain('A monthly subscription')
+  },
+)
+
+it.runIf(overPostgrest)(
+  'is refused the business model over PostgREST when the caller JWT never reaches the database',
+  async () => {
+    await seedBusinessModel()
+    const throughPrefix = postgrestFetch(POSTGREST_URL)
+    const withoutCaller: typeof fetch = (input, init) => {
+      const headers = new Headers(init?.headers)
+      headers.delete('Authorization')
+      return throughPrefix(input, { ...init, headers })
+    }
+    await expect(liveContext(withoutCaller).call('get_business_model', {}))
+      .rejects.toThrow(/permission denied/)
   },
 )

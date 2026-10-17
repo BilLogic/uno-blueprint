@@ -35,6 +35,8 @@ export function toolEnabled(name: string): boolean {
 
 /** The session facts a roster is derived from. */
 export type RosterMode = {
+  /** No canvas or browser state exists in this process. */
+  server?: boolean
   /** No Supabase configured: reads answer from the bundled sample. */
   sampleTrial: boolean
   /** The mobile shell is up — view-only for every tier. */
@@ -51,6 +53,7 @@ export type RosterMode = {
  * reads back, so nothing here spells a sentence.
  */
 export type WithholdGround =
+  | 'server-unavailable'
   | 'not-enabled'
   | 'no-search'
   | 'sample-trial'
@@ -142,6 +145,9 @@ export function toolStanding(
   // an index has been told the wrong thing.
   if (name === 'search_blueprint' && !mode.searchOffered)
     return { offered: false, ground: 'no-search' }
+  if (mode.server && (tool?.surface === 'interface' ||
+    (tool?.surface === 'read' && tool.browserBacked !== false)))
+    return { offered: false, ground: 'server-unavailable' }
   if (mode.sampleTrial && !tool?.availability.sample)
     return { offered: false, ground: 'sample-trial' }
   if (mode.mobileReading && !tool?.availability.mobile)

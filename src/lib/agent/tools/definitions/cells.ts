@@ -33,6 +33,7 @@ export const getCellTool = defineTool({
   args: z.object({
     cell_id: arg.text('Cell id'),
   }),
+  browserBacked: false,
   availability: { sample: true, mobile: true },
   run: async ({ cell_id }, ctx) =>
     ctx.client
@@ -50,6 +51,7 @@ export const listCellDependenciesTool = defineTool({
       'Restrict to edges into or out of this cell; omit for the whole graph (capped at 200)',
     ),
   }),
+  browserBacked: false,
   availability: { sample: true, mobile: true },
   run: async ({ cell_id }, ctx) =>
     ctx.client

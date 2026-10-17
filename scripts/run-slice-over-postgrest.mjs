@@ -43,7 +43,7 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { isAbsolute, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { STACK } from './check-seed-loads.mjs'
@@ -160,9 +160,10 @@ function exited(child) {
 }
 
 /** The slice, timed. `{ status, seconds, output }`. */
-function runSlice(url, jwt) {
+function runSlice(url, jwt, test, label) {
   const started = Date.now()
-  const slice = sweep({ subject: 'app', root: ROOT, where: (path) => path === SLICE, what: 'the cell-edit slice' }).locate(SLICE)
+  const slice = isAbsolute(test) ? test :
+    sweep({ subject: 'app', root: ROOT, where: (path) => path === test, what: label }).locate(test)
   const result = spawnSync('npx', ['vitest', 'run', slice], {
     cwd: ROOT,
     encoding: 'utf8',
@@ -192,8 +193,8 @@ async function takeDown() {
   }
 }
 
-async function main() {
-  const prove = process.argv.includes('--prove')
+/** Shared scratch stack for the cell-edit slice and the server tool context. */
+export async function runPostgrestTest({ test = SLICE, label = 'the cell-edit slice', prove = false } = {}) {
   let binary
   try {
     binary = postgrestBinary()
@@ -204,10 +205,9 @@ async function main() {
   }
   if (!binary) {
     unverified(
-      'the cell-edit slice over PostgREST',
-      'no PostgREST binary was found (POSTGREST_BIN unset and nothing on PATH), so the slice ' +
-        'did not run here: not that a signed-in author can save a cell through the recipe’s ' +
-        'grants and policies, and not that the row reads back. CI fetches a pinned release; ' +
+      `${label} over PostgREST`,
+      'no PostgREST binary was found (POSTGREST_BIN unset and nothing on PATH), so the test ' +
+        'did not run here against the recipe’s grants and policies. CI fetches a pinned release; ' +
         'locally, point POSTGREST_BIN at one.',
     )
     console.log('skipped: no PostgREST binary — see the unverified warning above.')
@@ -236,14 +236,15 @@ async function main() {
     await waitForPostgrest(child, url)
     const jwt = mintServiceClaim({ secret })
 
-    const green = runSlice(url, jwt)
+    const green = runSlice(url, jwt, test, label)
     if (green.status !== 0) {
       console.error(green.output)
-      console.error(`\nthe cell-edit slice FAILED over PostgREST (${green.seconds}s)`)
+      console.error(`\n${label} FAILED over PostgREST (${green.seconds}s)`)
       process.exitCode = 1
       return
     }
-    console.log(`the cell-edit slice passed over PostgREST in ${green.seconds}s`)
+    console.log(green.output.trim())
+    console.log(`${label} passed over PostgREST in ${green.seconds}s`)
 
     if (prove) {
       psql(['-c', `revoke update (${PROOF_COLUMN}) on public.cells from authenticated`])
@@ -252,7 +253,7 @@ async function main() {
       psql(['-c', "notify pgrst, 'reload schema'"])
       let red
       try {
-        red = runSlice(url, jwt)
+        red = runSlice(url, jwt, test, label)
       } finally {
         // Put back whatever happened, so a throw mid-proof does not leave the
         // database (which the outer finally drops anyway) or a reader of the
@@ -294,4 +295,4 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 
-if (isMain) await main()
+if (isMain) await runPostgrestTest({ prove: process.argv.includes('--prove') })

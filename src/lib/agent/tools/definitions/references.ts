@@ -34,6 +34,7 @@ export const getReferenceTool = defineTool({
   args: z.object({
     name: arg.text('Reference name, e.g. "lane-roles"'),
   }),
+  browserBacked: false,
   availability: { sample: true, mobile: true },
   run: async ({ name }, ctx) => readReference(name, ctx.roster),
 })
@@ -44,6 +45,7 @@ export const listReferencesTool = defineTool({
     'The rulebook references available to get_reference, live. Use when unsure what guidance exists.',
   surface: 'read',
   args: z.object({}),
+  browserBacked: false,
   availability: { sample: true, mobile: true },
   run: async () => listReferences(),
 })

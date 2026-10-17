@@ -28,6 +28,7 @@ export const listFindingsTool = defineTool({
       'Only findings that cite this cell. Use when the human asks whether anything is flagged on one moment.',
     ),
   }),
+  browserBacked: false,
   availability: { sample: false, mobile: true },
   run: async ({ status, cell_id }, ctx) =>
     listFindings(requireClient(ctx), { status, cellId: cell_id, scope: requireScope(ctx) }),

@@ -52,6 +52,14 @@ export function noSuchToolRefusal(name: string): string {
 }
 
 /**
+ * A known tool whose definition cannot run in a server context.
+ * APP-ONLY: the canvas harness has no server context and cannot reach this ground.
+ */
+export function serverUnavailableRefusal(name: string): string {
+  return `The ${name} tool is not available in this server context.`
+}
+
+/**
  * A call the dispatcher resolved to no definition on a session that HAS a
  * database: the surface is fixed, and the commonest name a model reaches for
  * off it is a delete.

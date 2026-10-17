@@ -66,6 +66,7 @@ export const listBlueprintTool = defineTool({
       .number('Max rows (default 200, max 500). The true total is reported either way.')
       .optional(),
   }),
+  browserBacked: false,
   availability: { sample: true, mobile: true },
   run: async ({ granularity, phase, scenario, kind, lane_role, service, limit }, ctx) => {
     const options = { granularity, phase, scenario, pathKind: kind, laneRole: lane_role, limit }
@@ -100,6 +101,7 @@ export const searchBlueprintTool = defineTool({
   }),
   // Ranked search needs a database function and this person's own key;
   // `searchPlan.ts` decides whether a session is offered it at all.
+  browserBacked: false,
   availability: { sample: false, mobile: true },
   run: async ({ query, granularity, phase, scenario, kind, lane_role, service, limit }, ctx) => {
     const client = requireClient(ctx)
@@ -126,6 +128,7 @@ export const getBlueprintTool = defineTool({
   args: z.object({
     scenario_id: arg.text('Scenario id from list_blueprint'),
   }),
+  browserBacked: false,
   availability: { sample: true, mobile: true },
   run: async ({ scenario_id }, ctx) =>
     ctx.client
@@ -146,6 +149,7 @@ export const compareBlueprintTool = defineTool({
       )
       .optional(),
   }),
+  browserBacked: false,
   availability: { sample: true, mobile: true },
   run: async ({ scenario_id, path_ids }, ctx) =>
     ctx.client
@@ -159,6 +163,7 @@ export const listLanesTool = defineTool({
     'The lane vocabulary actually in use, with how many lanes carry each label and role. Read before create_lane — reuse a label unless the new lane is genuinely a different kind of thing. Distinct from get_reference("lane-roles"), which says what the roles MEAN rather than which ones this blueprint uses.',
   surface: 'read',
   args: z.object({}),
+  browserBacked: false,
   availability: { sample: true, mobile: true },
   run: async (_args, ctx) =>
     ctx.client ? listLanes(ctx.client) : sampleListLanes(ctx.offlineBoard),
@@ -170,6 +175,7 @@ export const listOwnerTagsTool = defineTool({
     'The owner tag vocabulary in use. ALWAYS read before writing owner or perceived_owner — reuse an existing tag unless creating one deliberately.',
   surface: 'read',
   args: z.object({}),
+  browserBacked: false,
   availability: { sample: true, mobile: true },
   run: async (_args, ctx) =>
     ctx.client
@@ -197,6 +203,7 @@ export const measureDeletionImpactTool = defineTool({
       'REQUIRED when kind is "step": the path id. Deleting a step removes only the cells on ONE path, so without the path there is no true number to quote. Ignored for other kinds.',
     ),
   }),
+  browserBacked: false,
   availability: { sample: false, mobile: true },
   run: async ({ kind, target_id, scope_id }, ctx) => {
     if (kind === 'step' && !scope_id) {

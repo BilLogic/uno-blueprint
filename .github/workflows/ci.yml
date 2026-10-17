@@ -494,6 +494,8 @@ jobs:
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run slice:cell-edit:postgrest
       - name: The server tool context reads with a minted service claim over PostgREST, and is refused without it
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:server-context:postgrest
+      - name: Profiles are private, and only someone who may confirm approves, over PostgREST
+        run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:profiles:postgrest
 
       # The one class of defect a dump cannot show and a catalogue sweep only
       # sees when the word is already retired: a `language sql` body naming a

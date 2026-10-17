@@ -39,3 +39,10 @@ test('the signature is HS256 over header and payload with the secret', () => {
 test('a secret shorter than PostgREST accepts is refused with the reason', () => {
   assert.throws(() => mintServiceClaim({ secret: 'short' }), /at least 32 characters/)
 })
+
+test('a signed-in person who is not a service account carries no service role', () => {
+  const claims = claimsOf(mintServiceClaim({ secret: SECRET, sub: 'person', service: false }))
+  assert.equal(claims.role, 'authenticated')
+  assert.equal(claims.sub, 'person')
+  assert.deepEqual(claims.app_metadata, {})
+})

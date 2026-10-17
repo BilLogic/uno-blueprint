@@ -2715,3 +2715,45 @@ begin
   end if;
 end
 $anon_definer$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000309000000_a_person_who_talks_to_uno_has_a_profile.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- who may read and write, in Supabase's roles.
+--
+-- A profile is private to its person: they read their own row and change
+-- only how Uno works with them. Who may confirm, and which stakeholder and
+-- login a profile is, are an operator's to set. Suggested changes are read by
+-- anyone in the business who has a profile, and written only through the
+-- functions.
+alter table public.profiles
+  add constraint profiles_user_id_fkey foreign key (user_id)
+    references auth.users (id) on delete set null;
+
+alter table public.profiles enable row level security;
+alter table public.suggested_changes enable row level security;
+
+revoke all on public.profiles, public.suggested_changes from anon, authenticated;
+grant select on public.profiles, public.suggested_changes to authenticated;
+grant update (register, dismissed_nudges, last_run_at) on public.profiles to authenticated;
+
+create policy "profiles_select_own" on public.profiles
+  for select to authenticated using (user_id = auth.uid());
+create policy "profiles_update_own" on public.profiles
+  for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+create policy "suggested_changes_select_in_business" on public.suggested_changes
+  for select to authenticated using (public.caller_profile_id() is not null);
+
+revoke execute on function public.caller_profile_id() from public, anon;
+grant execute on function public.caller_profile_id() to authenticated;
+revoke execute on function public.confirming_profile_id() from public, anon, authenticated;
+revoke execute on function public.list_profile_stakeholders() from public, anon;
+grant execute on function public.list_profile_stakeholders() to authenticated;
+revoke execute on function public.record_contribution(uuid, text, text, text) from public, anon;
+grant execute on function public.record_contribution(uuid, text, text, text) to authenticated;
+revoke execute on function public.approve_suggested_change(uuid) from public, anon;
+grant execute on function public.approve_suggested_change(uuid) to authenticated;
+revoke execute on function public.confirm_cell(uuid) from public, anon;
+grant execute on function public.confirm_cell(uuid) to authenticated;

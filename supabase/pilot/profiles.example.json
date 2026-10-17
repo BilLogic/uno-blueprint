@@ -1,0 +1,5 @@
+{
+  "consultant": { "name": "Consultant first name", "email": "consultant@example.test" },
+  "owner": { "name": "Owner first name", "email": "owner@example.test" },
+  "expert": { "name": "Expert first name", "email": "expert@example.test" }
+}

@@ -16,6 +16,8 @@ import {
   serverUnavailableRefusal,
 } from '@/lib/agent/tools/refusals'
 
+export const WRITE_CELL_LIMIT = 50
+
 /**
  * ONE ANSWER PER TOOL CALL: run it, or refuse it with this sentence.
  *
@@ -46,6 +48,7 @@ import {
  * not: re-read per call, or per round, from something that moves.
  */
 export type CallFacts = {
+  cellsThisCall?: number
   /**
    * The run's abort signal has fired. Run-local by construction — it rests on
    * no definition at all — so it can only ever be an input.
@@ -74,7 +77,7 @@ export type CallFacts = {
 }
 
 /** Why a call was refused. The withholding grounds, plus the live three. */
-export type AdmissionGround = 'stopped' | WithholdGround | 'batch-limit' | 'repeat-read'
+export type AdmissionGround = 'stopped' | WithholdGround | 'batch-limit' | 'repeat-read' | 'cell-limit'
 
 /**
  * The answer. `ground` is there because three refusals have a consequence
@@ -158,6 +161,8 @@ export function admitToolCall(input: {
       ground: standing.ground,
       refusal: withholdRefusal(standing.ground, name),
     }
+  if (facts.isWrite && (facts.cellsThisCall ?? 0) > WRITE_CELL_LIMIT)
+    return { admitted: false, ground: 'cell-limit', refusal: `This call touches more than ${WRITE_CELL_LIMIT} cells. Split it into calls touching at most ${WRITE_CELL_LIMIT} cells each.` }
   if (facts.isWrite && facts.writesThisSend >= WRITE_BATCH_LIMIT)
     return { admitted: false, ground: 'batch-limit', refusal: BATCH_LIMIT_REFUSAL }
   if (facts.repeatRead)

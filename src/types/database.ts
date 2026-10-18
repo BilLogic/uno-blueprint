@@ -151,6 +151,7 @@ export type Database = {
         Row: {
           affected_slices: NonNullable<Json>
           agent_session_id: string | null
+          approved_by: string | null
           args: NonNullable<Json>
           at: string
           author: string
@@ -160,11 +161,13 @@ export type Database = {
           id: string
           label: string | null
           payload: Json | null
+          proposed_by: string | null
           revert: Json | null
         }
         Insert: {
           affected_slices?: NonNullable<Json>
           agent_session_id?: string | null
+          approved_by?: string | null
           args?: NonNullable<Json>
           at?: string
           author?: string
@@ -174,11 +177,13 @@ export type Database = {
           id?: string
           label?: string | null
           payload?: Json | null
+          proposed_by?: string | null
           revert?: Json | null
         }
         Update: {
           affected_slices?: NonNullable<Json>
           agent_session_id?: string | null
+          approved_by?: string | null
           args?: NonNullable<Json>
           at?: string
           author?: string
@@ -188,9 +193,23 @@ export type Database = {
           id?: string
           label?: string | null
           payload?: Json | null
+          proposed_by?: string | null
           revert?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "authoring_changes_approved_by_fkey"
+            columns: ["approved_by"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "authoring_changes_proposed_by_fkey"
+            columns: ["proposed_by"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       business_models: {
         Row: {
@@ -1117,37 +1136,49 @@ export type Database = {
       }
       suggested_changes: {
         Row: {
-          cell_id: string
+          base_state: Json | null
+          cell_id: string | null
           created_at: string
           decided_at: string | null
           decided_by: string | null
           evidence_id: string | null
           id: string
-          proposed_content: string
+          proposed_content: string | null
+          service_id: string | null
           status: string
           suggested_by: string
+          tool_args: Json | null
+          tool_name: string | null
         }
         Insert: {
-          cell_id: string
+          base_state?: Json | null
+          cell_id?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
           evidence_id?: string | null
           id?: string
-          proposed_content: string
+          proposed_content?: string | null
+          service_id?: string | null
           status?: string
           suggested_by: string
+          tool_args?: Json | null
+          tool_name?: string | null
         }
         Update: {
-          cell_id?: string
+          base_state?: Json | null
+          cell_id?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
           evidence_id?: string | null
           id?: string
-          proposed_content?: string
+          proposed_content?: string | null
+          service_id?: string | null
           status?: string
           suggested_by?: string
+          tool_args?: Json | null
+          tool_name?: string | null
         }
         Relationships: [
           {
@@ -1166,6 +1197,12 @@ export type Database = {
             foreignKeyName: "suggested_changes_evidence_id_fkey"
             columns: ["evidence_id"]
             referencedRelation: "evidence"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suggested_changes_service_id_fkey"
+            columns: ["service_id"]
+            referencedRelation: "services"
             referencedColumns: ["id"]
           },
           {
@@ -1282,6 +1319,26 @@ export type Database = {
         Args: { at_position?: number; name: string; path_id: string }
         Returns: string
       }
+      agent_check_shape: {
+        Args: { p_path?: string; p_schema: Json; p_value: Json }
+        Returns: undefined
+      }
+      agent_named_cells: { Args: { p_args: Json }; Returns: string[] }
+      agent_refuse_secrets: { Args: { p_args: Json }; Returns: undefined }
+      agent_tool_state: { Args: { p_args: Json }; Returns: Json }
+      agent_tool_transaction: {
+        Args: {
+          p_args: Json
+          p_preview: boolean
+          p_proposer?: string
+          p_service_id: string
+          p_session_id: string
+          p_tool: string
+        }
+        Returns: Json
+      }
+      agent_write_contracts: { Args: Record<PropertyKey, never>; Returns: Json }
+      approve_cell_content_suggestion: { Args: { p_id: string }; Returns: Json }
       approve_suggested_change: { Args: { p_id: string }; Returns: Json }
       caller_profile_id: { Args: Record<PropertyKey, never>; Returns: string }
       cell_natural_key: { Args: { cell_id: string }; Returns: string }
@@ -1450,6 +1507,16 @@ export type Database = {
       }
       restore_slides: {
         Args: { p_rows: Json; p_slice_id: string }
+        Returns: Json
+      }
+      run_agent_tool: {
+        Args: {
+          p_args: Json
+          p_confirmed?: boolean
+          p_service_id?: string
+          p_session_id: string
+          p_tool: string
+        }
         Returns: Json
       }
       schema_comments: {

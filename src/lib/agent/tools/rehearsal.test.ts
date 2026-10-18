@@ -50,6 +50,8 @@ const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
     run_id: 'run-9',
   },
   update_finding: { finding_id: 'f-1', status: 'resolved' },
+  approve_suggested_change: { suggested_change_id: 'b0000000-0000-4000-8000-000000000001' },
+  decline_suggested_change: { suggested_change_id: 'b0000000-0000-4000-8000-000000000001' },
 }
 
 /** The call as the harness makes it: the tool, its arguments, and a context told both. */

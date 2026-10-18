@@ -1,0 +1,83 @@
+-- The migration's transaction path, tested on the same scratch stack as MCP.
+begin;
+select set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+set local role authenticated;
+do $$
+declare service uuid:='f0000000-0000-4000-8000-000000000010'; session uuid:=gen_random_uuid();
+  result jsonb; phase uuid; scenario uuid; path uuid; lane uuid; step uuid; cell uuid; second uuid; member uuid; evidence uuid; slice uuid; finding uuid; proposal uuid; records int;
+begin
+  result:=public.run_agent_tool('create_phase','{"name":"New phase"}',session,service,true); phase:=(result->>'result')::uuid;
+  result:=public.run_agent_tool('create_scenario',jsonb_build_object('phase_id',phase,'name','New scenario','step_count',2),session,service,true);
+  scenario:=(result->'result'->>'scenario_id')::uuid; path:=(result->'result'->>'path_id')::uuid;
+  perform public.run_agent_tool('create_lane',jsonb_build_object('scenario_id',scenario,'name','Team','lane_role','frontstage_actions'),session,service,true);
+  select id into lane from public.lanes where path_id=path order by position limit 1;
+  select step_id into step from public.path_steps where path_id=path order by position limit 1;
+  result:=public.run_agent_tool('upsert_cell',jsonb_build_object('path_id',path,'lane_id',lane,'step_id',step,'content','First action'),session,service,true);
+  select id into cell from public.cells where path_id=path limit 1;
+  perform public.run_agent_tool('update_cell',jsonb_build_object('cell_id',cell,'content','Reviewed action','function','Records the request'),session,service,true);
+  if (select content from public.cells where id=cell)<>'Reviewed action' then raise exception 'cell did not change'; end if;
+  select step_id into step from public.path_steps where path_id=path order by position desc limit 1;
+  perform public.run_agent_tool('upsert_cell',jsonb_build_object('path_id',path,'lane_id',lane,'step_id',step,'content','Second action'),session,service,true);
+  select id into second from public.cells where path_id=path and step_id=step;
+  perform public.run_agent_tool('create_cell_dependency',jsonb_build_object('source_cell_id',cell,'target_cell_id',second,'label','Then review'),session,service,true);
+  perform public.run_agent_tool('create_step',jsonb_build_object('path_id',path,'name','Last step'),session,service,true);
+  perform public.run_agent_tool('create_path',jsonb_build_object('scenario_id',scenario,'name','Alternate path','lane_source_path_id',path),session,service,true);
+  perform public.run_agent_tool('duplicate_path',jsonb_build_object('source_path_id',path,'name','Copied path'),session,service,true);
+  perform public.run_agent_tool('duplicate_scenario',jsonb_build_object('source_scenario_id',scenario,'name','Copied scenario'),session,service,true);
+  perform public.run_agent_tool('update_path',jsonb_build_object('path_id',path,'name','Reviewed path'),session,service,true);
+  result:=public.run_agent_tool('create_stakeholder','{"name":"Dispatch","kind":"staff"}',session,service,true); member:=(result->>'result')::uuid;
+  perform public.run_agent_tool('update_stakeholder',jsonb_build_object('stakeholder_id',member,'summary','A team'),session,service,true);
+  result:=public.run_agent_tool('create_evidence',jsonb_build_object('cell_id',cell,'kind','interview','title','Team interview'),session,service,true); evidence:=(result->>'result')::uuid;
+  perform public.run_agent_tool('update_evidence',jsonb_build_object('evidence_id',evidence,'note','A source note'),session,service,true);
+  result:=public.run_agent_tool('create_slice',jsonb_build_object('title','A brief','kind','journey','cell_ids',jsonb_build_array(cell,second)),session,service,true); slice:=(result->'result'->>'id')::uuid;
+  perform public.run_agent_tool('update_slice',jsonb_build_object('slice_id',slice,'title','Reviewed brief'),session,service,true);
+  perform public.run_agent_tool('replace_slides',jsonb_build_object('slice_id',slice,'slides',jsonb_build_array(jsonb_build_object('cells',jsonb_build_array(second,cell)))),session,service,true);
+  result:=public.run_agent_tool('create_finding',jsonb_build_object('source','audit','check_key','gap','severity','warn','impact','medium','effort','low','summary','A gap','cell_ids',jsonb_build_array(cell)),session,service,true); finding:=(result->>'result')::uuid;
+  perform public.run_agent_tool('update_finding',jsonb_build_object('finding_id',finding,'status','resolved'),session,service,true);
+  perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+  result:=public.run_agent_tool('update_cell',jsonb_build_object('cell_id',cell,'form','Written request'),session,service,true); proposal:=(result->>'suggested_change_id')::uuid;
+  if result->>'outcome'<>'proposed' then raise exception 'contributor applied a write'; end if;
+  if (select form from public.cells where id=cell)='Written request' then raise exception 'preview changed the cell'; end if;
+  perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+  perform public.approve_suggested_change(proposal);
+  if (select form from public.cells where id=cell)<>'Written request' then raise exception 'approval did not apply'; end if;
+  if not exists(select 1 from public.authoring_changes where proposed_by='b0000000-0000-4000-8000-000000000002' and approved_by='b0000000-0000-4000-8000-000000000001' and author_id='c0000000-0000-4000-8000-000000000001') then raise exception 'approval lost one of the people'; end if;
+  perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+  result:=public.run_agent_tool('create_phase','{"name":"Proposed structure"}',session,service,true); proposal:=(result->>'suggested_change_id')::uuid;
+  if exists(select 1 from public.phases where name='Proposed structure') then raise exception 'preview wrote a phase'; end if;
+  begin perform public.approve_suggested_change(proposal); raise exception 'contributor approved';
+  exception when others then if sqlerrm='contributor approved' then raise; end if; end;
+  perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+  perform public.approve_suggested_change(proposal);
+  if not exists(select 1 from public.phases where name='Proposed structure') then raise exception 'approval lost a phase'; end if;
+  perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+  result:=public.run_agent_tool('update_cell',jsonb_build_object('cell_id',cell,'content','A sourced contribution'),session,service,true); proposal:=(result->>'suggested_change_id')::uuid;
+  if result->>'evidence_id' is null then raise exception 'cell content lost contribution evidence'; end if;
+  perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+  perform public.approve_suggested_change(proposal);
+  if (select content from public.cells where id=cell)<>'A sourced contribution' then raise exception 'content approval failed'; end if;
+  perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+  result:=public.run_agent_tool('update_cell',jsonb_build_object('cell_id',cell,'form','Stale form'),session,service,true); proposal:=(result->>'suggested_change_id')::uuid;
+  perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+  perform public.run_agent_tool('update_cell',jsonb_build_object('cell_id',cell,'content','Newer wording'),session,service,true);
+  select count(*) into records from public.authoring_changes;
+  begin perform public.approve_suggested_change(proposal); raise exception 'stale approval applied';
+  exception when others then if sqlerrm not like '%changed since this proposal%' then raise; end if; end;
+  if (select content from public.cells where id=cell)<>'Newer wording' or (select status from public.suggested_changes where id=proposal)<>'pending' then raise exception 'stale refusal changed rows'; end if;
+  if (select count(*) from public.authoring_changes)<>records then raise exception 'stale refusal appended a log'; end if;
+  begin
+    perform public.run_agent_tool('create_slice',jsonb_build_object('title','Too many','kind','journey','cell_ids',(select jsonb_agg(gen_random_uuid()) from generate_series(1,51))),session,service,true);
+    raise exception 'cell cap ignored';
+  exception when others then if sqlerrm not like '%50 cells%' then raise; end if; end;
+  begin
+    perform public.run_agent_tool('duplicate_path','{"source_path_id":"d0000000-0000-4000-8000-000000000050","name":"Oversized copy"}',session,service,true);
+    raise exception 'indirect cell cap ignored';
+  exception when others then if sqlerrm not like '%50 cells%' then raise; end if; end;
+  begin
+    perform public.run_agent_tool('create_scenario',jsonb_build_object('phase_id',phase,'name','Invalid scenario','step_count',-1),session,service,true);
+    raise exception 'negative step count was admitted';
+  exception when others then
+    if sqlerrm='negative step count was admitted' then raise; end if;
+  end;
+end $$;
+rollback;

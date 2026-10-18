@@ -132,7 +132,8 @@ task; in Codex it is `$ub:map`. A bare `map` is not registered in either.
 
 `ub:init` is called the same way, by its full name: `ub:init` in Cursor,
 `$ub:init` in Codex. The bare name would collide in Codex, whose own `/init`
-writes an `AGENTS.md`; Cursor's documented CLI commands carry no `/init`.
+writes an `AGENTS.md`. Claude Code also ships `/init`, which writes
+`CLAUDE.md`; use the full `ub:init` name there too. Cursor's documented CLI commands carry no `/init`.
 Both facts come from each tool's documentation and have not been checked by
 hand.
 Gemini CLI, Copilot and Windsurf document the same `.agents/skills/`

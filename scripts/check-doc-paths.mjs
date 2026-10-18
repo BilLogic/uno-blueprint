@@ -199,6 +199,11 @@ export const WORKSPACE_ARTIFACTS = new Map([
  */
 export const ABSENT_BY_DESIGN = [
   {
+    doc: 'docs/guide/03-the-plugin.md',
+    token: 'CLAUDE.md',
+    why: 'the file Claude Code creates with its built-in /init, not a file this repository ships',
+  },
+  {
     doc: 'docs/engineering/checks.md',
     token: 'src/styles/tokens.css',
     why: 'quoted as one of the three stale paths this check was written to catch — it is named BECAUSE it is gone',

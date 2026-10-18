@@ -35,6 +35,7 @@ import { readReference } from '@/lib/agent/tools/references'
 import { agentDoctrine } from '@/lib/agent/doctrine'
 import type { ToolDefinition } from '@/lib/agent/tools/definition'
 import roleDoc from '@/lib/agent/role.md?raw'
+import unoDoc from '@/lib/agent/skill/references/uno.md?raw'
 import {
   hasKey,
   modelFor,
@@ -68,7 +69,10 @@ const ADAPTERS: Record<AgentProviderId, AgentProviderAdapter> = {
 }
 
 /**
- * The system prompt lives in `role.md`, not in this file: the eval harness
+ * Who the agent is lives in `ub:init`'s `uno.md` — the same identity an agent
+ * tool loads when a session starts with `/ub:init`, vendored here by the skill
+ * sync — and `role.md` adds what is particular to the canvas. Both are text
+ * files, not this file, because the eval harness
  * runs under Node and needs the SAME text, and a hand-copied duplicate
  * drifts the moment either side is edited. `canvas-adapter.md` already
  * crosses that boundary this way — `?raw` here, `readFileSync` there.
@@ -80,7 +84,7 @@ const ADAPTERS: Record<AgentProviderId, AgentProviderAdapter> = {
  * skills/map or skills/slice SKILL.md per task) layers on here once the
  * sync script vendors them; the adapter is written to make that a drop-in.
  */
-const ROLE = roleDoc.trimEnd()
+const ROLE = `${unoDoc.trimEnd()}\n\n${roleDoc.trimEnd()}`
 
 /**
  * The prompt's STABLE part — not the whole prompt: role, canvas adapter,

@@ -38,11 +38,11 @@ export const repoConfig = {
    * The skill and agent descriptions' ceiling, in characters
    * (`check-router-budget.mjs`): every description a plugin host puts in
    * front of a session on every turn, counted apart from the router. Set
-   * against four skills and five agents. Lower it whenever they land well
-   * under.
+   * against five skills (`ub:init` and its four moves) and five agents.
+   * Lower it whenever they land well under.
    */
   descriptions: {
-    budget: 3350,
+    budget: 3500,
     /** How far under `budget` the descriptions may sit before the budget is stale. */
     slack: 500,
   },
@@ -52,7 +52,7 @@ export const repoConfig = {
    * (`check-negation-ratchet.mjs`): the files it was measured over — the
    * router plus one per description — and the count it scored.
    */
-  prohibitions: { files: 10, tokens: 0 },
+  prohibitions: { files: 11, tokens: 0 },
 
   /**
    * Folders whose markdown every prose sweep reads, beside the root docs

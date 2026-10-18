@@ -13,6 +13,16 @@ They are listed here in the order a team meets them, which is the order the
 sample blueprint's own scenarios run in: map a service, audit what is on the
 board, trace a change through it, then cut the view an audience asked for.
 
+One skill comes before them. [`ub:init`](../../skills/init/SKILL.md) turns a
+fresh session into **Uno**, the agent that keeps one business's blueprint,
+for the Supabase project the workspace is linked to. It reads the entry
+state off that database first: no blueprint starts onboarding through
+`ub:map`; a blueprint starts a daily session, where Uno catches the person up
+on what changed and reaches for the four skills itself. It asks who is
+talking, offering the profiles the business has, and changes the blueprint
+only on a yes from someone who may confirm. The canvas agent carries the
+same identity, `skills/init/references/uno.md`.
+
 ### `ub:map`
 
 <picture>
@@ -112,13 +122,20 @@ implement the contract against your stack.
 
 Several coding agents look for skills under `.agents/skills/<name>/SKILL.md`
 rather than in a top-level `skills/`. So the repo carries a mirror: each
-skill's `SKILL.md`, copied byte for byte into `.agents/skills/map/`,
-`slice/`, `audit/` and `whatif/`. Open a checkout or a workspace in one of
-those tools and the four skills are there, with no plugin to install.
+skill's `SKILL.md`, copied byte for byte into `.agents/skills/init/`,
+`map/`, `slice/`, `audit/` and `whatif/`. Open a checkout or a workspace in one of
+those tools and the skills are there, with no plugin to install.
 
 Cursor and Codex were checked by hand, and both showed the skills under
 their `ub:` names. In Cursor a skill is `ub:map`, or you describe a map
 task; in Codex it is `$ub:map`. A bare `map` is not registered in either.
+
+`ub:init` is called the same way, by its full name: `ub:init` in Cursor,
+`$ub:init` in Codex. The bare name would collide in Codex, whose own `/init`
+writes an `AGENTS.md`. Claude Code also ships `/init`, which writes
+`CLAUDE.md`; use the full `ub:init` name there too. Cursor's documented CLI commands carry no `/init`.
+Both facts come from each tool's documentation and have not been checked by
+hand.
 Gemini CLI, Copilot and Windsurf document the same `.agents/skills/`
 convention, so they are expected to find the skills as well; how each one
 names and calls them has not been checked.

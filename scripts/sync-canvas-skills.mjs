@@ -60,6 +60,7 @@ const FILES = [
   'skills/audit/references/check-obsolete-source.md',
   'skills/slice/references/slice-playbook.md',
   'skills/slice/references/slice-templates.md',
+  'skills/init/references/uno.md',
 ]
 
 // The four-skill architecture: the same SKILL.md files IDE humans get from

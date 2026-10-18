@@ -63,7 +63,8 @@ tree it runs in is.
 offers; the top container of a blueprint. A deployment is one business and
 holds as many services as it runs. Uno sorts what it hears into services:
 each topic lands in the service it belongs to, and a topic that fits none
-becomes a proposed new service the person confirms. Owners hear "part of
+becomes a proposed new service requiring a yes from someone who may confirm.
+A contributor's proposal is a suggestion awaiting that yes. Owners hear "part of
 your business".
 
 **Phase** — an ordered stage of a service. A phase may point back at an
@@ -413,11 +414,11 @@ an employee may not. Without it, what a person tells Uno is recorded as
 evidence in their name and as suggested changes waiting for someone who may
 confirm.
 
-**Skill** — one of the four flows a reader starts by naming it in the
-composer: `/ub:map`, `/ub:slice`, `/ub:audit`, `/ub:whatif`. The same
-`SKILL.md` an IDE agent follows from this repository's `skills/` tree,
-vendored into the bundle and joined to the system prompt for the one message
-that names it. **Not a tool**: a tool is one call the model makes, a skill is
+**Skill** — one of five flows: `ub:init` starts Uno in an agent tool; the
+other four are blueprint flows a canvas reader starts by naming them in the
+composer: `/ub:map`, `/ub:slice`, `/ub:audit`, `/ub:whatif`. An IDE agent follows the same `SKILL.md` from this repository's `skills/`
+tree. The four canvas flows are vendored into the bundle and joined to the
+system prompt for the one message that names them. **Not a tool**: a tool is one call the model makes, a skill is
 a flow the reader starts. One message may name any number of them, in the
 order their tokens appear in its text and with no ceiling — the text is the
 only record of which skills a message runs.

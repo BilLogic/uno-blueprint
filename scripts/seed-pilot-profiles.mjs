@@ -17,15 +17,16 @@
  *
  * Never part of `supabase/seed.sql`, which is the template's sample.
  *
- *   node scripts/seed-pilot-profiles.mjs            # the linked project
- *   node scripts/seed-pilot-profiles.mjs --print    # the SQL, for psql
- *   node scripts/seed-pilot-profiles.mjs --file <people.json>
+ *   node scripts/seed-pilot-profiles.mjs --test-project            # the linked project
+ *   node scripts/seed-pilot-profiles.mjs --test-project --print    # the SQL, for psql
+ *   node scripts/seed-pilot-profiles.mjs --test-project --file <people.json>
  */
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parseEnv } from 'node:util'
 
 /** The three pilot people: who each is in the business, and whether they may confirm. */
 export const PILOT_ROLES = {
@@ -79,13 +80,18 @@ export function pilotProfilesSql(people) {
     return `-- the ${role}
 insert into public.stakeholders (name, kind) values (${literal(person.stakeholder)}, ${literal(spec.kind)})
   on conflict (name) do nothing;
+do $kind$ begin
+  if not exists (select from public.stakeholders where name = ${literal(person.stakeholder)}
+    and kind in (${role === 'owner' ? "'staff', 'team'" : literal(spec.kind)})) then
+    raise exception 'the ${role} stakeholder kind does not fit the role';
+  end if;
+end $kind$;
 insert into public.profiles (id, stakeholder_id, display_name, may_confirm)
   select ${literal(spec.profileId)}, s.id, ${literal(person.name)}, ${spec.mayConfirm}
     from public.stakeholders s where s.name = ${literal(person.stakeholder)}
   on conflict (id) do update set
     stakeholder_id = excluded.stakeholder_id,
-    display_name = excluded.display_name,
-    may_confirm = excluded.may_confirm;
+    display_name = excluded.display_name;
 update public.profiles p set user_id = u.id
   from auth.users u
  where p.id = ${literal(spec.profileId)}
@@ -95,7 +101,21 @@ update public.profiles p set user_id = u.id
   return `begin;\n${statements.join('\n')}\ncommit;\n`
 }
 
+export function assertTestTarget(env, linked, optedIn) {
+  if (!optedIn || !env.SUPABASE_PROJECT_REF || env.SUPABASE_PROJECT_REF !== linked.trim()) {
+    throw new Error('Refusing pilot seed: set SUPABASE_PROJECT_REF in .env to the linked test project and pass --test-project.')
+  }
+}
+
 function main(argv) {
+  // Check before reading the people file or producing SQL, even with --print.
+  try {
+    assertTestTarget(parseEnv(readFileSync('.env', 'utf8')),
+      readFileSync('supabase/.temp/project-ref', 'utf8'), argv.includes('--test-project'))
+  } catch {
+    console.error('Refusing pilot seed: set SUPABASE_PROJECT_REF in .env to the linked test project and pass --test-project.')
+    process.exit(2)
+  }
   const at = argv.indexOf('--file')
   const file = resolve(process.cwd(), at >= 0 ? argv[at + 1] : PEOPLE_FILE)
   let people

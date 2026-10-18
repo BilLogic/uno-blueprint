@@ -14,8 +14,9 @@
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import assert from 'node:assert/strict'
 
-import { mintServiceClaim } from './mint-service-claim.mjs'
+import { mintPersonClaim } from './mint-service-claim.mjs'
 import { runPostgrestTest } from './run-slice-over-postgrest.mjs'
 import { pilotProfilesSql } from './seed-pilot-profiles.mjs'
 import { sweep } from './sweep.mjs'
@@ -29,8 +30,10 @@ const test = sweep({
 const people = JSON.parse(readFileSync(resolve(ROOT, 'supabase/pilot/profiles.example.json'), 'utf8'))
 
 /** The fixture's accounts: the consultant may confirm, the expert contributes only. */
-const CONFIRMER = 'c0000000-0000-4000-8000-000000000001'
-const CONTRIBUTOR = 'c0000000-0000-4000-8000-000000000003'
+// The fixture is the single source of account ids.
+const accounts = readFileSync(resolve(ROOT, 'scripts/tests/fixtures/profiles.sql'), 'utf8')
+  .match(/c0000000-[0-9a-f-]+/g)
+const [CONFIRMER, OWNER, CONTRIBUTOR] = accounts
 
 await runPostgrestTest({
   test,
@@ -38,11 +41,24 @@ await runPostgrestTest({
   prepare(psql) {
     psql(['-f', resolve(ROOT, 'scripts/tests/fixtures/profiles.sql')])
     const seed = pilotProfilesSql(people)
+    psql(['-c', `insert into public.stakeholders (name, kind) values
+      ('Business owner', 'team'), ('Subject-matter expert', 'partner');`])
+    assert.throws(() => psql(['-f', '-'], seed), /expert stakeholder kind does not fit/)
+    psql(['-c', "update public.stakeholders set kind = 'staff' where name = 'Subject-matter expert'"])
     psql(['-f', '-'], seed)
+    // Re-running must preserve an operator changing who may confirm.
+    psql(['-c', "update public.profiles set may_confirm = true where id = 'b0000000-0000-4000-8000-000000000003'"])
     psql(['-f', '-'], seed)
+    psql(['-c', `do $$ begin
+      if not (select may_confirm from public.profiles where id = 'b0000000-0000-4000-8000-000000000003') then
+        raise exception 'seed reset may_confirm';
+      end if;
+    end $$;
+    update public.profiles set may_confirm = false where id = 'b0000000-0000-4000-8000-000000000003';`])
   },
   env: (secret) => ({
-    PROFILES_CONFIRMER_JWT: mintServiceClaim({ secret, sub: CONFIRMER, service: false }),
-    PROFILES_CONTRIBUTOR_JWT: mintServiceClaim({ secret, sub: CONTRIBUTOR, service: false }),
+    PROFILES_CONFIRMER_JWT: mintPersonClaim({ secret, sub: CONFIRMER }),
+    PROFILES_OWNER_JWT: mintPersonClaim({ secret, sub: OWNER }),
+    PROFILES_CONTRIBUTOR_JWT: mintPersonClaim({ secret, sub: CONTRIBUTOR }),
   }),
 })

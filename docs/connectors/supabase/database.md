@@ -308,6 +308,13 @@ Writes are layered on top for signed-in sessions (`authenticated`):
   blueprint writes). `anon` is untouched either way. Note that
   `supabase db reset` applies every file in `supabase/migrations/`, this one
   included: the split is what you get unless you delete the file.
+- **Profile confirmation is an intentional exception to the service-account tier.**
+  `approve_suggested_change` and `confirm_cell` allow a caller whose profile
+  holds `may_confirm`, including an ordinary account without the service
+  claim. Their own guard checks that right before writing; approval records
+  the approving login in `authoring_changes`. `record_contribution` requires
+  a profile and records evidence and a suggestion, leaving the cell alone.
+  `decline_suggested_change` requires may-confirm and leaves the cell alone.
 - **A write policy is a PAIR, and this is the one shape.** Per table and per
   verb, a surface table carries a permissive `<table>_<verb>_auth` with
   `using (true)` — *the panels reach this table directly rather than through
@@ -877,3 +884,13 @@ exactly what it was told.
 ```bash
 supabase db execute --file supabase/seed.sql --linked
 ```
+
+## Pilot profiles on a test project
+
+Run `node scripts/seed-pilot-profiles.mjs --test-project` only after setting
+`SUPABASE_PROJECT_REF` in `.env` to the linked test project. Both checks apply
+to `--print` too. Copy `supabase/pilot/profiles.example.json` into the ignored
+people file. Its optional `stakeholder` overrides the default cast-list name:
+use an existing actor's exact name to link them. Reused kinds must fit the role
+(consultant: partner; owner: staff or team; expert: staff). Re-running updates
+links and names but preserves an operator's may-confirm decision.

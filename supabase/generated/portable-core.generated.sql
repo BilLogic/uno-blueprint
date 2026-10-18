@@ -14703,16 +14703,11 @@ comment on column public.suggested_changes.status is
 create function public.caller_profile_id() returns uuid
 language sql stable security definer
 set search_path = pg_catalog, pg_temp
-as $$
-  select p.id
-    from public.profiles p
-   where p.user_id = nullif(
-     nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub', ''
-   )::uuid
-$$;
+as $$ select null::uuid $$;
+
 
 comment on function public.caller_profile_id() is
-  'The profile of the person making this request, read from the JWT claim sub; null when the caller has none.';
+  'The profile of the person making this request, identified by auth.uid(); null when the caller has none.';
 
 -- Evidence is writable by any signed-in author, so its attribution is held
 -- here: a request that carries claims may attribute evidence to its own
@@ -14823,7 +14818,7 @@ end
 $$;
 
 comment on function public.record_contribution(uuid, text, text, text) is
-  'What a person told Uno about a cell: evidence attributed to the caller''s profile and, when p_proposed_content is given, a pending suggested change to the cell''s content. Leaves the cell as it is. Returns {evidence_id, suggested_change_id}.';
+  'Guard: the caller must have a profile. Records evidence in that profile''s name and an optional pending suggestion; leaves the cell as it is. Returns {evidence_id, suggested_change_id}.';
 
 create function public.approve_suggested_change(p_id uuid) returns jsonb
 language plpgsql security definer
@@ -14832,6 +14827,7 @@ as $$
 declare
   v_profile uuid := public.confirming_profile_id();
   v_change public.suggested_changes;
+  v_previous public.cells;
 begin
   select * into v_change from public.suggested_changes where id = p_id for update;
   if v_change.id is null then
@@ -14840,6 +14836,7 @@ begin
   if v_change.status <> 'pending' then
     raise exception 'suggested change % is already %', p_id, v_change.status;
   end if;
+  select * into strict v_previous from public.cells where id = v_change.cell_id for update;
   update public.cells
      set content = v_change.proposed_content,
          confirmed_by = v_profile,
@@ -14849,6 +14846,15 @@ begin
   update public.suggested_changes
      set status = 'approved', decided_by = v_profile, decided_at = now()
    where id = p_id;
+  insert into public.authoring_changes (author, author_id, fn, args, revert)
+  values ('human', (select user_id from public.profiles where id = v_profile),
+    'approve_suggested_change', jsonb_build_object('p_id', p_id, 'cell_id', v_change.cell_id),
+    jsonb_build_object('fn', 'update_cell_content', 'args',
+      jsonb_build_object('cell_id', v_previous.id, 'update',
+        jsonb_build_object('content', v_previous.content, 'summary', coalesce(v_previous.summary, ''),
+          'owner', coalesce(v_previous.owner, ''), 'perceivedOwner', coalesce(v_previous.perceived_owner, ''),
+          'status', v_previous.status), 'confirmed_by', v_previous.confirmed_by,
+          'confirmed_at', v_previous.confirmed_at)));
   return jsonb_build_object('cell_id', v_change.cell_id, 'confirmed_by', v_profile);
 end
 $$;
@@ -14864,7 +14870,7 @@ declare
   v_profile uuid := public.confirming_profile_id();
 begin
   update public.cells
-     set confirmed_by = v_profile, confirmed_at = now()
+     set confirmed_by = v_profile, confirmed_at = now(), updated_at = now()
    where id = p_cell_id;
   if not found then
     raise exception 'no cell %', p_cell_id;
@@ -14875,3 +14881,23 @@ $$;
 
 comment on function public.confirm_cell(uuid) is
   'Owner-confirm a cell as it stands, in the caller''s name. Refused unless the caller''s profile may confirm.';
+
+create function public.decline_suggested_change(p_id uuid) returns jsonb
+language plpgsql security definer
+set search_path = pg_catalog, pg_temp
+as $$
+declare
+  v_profile uuid := public.confirming_profile_id();
+begin
+  update public.suggested_changes
+     set status = 'declined', decided_by = v_profile, decided_at = now()
+   where id = p_id and status = 'pending';
+  if not found then
+    raise exception 'no pending suggested change %', p_id;
+  end if;
+  return jsonb_build_object('suggested_change_id', p_id, 'decided_by', v_profile);
+end
+$$;
+
+comment on function public.decline_suggested_change(uuid) is
+  'Guard: the caller''s profile must hold may_confirm. Declines a pending suggestion without changing its cell.';

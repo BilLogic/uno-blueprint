@@ -1330,6 +1330,7 @@ export type Database = {
         }
         Returns: Json
       }
+      decline_suggested_change: { Args: { p_id: string }; Returns: Json }
       delete_cell: { Args: { cell_id: string }; Returns: string }
       delete_path: { Args: { path_id: string }; Returns: string }
       delete_scenario: { Args: { scenario_id: string }; Returns: string }

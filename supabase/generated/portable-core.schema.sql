@@ -140,6 +140,7 @@ CREATE FUNCTION public.approve_suggested_change(p_id uuid) RETURNS jsonb
 declare
   v_profile uuid := public.confirming_profile_id();
   v_change public.suggested_changes;
+  v_previous public.cells;
 begin
   select * into v_change from public.suggested_changes where id = p_id for update;
   if v_change.id is null then
@@ -148,6 +149,7 @@ begin
   if v_change.status <> 'pending' then
     raise exception 'suggested change % is already %', p_id, v_change.status;
   end if;
+  select * into strict v_previous from public.cells where id = v_change.cell_id for update;
   update public.cells
      set content = v_change.proposed_content,
          confirmed_by = v_profile,
@@ -157,6 +159,15 @@ begin
   update public.suggested_changes
      set status = 'approved', decided_by = v_profile, decided_at = now()
    where id = p_id;
+  insert into public.authoring_changes (author, author_id, fn, args, revert)
+  values ('human', (select user_id from public.profiles where id = v_profile),
+    'approve_suggested_change', jsonb_build_object('p_id', p_id, 'cell_id', v_change.cell_id),
+    jsonb_build_object('fn', 'update_cell_content', 'args',
+      jsonb_build_object('cell_id', v_previous.id, 'update',
+        jsonb_build_object('content', v_previous.content, 'summary', coalesce(v_previous.summary, ''),
+          'owner', coalesce(v_previous.owner, ''), 'perceivedOwner', coalesce(v_previous.perceived_owner, ''),
+          'status', v_previous.status), 'confirmed_by', v_previous.confirmed_by,
+          'confirmed_at', v_previous.confirmed_at)));
   return jsonb_build_object('cell_id', v_change.cell_id, 'confirmed_by', v_profile);
 end
 $$;
@@ -188,19 +199,13 @@ $$;
 CREATE FUNCTION public.caller_profile_id() RETURNS uuid
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO 'pg_catalog', 'pg_temp'
-    AS $$
-  select p.id
-    from public.profiles p
-   where p.user_id = nullif(
-     nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub', ''
-   )::uuid
-$$;
+    AS $$ select null::uuid $$;
 
 --
 -- Name: FUNCTION caller_profile_id(); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.caller_profile_id() IS 'The profile of the person making this request, read from the JWT claim sub; null when the caller has none.';
+COMMENT ON FUNCTION public.caller_profile_id() IS 'The profile of the person making this request, identified by auth.uid(); null when the caller has none.';
 
 --
 -- Name: cell_natural_key(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -280,7 +285,7 @@ declare
   v_profile uuid := public.confirming_profile_id();
 begin
   update public.cells
-     set confirmed_by = v_profile, confirmed_at = now()
+     set confirmed_by = v_profile, confirmed_at = now(), updated_at = now()
    where id = p_cell_id;
   if not found then
     raise exception 'no cell %', p_cell_id;
@@ -526,6 +531,33 @@ $$;
 --
 
 COMMENT ON FUNCTION public.create_slice(p_service_id uuid, p_title text, p_summary text, p_kind text, p_actor text, p_slides jsonb) IS 'Create a human-authored slice and its slides in one transaction. p_slides is the list replace_slides takes. A refusal anywhere leaves no slice row behind. Returns the slice row.';
+
+--
+-- Name: decline_suggested_change(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.decline_suggested_change(p_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'pg_temp'
+    AS $$
+declare
+  v_profile uuid := public.confirming_profile_id();
+begin
+  update public.suggested_changes
+     set status = 'declined', decided_by = v_profile, decided_at = now()
+   where id = p_id and status = 'pending';
+  if not found then
+    raise exception 'no pending suggested change %', p_id;
+  end if;
+  return jsonb_build_object('suggested_change_id', p_id, 'decided_by', v_profile);
+end
+$$;
+
+--
+-- Name: FUNCTION decline_suggested_change(p_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.decline_suggested_change(p_id uuid) IS 'Guard: the caller''s profile must hold may_confirm. Declines a pending suggestion without changing its cell.';
 
 --
 -- Name: delete_cell(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -1285,7 +1317,7 @@ $$;
 -- Name: FUNCTION record_contribution(p_cell_id uuid, p_title text, p_note text, p_proposed_content text); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.record_contribution(p_cell_id uuid, p_title text, p_note text, p_proposed_content text) IS 'What a person told Uno about a cell: evidence attributed to the caller''s profile and, when p_proposed_content is given, a pending suggested change to the cell''s content. Leaves the cell as it is. Returns {evidence_id, suggested_change_id}.';
+COMMENT ON FUNCTION public.record_contribution(p_cell_id uuid, p_title text, p_note text, p_proposed_content text) IS 'Guard: the caller must have a profile. Records evidence in that profile''s name and an optional pending suggestion; leaves the cell as it is. Returns {evidence_id, suggested_change_id}.';
 
 --
 -- Name: remove_lane(uuid, text); Type: FUNCTION; Schema: public; Owner: -

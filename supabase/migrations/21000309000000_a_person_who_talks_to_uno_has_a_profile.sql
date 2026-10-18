@@ -118,16 +118,23 @@ comment on column public.suggested_changes.status is
 create function public.caller_profile_id() returns uuid
 language sql stable security definer
 set search_path = pg_catalog, pg_temp
+as $$ select null::uuid $$;
+
+-- @recipe — the host supplies the authenticated account identity.
+create or replace function public.caller_profile_id() returns uuid
+language plpgsql stable security definer
+set search_path = pg_catalog, pg_temp
 as $$
-  select p.id
+begin
+  return (select p.id
     from public.profiles p
-   where p.user_id = nullif(
-     nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub', ''
-   )::uuid
+   where p.user_id = auth.uid());
+end
 $$;
+-- @core
 
 comment on function public.caller_profile_id() is
-  'The profile of the person making this request, read from the JWT claim sub; null when the caller has none.';
+  'The profile of the person making this request, identified by auth.uid(); null when the caller has none.';
 
 -- Evidence is writable by any signed-in author, so its attribution is held
 -- here: a request that carries claims may attribute evidence to its own
@@ -238,7 +245,7 @@ end
 $$;
 
 comment on function public.record_contribution(uuid, text, text, text) is
-  'What a person told Uno about a cell: evidence attributed to the caller''s profile and, when p_proposed_content is given, a pending suggested change to the cell''s content. Leaves the cell as it is. Returns {evidence_id, suggested_change_id}.';
+  'Guard: the caller must have a profile. Records evidence in that profile''s name and an optional pending suggestion; leaves the cell as it is. Returns {evidence_id, suggested_change_id}.';
 
 create function public.approve_suggested_change(p_id uuid) returns jsonb
 language plpgsql security definer
@@ -247,6 +254,7 @@ as $$
 declare
   v_profile uuid := public.confirming_profile_id();
   v_change public.suggested_changes;
+  v_previous public.cells;
 begin
   select * into v_change from public.suggested_changes where id = p_id for update;
   if v_change.id is null then
@@ -255,6 +263,7 @@ begin
   if v_change.status <> 'pending' then
     raise exception 'suggested change % is already %', p_id, v_change.status;
   end if;
+  select * into strict v_previous from public.cells where id = v_change.cell_id for update;
   update public.cells
      set content = v_change.proposed_content,
          confirmed_by = v_profile,
@@ -264,6 +273,15 @@ begin
   update public.suggested_changes
      set status = 'approved', decided_by = v_profile, decided_at = now()
    where id = p_id;
+  insert into public.authoring_changes (author, author_id, fn, args, revert)
+  values ('human', (select user_id from public.profiles where id = v_profile),
+    'approve_suggested_change', jsonb_build_object('p_id', p_id, 'cell_id', v_change.cell_id),
+    jsonb_build_object('fn', 'update_cell_content', 'args',
+      jsonb_build_object('cell_id', v_previous.id, 'update',
+        jsonb_build_object('content', v_previous.content, 'summary', coalesce(v_previous.summary, ''),
+          'owner', coalesce(v_previous.owner, ''), 'perceivedOwner', coalesce(v_previous.perceived_owner, ''),
+          'status', v_previous.status), 'confirmed_by', v_previous.confirmed_by,
+          'confirmed_at', v_previous.confirmed_at)));
   return jsonb_build_object('cell_id', v_change.cell_id, 'confirmed_by', v_profile);
 end
 $$;
@@ -279,7 +297,7 @@ declare
   v_profile uuid := public.confirming_profile_id();
 begin
   update public.cells
-     set confirmed_by = v_profile, confirmed_at = now()
+     set confirmed_by = v_profile, confirmed_at = now(), updated_at = now()
    where id = p_cell_id;
   if not found then
     raise exception 'no cell %', p_cell_id;
@@ -290,6 +308,26 @@ $$;
 
 comment on function public.confirm_cell(uuid) is
   'Owner-confirm a cell as it stands, in the caller''s name. Refused unless the caller''s profile may confirm.';
+
+create function public.decline_suggested_change(p_id uuid) returns jsonb
+language plpgsql security definer
+set search_path = pg_catalog, pg_temp
+as $$
+declare
+  v_profile uuid := public.confirming_profile_id();
+begin
+  update public.suggested_changes
+     set status = 'declined', decided_by = v_profile, decided_at = now()
+   where id = p_id and status = 'pending';
+  if not found then
+    raise exception 'no pending suggested change %', p_id;
+  end if;
+  return jsonb_build_object('suggested_change_id', p_id, 'decided_by', v_profile);
+end
+$$;
+
+comment on function public.decline_suggested_change(uuid) is
+  'Guard: the caller''s profile must hold may_confirm. Declines a pending suggestion without changing its cell.';
 
 -- @recipe — who may read and write, in Supabase's roles.
 --
@@ -305,7 +343,7 @@ alter table public.profiles
 alter table public.profiles enable row level security;
 alter table public.suggested_changes enable row level security;
 
-revoke all on public.profiles, public.suggested_changes from anon, authenticated;
+revoke all on public.profiles, public.suggested_changes from public, anon, authenticated, service_role;
 grant select on public.profiles, public.suggested_changes to authenticated;
 grant update (register, dismissed_nudges, last_run_at) on public.profiles to authenticated;
 
@@ -328,4 +366,67 @@ revoke execute on function public.approve_suggested_change(uuid) from public, an
 grant execute on function public.approve_suggested_change(uuid) to authenticated;
 revoke execute on function public.confirm_cell(uuid) from public, anon;
 grant execute on function public.confirm_cell(uuid) to authenticated;
+revoke execute on function public.decline_suggested_change(uuid) from public, anon;
+grant execute on function public.decline_suggested_change(uuid) to authenticated;
+
+-- A table UPDATE grant also grants UPDATE on future columns. Preserve any
+-- existing cell-column grants while removing that shortcut on hosted projects.
+do $column_grants$
+declare
+  r record;
+  columns text;
+begin
+  select string_agg(quote_ident(attname), ', ' order by attnum) into columns
+    from pg_attribute where attrelid = 'public.cells'::regclass and attnum > 0
+      and not attisdropped and attname not in ('confirmed_by', 'confirmed_at');
+  for r in select distinct x.grantee, roles.rolname
+    from pg_class c cross join lateral aclexplode(c.relacl) x
+    left join pg_roles roles on roles.oid = x.grantee
+    where c.oid = 'public.cells'::regclass and x.privilege_type = 'UPDATE'
+      and x.grantee <> c.relowner
+  loop
+    execute format('revoke update on public.cells from %s',
+      case when r.grantee = 0 then 'public' else quote_ident(r.rolname) end);
+    execute format('grant update (%s) on public.cells to %s', columns,
+      case when r.grantee = 0 then 'public' else quote_ident(r.rolname) end);
+  end loop;
+end
+$column_grants$;
+
+-- Proof — actual ACLs, including hosted defaults. Owners and superusers have
+-- implicit rights; no granted role may update the protected columns.
+do $profile_proof$
+declare
+  reachable text;
+begin
+  select string_agg(p.proname, ', ') into reachable from pg_proc p
+    where p.oid in (
+      'public.caller_profile_id()'::regprocedure,
+      'public.confirming_profile_id()'::regprocedure,
+      'public.list_profile_stakeholders()'::regprocedure,
+      'public.record_contribution(uuid,text,text,text)'::regprocedure,
+      'public.approve_suggested_change(uuid)'::regprocedure,
+      'public.confirm_cell(uuid)'::regprocedure,
+      'public.decline_suggested_change(uuid)'::regprocedure)
+      and has_function_privilege('anon', p.oid, 'execute');
+  if reachable is not null then
+    raise exception 'proof: anon can execute profile RPC(s): %', reachable;
+  end if;
+  if exists (
+    select from pg_attribute a join pg_class c on c.oid = a.attrelid
+    cross join lateral aclexplode(coalesce(a.attacl, '{}'::aclitem[]) || coalesce(c.relacl, '{}'::aclitem[])) x
+    where (a.attrelid = 'public.profiles'::regclass and a.attname = 'may_confirm'
+      or a.attrelid = 'public.cells'::regclass and a.attname in ('confirmed_by', 'confirmed_at'))
+      and x.privilege_type = 'UPDATE' and x.grantee <> c.relowner
+  ) then
+    raise exception 'proof: a role holds UPDATE on a protected profile or cell column';
+  end if;
+  if exists (select from pg_attribute a
+    where a.attrelid = 'public.profiles'::regclass and a.attnum > 0 and not a.attisdropped
+      and has_column_privilege('authenticated', a.attrelid, a.attnum, 'UPDATE')
+        is distinct from (a.attname in ('register', 'dismissed_nudges', 'last_run_at'))) then
+    raise exception 'proof: authenticated can update other than the three profile preferences';
+  end if;
+end
+$profile_proof$;
 -- @core

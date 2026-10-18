@@ -26,11 +26,19 @@ const base64url = (input) =>
 /**
  * The token, given the secret. `sub` is a random account id unless the caller
  * names one; `expiresInSeconds` keeps a leaked token from outliving the run.
- * `service: false` mints a signed-in person who is not a service account.
  *
- * @param {{ secret: string, sub?: string, service?: boolean, expiresInSeconds?: number, now?: number }} options
+ * @param {{ secret: string, sub?: string, expiresInSeconds?: number, now?: number }} options
  */
-export function mintServiceClaim({ secret, sub = randomUUID(), service = true, expiresInSeconds = 3600, now = Date.now() }) {
+export function mintServiceClaim(options) {
+  return mintClaim(options, { role: 'service' })
+}
+
+/** A signed-in person without the service-account claim. Test harness only. */
+export function mintPersonClaim(options) {
+  return mintClaim(options, {})
+}
+
+function mintClaim({ secret, sub = randomUUID(), expiresInSeconds = 3600, now = Date.now() }, appMetadata) {
   if (typeof secret !== 'string' || secret.length < 32) {
     throw new Error('the JWT secret has to be at least 32 characters: PostgREST refuses a shorter one')
   }
@@ -40,7 +48,7 @@ export function mintServiceClaim({ secret, sub = randomUUID(), service = true, e
     JSON.stringify({
       role: 'authenticated',
       sub,
-      app_metadata: service ? { role: 'service' } : {},
+      app_metadata: appMetadata,
       iat: issued,
       exp: issued + expiresInSeconds,
     }),

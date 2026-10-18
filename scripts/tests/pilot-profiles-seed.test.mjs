@@ -9,9 +9,16 @@ import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-import { pilotProfilesSql } from '../seed-pilot-profiles.mjs'
+import { assertTestTarget, pilotProfilesSql } from '../seed-pilot-profiles.mjs'
 
 const example = JSON.parse(readFileSync('supabase/pilot/profiles.example.json', 'utf8'))
+
+test('the seed requires both an exact linked test target and explicit opt-in', () => {
+  assert.throws(() => assertTestTarget({}, 'test-ref', true), /Refusing pilot seed/)
+  assert.throws(() => assertTestTarget({ SUPABASE_PROJECT_REF: 'other' }, 'test-ref', true), /Refusing pilot seed/)
+  assert.throws(() => assertTestTarget({ SUPABASE_PROJECT_REF: 'test-ref' }, 'test-ref', false), /Refusing pilot seed/)
+  assert.doesNotThrow(() => assertTestTarget({ SUPABASE_PROJECT_REF: 'test-ref' }, 'test-ref\n', true))
+})
 
 test('the committed example is a people file the seed accepts', () => {
   assert.match(pilotProfilesSql(example), /^begin;[\s\S]*commit;\n$/)

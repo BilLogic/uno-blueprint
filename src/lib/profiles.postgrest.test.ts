@@ -10,7 +10,8 @@ import { POSTGREST_URL, postgrestClientAs } from '@/test/postgrestDatabase'
  */
 const CONFIRMER_JWT = process.env.PROFILES_CONFIRMER_JWT ?? ''
 const CONTRIBUTOR_JWT = process.env.PROFILES_CONTRIBUTOR_JWT ?? ''
-const live = POSTGREST_URL !== '' && CONFIRMER_JWT !== '' && CONTRIBUTOR_JWT !== ''
+const OWNER_JWT = process.env.PROFILES_OWNER_JWT ?? ''
+const live = POSTGREST_URL !== '' && CONFIRMER_JWT !== '' && CONTRIBUTOR_JWT !== '' && OWNER_JWT !== ''
 
 /** A cell the committed sample seed holds. */
 const CELL = 'f0000000-0000-4000-8000-110300010001'
@@ -26,6 +27,9 @@ describe.runIf(live)('profiles over PostgREST', () => {
     const own = await confirmer().from('profiles').select('display_name, may_confirm')
     expect(own.error).toBeNull()
     expect(own.data).toEqual([{ display_name: 'Consultant first name', may_confirm: true }])
+    const owner = await postgrestClientAs(OWNER_JWT).from('profiles').select('display_name, may_confirm')
+    expect(owner.error).toBeNull()
+    expect(owner.data).toEqual([{ display_name: 'Owner first name', may_confirm: true }])
   })
 
   it('lets a person read and edit only their own profile', async () => {
@@ -84,5 +88,30 @@ describe.runIf(live)('profiles over PostgREST', () => {
     expect(cell.data).toEqual({ content: 'Intake starts with a phone call', confirmed_by: ownProfile.data?.id })
     const decided = await confirmer().from('suggested_changes').select('status, decided_by').eq('id', pending.data!.id)
     expect(decided.data).toEqual([{ status: 'approved', decided_by: ownProfile.data?.id }])
+    const account = await confirmer().from('profiles').select('user_id').single()
+    const log = await confirmer().from('authoring_changes')
+      .select('author, author_id, args, revert').eq('fn', 'approve_suggested_change')
+    expect(log.error).toBeNull()
+    expect(log.data).toHaveLength(1)
+    expect(log.data![0]).toMatchObject({
+      author: 'human', author_id: account.data?.user_id,
+      args: { p_id: pending.data!.id, cell_id: CELL },
+      revert: { fn: 'update_cell_content' },
+    })
+  })
+
+  it('only a confirmer may decline, leaving the cell unchanged', async () => {
+    const before = await contributor().from('cells').select('*').eq('id', CELL).single()
+    const proposed = await contributor().rpc('record_contribution', {
+      p_cell_id: CELL, p_title: 'Another proposal', p_note: '', p_proposed_content: 'Decline this',
+    })
+    expect(proposed.error).toBeNull()
+    const id = (proposed.data as Record<string, string>).suggested_change_id
+    const refused = await contributor().rpc('decline_suggested_change', { p_id: id })
+    expect(refused.error?.code).toBe('42501')
+    expect((await confirmer().rpc('decline_suggested_change', { p_id: id })).error).toBeNull()
+    expect((await confirmer().from('suggested_changes').select('status').eq('id', id).single()).data)
+      .toEqual({ status: 'declined' })
+    expect((await contributor().from('cells').select('*').eq('id', CELL).single()).data).toEqual(before.data)
   })
 })

@@ -169,10 +169,11 @@ async function embedWithGoogle(
   index: AgentSearchIndex,
   apiKey: string,
   signal?: AbortSignal,
+  fetcher: typeof fetch = fetch,
 ): Promise<number[]> {
   const what = 'google embed'
   return attempt(what, signal, async (inner) => {
-    const response = await fetch(
+    const response = await fetcher(
       `${GOOGLE_BASE}/models/${encodeURIComponent(index.model)}:embedContent`,
       {
         method: 'POST',
@@ -201,10 +202,11 @@ async function embedWithOpenAi(
   index: AgentSearchIndex,
   apiKey: string,
   signal?: AbortSignal,
+  fetcher: typeof fetch = fetch,
 ): Promise<number[]> {
   const what = 'openai embed'
   return attempt(what, signal, async (inner) => {
-    const response = await fetch(`${OPENAI_BASE}/embeddings`, {
+    const response = await fetcher(`${OPENAI_BASE}/embeddings`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -240,13 +242,14 @@ export async function embedQuestion(input: {
   index: AgentSearchIndex
   apiKey: string
   signal?: AbortSignal
+  fetch?: typeof fetch
 }): Promise<number[]> {
   const { question, index, apiKey, signal } = input
   if (!apiKey) throw new EmbedQuestionError('no key for the question')
   switch (index.provider) {
     case 'google':
-      return embedWithGoogle(question, index, apiKey, signal)
+      return embedWithGoogle(question, index, apiKey, signal, input.fetch)
     case 'openai':
-      return embedWithOpenAi(question, index, apiKey, signal)
+      return embedWithOpenAi(question, index, apiKey, signal, input.fetch)
   }
 }

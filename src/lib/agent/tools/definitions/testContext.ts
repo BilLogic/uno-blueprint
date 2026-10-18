@@ -1,3 +1,4 @@
+import { listSessions, getSession, getChanges } from '@/lib/agent/tools/browserHistory'
 import type { ToolContext, ToolUi } from '@/lib/agent/tools/definition'
 import { PACKAGE_OFFLINE_BOARD } from '@/data/blueprintFallbacks'
 import { scopeOf } from '@/lib/agent/tools/serviceScope'
@@ -55,6 +56,7 @@ export function fakeToolContext(overrides: Partial<ToolContext> = {}): ToolConte
     offlineBoard: PACKAGE_OFFLINE_BOARD,
     roster: TOOL_DEFINITIONS,
     meaning: null,
+    history: { listSessions, getSession, getChanges },
     ...overrides,
   }
 }

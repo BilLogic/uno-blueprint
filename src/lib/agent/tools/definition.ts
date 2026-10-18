@@ -110,6 +110,7 @@ export type ToolContext = {
   history?: {
     listSessions: (currentSessionId: string) => string | Promise<string>
     getSession: (sessionId: string) => Promise<string>
+    getChanges?: (limit: number | undefined, currentSessionId: string) => string | Promise<string>
   }
   /**
    * The roster this call was offered from: what the canvas adapter lists
@@ -117,7 +118,7 @@ export type ToolContext = {
    */
   roster: readonly ToolDefinition[]
   /** Ranked search: the index this person's key can embed against, or null. */
-  meaning?: { index: AgentSearchIndex; apiKey: string } | null
+  meaning?: { index: AgentSearchIndex; apiKey: string; fetch?: typeof fetch } | null
   /** The run's abort signal, so Stop reaches a call waiting on a network. */
   signal?: AbortSignal
 }
@@ -134,6 +135,9 @@ export type ToolDefinition<Args extends z.ZodObject = z.ZodObject> = {
   surface: ToolSurface
   /** Reads must explicitly declare false to run on a server; absent fails closed. */
   browserBacked?: boolean
+  /** Served as MCP resources rather than callable tools on the server. */
+  resourceOnly?: boolean
+  resource?: { uriPrefix: string; argument: string; names: () => readonly string[] }
   args: Args
   availability: ToolAvailability
   /**

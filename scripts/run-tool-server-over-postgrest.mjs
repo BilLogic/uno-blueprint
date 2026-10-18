@@ -4,7 +4,8 @@ import { resolve } from 'node:path'
 import { runPostgrestTest } from './run-slice-over-postgrest.mjs'
 import { sweep } from './sweep.mjs'
 
-const TEST = 'src/lib/agent/server/mcp.postgrest.test.ts'
+const reads = process.argv.includes('--reads')
+const TEST = reads ? 'src/lib/agent/server/reads.postgrest.test.ts' : 'src/lib/agent/server/mcp.postgrest.test.ts'
 const test = sweep({ subject: 'app', root: process.cwd(), where: path => path === TEST, what: 'the MCP boundary' }).locate(TEST)
 
 const { privateKey, publicKey } = await generateKeyPair('ES256', { extractable: true })
@@ -18,6 +19,9 @@ const [owner, other] = await Promise.all([
 await runPostgrestTest({
   test, label: 'the MCP tool server',
   jwtSecret: JSON.stringify(jwks), mintClaim: () => owner,
-  prepare(psql) { psql(['-f', resolve('scripts/tests/fixtures/mcp-sessions.sql')]) },
+  prepare(psql) {
+    psql(['-f', resolve('scripts/tests/fixtures/mcp-sessions.sql')])
+    if (reads) psql(['-f', resolve('scripts/tests/fixtures/tool-reads.sql')])
+  },
   env: () => ({ MCP_TEST_JWKS: JSON.stringify(jwks), MCP_TEST_OWNER_JWT: owner, MCP_TEST_OTHER_JWT: other }),
 })

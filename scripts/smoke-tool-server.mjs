@@ -35,6 +35,11 @@ try {
     }))
   }
   assert.notEqual(identities[0], identities[1], 'The test needs two distinct callers.')
+  const profile = await clients[0].callTool({ name: 'get_profile', arguments: {} })
+  assert(!profile.isError && JSON.stringify(profile).includes('may_confirm'), 'Caller profile read completes.')
+  const resources = await clients[0].listResources()
+  assert(resources.resources.some(resource => resource.uri === 'uno://references/lane-roles'))
+  assert(JSON.stringify(await clients[0].readResource({ uri: 'uno://references/lane-roles' })).includes('frontstage'))
   assert.equal((await databases[0].from('agent_sessions').insert({ id, title: 'Temporary MCP proof' })).error, null)
   inserted = true
   assert.equal((await databases[0].from('agent_messages').insert({
@@ -51,7 +56,7 @@ try {
     assert.equal(response.status, 401)
     assert(response.headers.get('WWW-Authenticate')?.includes('resource_metadata'))
   }
-  console.log('PASS: real Auth logins; owner MCP read; other-owner RLS refusal; blueprint read; missing and invalid JWT refusals.')
+  console.log('PASS: real Auth logins; caller profile; reference resource; owner MCP read; other-owner RLS refusal; blueprint read; missing and invalid JWT refusals.')
 } catch {
   console.error('FAIL: remote MCP proof did not complete. Credentials and response data withheld.')
   process.exitCode = 1

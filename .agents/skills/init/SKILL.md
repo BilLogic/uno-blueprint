@@ -13,6 +13,27 @@ Paths resolve against the plugin root (`${CLAUDE_PLUGIN_ROOT}` in Claude Code) o
 
 ## 1. Read the entry state
 
+**Remote connection first.** When the host exposes the `uno` MCP server,
+call `get_profile` and `list_blueprint` through it before any shell command.
+The authenticated profile is who is talking: use its register and
+`may_confirm`; never offer another person's profile or pass a profile id to
+impersonate them. No linked profile means an operator must link this account;
+say that and stop. A failed remote call is the answer, not a reason to fall
+back to a privileged local credential. Do not read `.env` in a remote session.
+
+An empty blueprint selects onboarding; an existing one selects daily. Read
+`skills/init/references/uno.md`, then ask the first useful question in that
+route. For daily catch-up use `get_change_history` after the profile's
+`last_run_at`, if present. These are durable edits, not a browser undo log.
+If a required capability is absent from the server, say which one is needed
+and keep that step pending. Remote sessions use only exposed MCP tools for
+writes, with the person's yes and the server's admission, validation and
+may-confirm checks; a contributor's proposal waits for approval. Never run
+local import, approval, contribution, seed or mark-run commands as a remote
+fallback. Closing stays unstamped until a remote close capability exists.
+The remaining CLI commands below apply only to a local linked workspace
+without an MCP connection.
+
 ```bash
 python3 skills/init/scripts/init_state.py state
 ```

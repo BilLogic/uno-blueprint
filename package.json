@@ -62,6 +62,7 @@
     "build:tool-server": "node scripts/build-tool-server.mjs",
     "test:tool-server:postgrest": "node scripts/run-tool-server-over-postgrest.mjs",
     "test:tool-server:project": "node scripts/smoke-tool-server.mjs",
+    "test:agent-hosts:project": "node scripts/smoke-agent-hosts.mjs",
     "test:profiles:postgrest": "node scripts/run-profiles-over-postgrest.mjs",
     "test:server-context:postgrest": "node scripts/run-server-context-over-postgrest.mjs",
     "version": "changeset version && node scripts/check-version-agreement.mjs --write",

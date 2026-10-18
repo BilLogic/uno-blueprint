@@ -17,6 +17,7 @@ import {
   lockfileVersion,
   versions,
   writeInitialiserVersion,
+  writePluginVersion,
 } from '../check-version-agreement.mjs'
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
@@ -47,6 +48,19 @@ function treeStating(version, initialiser) {
 
 test('this tree states one version everywhere', () => {
   assert.deepEqual(disagreements(versions(ROOT)), [])
+})
+
+test('a Cursor manifest participates in version checks and release propagation', () => {
+  const root = treeStating('0.5.0', null)
+  try {
+    mkdirSync(join(root, '.cursor-plugin'), { recursive: true })
+    writeFileSync(join(root, '.cursor-plugin/plugin.json'), JSON.stringify({ version: '0.4.0' }))
+    assert.deepEqual(disagreements(versions(root)), [
+      { file: '.cursor-plugin/plugin.json', version: '0.4.0', expected: '0.5.0' },
+    ])
+    assert.equal(writePluginVersion(root), true)
+    assert.deepEqual(disagreements(versions(root)), [])
+  } finally { rmSync(root, { recursive: true, force: true }) }
 })
 
 test('the changelog version is the first release heading, not the title', () => {

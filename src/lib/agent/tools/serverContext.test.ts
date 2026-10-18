@@ -58,7 +58,7 @@ it.each([
   'open_phase', 'open_scenario', 'focus_cell', 'ui_command',
   'open_cell_panel', 'set_canvas_mode', 'set_sidebar', 'annotate_cells',
   'get_ui_state', 'list_ui_commands',
-  'list_sessions', 'get_session', 'get_change_history',
+  'list_sessions', 'get_change_history',
 ])('refuses the browser-backed tool %s before validating its arguments', async (name) => {
   expect(await serverContext().call(name, {})).toBe(`The ${name} tool is not available in this server context.`)
 })

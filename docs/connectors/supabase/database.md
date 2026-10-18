@@ -894,3 +894,32 @@ people file. Its optional `stakeholder` overrides the default cast-list name:
 use an existing actor's exact name to link them. Reused kinds must fit the role
 (consultant: partner; owner: staff or team; expert: staff). Re-running updates
 links and names but preserves an operator's may-confirm decision.
+
+## Remote read tools
+
+`npm run build:tool-server` bundles the shared read roster for the
+`uno-tools` Edge Function. Deploy with `supabase functions deploy uno-tools
+--use-api` against the linked project. Its platform JWT check is disabled in
+`supabase/config.toml`; the handler verifies the caller's JWT with Supabase
+Auth's public JWKS on every request and forwards that same token to the
+database. It uses the publishable key and never an admin client. RLS applies
+to both the session and its transcript. The canvas keeps its browser history
+adapter; the server reads a private transcript from persisted rows.
+
+The protected-resource metadata points clients to Supabase Auth. Browser
+OAuth additionally requires enabling Supabase's OAuth server and dynamic
+client registration, and hosting a consent screen at an agreed frontend URL.
+Those settings and that frontend are an operator prerequisite; this tracer
+does not provide a consent page or claim to verify a host's OAuth redirect
+flow. See [Supabase's OAuth server guide](https://supabase.com/docs/guides/auth/oauth-server).
+
+For a deployed test project, set the `TOOL_SERVER_TEST_EMAIL`,
+`TOOL_SERVER_TEST_PASSWORD`, `TOOL_SERVER_OTHER_EMAIL` and
+`TOOL_SERVER_OTHER_PASSWORD` aliases in the ignored `.env`, alongside
+`SUPABASE_URL` and `SUPABASE_ANON_KEY`. `npm run test:tool-server:project`
+signs in both existing people, creates a temporary private conversation as
+the first, reads it over MCP and proves the second cannot. It also checks a
+blueprint read and missing/invalid token refusals, then deletes its temporary
+conversation and signs out only its own Auth sessions. It writes no blueprint
+or profile rows. It verifies direct JWT authentication; browser consent and
+Cursor interaction remain separate checks.

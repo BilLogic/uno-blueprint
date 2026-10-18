@@ -287,7 +287,7 @@ describe('a session list written by an older build', () => {
     )
     vi.resetModules()
 
-    const { listSessions } = await import('@/lib/agent/tools/read')
+    const { listSessions } = await import('@/lib/agent/tools/browserHistory')
 
     // The date it can honestly claim is the one it was created on.
     expect(listSessions('other')).toContain('updated 2026-01-01')

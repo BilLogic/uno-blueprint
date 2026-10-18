@@ -1,3 +1,4 @@
+import { readServerSession } from '@/lib/agent/server/history'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import type { ToolSpec } from '@/lib/agent/providers/provider'
@@ -59,6 +60,7 @@ export function createServerToolContext(options: {
     client, scope: options.scope,
     session: { id: options.sessionId, attributed: noServerWrites },
     ui: serverUi, offlineBoard: PACKAGE_OFFLINE_BOARD, roster,
+    history: { listSessions: noCanvas, getSession: id => readServerSession(client, id) },
     signal: options.signal,
   }
   return {

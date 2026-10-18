@@ -106,6 +106,11 @@ export type ToolContext = {
    * the one the canvas beside it is drawing.
    */
   offlineBoard: OfflineBoard
+  /** Conversation reads supplied by the host, without importing its stores. */
+  history?: {
+    listSessions: (currentSessionId: string) => string | Promise<string>
+    getSession: (sessionId: string) => Promise<string>
+  }
   /**
    * The roster this call was offered from: what the canvas adapter lists
    * when it is served, so the agent reads exactly the tools it can call.

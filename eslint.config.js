@@ -10,7 +10,7 @@ export default defineConfig([
   // tsconfig. Without this, typescript-eslint finds several candidate roots and
   // fails to parse *every* file with "No tsconfigRootDir was set" — so opening
   // a worktree breaks linting for the main tree.
-  globalIgnores(['dist', '.claude/worktrees']),
+  globalIgnores(['dist', '.claude/worktrees', 'supabase/functions/uno-tools/server.generated.js']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

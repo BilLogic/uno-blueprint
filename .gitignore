@@ -57,3 +57,6 @@ scripts/agent-harness/transcripts/
 # login emails, so never committed. `supabase/pilot/profiles.example.json` is
 # the shape, with placeholders; scripts/seed-pilot-profiles.mjs reads this.
 supabase/pilot/profiles.json
+
+# Built from the shared tool definitions before Edge deployment.
+supabase/functions/uno-tools/server.generated.js

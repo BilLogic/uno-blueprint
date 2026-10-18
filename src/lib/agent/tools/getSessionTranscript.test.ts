@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import type { TranscriptEvent } from '@/lib/agent/loop'
 import { attachAgentPersistence } from '@/lib/agent/persistenceReadiness'
-import { getSession } from '@/lib/agent/tools/read'
+import { getSession } from '@/lib/agent/tools/browserHistory'
 import { REPEAT_READ_SUPPRESSED } from '@/lib/agent/tools/refusals'
 
 /**

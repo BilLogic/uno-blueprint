@@ -38,7 +38,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[3]
+PLUGIN_ROOT = Path(__file__).resolve().parents[3]
 
 
 def literal(value):
@@ -86,7 +86,7 @@ commit;
 """
 
 
-def run_sql(sql, db_url):
+def run_sql(sql, db_url, workspace=None):
     if db_url:
         cmd = ["psql", "-X", "-q", "-At", "-v", "ON_ERROR_STOP=1", db_url, "-f", "-"]
         done = subprocess.run(cmd, input=sql, capture_output=True, text=True)
@@ -95,7 +95,7 @@ def run_sql(sql, db_url):
         lines = [line for line in done.stdout.splitlines() if line.strip()]
         return lines[-1] if lines else ""
     cmd = ["supabase", "db", "query", "--linked", "--agent=no", "-o", "json", sql]
-    done = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT)
+    done = subprocess.run(cmd, capture_output=True, text=True, cwd=workspace)
     if done.returncode != 0:
         raise RuntimeError(done.stderr.strip())
     rows = json.loads(done.stdout)
@@ -104,11 +104,11 @@ def run_sql(sql, db_url):
 
 def state(args):
     changes = CHANGES_SQL.format(profile=literal(args.profile)) if args.profile else "'[]'::json"
-    found = json.loads(run_sql(STATE_SQL.format(changes=changes), args.db_url))
+    found = json.loads(run_sql(STATE_SQL.format(changes=changes), args.db_url, args.workspace))
     return {
         "entry": entry_for(len(found["services"])),
         "services": found["services"],
-        "workspace_blueprint": bool(glob.glob(str(ROOT / "blueprint/*.json"))),
+        "workspace_blueprint": bool(glob.glob(str(args.workspace / "blueprint/*.json"))),
         "profiles": found["profiles"],
         "changes_since_last_run": found["changes"],
     }
@@ -119,14 +119,14 @@ def contribute(args):
         f"select public.record_contribution({literal(args.cell)}::uuid, {literal(args.title)}, "
         f"{literal(args.note)}, {literal(args.proposed)})"
     )
-    return json.loads(run_sql(as_person(args.profile, statement), args.db_url))
+    return json.loads(run_sql(as_person(args.profile, statement), args.db_url, args.workspace))
 
 
 def approve(args):
     # This RPC writes the cell, not just the suggestion status. PostgreSQL
     # runs cells_validate_path_match and the cell constraints on that UPDATE.
     statement = f"select public.approve_suggested_change({literal(args.suggestion)}::uuid)"
-    return json.loads(run_sql(as_person(args.profile, statement), args.db_url))
+    return json.loads(run_sql(as_person(args.profile, statement), args.db_url, args.workspace))
 
 
 def record(args):
@@ -135,17 +135,17 @@ def record(args):
         "check_key": "session-" + args.kind, "cell_keys": [],
         "scope": args.profile + ":" + args.scope, "summary": args.summary,
         "severity": args.severity, "impact": args.impact, "effort": args.effort,
-        "source": "audit",
+        "source": "init",
     }
-    ledger = ROOT / (args.ledger or "audit/findings-report.json")
+    ledger = args.workspace / (args.ledger or "audit/findings-report.json")
     with tempfile.TemporaryDirectory() as directory:
         incoming = Path(directory) / "incoming.json"
         incoming.write_text(json.dumps([finding]), encoding="utf-8")
         done = subprocess.run([
-            sys.executable, str(ROOT / "skills/audit/scripts/audit_tools.py"),
+            sys.executable, str(PLUGIN_ROOT / "skills/audit/scripts/audit_tools.py"),
             "report", "--ledger", str(ledger), "--incoming", str(incoming),
             "--run-id", str(uuid.uuid4()), "--apply",
-        ], capture_output=True, text=True, cwd=ROOT)
+        ], capture_output=True, text=True, cwd=args.workspace)
     if done.returncode:
         raise RuntimeError(done.stderr.strip())
     return {"ledger": str(ledger), **json.loads(done.stdout)}
@@ -156,7 +156,10 @@ def mark_run(args):
         f"update public.profiles set last_run_at = now() where id = {literal(args.profile)} "
         "returning json_build_object('id', id, 'last_run_at', last_run_at)::text;"
     )
-    return json.loads(run_sql(sql, args.db_url))
+    found = run_sql(sql, args.db_url, args.workspace)
+    if not found:
+        raise RuntimeError('No profile matched; the run was not marked.')
+    return json.loads(found)
 
 
 def main(argv=None):
@@ -165,6 +168,7 @@ def main(argv=None):
     for name in ("state", "contribute", "approve", "mark-run", "record"):
         command = sub.add_parser(name)
         command.add_argument("--db-url")
+        command.add_argument("--workspace", type=Path, default=Path.cwd(), help="business workspace (defaults to the current directory)")
         command.add_argument("--profile", required=name != "state")
         if name == "contribute":
             command.add_argument("--cell", required=True)
@@ -182,6 +186,7 @@ def main(argv=None):
             command.add_argument("--impact", choices=("low", "medium", "high"), required=True)
             command.add_argument("--effort", choices=("low", "medium", "high"), required=True)
     args = parser.parse_args(argv)
+    args.workspace = args.workspace.resolve()
     run = {"state": state, "contribute": contribute, "approve": approve, "mark-run": mark_run, "record": record}[args.command]
     try:
         print(json.dumps(run(args), indent=2))

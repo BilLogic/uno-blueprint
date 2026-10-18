@@ -18,7 +18,7 @@ import assert from 'node:assert/strict'
 
 import { mintPersonClaim } from './mint-service-claim.mjs'
 import { runPostgrestTest } from './run-slice-over-postgrest.mjs'
-import { pilotProfilesSql } from './seed-pilot-profiles.mjs'
+import { PILOT_ROLES, pilotProfilesSql } from './seed-pilot-profiles.mjs'
 import { sweep } from './sweep.mjs'
 
 const ROOT = process.cwd()
@@ -34,6 +34,7 @@ const people = JSON.parse(readFileSync(resolve(ROOT, 'supabase/pilot/profiles.ex
 const accounts = readFileSync(resolve(ROOT, 'scripts/tests/fixtures/profiles.sql'), 'utf8')
   .match(/c0000000-[0-9a-f-]+/g)
 const [CONFIRMER, OWNER, CONTRIBUTOR] = accounts
+const EXPERT_PROFILE = PILOT_ROLES.expert.profileId
 
 await runPostgrestTest({
   test,
@@ -47,14 +48,14 @@ await runPostgrestTest({
     psql(['-c', "update public.stakeholders set kind = 'staff' where name = 'Subject-matter expert'"])
     psql(['-f', '-'], seed)
     // Re-running must preserve an operator changing who may confirm.
-    psql(['-c', "update public.profiles set may_confirm = true where id = 'b0000000-0000-4000-8000-000000000003'"])
+    psql(['-c', `update public.profiles set may_confirm = true where id = '${EXPERT_PROFILE}'`])
     psql(['-f', '-'], seed)
     psql(['-c', `do $$ begin
-      if not (select may_confirm from public.profiles where id = 'b0000000-0000-4000-8000-000000000003') then
+      if not (select may_confirm from public.profiles where id = '${EXPERT_PROFILE}') then
         raise exception 'seed reset may_confirm';
       end if;
     end $$;
-    update public.profiles set may_confirm = false where id = 'b0000000-0000-4000-8000-000000000003';`])
+    update public.profiles set may_confirm = false where id = '${EXPERT_PROFILE}';`])
   },
   env: (secret) => ({
     PROFILES_CONFIRMER_JWT: mintPersonClaim({ secret, sub: CONFIRMER }),

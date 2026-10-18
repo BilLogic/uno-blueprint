@@ -161,13 +161,14 @@ begin
    where id = p_id;
   insert into public.authoring_changes (author, author_id, fn, args, revert)
   values ('human', (select user_id from public.profiles where id = v_profile),
-    'approve_suggested_change', jsonb_build_object('p_id', p_id, 'cell_id', v_change.cell_id),
+    'update_cell_content', jsonb_build_object('cell_id', v_change.cell_id, 'update',
+      jsonb_build_object('content', v_change.proposed_content, 'confirmed_by', v_profile, 'confirmed_at', now())),
     jsonb_build_object('fn', 'update_cell_content', 'args',
       jsonb_build_object('cell_id', v_previous.id, 'update',
         jsonb_build_object('content', v_previous.content, 'summary', coalesce(v_previous.summary, ''),
           'owner', coalesce(v_previous.owner, ''), 'perceivedOwner', coalesce(v_previous.perceived_owner, ''),
-          'status', v_previous.status), 'confirmed_by', v_previous.confirmed_by,
-          'confirmed_at', v_previous.confirmed_at)));
+          'status', v_previous.status, 'confirmed_by', v_previous.confirmed_by,
+          'confirmed_at', v_previous.confirmed_at))));
   return jsonb_build_object('cell_id', v_change.cell_id, 'confirmed_by', v_profile);
 end
 $$;

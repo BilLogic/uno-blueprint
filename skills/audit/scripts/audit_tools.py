@@ -44,7 +44,7 @@ Findings JSON shape (both incoming and ledger rows):
      "cell_keys": [str, ...],
      "reason": str (short reason slug — required when cell_keys is non-empty),
      "scope": str|null ("<scope-key>:<reason-slug>" — required when cell_keys is empty),
-     "source": "audit|whatif",
+     "source": "audit|whatif|init",
      "fingerprint": str (computed here — never hand-written),
      "status": "open|resolved|dismissed", "run_id": str}
 The ledger file is {"rows": [row, ...]}.

@@ -7,3 +7,5 @@
 **Upgrading a deployment:** nothing to run. A deployment that overrides `src/lib/agent/role.md` should know the template's copy no longer says who the agent is; `uno.md` does.
 
 The canvas does not yet ask who is talking or gate writes on may-confirm; that arrives with sign-in on the tool server. Findings, queued questions and contributor service proposals can be recorded without a cell in the audit file ledger.
+
+A question keeps the session open. Recording the closing timestamp now waits for the person's yes, so a read-only daily session leaves even its profile cursor unchanged.

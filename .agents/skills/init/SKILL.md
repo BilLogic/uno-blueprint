@@ -104,12 +104,16 @@ blueprint change. Then use the map route and its validation before import.
 
 ## 5. Close the run
 
+Answering a question keeps the session open. Ask whether the person wants to
+close the run and record when it ended; stamp `last_run_at` only on their yes.
+Without that yes, leave the cursor as it is and continue the conversation.
+
 ```bash
 python3 skills/init/scripts/init_state.py mark-run --profile <id>
 ```
 
-**Done when** `last_run_at` is stamped, so the next session reads changes
-from here.
+**Done when** the person agreed to close and `last_run_at` is stamped, so the
+next session reads changes from here; otherwise the run stays open.
 
 ## Hard rules
 

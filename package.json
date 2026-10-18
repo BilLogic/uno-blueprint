@@ -58,6 +58,7 @@
     "slice:agent-session": "vitest run src/slices/agentSession.slice.test.tsx",
     "slice:phone-agent-jump": "vitest run src/slices/phoneAgentJump.slice.test.tsx",
     "slice:cell-edit:postgrest": "node scripts/run-slice-over-postgrest.mjs --prove",
+    "test:profiles:postgrest": "node scripts/run-profiles-over-postgrest.mjs",
     "test:server-context:postgrest": "node scripts/run-server-context-over-postgrest.mjs",
     "version": "changeset version && node scripts/check-version-agreement.mjs --write",
     "preview": "vite preview",

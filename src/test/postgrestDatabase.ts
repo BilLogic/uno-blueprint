@@ -42,3 +42,17 @@ export function postgrestClient(): SupabaseClient<Database> {
     global: { headers: { Authorization: `Bearer ${POSTGREST_JWT}` }, fetch: postgrestFetch(POSTGREST_URL) },
   })
 }
+
+/**
+ * A client carrying one named caller's claim, for a live test that needs more
+ * than one person: the runner mints each token with this run's secret.
+ */
+export function postgrestClientAs(jwt: string): SupabaseClient<Database> {
+  if (POSTGREST_URL === '' || jwt === '') {
+    throw new Error('SLICE_POSTGREST_URL and a minted token are both needed to reach PostgREST')
+  }
+  return createClient<Database>(POSTGREST_URL, jwt, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${jwt}` }, fetch: postgrestFetch(POSTGREST_URL) },
+  })
+}

@@ -15,7 +15,7 @@ import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
 
-import { claimsOf, mintServiceClaim } from '../mint-service-claim.mjs'
+import { claimsOf, mintPersonClaim, mintServiceClaim } from '../mint-service-claim.mjs'
 
 const SECRET = 'a-secret-that-is-long-enough-for-postgrest-0'
 
@@ -38,4 +38,11 @@ test('the signature is HS256 over header and payload with the secret', () => {
 
 test('a secret shorter than PostgREST accepts is refused with the reason', () => {
   assert.throws(() => mintServiceClaim({ secret: 'short' }), /at least 32 characters/)
+})
+
+test('a signed-in person who is not a service account carries no service role', () => {
+  const claims = claimsOf(mintPersonClaim({ secret: SECRET, sub: 'person' }))
+  assert.equal(claims.role, 'authenticated')
+  assert.equal(claims.sub, 'person')
+  assert.deepEqual(claims.app_metadata, {})
 })

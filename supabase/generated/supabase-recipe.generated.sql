@@ -2715,3 +2715,119 @@ begin
   end if;
 end
 $anon_definer$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000309000000_a_person_who_talks_to_uno_has_a_profile.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- the host supplies the authenticated account identity.
+create or replace function public.caller_profile_id() returns uuid
+language plpgsql stable security definer
+set search_path = pg_catalog, pg_temp
+as $$
+begin
+  return (select p.id
+    from public.profiles p
+   where p.user_id = auth.uid());
+end
+$$;
+-- who may read and write, in Supabase's roles.
+--
+-- A profile is private to its person: they read their own row and change
+-- only how Uno works with them. Who may confirm, and which stakeholder and
+-- login a profile is, are an operator's to set. Suggested changes are read by
+-- anyone in the business who has a profile, and written only through the
+-- functions.
+alter table public.profiles
+  add constraint profiles_user_id_fkey foreign key (user_id)
+    references auth.users (id) on delete set null;
+
+alter table public.profiles enable row level security;
+alter table public.suggested_changes enable row level security;
+
+revoke all on public.profiles, public.suggested_changes from public, anon, authenticated, service_role;
+grant select on public.profiles, public.suggested_changes to authenticated;
+grant update (register, dismissed_nudges, last_run_at) on public.profiles to authenticated;
+
+create policy "profiles_select_own" on public.profiles
+  for select to authenticated using (user_id = auth.uid());
+create policy "profiles_update_own" on public.profiles
+  for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+create policy "suggested_changes_select_in_business" on public.suggested_changes
+  for select to authenticated using (public.caller_profile_id() is not null);
+
+revoke execute on function public.caller_profile_id() from public, anon;
+grant execute on function public.caller_profile_id() to authenticated;
+revoke execute on function public.confirming_profile_id() from public, anon, authenticated;
+revoke execute on function public.list_profile_stakeholders() from public, anon;
+grant execute on function public.list_profile_stakeholders() to authenticated;
+revoke execute on function public.record_contribution(uuid, text, text, text) from public, anon;
+grant execute on function public.record_contribution(uuid, text, text, text) to authenticated;
+revoke execute on function public.approve_suggested_change(uuid) from public, anon;
+grant execute on function public.approve_suggested_change(uuid) to authenticated;
+revoke execute on function public.confirm_cell(uuid) from public, anon;
+grant execute on function public.confirm_cell(uuid) to authenticated;
+revoke execute on function public.decline_suggested_change(uuid) from public, anon;
+grant execute on function public.decline_suggested_change(uuid) to authenticated;
+
+-- A table UPDATE grant also grants UPDATE on future columns. Preserve any
+-- existing cell-column grants while removing that shortcut on hosted projects.
+do $column_grants$
+declare
+  r record;
+  columns text;
+begin
+  select string_agg(quote_ident(attname), ', ' order by attnum) into columns
+    from pg_attribute where attrelid = 'public.cells'::regclass and attnum > 0
+      and not attisdropped and attname not in ('confirmed_by', 'confirmed_at');
+  for r in select distinct x.grantee, roles.rolname
+    from pg_class c cross join lateral aclexplode(c.relacl) x
+    left join pg_roles roles on roles.oid = x.grantee
+    where c.oid = 'public.cells'::regclass and x.privilege_type = 'UPDATE'
+      and x.grantee <> c.relowner
+  loop
+    execute format('revoke update on public.cells from %s',
+      case when r.grantee = 0 then 'public' else quote_ident(r.rolname) end);
+    execute format('grant update (%s) on public.cells to %s', columns,
+      case when r.grantee = 0 then 'public' else quote_ident(r.rolname) end);
+  end loop;
+end
+$column_grants$;
+
+-- Proof — actual ACLs, including hosted defaults. Owners and superusers have
+-- implicit rights; no granted role may update the protected columns.
+do $profile_proof$
+declare
+  reachable text;
+begin
+  select string_agg(p.proname, ', ') into reachable from pg_proc p
+    where p.oid in (
+      'public.caller_profile_id()'::regprocedure,
+      'public.confirming_profile_id()'::regprocedure,
+      'public.list_profile_stakeholders()'::regprocedure,
+      'public.record_contribution(uuid,text,text,text)'::regprocedure,
+      'public.approve_suggested_change(uuid)'::regprocedure,
+      'public.confirm_cell(uuid)'::regprocedure,
+      'public.decline_suggested_change(uuid)'::regprocedure)
+      and has_function_privilege('anon', p.oid, 'execute');
+  if reachable is not null then
+    raise exception 'proof: anon can execute profile RPC(s): %', reachable;
+  end if;
+  if exists (
+    select from pg_attribute a join pg_class c on c.oid = a.attrelid
+    cross join lateral aclexplode(coalesce(a.attacl, '{}'::aclitem[]) || coalesce(c.relacl, '{}'::aclitem[])) x
+    where (a.attrelid = 'public.profiles'::regclass and a.attname = 'may_confirm'
+      or a.attrelid = 'public.cells'::regclass and a.attname in ('confirmed_by', 'confirmed_at'))
+      and x.privilege_type = 'UPDATE' and x.grantee <> c.relowner
+  ) then
+    raise exception 'proof: a role holds UPDATE on a protected profile or cell column';
+  end if;
+  if exists (select from pg_attribute a
+    where a.attrelid = 'public.profiles'::regclass and a.attnum > 0 and not a.attisdropped
+      and has_column_privilege('authenticated', a.attrelid, a.attnum, 'UPDATE')
+        is distinct from (a.attname in ('register', 'dismissed_nudges', 'last_run_at'))) then
+    raise exception 'proof: authenticated can update other than the three profile preferences';
+  end if;
+end
+$profile_proof$;

@@ -160,14 +160,14 @@ function exited(child) {
 }
 
 /** The slice, timed. `{ status, seconds, output }`. */
-function runSlice(url, jwt, test, label) {
+function runSlice(url, jwt, test, label, env = {}) {
   const started = Date.now()
   const slice = isAbsolute(test) ? test :
     sweep({ subject: 'app', root: ROOT, where: (path) => path === test, what: label }).locate(test)
   const result = spawnSync('npx', ['vitest', 'run', slice], {
     cwd: ROOT,
     encoding: 'utf8',
-    env: { ...process.env, SLICE_POSTGREST_URL: url, SLICE_POSTGREST_JWT: jwt, CI: process.env.CI ?? 'true' },
+    env: { ...process.env, SLICE_POSTGREST_URL: url, SLICE_POSTGREST_JWT: jwt, ...env, CI: process.env.CI ?? 'true' },
     maxBuffer: 64 * 1024 * 1024,
   })
   return {
@@ -193,8 +193,16 @@ async function takeDown() {
   }
 }
 
-/** Shared scratch stack for the cell-edit slice and the server tool context. */
-export async function runPostgrestTest({ test = SLICE, label = 'the cell-edit slice', prove = false } = {}) {
+/**
+ * Shared scratch stack for the live tests. `prepare(psql)` runs after the stack
+ * is built and before PostgREST starts — test setup a caller adds on top of the
+ * committed seed. `env(secret)` returns further variables for the test, such as
+ * claims minted for named accounts with this run's secret.
+ */
+export async function runPostgrestTest({
+  test = SLICE, label = 'the cell-edit slice', prove = false,
+  prepare = () => {}, env = () => ({}),
+} = {}) {
   let binary
   try {
     binary = postgrestBinary()
@@ -220,6 +228,7 @@ export async function runPostgrestTest({ test = SLICE, label = 'the cell-edit sl
   const stderr = []
   try {
     buildDatabase(password)
+    prepare(psql)
     child = spawn(binary, [], {
       env: {
         ...process.env,
@@ -235,8 +244,9 @@ export async function runPostgrestTest({ test = SLICE, label = 'the cell-edit sl
     child.stderr.on('data', (chunk) => stderr.push(String(chunk)))
     await waitForPostgrest(child, url)
     const jwt = mintServiceClaim({ secret })
+    const extra = env(secret)
 
-    const green = runSlice(url, jwt, test, label)
+    const green = runSlice(url, jwt, test, label, extra)
     if (green.status !== 0) {
       console.error(green.output)
       console.error(`\n${label} FAILED over PostgREST (${green.seconds}s)`)
@@ -253,7 +263,7 @@ export async function runPostgrestTest({ test = SLICE, label = 'the cell-edit sl
       psql(['-c', "notify pgrst, 'reload schema'"])
       let red
       try {
-        red = runSlice(url, jwt, test, label)
+        red = runSlice(url, jwt, test, label, extra)
       } finally {
         // Put back whatever happened, so a throw mid-proof does not leave the
         // database (which the outer finally drops anyway) or a reader of the

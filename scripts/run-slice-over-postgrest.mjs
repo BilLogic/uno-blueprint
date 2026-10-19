@@ -202,6 +202,7 @@ async function takeDown() {
 export async function runPostgrestTest({
   test = SLICE, label = 'the cell-edit slice', prove = false,
   prepare = () => {}, env = () => ({}),
+  jwtSecret: suppliedSecret, mintClaim = mintServiceClaim,
 } = {}) {
   let binary
   try {
@@ -223,7 +224,7 @@ export async function runPostgrestTest({
   }
 
   const password = randomBytes(12).toString('hex')
-  const secret = randomBytes(32).toString('hex')
+  const secret = suppliedSecret ?? randomBytes(32).toString('hex')
   const url = `http://localhost:${PORT}`
   const stderr = []
   try {
@@ -243,7 +244,7 @@ export async function runPostgrestTest({
     })
     child.stderr.on('data', (chunk) => stderr.push(String(chunk)))
     await waitForPostgrest(child, url)
-    const jwt = mintServiceClaim({ secret })
+    const jwt = await mintClaim({ secret })
     const extra = env(secret)
 
     const green = runSlice(url, jwt, test, label, extra)

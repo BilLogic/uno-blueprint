@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query'
+import { QueryClient } from '@tanstack/query-core'
 import { SupabaseTimeoutError } from '@/lib/supabaseFetchTimeout'
 import { STRUCTURE_KEYS, queryKeys } from '@/lib/queryKeys'
 

@@ -1,3 +1,4 @@
+import { listSessions, getSession } from '@/lib/agent/tools/browserHistory'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { scopeOf } from '@/lib/agent/tools/serviceScope'
@@ -75,6 +76,7 @@ function toolContext(
     // resolves a slug.
     scope: scopeOf(getActiveService()),
     session: liveSession(agentSessionId),
+    history: { listSessions, getSession },
     ui: liveUi,
     offlineBoard: context.offlineBoard ?? PACKAGE_OFFLINE_BOARD,
     roster:

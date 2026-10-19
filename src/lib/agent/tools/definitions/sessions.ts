@@ -1,6 +1,5 @@
 import { z } from 'zod'
 import { arg, defineTool } from '@/lib/agent/tools/definition'
-import { getSession, listSessions } from '@/lib/agent/tools/read'
 import { describeChange, sessionSnapshot } from '@/lib/authoringSession'
 
 /**
@@ -18,7 +17,7 @@ export const listSessionsTool = defineTool({
   args: z.object({}),
   browserBacked: true,
   availability: { sample: true, mobile: true },
-  run: async (_args, ctx) => listSessions(ctx.session.id),
+  run: async (_args, ctx) => ctx.history.listSessions(ctx.session.id),
 })
 
 export const getSessionTool = defineTool({
@@ -29,9 +28,9 @@ export const getSessionTool = defineTool({
   args: z.object({
     session_id: arg.text('Session id from list_sessions'),
   }),
-  browserBacked: true,
+  browserBacked: false,
   availability: { sample: true, mobile: true },
-  run: async ({ session_id }) => getSession(session_id),
+  run: async ({ session_id }, ctx) => ctx.history.getSession(session_id),
 })
 
 export const getChangeHistoryTool = defineTool({

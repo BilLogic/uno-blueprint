@@ -52,7 +52,7 @@ import {
 } from '@/lib/agent/loop'
 import { AGENT_SKILL_COMMANDS } from '@/lib/agent/skills'
 import { attachAgentPersistence } from '@/lib/agent/persistenceReadiness'
-import { getSession } from '@/lib/agent/tools/read'
+import { getSession } from '@/lib/agent/tools/browserHistory'
 import { TranscriptRow } from '@/components/editor/agent/TranscriptRow'
 import { blockTranscript } from '@/components/editor/agent/transcriptBlocks'
 import { PACKAGE_OFFLINE_BOARD } from '@/data/blueprintFallbacks'

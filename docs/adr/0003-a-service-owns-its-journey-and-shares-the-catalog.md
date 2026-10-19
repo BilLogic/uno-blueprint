@@ -118,7 +118,7 @@ deferral, not a corner.
 - **`touchpoints` made the same move in `21000131000000`**, dropping its
   `service_id`, re-uniquing on `(name)`, and folding two services' rows of one
   name into one on the way. That migration carries the argument, the touchpoint
-  sync mints `on conflict (name)` after it, and `GLOSSARY.md`'s touchpoint entry
+  sync mints `on conflict (name)` after it, and `CONTEXT.md`'s touchpoint entry
   reversed with it.
 - **`touchpoints.stakeholder_id` was waiting for that move.** A link from a
   service-scoped tool to a deployment-scoped actor is the incoherence the first

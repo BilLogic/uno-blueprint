@@ -13,7 +13,7 @@
  * And the subject the filter describes: the check was fenced to the four
  * plugin-surface folders, so `docs/` — the largest prose tree here — and the
  * root documents were resolved by nothing at all. Planted dangling paths in
- * `GLOSSARY.md` and `docs/engineering/checks.md` passed the whole suite.
+ * `CONTEXT.md` and `docs/engineering/checks.md` passed the whole suite.
  *
  * Run: npm test
  */

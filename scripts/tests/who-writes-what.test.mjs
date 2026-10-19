@@ -122,7 +122,7 @@ export function ownershipTable(markdown) {
 // ---------------------------------------------------------------------------
 
 test('creditedButUnreal names a tool the table invented', () => {
-  // The bug: a rename lands in specs.ts, GLOSSARY.md keeps the old word, and a
+  // The bug: a rename lands in specs.ts, the glossary keeps the old word, and a
   // reader looking up who owns slices is told to call a tool nobody has.
   const roster = ['create_slice', 'update_slice']
   const rows = [{ records: ['slices'], tools: ['create_slice', 'rename_slice'], owner: 'the slice' }]
@@ -148,7 +148,7 @@ test('a further evidence write would need an owner before it shipped', () => {
 
 test('ownershipTable reads the rows, not the words around them', () => {
   // The bug it catches: `findings` and `slices` are common words in that file,
-  // so a rule that only asked "does GLOSSARY.md mention them" stayed green
+  // so a rule that only asked "does the glossary mention them" stayed green
   // while the table itself said something else.
   const table = [
     '| record | written by | belongs to |',

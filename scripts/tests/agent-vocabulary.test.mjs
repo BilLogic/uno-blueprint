@@ -3,7 +3,7 @@
  *
  * #86: `skills/audit/SKILL.md` tells an agent to read "the spec columns" and
  * `skills/slice/SKILL.md` told it to apply "the derived-layer migrations",
- * while `GLOSSARY.md` — the file that exists to be the vocabulary — had never
+ * while the glossary — the file that exists to be the vocabulary — had never
  * heard of either. Both words were published, in shipped skill documents, to
  * every instance built from this template.
  *
@@ -38,7 +38,7 @@
  * tidy a comment makes applied migrations mutable, which costs more than the
  * tidiness is worth. The "words that keep a retired spelling" section in the
  * header of `scripts/check-retired-identifiers.mjs` records the same rule in
- * prose for the person running the next sweep — it was `GLOSSARY.md`'s until
+ * prose for the person running the next sweep — it was `CONTEXT.md`'s until
  * #137 moved it beside the check that acts on it.
  *
  * IF THIS PRODUCES A FALSE POSITIVE, NARROW THE SUBJECT — NEVER THE WORD LIST.
@@ -190,7 +190,7 @@ test('no retired prose spelling reaches a published document', () => {
     }
     const rel = relative(REPO_ROOT, path)
     /*
-      `GLOSSARY.md` used to need a stopping point. It documented its own
+      `CONTEXT.md` used to need a stopping point. It documented its own
       retirements, and a file that names the word it is retiring cannot be swept
       end to end, so this sweep ran only as far as its rename map. #137 moved
       that map — and the two collective nouns' whole argument — into
@@ -219,9 +219,9 @@ test('no retired prose spelling reaches a published document', () => {
 })
 
 test('every word the skills are told to use is defined in GLOSSARY.md', () => {
-  const context = readFileSync(resolve(REPO_ROOT, 'GLOSSARY.md'), 'utf8')
+  const glossary = readFileSync(resolve(REPO_ROOT, 'GLOSSARY.md'), 'utf8')
   const missing = MUST_BE_DEFINED.filter(
-    (term) => !new RegExp(`^\\*\\*${term}\\*\\* —`, 'mi').test(context),
+    (term) => !new RegExp(`^\\*\\*${term}\\*\\* —`, 'mi').test(glossary),
   )
   assert.deepEqual(
     missing,

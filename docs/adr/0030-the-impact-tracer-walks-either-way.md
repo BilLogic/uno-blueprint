@@ -7,7 +7,7 @@ summary: The impact tracer takes a `direction` — `downstream` by default, `ups
 **Status** Accepted — 2026-10-11.
 **Context** `agents/impact-tracer.md`,
 `skills/whatif/references/whatif-playbook.md` § 2 (prioritize), the
-`Enables` entry in [`GLOSSARY.md`](../../GLOSSARY.md)
+`Enables` entry in [`CONTEXT.md`](../../CONTEXT.md)
 
 ## Context
 

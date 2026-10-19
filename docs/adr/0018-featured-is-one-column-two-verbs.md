@@ -10,7 +10,7 @@ here is this repository's. **Partly superseded — 2026-09-13 (#713).** The
 link half stands: a featured link is one of its owner's buttons. The
 attachment half does not: a cell's picture is no longer a featured
 attachment but its **featured image**, which is `cells.frame` (see
-"Featured image" in [GLOSSARY.md](../../GLOSSARY.md)). The panel says "Set as
+"Featured image" in [CONTEXT.md](../../CONTEXT.md)). The panel says "Set as
 featured image" over a picture, and nothing says "Set as preview" any more.
 The record below is kept as it was decided.
 **Context** `src/lib/resourcePresentation.ts`,

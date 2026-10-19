@@ -10,7 +10,7 @@ skill mechanism first shipped with.
 `src/components/editor/agent/ComposerInkedField.tsx`,
 `src/components/editor/agent/composerFieldMetrics.ts`,
 `src/lib/agent/skills.ts`, `src/lib/agent/sessions.ts`, § The agent in
-[`GLOSSARY.md`](../../GLOSSARY.md). Follows
+[`CONTEXT.md`](../../CONTEXT.md). Follows
 [26](0026-a-skill-is-invoked-by-its-official-name.md), which settled which
 spelling invokes.
 

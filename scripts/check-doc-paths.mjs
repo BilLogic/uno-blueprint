@@ -41,7 +41,7 @@
  *
  * `docs/` sat on the first side of that line and was swept by nothing. It is
  * the largest prose tree in the repository, and a dangling path planted in
- * `docs/engineering/checks.md` and in `GLOSSARY.md` passed the whole suite.
+ * `docs/engineering/checks.md` and in `CONTEXT.md` passed the whole suite.
  * Measured before widening: three failures under `docs/engineering/`, none
  * under `docs/guidelines/`, eleven under the rest of `docs/`, and one in
  * `README.md` — against thirty-four in `CHANGELOG.md`, which is why history is
@@ -230,7 +230,7 @@ export const ABSENT_BY_DESIGN = [
   },
   {
     doc: 'docs/agents/domain.md',
-    token: 'GLOSSARY-MAP.md',
+    token: 'CONTEXT-MAP.md',
     why: 'named as a conditional — the document says to read it IF it exists and to proceed silently otherwise, which is a fact about a multi-context repository rather than a claim about this one',
   },
   {

@@ -2,7 +2,7 @@
  * The rename map — the one list the vocabulary checks agree on, and the only
  * place the map is written down.
  *
- * It used to have a documented twin. `GLOSSARY.md` carried the same table in
+ * It used to have a documented twin. `CONTEXT.md` carried the same table in
  * prose, this file carried it in code, and
  * `scripts/tests/retired-vocabulary.test.mjs` held the two together — two lists
  * on purpose, so that reformatting a markdown table could not break a build
@@ -30,7 +30,7 @@
  *
  * ── WHY EACH NAME WENT, AND WHICH ARE NOT IN THE WORD LISTS ────────────────
  *
- * The commentary below moved here from `GLOSSARY.md` in #137, word for word,
+ * The commentary below moved here from `CONTEXT.md` in #137, word for word,
  * because every paragraph of it is about THESE lists: which renames are
  * carried in the `retired` and `copy` word lists, which are deliberately
  * absent, and what enforces the absent ones instead. The reasoning about words
@@ -120,7 +120,7 @@
  *   migration fixes the number without disturbing the word.
  *
  * `finding` is the same case: the bare word is the live domain term, defined
- * in `GLOSSARY.md`. What `21000116000000` retired is the bare TABLE name, which
+ * in `CONTEXT.md`. What `21000116000000` retired is the bare TABLE name, which
  * never said whose findings these were.
 
  * **`slice_items` enforces, since `21000129000000` finished the rename.** The
@@ -151,7 +151,7 @@
  * **One rename in this vocabulary is not in the table**, because it never was an
  * identifier and because it ended in no word at all. `evidence`, `findings`,
  * `slices` and `slides` were the **derived layer**, then the *analysis tier*, and
- * are now four records with an owner each — the table under `GLOSSARY.md`
+ * are now four records with an owner each — the table under `CONTEXT.md`
  * § What the skills produce. Both collective nouns failed the same way, by
  * claiming something untrue of half the set:
  *
@@ -573,7 +573,7 @@ export const RENAME_MAP = Object.freeze(
       ],
       migrations: ['21000116000000'],
       // `finding` alone is NOT retired — it is the live domain word, defined
-      // in GLOSSARY.md, and a panel has to be able to say it. What is retired
+      // in CONTEXT.md, and a panel has to be able to say it. What is retired
       // is the bare TABLE name, which said nothing about whose findings these
       // are, and `check_name`, which called a key a name.
       retired: ['check_name'],

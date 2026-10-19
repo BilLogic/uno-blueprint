@@ -1,13 +1,5 @@
 # Changelog
 
-## Unreleased
-
-### Upgrading a deployment
-
-- Read `GLOSSARY.md` for domain vocabulary. `CONTEXT.md` remains a one-line
-  pointer for one version and is scheduled for removal in the following
-  version; update fixed-path readers before that removal.
-
 ## 2.8.9
 
 **A fresh hosted project takes the whole migration chain.** `supabase db push`

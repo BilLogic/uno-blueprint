@@ -56,7 +56,7 @@ of the last.
 4. **The tool surface is the generalized superset — available, and
    configurable.** The canonical tools are this template's concepts: the live
    instance's larger set (stakeholders, evidence, sessions) are this
-   template's domain concepts ([GLOSSARY.md](../../GLOSSARY.md),
+   template's domain concepts ([CONTEXT.md](../../CONTEXT.md),
    [ADR 0003](./0003-a-service-owns-its-journey-and-shares-the-catalog.md),
    which was BilLogic/plus-uno-blueprint ADR 0014 when this record was
    written), so this template carries them for every deployment. A deployment

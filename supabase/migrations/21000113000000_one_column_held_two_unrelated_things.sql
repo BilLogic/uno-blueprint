@@ -14,7 +14,7 @@
 --
 -- One column, two concepts, and no label can be its name: `Links` over the tab
 -- would promise both and show one, `Resources` on the column would be wrong
--- for half its rows. GLOSSARY.md's interface→schema map has carried that as a
+-- for half its rows. CONTEXT.md's interface→schema map has carried that as a
 -- recorded divergence since the map was written, and said the fix would be a
 -- schema change rather than a naming one. This is that change, and the map row
 -- it was holding open goes with it.

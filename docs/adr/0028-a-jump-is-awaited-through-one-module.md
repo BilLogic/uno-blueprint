@@ -9,7 +9,7 @@ summary: A camera move toward a named target is awaited through one module that 
 **Context** `src/lib/canvasJump.ts`, `src/lib/agent/uiBridge.ts`,
 `src/components/mobile/mobileAgentBridge.ts`,
 `src/hooks/useZoomPanViewport.ts`, § The camera in
-[`GLOSSARY.md`](../../GLOSSARY.md). Sits under
+[`CONTEXT.md`](../../CONTEXT.md). Sits under
 [7](0007-the-canvas-and-the-shell-run-on-separate-clocks.md), whose
 one-directional read this handshake obeys rather than reopens.
 

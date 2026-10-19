@@ -6,7 +6,7 @@
  *   npm run interface-map            rewrite the generated sections
  *   npm run check:interface-map      fail if they have drifted (the CI gate)
  *
- * The map moved out of `GLOSSARY.md` in #137. It went there in the first place
+ * The map moved out of `CONTEXT.md` in #137. It went there in the first place
  * because that was the file people read to learn the vocabulary; it left
  * because a glossary that also carries ninety lines of reference is read by
  * every session that wanted one word. Under `references/` it is a disclosed

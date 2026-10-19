@@ -2,7 +2,7 @@
  * The rename map's word lists come from the names the map records, and every
  * exemption still says why.
  *
- * There used to be a fourth test here, holding `GLOSSARY.md`'s prose table
+ * There used to be a fourth test here, holding `CONTEXT.md`'s prose table
  * against `scripts/retired-vocabulary.mjs`. Two lists were the point: a prose
  * table should not be load-bearing for a build, and a documented map that had
  * drifted from the enforced one was a lie in the file people read to learn the
@@ -158,7 +158,7 @@ test('every exemption states a reason, and an expiry or nothing', () => {
  * check that deliberately skips a word has to say so where it skips it.
  * Without this, "permanent" quietly means "nobody got round to it".
  *
- * The subject was `GLOSSARY.md` until #137. The glossary was where the reason
+ * The subject was `CONTEXT.md` until #137. The glossary was where the reason
  * lived and the check was where it applied, so an exemption and its reason were
  * two files and two edits; the glossary is now a glossary and the reasoning —
  * the whole "words that keep a retired spelling" section — moved into the

@@ -9,7 +9,7 @@ in [docs/index.md](./docs/index.md); what the folders mean is in
 | Task | Go to |
 | --- | --- |
 | Purpose — what this is, and why I would want it | `README.md` |
-| Vocabulary — what lane, path, slice, dependency or finding means | `CONTEXT.md` |
+| Vocabulary — what lane, path, slice, dependency or finding means | `GLOSSARY.md` |
 | Panel labels — what each one names in the schema | `references/interface-schema-map.md` |
 | Setup — getting it running on my machine | `SETUP.md` |
 | Guide — the whole thing, start to finish | `docs/guide/` |
@@ -45,7 +45,7 @@ in [docs/index.md](./docs/index.md); what the folders mean is in
 | File | The question it answers |
 | --- | --- |
 | [README.md](./README.md) | What is this, and why would I want it? |
-| [CONTEXT.md](./CONTEXT.md) | What does this word mean? |
+| [GLOSSARY.md](./GLOSSARY.md) | What does this word mean? |
 | [SETUP.md](./SETUP.md) | How do I get it running? |
 | INDEX.md | Where is the thing I need? *(this file, generated)* |
 | [AGENTS.md](./AGENTS.md) | I am an agent — what do I read, and what may I not do? |
@@ -60,7 +60,7 @@ in [docs/index.md](./docs/index.md); what the folders mean is in
   `supabase/generated/portable-core.generated.sql` → guide/04.
 - **Working on this repository** — SETUP → `docs/guidelines/contributing.md` →
   `docs/engineering/checks.md`, with `docs/adr/` before anything that renames.
-- **Agent sessions** — `AGENTS.md` (auto-loaded) → this table, and `CONTEXT.md`
+- **Agent sessions** — `AGENTS.md` (auto-loaded) → this table, and `GLOSSARY.md`
   when the task writes a domain word.
 
 61 protocol documents are indexed in [docs/index.md](./docs/index.md).

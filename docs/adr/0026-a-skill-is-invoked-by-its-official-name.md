@@ -8,7 +8,7 @@ summary: A skill is invoked by its official namespaced name — `/ub:audit`, nev
 composer shipped with.
 **Context** `src/lib/agent/skills.ts`,
 `src/components/editor/agent/AgentChatView.tsx`, § The agent in
-[`CONTEXT.md`](../../CONTEXT.md)
+[`GLOSSARY.md`](../../GLOSSARY.md)
 
 ## Context
 

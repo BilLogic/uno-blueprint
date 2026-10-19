@@ -9,7 +9,7 @@
  * drift from its source, so the drift check is `--check` rather than an
  * assertion that two lists still agree.
  *
- * The document lived inside `CONTEXT.md` until #137. It was a hundred lines of
+ * The document lived inside `GLOSSARY.md` until #137. It was a hundred lines of
  * reference in a glossary — read by every session that opened the file to look
  * up one word — and its table restated, row by row, what the catalogue already
  * says. Now it is a disclosed reference: one pointer in `AGENTS.md`, whose

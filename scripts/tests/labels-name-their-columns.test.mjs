@@ -314,7 +314,7 @@ test('a row is divergent when ANY of its names disagrees', () => {
 /**
  * The document the map renders into.
  *
- * It was a section of `CONTEXT.md` until #137 and a hand-kept twin of
+ * It was a section of `GLOSSARY.md` until #137 and a hand-kept twin of
  * `LABEL_COLUMNS`; it is now `references/interface-schema-map.md`, and
  * GENERATED from `LABEL_COLUMNS` by
  * `scripts/generate-interface-schema-map.mjs`. That changes what this pair of

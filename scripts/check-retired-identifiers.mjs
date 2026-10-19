@@ -53,7 +53,7 @@
  *
  * ── WORDS THAT KEEP A RETIRED SPELLING ─────────────────────────────
  *
- * This section is `CONTEXT.md`'s, word for word, until #137 moved it here. It
+ * This section is `GLOSSARY.md`'s, word for word, until #137 moved it here. It
  * lived in the glossary because the glossary was where a person went to ask
  * why a sweep skipped a word; it lives here because this is the file that
  * skips it. `RETIRED_IDENTIFIER_EXEMPTIONS` is a few lines below, so the reason

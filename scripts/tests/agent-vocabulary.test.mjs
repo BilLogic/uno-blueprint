@@ -3,7 +3,7 @@
  *
  * #86: `skills/audit/SKILL.md` tells an agent to read "the spec columns" and
  * `skills/slice/SKILL.md` told it to apply "the derived-layer migrations",
- * while `CONTEXT.md` — the file that exists to be the vocabulary — had never
+ * while `GLOSSARY.md` — the file that exists to be the vocabulary — had never
  * heard of either. Both words were published, in shipped skill documents, to
  * every instance built from this template.
  *
@@ -27,7 +27,7 @@
  * `analysis tier`, and the collective noun is what went stale — twice — while
  * the words for the things themselves never did.
  *
- * SUBJECT: the text this template *publishes* — `CONTEXT.md`, `AGENTS.md`, and
+ * SUBJECT: the text this template *publishes* — `GLOSSARY.md`, `AGENTS.md`, and
  * markdown under `skills/`, `references/` and `docs/`. Not source comments,
  * which no agent reads, and not the three exempt classes below.
  *
@@ -38,7 +38,7 @@
  * tidy a comment makes applied migrations mutable, which costs more than the
  * tidiness is worth. The "words that keep a retired spelling" section in the
  * header of `scripts/check-retired-identifiers.mjs` records the same rule in
- * prose for the person running the next sweep — it was `CONTEXT.md`'s until
+ * prose for the person running the next sweep — it was `GLOSSARY.md`'s until
  * #137 moved it beside the check that acts on it.
  *
  * IF THIS PRODUCES A FALSE POSITIVE, NARROW THE SUBJECT — NEVER THE WORD LIST.
@@ -55,7 +55,7 @@ const RERUN = 'npm test -- scripts/tests/agent-vocabulary.test.mjs'
 
 /** The trees whose markdown is published to an agent or to a reader. */
 const PUBLISHED_DIRS = ['skills', 'references', 'docs']
-const PUBLISHED_FILES = ['CONTEXT.md', 'AGENTS.md', 'README.md']
+const PUBLISHED_FILES = ['GLOSSARY.md', 'AGENTS.md', 'README.md']
 
 /**
  * Applied or dated records, which keep their spelling.
@@ -97,7 +97,7 @@ const RETIRED_PROSE = [
  * The distinction is the whole check, and getting it wrong made this vacuous
  * the first time: a substring search for "spec" is satisfied by "specific",
  * "respective" and "specification", so deleting the definition outright left
- * the test green. `CONTEXT.md` opens every definition with the term in bold,
+ * the test green. `GLOSSARY.md` opens every definition with the term in bold,
  * so that is what is looked for.
  */
 const MUST_BE_DEFINED = ['Slice', 'Finding', 'Evidence', 'Spec', 'Template', 'Deployment']
@@ -119,8 +119,8 @@ function retiredVocabularyFailure(offenders) {
 
 function missingDefinitionsFailure(missing) {
   return guardFailure(
-    'CONTEXT.md:1',
-    `Not defined in CONTEXT.md: ${missing.join(', ')} — a definition is a ` +
+    'GLOSSARY.md:1',
+    `Not defined in GLOSSARY.md: ${missing.join(', ')} — a definition is a ` +
       `bolded term followed by an em dash, the shape every other entry uses. ` +
       `A skill instructs an agent to use these words (see skills/audit/SKILL.md ` +
       `on the spec columns). A word an agent is told to read has to be defined ` +
@@ -140,7 +140,7 @@ test('guard failures name a source line and the focused rerun command', () => {
   )
   assert.equal(
     missingDefinitionsFailure(['Spec']),
-    'CONTEXT.md:1: Not defined in CONTEXT.md: Spec — a definition is a bolded term followed ' +
+    'GLOSSARY.md:1: Not defined in GLOSSARY.md: Spec — a definition is a bolded term followed ' +
       'by an em dash, the shape every other entry uses. A skill instructs an agent to use ' +
       'these words (see skills/audit/SKILL.md on the spec columns). A word an agent is told ' +
       'to read has to be defined where a reader looks for definitions.\n' +
@@ -190,7 +190,7 @@ test('no retired prose spelling reaches a published document', () => {
     }
     const rel = relative(REPO_ROOT, path)
     /*
-      `CONTEXT.md` used to need a stopping point. It documented its own
+      `GLOSSARY.md` used to need a stopping point. It documented its own
       retirements, and a file that names the word it is retiring cannot be swept
       end to end, so this sweep ran only as far as its rename map. #137 moved
       that map — and the two collective nouns' whole argument — into
@@ -218,8 +218,8 @@ test('no retired prose spelling reaches a published document', () => {
   )
 })
 
-test('every word the skills are told to use is defined in CONTEXT.md', () => {
-  const context = readFileSync(resolve(REPO_ROOT, 'CONTEXT.md'), 'utf8')
+test('every word the skills are told to use is defined in GLOSSARY.md', () => {
+  const context = readFileSync(resolve(REPO_ROOT, 'GLOSSARY.md'), 'utf8')
   const missing = MUST_BE_DEFINED.filter(
     (term) => !new RegExp(`^\\*\\*${term}\\*\\* —`, 'mi').test(context),
   )

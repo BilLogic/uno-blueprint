@@ -94,7 +94,7 @@
  * phases.
  *
  * THE LANE ACTORS. `Blueprint owner`, `Stakeholders`, `Claude in the IDE`.
- * The first two are the vocabulary this template teaches — `CONTEXT.md` and the
+ * The first two are the vocabulary this template teaches — `GLOSSARY.md` and the
  * skills use them as the generic cast — so an adopter who names a lane
  * `Blueprint owner` has taken the template's ADVICE, not left its content behind.
  *

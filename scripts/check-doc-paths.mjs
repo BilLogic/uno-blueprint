@@ -41,7 +41,7 @@
  *
  * `docs/` sat on the first side of that line and was swept by nothing. It is
  * the largest prose tree in the repository, and a dangling path planted in
- * `docs/engineering/checks.md` and in `CONTEXT.md` passed the whole suite.
+ * `docs/engineering/checks.md` and in `GLOSSARY.md` passed the whole suite.
  * Measured before widening: three failures under `docs/engineering/`, none
  * under `docs/guidelines/`, eleven under the rest of `docs/`, and one in
  * `README.md` — against thirty-four in `CHANGELOG.md`, which is why history is
@@ -163,7 +163,7 @@ const UNHELD_PROSE = ['CHANGELOG.md', ...repoConfig.datedRecords.map((dir) => `$
 export function isPackagedProse(path) {
   if (!path.endsWith('.md')) return false
   if (UNHELD_PROSE.some((prefix) => path === prefix || path.startsWith(prefix))) return false
-  // A root-level document — README, CONTEXT, AGENTS, SETUP, INDEX and the
+  // A root-level document — README, GLOSSARY, AGENTS, SETUP, INDEX and the
   // rest — is packed and read from here exactly as the trees below are.
   return !path.includes('/') || PACKAGED_TREES.some((dir) => path.startsWith(dir))
 }
@@ -230,7 +230,7 @@ export const ABSENT_BY_DESIGN = [
   },
   {
     doc: 'docs/agents/domain.md',
-    token: 'CONTEXT-MAP.md',
+    token: 'GLOSSARY-MAP.md',
     why: 'named as a conditional — the document says to read it IF it exists and to proceed silently otherwise, which is a fact about a multi-context repository rather than a claim about this one',
   },
   {

@@ -39,7 +39,7 @@
  * WHAT ELSE IS DELIBERATELY OUT, and why each is a Tier-2 read rather than an
  * omission:
  *
- *   - `CONTEXT.md`, `INDEX.md` and `SETUP.md` are named by the router's first
+ *   - `GLOSSARY.md`, `INDEX.md` and `SETUP.md` are named by the router's first
  *     section, which makes them the first three pointers to fire, not part of
  *     the tier. A session that touches no vocabulary and knows where it is
  *     going pays for none of them. They are also large — a glossary alone

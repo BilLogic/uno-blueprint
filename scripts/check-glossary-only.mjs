@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * `CONTEXT.md` defines this repository's terms and stops.
+ * `GLOSSARY.md` defines this repository's terms and stops.
  *
  * The engineering skills this repo routes to assume one shape: `AGENTS.md`
- * routes, `CONTEXT.md` defines terms, and the decision records hold
+ * routes, `GLOSSARY.md` defines terms, and the decision records hold
  * decisions. A glossary grows reference sections inside it — a rename map, an
  * interface-to-schema map, reasoning about which words a check should exempt
  * — and every session that opens the file to look up one word pays for all of
@@ -38,7 +38,7 @@
  *      written, and it is the one that catches the next one before it is a
  *      hundred lines long.
  *
- * SUBJECT is `CONTEXT.md` alone. It is named here rather than walked for,
+ * SUBJECT is `GLOSSARY.md` alone. It is named here rather than walked for,
  * because the glossary is one file by the shape's own definition: a second
  * glossary would be a second vocabulary. Every repository that carries this
  * check holds its own glossary to it.
@@ -53,7 +53,7 @@
  * one.
  *
  * Sibling of the router's three checks — same shape, same failure style, same
- * place in CI — because `CONTEXT.md` is the first pointer `AGENTS.md` fires
+ * place in CI — because `GLOSSARY.md` is the first pointer `AGENTS.md` fires
  * and a session that reads the router reads this next. Like them it is the
  * same file in every repository; the one path it names that differs, the
  * interface map, comes from `scripts/repo-config.mjs`.
@@ -69,7 +69,7 @@ import { whenRun } from './verdict.mjs'
 const INTERFACE_MAP = repoConfig.interfaceMap
 
 /** The glossary. One file, by the shape's own definition. */
-export const SUBJECT = 'CONTEXT.md'
+export const SUBJECT = 'GLOSSARY.md'
 
 /** A term row: the bold word, then an em dash, then what it means. */
 export const TERM_ROW = /^\*\*[^*\n]+\*\*\s+—\s+\S/

@@ -32,7 +32,7 @@
  * IT USED TO BE NARROWED BY DIRECTORY, over a list of seven roots — `src/`,
  * `skills/`, `agents/`, `references/`, `evals/`, `scripts/`, `docs/` — that no
  * root-level file can match. So every root document was outside the subject:
- * `README.md`, `CONTEXT.md`, `SETUP.md`, `INDEX.md`, `CONTRIBUTING.md`,
+ * `README.md`, `GLOSSARY.md`, `SETUP.md`, `INDEX.md`, `CONTRIBUTING.md`,
  * `SECURITY.md`, and `AGENTS.md`, which is the always-loaded tier — the one
  * file every session is handed without choosing. A foreign cell id, a cast
  * role and a deployment touchpoint asset appended to `AGENTS.md` and `SETUP.md`

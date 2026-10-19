@@ -332,7 +332,7 @@ generated from that list rather than kept beside it.
 
 ## Where things are
 
-`INDEX.md` routes by task. `CONTEXT.md` defines the domain language. The
+`INDEX.md` routes by task. `GLOSSARY.md` defines the domain language. The
 guides in [docs/guide/](./docs/guide/) walk the whole thing in four numbered
 parts; [docs/overview.md](./docs/overview.md) says what else `docs/` holds and
 what each folder is for.

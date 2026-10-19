@@ -164,7 +164,7 @@ test('the database trigger is out of reach of the phrases, not exempted', () => 
 })
 
 test('a sentence about the retirement may spell the retired pair', () => {
-  // CONTEXT.md's glossary note and ir-schema.json's `kind` description both
+  // GLOSSARY.md's glossary note and ir-schema.json's `kind` description both
   // say which pair 21000114000000 withdrew. A check that flagged them would
   // be asking the vocabulary not to explain itself.
   const note = 'the retired `needs` edge pointed the other way, so 21000114 turned it'

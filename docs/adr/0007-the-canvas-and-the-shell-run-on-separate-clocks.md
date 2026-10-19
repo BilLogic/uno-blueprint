@@ -24,7 +24,7 @@ layer, and an identity bar above the canvas reads the layer to decide when its o
 skeleton may end. Every link points the same way, and nothing reads back.
 
 The words for the phases of arrival are defined in
-[CONTEXT.md](../../CONTEXT.md) § Five words for arrival. How each half is wired
+[GLOSSARY.md](../../GLOSSARY.md) § Five words for arrival. How each half is wired
 is written where it is wired — the shell's in `EditorShell.tsx`, the rungs in
 `canvasRevealContext.ts`, the published layer in `shellBootStore.ts` — and is
 deliberately not repeated here. Two copies of a rule is one rule and one lie,

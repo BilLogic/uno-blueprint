@@ -4,7 +4,7 @@
 --
 -- Uno serves people, and it has to know who is talking: who they are in the
 -- business, how they want to be spoken to, and whether what they say may
--- change the blueprint. A **profile** (CONTEXT.md) records one person:
+-- change the blueprint. A **profile** (GLOSSARY.md) records one person:
 --
 --   stakeholder_id    the existing cast-list row that says who they are in
 --                     the business; no new stakeholder kind

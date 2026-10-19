@@ -29,7 +29,14 @@ it.runIf(live)('every write works over MCP; contributions are proposals, approva
   try {
     const owner = await connect(process.env.MCP_TEST_OWNER_JWT!)
     const contributor = await connect(process.env.MCP_TEST_OTHER_JWT!)
-    const write = (name: string, args: Record<string, unknown>) => call(owner, name, args)
+    const write = async (name: string, args: Record<string, unknown>) => {
+      const result = await call(owner, name, args)
+      const audit = await db.from('authoring_changes').select('revert').eq('fn', name).order('at', { ascending: false }).limit(1).single()
+      expect(audit.error).toBeNull()
+      expect(audit.data?.revert, name).toMatchObject({ kind: 'captured_rows', rows: expect.any(Array) })
+      expect((audit.data!.revert as { rows: unknown[] }).rows.length, name).toBeGreaterThan(0)
+      return result
+    }
     const phase = (await write('create_phase', { name: 'MCP phase' })).result
     const created = (await write('create_scenario', { phase_id: phase, name: 'MCP scenario', step_count: 2 })).result
     const path = created.path_id

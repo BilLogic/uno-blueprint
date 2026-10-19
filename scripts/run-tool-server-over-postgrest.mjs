@@ -4,9 +4,10 @@ import { resolve } from 'node:path'
 import { runPostgrestTest } from './run-slice-over-postgrest.mjs'
 import { sweep } from './sweep.mjs'
 
+const authoring = process.argv.includes('--authoring')
 const writes = process.argv.includes('--writes')
 const reads = process.argv.includes('--reads')
-const TEST = writes ? 'src/lib/agent/server/writes.postgrest.test.ts'
+const TEST = authoring ? 'src/lib/agent/server/authoring.postgrest.test.tsx' : writes ? 'src/lib/agent/server/writes.postgrest.test.ts'
   : reads ? 'src/lib/agent/server/reads.postgrest.test.ts' : 'src/lib/agent/server/mcp.postgrest.test.ts'
 const test = sweep({ subject: 'app', root: process.cwd(), where: path => path === TEST, what: 'the MCP boundary' }).locate(TEST)
 
@@ -23,6 +24,7 @@ await runPostgrestTest({
   jwtSecret: JSON.stringify(jwks), mintClaim: () => owner,
   prepare(psql) {
     psql(['-f', resolve(writes ? 'scripts/tests/fixtures/tool-writes.sql' : 'scripts/tests/fixtures/mcp-sessions.sql')])
+    if (authoring) psql(['-f', resolve('scripts/tests/fixtures/authoring.sql')])
     if (reads) psql(['-f', resolve('scripts/tests/fixtures/tool-reads.sql')])
   },
   env: () => ({ MCP_TEST_JWKS: JSON.stringify(jwks), MCP_TEST_OWNER_JWT: owner, MCP_TEST_OTHER_JWT: other }),

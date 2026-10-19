@@ -111,7 +111,9 @@
     "interface-map": "node scripts/generate-interface-schema-map.mjs",
     "check:interface-map": "node scripts/generate-interface-schema-map.mjs --check",
     "agent-account": "node scripts/generate-agent-account.mjs",
-    "check:agent-account": "node scripts/generate-agent-account.mjs --check"
+    "check:agent-account": "node scripts/generate-agent-account.mjs --check",
+    "test:authoring:db": "node scripts/run-authoring-db.mjs",
+    "test:authoring:postgrest": "node scripts/run-tool-server-over-postgrest.mjs --authoring"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

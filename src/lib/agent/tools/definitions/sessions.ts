@@ -17,7 +17,7 @@ export const listSessionsTool = defineTool({
   args: z.object({}),
   browserBacked: true,
   availability: { sample: true, mobile: true },
-  run: async (_args, ctx) => ctx.history ? ctx.history.listSessions(ctx.session.id) : 'Session history is unavailable.',
+  run: async (_args, ctx) => ctx.history.listSessions(ctx.session.id),
 })
 
 export const getSessionTool = defineTool({
@@ -30,7 +30,7 @@ export const getSessionTool = defineTool({
   }),
   browserBacked: false,
   availability: { sample: true, mobile: true },
-  run: async ({ session_id }, ctx) => ctx.history ? ctx.history.getSession(session_id) : 'Session history is unavailable.',
+  run: async ({ session_id }, ctx) => ctx.history.getSession(session_id),
 })
 
 export const getChangeHistoryTool = defineTool({

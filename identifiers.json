@@ -193,6 +193,7 @@
   ],
   "agentTools": [
     "annotate_cells",
+    "approve_suggested_change",
     "compare_blueprint",
     "create_cell_dependency",
     "create_evidence",
@@ -204,6 +205,7 @@
     "create_slice",
     "create_stakeholder",
     "create_step",
+    "decline_suggested_change",
     "duplicate_path",
     "duplicate_scenario",
     "focus_cell",

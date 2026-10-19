@@ -496,7 +496,7 @@ test('the spec table declares nothing and the dispatcher switches on nothing', (
 test('every write tool is a defineWriteTool definition', () => {
   const definitions = toolSources(REPO_ROOT)
   const writes = toolsOnSurface(definitions, 'write')
-  assert.equal(writes.length, 20, `expected the twenty write tools, found ${writes.length}`)
+  assert.equal(writes.length, 22, `expected the write tools and proposal decisions, found ${writes.length}`)
   for (const name of writes) {
     assert.ok(
       /^export const \w+ = defineWriteTool\(/m.test(definitions) && definitions.includes(`name: '${name}'`),

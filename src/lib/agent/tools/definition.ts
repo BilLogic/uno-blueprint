@@ -107,7 +107,7 @@ export type ToolContext = {
    */
   offlineBoard: OfflineBoard
   /** Conversation reads supplied by the host, without importing its stores. */
-  history?: {
+  history: {
     listSessions: (currentSessionId: string) => string | Promise<string>
     getSession: (sessionId: string) => Promise<string>
   }

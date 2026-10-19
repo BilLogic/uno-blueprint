@@ -227,7 +227,7 @@ export type BlueprintSearchOptions = {
    * settings, so this module cannot decide to embed with a model the
    * deployment's index would refuse.
    */
-  meaning?: { index: AgentSearchIndex; apiKey: string } | null
+  meaning?: { index: AgentSearchIndex; apiKey: string; fetch?: typeof fetch } | null
   signal?: AbortSignal
 }
 
@@ -298,6 +298,7 @@ export async function searchBlueprint(
         index: options.meaning.index,
         apiKey: options.meaning.apiKey,
         signal: options.signal,
+        fetch: options.meaning.fetch,
       })
       embedding = JSON.stringify(vector)
       embedModel = options.meaning.index.model

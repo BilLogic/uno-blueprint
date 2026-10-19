@@ -25,7 +25,7 @@ import { getSliceTool, listSlicesTool } from '@/lib/agent/tools/definitions/slic
 import { listStakeholdersTool } from '@/lib/agent/tools/definitions/stakeholders'
 import { getUiStateTool, listUiCommandsTool } from '@/lib/agent/tools/definitions/ui'
 import { fakeToolContext } from '@/lib/agent/tools/definitions/testContext'
-import { getSession, listSessions } from '@/lib/agent/tools/browserHistory'
+import { getSession, listSessions, getChanges } from '@/lib/agent/tools/browserHistory'
 
 /*
  * Every read tool, through its own interface: `run(args, ctx)` with a
@@ -77,7 +77,7 @@ function recordingClient(answer: (table: string) => unknown = () => []): {
   }
 }
 
-const sample = fakeToolContext({ history: { getSession, listSessions } })
+const sample = fakeToolContext({ history: { getSession, listSessions, getChanges } })
 const scenarioId = Object.keys(SAMPLE_BLUEPRINTS_BY_SCENARIO)[0]!
 const sampleEdge = Object.values(SAMPLE_BLUEPRINTS_BY_SCENARIO)
   .flat()

@@ -357,6 +357,7 @@ export function rehearsalContext(
       history: {
         listSessions: () => { throw new Error('A rehearsal has no conversations.') },
         getSession: async () => { throw new Error('A rehearsal has no conversations.') },
+        getChanges: () => { throw new Error('A rehearsal has no change history.') },
       },
       meaning: null,
       ...context,

@@ -110,7 +110,7 @@ export type ToolContext = {
   history: {
     listSessions: (currentSessionId: string) => string | Promise<string>
     getSession: (sessionId: string) => Promise<string>
-    getChanges?: (limit: number | undefined, currentSessionId: string) => string | Promise<string>
+    getChanges: (limit: number | undefined, currentSessionId: string) => string | Promise<string>
   }
   /**
    * The roster this call was offered from: what the canvas adapter lists

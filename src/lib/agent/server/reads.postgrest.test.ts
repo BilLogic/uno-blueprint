@@ -61,6 +61,7 @@ it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('every database re
       const text = (reply.content as { text: string }[]).map(item => item.text).join('\n')
       expect(text, name).toContain(fact)
       expect(text, name).not.toContain(secret)
+      if (name === 'list_sessions') expect(text).not.toContain('Second private session')
     }
     expect(embedded).toBe(1)
     const resources = await client.listResources()

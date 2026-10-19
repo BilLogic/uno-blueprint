@@ -62,15 +62,22 @@ export function createServerToolContext(options: {
     client, scope: options.scope,
     session: { id: options.sessionId, attributed: noServerWrites },
     ui: serverUi, offlineBoard: PACKAGE_OFFLINE_BOARD, roster,
-    history: { listSessions: () => listServerSessions(client), getSession: id => readServerSession(client, id), getChanges: limit => readServerChanges(client, limit) },
+    history: {
+      listSessions: () => listServerSessions(client),
+      getSession: id => readServerSession(client, id),
+      getChanges: limit => readServerChanges(client, limit),
+    },
     meaning: options.search,
     signal: options.signal,
   }
   return {
     resources: TOOL_DEFINITIONS.filter(tool => tool.resource && toolEnabled(tool.name)).flatMap(tool => {
       const resource = tool.resource!
-      return resource.names().map(name => ({ name, uri: resource.uriPrefix + encodeURIComponent(name),
-        read: () => runTool(tool, { [resource.argument]: name }, context) }))
+      return resource.names().map(name => ({
+        name,
+        uri: resource.uriPrefix + encodeURIComponent(name),
+        read: () => runTool(tool, { [resource.argument]: name }, context),
+      }))
     }),
     roster: roster.map(toolSpec),
     async call(name, args) {

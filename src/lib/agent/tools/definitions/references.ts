@@ -4,7 +4,6 @@ import {
   fetchableReferenceNames,
   listReferences,
   readReference,
-  referenceNames,
 } from '@/lib/agent/tools/references'
 
 /**
@@ -24,7 +23,7 @@ import {
  */
 export const getReferenceTool = defineTool({
   resourceOnly: true,
-  resource: { uriPrefix: 'uno://references/', argument: 'name', names: referenceNames },
+  resource: { uriPrefix: 'uno://references/', argument: 'name', names: fetchableReferenceNames },
   name: 'get_reference',
   description: () => {
     const names = fetchableReferenceNames()

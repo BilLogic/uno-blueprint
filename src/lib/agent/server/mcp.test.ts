@@ -41,6 +41,8 @@ it('an MCP client reads with its JWT on every call, and unauthenticated calls re
   expect(listed.tools.some(tool => tool.name === 'search_blueprint')).toBe(false)
   expect(listed.tools.some(tool => tool.name === 'get_reference')).toBe(false)
   const resources = await client.listResources()
+  expect(resources.resources.some(resource => resource.uri === 'uno://references/canvas-adapter')).toBe(false)
+  await expect(client.readResource({ uri: 'uno://references/canvas-adapter' })).rejects.toThrow()
   expect(resources.resources.some(resource => resource.uri === 'uno://references/lane-roles')).toBe(true)
   expect(JSON.stringify(await client.readResource({ uri: 'uno://references/lane-roles' }))).toContain('frontstage')
   await expect(client.readResource({ uri: 'uno://references/unknown' })).rejects.toThrow()

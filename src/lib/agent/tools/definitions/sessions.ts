@@ -10,7 +10,7 @@ import { arg, defineTool } from '@/lib/agent/tools/definition'
 export const listSessionsTool = defineTool({
   name: 'list_sessions',
   description:
-    'Past chat sessions visible to this person — titles, dates and ids. Use when the user refers to something discussed earlier ("like we said last time"). Server reads are private to the signed-in caller; the canvas reads its session switcher.',
+    'Past chat sessions visible to this person — titles, dates, edit counts and ids. Use when the user refers to something discussed earlier ("like we said last time"). Server reads are private to the signed-in caller; the canvas reads its session switcher.',
   surface: 'read',
   args: z.object({}),
   browserBacked: false,
@@ -34,7 +34,7 @@ export const getSessionTool = defineTool({
 export const getChangeHistoryTool = defineTool({
   name: 'get_change_history',
   description:
-    'Recent human and agent changes, newest first. The server reads the durable business ledger across sessions; audit rows are not replayable undo. The canvas reads its current browser ledger, where the change sheet supplies revert controls.',
+    'Recent human and agent changes, newest first. The server reads the durable business ledger across sessions; audit rows are not replayable undo. The canvas reads its current browser ledger; distinguish user edits from agent edits and remind the user rows are revertible from the change sheet.',
   surface: 'read',
   args: z.object({
     limit: arg.number('Max entries (default 30)').optional(),
@@ -42,7 +42,5 @@ export const getChangeHistoryTool = defineTool({
   // The trial cannot write and has no history to show.
   browserBacked: false,
   availability: { sample: false, mobile: true },
-  run: async ({ limit }, ctx) => ctx.history?.getChanges
-    ? ctx.history.getChanges(limit, ctx.session.id)
-    : 'Change history is unavailable.',
+  run: async ({ limit }, ctx) => ctx.history.getChanges(limit, ctx.session.id),
 })

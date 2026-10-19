@@ -48,6 +48,15 @@ export async function judge() {
         requestInit: { headers: { Authorization: `Bearer ${data.session.access_token}` } },
       }))
     }
+    step = 'listing the deployed write tools'
+    const { tools } = await clients[0].listTools()
+    const writes = tools.filter(tool => tool.annotations?.readOnlyHint === false).map(tool => tool.name)
+    assert(writes.includes('create_phase') && writes.includes('create_finding'), 'Deployed roster includes write tools.')
+    step = 'checking a write validation refusal without changing blueprint rows'
+    const refusal = await clients[0].callTool({ name: 'create_phase', arguments: { name: '' } })
+    assert(refusal.isError, 'An empty phase name must be refused.')
+    assert(refusal.content.some(item => item.type === 'text'
+      && item.text.includes('Input validation error') && item.text.includes('name')), 'Refusal states the invalid name.')
     step = 'reading the caller profile through MCP'
     const profile = await clients[0].callTool({ name: 'get_profile', arguments: {} })
     assert(!profile.isError && JSON.stringify(profile).includes('may_confirm'), 'Caller profile read completes.')
@@ -89,7 +98,7 @@ export async function judge() {
   }
   return {
     what: 'the remote MCP proof', count: 1, findings,
-    line: 'PASS: real Auth logins; caller profile; reference resource; owner MCP read; other-owner RLS refusal; blueprint read; missing and invalid JWT refusals. Temporary conversation removed.',
+    line: 'PASS: real Auth logins; deployed write roster; write validation refusal; caller profile; reference resource; owner MCP read; other-owner RLS refusal; blueprint read; missing and invalid JWT refusals. Temporary conversation removed.',
     closing: 'Run `npm run test:tool-server:project`.',
   }
 }

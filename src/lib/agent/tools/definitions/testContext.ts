@@ -55,6 +55,10 @@ export function fakeToolContext(overrides: Partial<ToolContext> = {}): ToolConte
     ui: recordingUi().ui,
     offlineBoard: PACKAGE_OFFLINE_BOARD,
     roster: TOOL_DEFINITIONS,
+    history: {
+      listSessions: () => { throw new Error('This test must supply conversation history.') },
+      getSession: async () => { throw new Error('This test must supply conversation history.') },
+    },
     meaning: null,
     history: { listSessions, getSession, getChanges },
     ...overrides,

@@ -354,6 +354,10 @@ export function rehearsalContext(
       ui: recordingUi().ui,
       offlineBoard: PACKAGE_OFFLINE_BOARD,
       roster: TOOL_DEFINITIONS,
+      history: {
+        listSessions: () => { throw new Error('A rehearsal has no conversations.') },
+        getSession: async () => { throw new Error('A rehearsal has no conversations.') },
+      },
       meaning: null,
       ...context,
     },

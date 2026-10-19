@@ -490,7 +490,7 @@ jobs:
           echo "4eb414eb948c8800863cc8c9896a17b611b2dccf9ff581f4d57f42ec9ccee40d  /tmp/postgrest.tar.xz" | sha256sum -c -
           tar -xJf /tmp/postgrest.tar.xz -C ~/.cache/postgrest
           chmod +x ~/.cache/postgrest/postgrest
-      - name: The shared tool context bundles without browser capabilities
+      - name: The shared tool context bundles without external imports or browser capabilities
         run: npm run build:tool-server
       - name: The cell-edit slice runs over PostgREST, and goes red when a grant is revoked
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run slice:cell-edit:postgrest

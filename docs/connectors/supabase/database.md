@@ -592,6 +592,34 @@ because a keyword search presented as the same search everyone else has is
 worse than no tool. A person on an Anthropic key is always in that group:
 Anthropic has no embedding model.
 
+
+### Agent search on your own vector index
+
+For a cell-only Gemini index at 768 dimensions, an operator may apply
+`scripts/recipes/cell-search.sql` to the deployment database. It installs
+`cell_search_embeddings`, its cosine index and the `search_blueprint` function
+with keyword fallback. It is an optional deployment recipe, not a template
+migration; it neither creates cells nor changes existing blueprint rows. The
+function runs as its caller, and only authenticated callers can execute it.
+
+An operator's indexing job embeds existing cell content plus summary as
+`RETRIEVAL_DOCUMENT` using `gemini-embedding-001` at 768 dimensions. Store each
+vector with its cell id, model and `md5(content || E'\n' || summary)`, treating
+null text as empty. The job uses a server-held provider credential and an
+operator database connection; no provider key is stored in the index. A
+changed cell stops using its old vector until the indexing job refreshes it.
+Other models, dimensions or search granularities need the deployment's own
+function and index.
+
+The tool server reads the `BLUEPRINT_EMBEDDING_*` function secrets described
+below and embeds questions as `RETRIEVAL_QUERY`. After configuring the secrets
+and indexing existing cells, run `npm run test:tool-search:project`. It uses
+the existing synthetic test login from ignored `.env`, makes only reads and
+prints no business replies or credentials. An empty project, keyword-only
+answer or missing document embeddings reports unverified. A successful
+question embedding alone does not prove ranked cells. The smoke proof does
+not infer quota or billing failure from a generic keyword fallback.
+
 ## Migration desync: the repair
 
 **Who needs this**: forks created before the reserved band existed, whose local

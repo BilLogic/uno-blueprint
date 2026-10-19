@@ -112,7 +112,7 @@ the shared test project. An operator can perform these exact dashboard steps:
 
 1. Open the existing test project, **Authentication → URL Configuration**.
    Set **Site URL** to `http://localhost:5173`. Preserve existing redirect
-   entries and add `http://localhost:5173/oauth/consent` if absent. Save.
+   entries and add `http://localhost:5173/oauth/consent*` if absent. Save.
 2. Open **Authentication → OAuth Server**. Enable the OAuth server, set
    **Authorization Path** to `/oauth/consent`, enable **Dynamic Client
    Registration** for native host registration, and save.
@@ -124,11 +124,15 @@ the shared test project. An operator can perform these exact dashboard steps:
    sign-in. Verify the browser reaches the local consent route, shows the
    correct app/account/scopes, and both Allow and Decline return to the host.
    Verify a remote tool call uses the signed-in person's profile and RLS.
-5. When a hosted canvas address exists, add its exact consent URL to
-   **URL Configuration → Redirect URLs**, retaining the local URL. Configure
-   that deployment to serve this route. Adding an allowed URL alone does
-   not change the active consent origin: Site URL plus Authorization Path
-   still selects it. Switch Site URL to the hosted origin only when the
+5. When a hosted canvas address exists, add a consent URL pattern such as
+   `https://<canvas-host>/oauth/consent*` to
+   **URL Configuration → Redirect URLs**, retaining the local pattern.
+   The wildcard accepts the email link that returns with
+   `?authorization_id=…`; an exact consent URL does not
+   match that query. Configure that deployment to serve this route.
+   Adding an allowed URL alone does not change the active consent origin:
+   Site URL plus Authorization Path still selects it. Switch Site URL to
+   the hosted origin only when the
    operator is ready to move consent there. No hosting is created here.
 
 Interactive sign-in remains unverified until these steps and the browser
@@ -154,7 +158,7 @@ Primary references: [Codex MCP](https://learn.chatgpt.com/docs/extend/mcp),
 
 The consent page also offers email sign-in through the public Auth client,
 with account creation disabled. Its email link returns to the same consent
-request; operators can include `{{ .Token }}` in the Auth email template to
-support entering the one-time code directly on the page. Email delivery and
-the interactive OAuth round trip remain unverified until the project is
-configured for them.
+request. Typed email codes work only if the project's sign-in email template
+includes `{{ .Token }}`. A template containing only `{{ .ConfirmationURL }}`
+provides a sign-in link. Email delivery and the interactive OAuth round trip
+remain unverified until the project is configured for them.

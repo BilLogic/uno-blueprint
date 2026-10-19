@@ -905,8 +905,11 @@ Run `npm ci`, then `npm run build:tool-server` to bundle the shared read and
 write roster for the `uno-tools` Edge Function. Dependencies, including
 `@supabase/server`, are bundled into the generated server module; no import map is
 needed. The build refuses unresolved dependencies and any emitted external
-import before writing the bundle, and CI runs that same check. If dependency
-resolution fails, run `npm ci && npm run build:tool-server` before deploying.
+import before writing the bundle, and CI runs that same check. Only an
+unresolved dependency asks for a reinstall; other failures ask for a plain
+build rerun after fixing the reported capability or code. External-import
+diagnostics label the bundle as unwritten instead of pointing at an absent or
+stale generated file.
 Deploy with `supabase functions deploy uno-tools --use-api` against the linked
 project after applying its migrations. Its platform JWT check is disabled in
 `supabase/config.toml`; the handler verifies the caller's JWT with Supabase
@@ -927,7 +930,8 @@ For a deployed test project, set the `TOOL_SERVER_TEST_EMAIL`,
 `TOOL_SERVER_OTHER_PASSWORD` aliases in the ignored `.env`, alongside
 `SUPABASE_URL` and `SUPABASE_ANON_KEY`. `npm run test:tool-server:project`
 signs in both existing people, checks that `tools/list` includes writes and
-that an empty phase name is refused, creates a temporary private conversation as
+that the database gateway refuses a finding without `service_id` before
+writing anything, creates a temporary private conversation as
 the first, reads it over MCP and proves the second cannot. It also checks a
 blueprint read and missing/invalid token refusals, then deletes its temporary
 conversation and signs out only its own Auth sessions. It writes no blueprint

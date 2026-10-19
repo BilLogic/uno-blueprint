@@ -22,6 +22,8 @@ import {
  * the names are the deployment's, read when the roster is assembled.
  */
 export const getReferenceTool = defineTool({
+  resourceOnly: true,
+  resource: { uriPrefix: 'uno://references/', argument: 'name', names: fetchableReferenceNames },
   name: 'get_reference',
   description: () => {
     const names = fetchableReferenceNames()
@@ -40,6 +42,7 @@ export const getReferenceTool = defineTool({
 })
 
 export const listReferencesTool = defineTool({
+  resourceOnly: true,
   name: 'list_references',
   description:
     'The rulebook references available to get_reference, live. Use when unsure what guidance exists.',

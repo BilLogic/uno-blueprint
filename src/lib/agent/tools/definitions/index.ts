@@ -1,4 +1,5 @@
 import type { ToolDefinition } from '@/lib/agent/tools/definition'
+import { getProfileTool } from '@/lib/agent/tools/definitions/profile'
 import {
   compareBlueprintTool,
   getBlueprintTool,
@@ -77,6 +78,7 @@ import { getUiStateTool, listUiCommandsTool } from '@/lib/agent/tools/definition
  * stays a tool they can see.
  */
 export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
+  getProfileTool,
   getReferenceTool,
   listBlueprintTool,
   searchBlueprintTool,

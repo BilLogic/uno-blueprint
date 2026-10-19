@@ -61,6 +61,7 @@
     "test:init:db": "bash scripts/tests/init-state.test.sh",
     "build:tool-server": "node scripts/build-tool-server.mjs",
     "test:tool-server:postgrest": "node scripts/run-tool-server-over-postgrest.mjs",
+    "test:tool-reads:postgrest": "node scripts/run-tool-server-over-postgrest.mjs --reads",
     "test:tool-server:project": "node scripts/smoke-tool-server.mjs",
     "test:agent-hosts:project": "node scripts/smoke-agent-hosts.mjs",
     "test:profiles:postgrest": "node scripts/run-profiles-over-postgrest.mjs",

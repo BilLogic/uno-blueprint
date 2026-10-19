@@ -498,6 +498,8 @@ jobs:
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:server-context:postgrest
       - name: The MCP boundary preserves caller identity and private-row RLS
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:tool-server:postgrest
+      - name: Every server read and resource crosses MCP with the caller identity
+        run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:tool-reads:postgrest
       - name: Profiles are private, and only someone who may confirm approves, over PostgREST
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:profiles:postgrest
 

@@ -1,3 +1,4 @@
+import { describeChange, sessionSnapshot } from '@/lib/authoringSession'
 import { agentSessionsSnapshot } from '@/lib/agent/sessions'
 import { loadPersistedEvents } from '@/lib/agent/persistence'
 import { renderTranscriptLine } from '@/lib/agent/tools/transcriptText'
@@ -42,4 +43,21 @@ export async function getSession(sessionId: string): Promise<string> {
     ? `Session "${known.title}" (${sessionId}):`
     : `Session ${sessionId}:`
   return [header, ...lines].join('\n')
+}
+
+/** Current browser ledger; persisted server history is supplied by its host. */
+export function getChanges(limit: number | undefined, currentSessionId: string): string {
+    const cap = typeof limit === 'number' && limit > 0 ? limit : 30
+    const entries = [...sessionSnapshot()].reverse().slice(0, cap)
+    if (entries.length === 0) return 'No changes recorded in this browser session yet.'
+    return entries
+      .map((entry) => {
+        const who =
+          entry.author === 'agent'
+            ? `agent${entry.agentSessionId === currentSessionId ? ' (this session)' : ''}`
+            : 'user'
+        const when = new Date(entry.at).toISOString().slice(11, 19)
+        return `[${when} UTC] ${who}: ${describeChange(entry)}${entry.revert ? '' : ' (not revertible)'}`
+      })
+      .join('\n')
 }

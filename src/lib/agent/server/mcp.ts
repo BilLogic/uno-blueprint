@@ -5,6 +5,8 @@ import { createServerToolContext } from '@/lib/agent/tools/serverContext'
 import { findToolDefinition } from '@/lib/agent/tools/definitions'
 import { SCOPE_ALL } from '@/lib/agent/tools/serviceScope'
 import type { Database } from '@/types/database'
+import type { ToolContext } from '@/lib/agent/tools/definition'
+export { serverSearchConfig } from '@/lib/agent/server/searchConfig'
 
 export function createToolServer(options: {
   url: string
@@ -12,6 +14,7 @@ export function createToolServer(options: {
   resourceUrl: string
   jwks?: SupabaseEnv['jwks']
   fetch?: typeof fetch
+  search?: NonNullable<ToolContext['meaning']>
 }) {
   return withOAuthProtectedResource({
     resourceServer: options.resourceUrl,
@@ -27,9 +30,15 @@ export function createToolServer(options: {
       url: options.url, publishableKey: options.publishableKey,
       jwt: request.headers.get('Authorization')!.replace(/^Bearer\s+/i, ''),
       sessionId: crypto.randomUUID(), scope: SCOPE_ALL, signal: request.signal, fetch: options.fetch,
+      search: options.search,
     })
     const handler = createMcpHandler(() => {
       const server = new McpServer({ name: 'uno-blueprint', version: '1.0.0' })
+      for (const resource of context.resources) {
+        server.registerResource(resource.name, resource.uri, { mimeType: 'text/markdown' }, async uri => ({
+          contents: [{ uri: uri.href, mimeType: 'text/markdown', text: await resource.read() }],
+        }))
+      }
       for (const spec of context.roster) {
         const definition = findToolDefinition(spec.name)!
         server.registerTool(spec.name, {

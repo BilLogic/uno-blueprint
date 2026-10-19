@@ -26,11 +26,11 @@
 --
 -- ── Who the caller is ────────────────────────────────────────────────────
 --
--- The functions read the caller from the request's JWT claims — the
--- `request.jwt.claims` setting PostgREST fills — and find the profile whose
--- user_id is the claim's `sub`. That is portable: a stock Postgres with no
--- claims has no caller, and every check that needs one refuses. An operator
--- acting for a named person sets the claim in the same transaction.
+-- The Supabase recipe identifies the caller with auth.uid(), the same
+-- account identity the profile policies use. The portable core's identity
+-- seam returns no profile until the host supplies its own implementation.
+-- An operator acting for a named person supplies that person's authenticated
+-- identity in the same transaction.
 --
 -- ── What a cell carries ──────────────────────────────────────────────────
 --

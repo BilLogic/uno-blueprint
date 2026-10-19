@@ -2,6 +2,7 @@
 -- Apply with an operator connection. Provider credentials never enter SQL.
 begin;
 create schema if not exists extensions;
+grant usage on schema extensions to authenticated;
 create extension if not exists vector with schema extensions;
 create table if not exists public.cell_search_embeddings (
   cell_id uuid primary key references public.cells(id) on delete cascade,
@@ -75,5 +76,36 @@ end;
 $$;
 revoke all on function public.search_blueprint(text,text[],integer,text,text,text,text,text,text) from public, anon;
 grant execute on function public.search_blueprint(text,text[],integer,text,text,text,text,text,text) to authenticated;
+-- Indexers can read pending document text as the caller, but only a confirmer
+-- can store a vector. A cell changed during its provider call is left pending.
+create or replace function public.cell_search_pending(p_limit integer default 5)
+returns table(cell_id uuid, document text, content_hash text)
+language sql stable security invoker set search_path = pg_catalog, public, pg_temp as $$
+  select c.id, coalesce(c.content,'') || E'\n' || coalesce(c.summary,''),
+    md5(coalesce(c.content,'') || E'\n' || coalesce(c.summary,''))
+  from public.cells c left join public.cell_search_embeddings e on e.cell_id=c.id
+  where btrim(coalesce(c.content,'') || coalesce(c.summary,''))<>''
+    and (e.cell_id is null or e.model<>'gemini-embedding-001'
+      or e.content_hash<>md5(coalesce(c.content,'') || E'\n' || coalesce(c.summary,'')))
+  order by c.id limit greatest(1,least(coalesce(p_limit,5),5));
+$$;
+create or replace function public.store_cell_search_embedding(
+  p_cell_id uuid,p_model text,p_embedding text,p_content_hash text
+) returns boolean language plpgsql security definer
+set search_path = pg_catalog, public, extensions, pg_temp as $$
+declare current_hash text;
+begin
+  perform public.confirming_profile_id();
+  if p_model is distinct from 'gemini-embedding-001' then raise exception 'embedding model mismatch'; end if;
+  select md5(coalesce(c.content,'') || E'\n' || coalesce(c.summary,'')) into current_hash
+    from public.cells c where c.id=p_cell_id for share;
+  if current_hash is null or current_hash is distinct from p_content_hash then return false; end if;
+  insert into public.cell_search_embeddings(cell_id,model,embedding,content_hash)
+    values(p_cell_id,p_model,p_embedding::extensions.vector(768),p_content_hash)
+    on conflict(cell_id) do update set model=excluded.model,embedding=excluded.embedding,content_hash=excluded.content_hash;
+  return true;
+end $$;
+revoke all on function public.cell_search_pending(integer),public.store_cell_search_embedding(uuid,text,text,text) from public,anon;
+grant execute on function public.cell_search_pending(integer),public.store_cell_search_embedding(uuid,text,text,text) to authenticated;
 notify pgrst, 'reload schema';
 commit;

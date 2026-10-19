@@ -112,7 +112,10 @@
     "check:interface-map": "node scripts/generate-interface-schema-map.mjs --check",
     "agent-account": "node scripts/generate-agent-account.mjs",
     "check:agent-account": "node scripts/generate-agent-account.mjs --check",
-    "test:tool-search:project": "node scripts/smoke-tool-search.mjs"
+    "test:tool-search:project": "node scripts/smoke-tool-search.mjs",
+    "test:tool-search:db": "node scripts/run-cell-search-db.mjs",
+    "test:tool-search:postgrest": "node scripts/run-tool-server-over-postgrest.mjs --search",
+    "index:tool-search": "node scripts/backfill-tool-search.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

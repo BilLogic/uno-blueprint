@@ -602,12 +602,23 @@ with keyword fallback. It is an optional deployment recipe, not a template
 migration; it neither creates cells nor changes existing blueprint rows. The
 function runs as its caller, and only authenticated callers can execute it.
 
-An operator's indexing job embeds existing cell content plus summary as
-`RETRIEVAL_DOCUMENT` using `gemini-embedding-001` at 768 dimensions. Store each
-vector with its cell id, model and `md5(content || E'\n' || summary)`, treating
-null text as empty. The job uses a server-held provider credential and an
-operator database connection; no provider key is stored in the index. A
-changed cell stops using its old vector until the indexing job refreshes it.
+After applying the recipe, run `npm run build:tool-server` and deploy
+`index-cell-search` alongside `uno-tools`. Both functions use the same existing
+`BLUEPRINT_EMBEDDING_*` secrets; this indexer requires Google,
+`gemini-embedding-001` and 768 dimensions. Run `npm run index:tool-search`
+with the existing synthetic test login in ignored `.env`, linked to a profile
+that may confirm. The handler validates the caller and checks their own
+profile before sending document text to the provider. The storage function
+independently checks confirmation rights and writes only embedding rows.
+
+Each batch embeds up to five existing cells' content plus summary as
+`RETRIEVAL_DOCUMENT`, storing the vector, cell id, model and content hash.
+No provider key is stored in the index or sent to PostgREST. The CLI reports
+indexed and stale counts, with a bounded run that can be resumed. A provider
+quota or billing refusal is quoted with credentials and document text redacted.
+No services, cells, profiles or stakeholders are created or changed. A changed
+cell stops using its old vector until the indexer refreshes it; a concurrent
+edit makes the store refuse the stale vector and leaves the cell pending.
 Other models, dimensions or search granularities need the deployment's own
 function and index.
 

@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { TOOL_DEFINITIONS } from '@/lib/agent/tools/definitions'
 import { toolSpec, type ToolContext } from '@/lib/agent/tools/definition'
 export { serverSearchConfig } from '@/lib/agent/server/searchConfig'
+export { createCellSearchIndexer } from '@/lib/agent/server/searchIndexer'
 
 /** Used by the migration generator and its drift test, never a hand-maintained roster. */
 export function serverWriteContracts() {

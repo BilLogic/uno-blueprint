@@ -10,7 +10,7 @@ import { arg, defineTool } from '@/lib/agent/tools/definition'
 export const listSessionsTool = defineTool({
   name: 'list_sessions',
   description:
-    'Past chat sessions visible to this person — titles, dates, edit counts and ids. Use when the user refers to something discussed earlier ("like we said last time"). Server reads are private to the signed-in caller; the canvas reads its session switcher.',
+    'Past chat sessions visible to this person — titles, dates and ids; the canvas also shows edit counts. Use when the user refers to something discussed earlier ("like we said last time"). Server reads are private to the signed-in caller; the canvas reads its session switcher.',
   surface: 'read',
   args: z.object({}),
   browserBacked: false,

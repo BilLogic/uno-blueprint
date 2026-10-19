@@ -108,19 +108,20 @@ export function devLoginCredentials(): { email: string; password: string } | nul
   return { email, password }
 }
 
-export function createSupabaseClient(): SupabaseClient<Database> | null {
+export function createSupabaseClient({ publicOnly = false }: { publicOnly?: boolean } = {}): SupabaseClient<Database> | null {
   if (!isSupabaseConfigured()) {
     return null
   }
 
-  const key = hasDevAuthoringKey() ? devAuthoringKey! : supabaseAnonKey
+  const useDevKey = !publicOnly && hasDevAuthoringKey()
+  const key = useDevKey ? devAuthoringKey! : supabaseAnonKey
 
   return createClient<Database>(supabaseUrl, key, {
     auth: {
       // A service key must not be persisted or refreshed as if it were a
       // user session — it is not one, and storing it widens where it lands.
-      persistSession: !hasDevAuthoringKey(),
-      autoRefreshToken: !hasDevAuthoringKey(),
+      persistSession: !useDevKey,
+      autoRefreshToken: !useDevKey,
     },
   })
 }

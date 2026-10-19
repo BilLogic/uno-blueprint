@@ -10,6 +10,8 @@
  */
 import '@/lib/validationJit'
 import { QueryClientProvider } from '@tanstack/react-query'
+import { isConsentRoute } from '@/lib/oauthConsentRoute'
+import { OAuthConsent } from '@/components/cover/OAuthConsent'
 import { EditorErrorBoundary } from '@/components/EditorErrorBoundary'
 import { EditorShell } from '@/components/editor/EditorShell'
 import { ScenarioPathSelectionReset } from '@/components/editor/ScenarioPathSelectionReset'
@@ -110,7 +112,7 @@ export function App({ config }: { config?: DeploymentConfig | null }) {
     <EditorErrorBoundary scope="app">
       <DeploymentConfigProvider config={config}>
         <QueryClientProvider client={queryClient}>
-          <SupabaseProvider>
+          {isConsentRoute(window.location.pathname) ? <OAuthConsent /> : <SupabaseProvider>
             {/*
              * Resolves the URL slug to the active service and canonicalises
              * the slug into the address bar. Above everything that reads a
@@ -164,7 +166,7 @@ export function App({ config }: { config?: DeploymentConfig | null }) {
                 </TouchpointRegistryProvider>
               </EntityExamplesProvider>
             </ActiveServiceProvider>
-          </SupabaseProvider>
+          </SupabaseProvider>}
         </QueryClientProvider>
       </DeploymentConfigProvider>
     </EditorErrorBoundary>

@@ -45,6 +45,16 @@ beforeAll(() => {
 
 afterEach(cleanup)
 
+it.each(['/oauth/consent', '/oauth/consent/'])('routes %s before mounting the board, without a request or database', path => {
+  window.history.replaceState(null, '', path)
+  try {
+    render(<App />)
+    expect(screen.getByRole('heading', { name: 'Connect your agent' })).toBeDefined()
+    expect(screen.getByRole('alert').textContent).toContain('Missing authorization request')
+    expect(document.querySelector('[data-editor-sidebar]')).toBeNull()
+  } finally { window.history.replaceState(null, '', '/') }
+})
+
 describe('App (fallback render, zero config)', () => {
   it('mounts and shows the app chrome wordmark', async () => {
     render(<App />)

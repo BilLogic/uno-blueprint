@@ -50,6 +50,7 @@ export function versions(root = REPO_ROOT) {
   return {
     'package.json': read('package.json').version,
     '.claude-plugin/plugin.json': read('.claude-plugin/plugin.json').version,
+    '.cursor-plugin/plugin.json': read('.cursor-plugin/plugin.json').version,
     'CHANGELOG.md': changelogVersion(readFileSync(join(root, 'CHANGELOG.md'), 'utf8')),
     'package-lock.json': lockfileVersion(lock),
     ...(existsSync(join(root, INITIALISER_MANIFEST))
@@ -98,7 +99,9 @@ function writeManifestVersion(root, manifest) {
 
 /** Copy package.json's version into plugin.json. Returns true if it changed. */
 export function writePluginVersion(root = REPO_ROOT) {
-  return writeManifestVersion(root, '.claude-plugin/plugin.json')
+  const claude = writeManifestVersion(root, '.claude-plugin/plugin.json')
+  const cursor = writeManifestVersion(root, '.cursor-plugin/plugin.json')
+  return claude || cursor
 }
 
 /**

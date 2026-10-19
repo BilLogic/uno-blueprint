@@ -169,6 +169,10 @@ const NOT_A_SWEEP = new Set([
  */
 const FIXTURE_ONLY = new Map([
   [
+    'scripts/tests/tool-server-checks.test.mjs',
+    'the minimal tool-server application and browser-session module it builds in temporary fixture roots, then removes after judging each bundle',
+  ],
+  [
     'scripts/tests/reference-paths.test.mjs',
     'one path handed to `absences`, to prove it reports a file outside the plugin surface',
   ],

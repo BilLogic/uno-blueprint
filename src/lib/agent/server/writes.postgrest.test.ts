@@ -30,11 +30,18 @@ it.runIf(live)('every write works over MCP; contributions are proposals, approva
     const owner = await connect(process.env.MCP_TEST_OWNER_JWT!)
     const contributor = await connect(process.env.MCP_TEST_OTHER_JWT!)
     const write = async (name: string, args: Record<string, unknown>) => {
+      const before = await db.from('authoring_changes').select('id')
+      expect(before.error).toBeNull()
       const result = await call(owner, name, args)
-      const audit = await db.from('authoring_changes').select('revert').eq('fn', name).order('at', { ascending: false }).limit(1).single()
-      expect(audit.error).toBeNull()
-      expect(audit.data?.revert, name).toMatchObject({ kind: 'captured_rows', rows: expect.any(Array) })
-      expect((audit.data!.revert as { rows: unknown[] }).rows.length, name).toBeGreaterThan(0)
+      const after = await db.from('authoring_changes').select('id,revert')
+      expect(after.error).toBeNull()
+      const priorIds = new Set(before.data!.map(row => row.id))
+      const added = after.data!.filter(row => !priorIds.has(row.id))
+      if (result.outcome === 'applied') {
+        expect(added, name).toHaveLength(1)
+        expect(added[0].revert, name).toMatchObject({ kind: 'captured_rows', rows: expect.any(Array) })
+        expect((added[0].revert as { rows: unknown[] }).rows.length, name).toBeGreaterThan(0)
+      } else expect(added, name).toHaveLength(0)
       return result
     }
     const phase = (await write('create_phase', { name: 'MCP phase' })).result

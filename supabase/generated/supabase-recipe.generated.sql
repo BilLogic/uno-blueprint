@@ -2831,3 +2831,55 @@ begin
   end if;
 end
 $profile_proof$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000311000000_a_proposal_is_a_validated_tool_call.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- refuse a Supabase JWT whose own decoded role is service_role.
+create or replace function public.agent_refuse_secrets(p_args jsonb) returns void
+language plpgsql immutable set search_path = pg_catalog, pg_temp as $$
+declare part text[]; payload jsonb; encoded text;
+begin
+  for part in select regexp_matches(p_args::text,'eyJ[A-Za-z0-9_-]{5,}\.([A-Za-z0-9_-]{10,})\.[A-Za-z0-9_-]{5,}','g') loop
+    encoded:=translate(part[1],'-_','+/');
+    begin payload:=convert_from(decode(rpad(encoded,((length(encoded)+3)/4)*4,'='),'base64'),'UTF8')::jsonb; exception when others then payload:='{}'; end;
+    if payload->>'role'='service_role' then raise exception 'Remove the secret from this call; keep service-role keys in the ignored environment file.'; end if;
+  end loop;
+end $$;
+-- grant the authenticated entry points; helpers stay private.
+revoke all on function public.agent_check_shape(jsonb,jsonb,text),public.agent_named_cells(jsonb),public.agent_refuse_secrets(jsonb),public.validate_cell_content_suggestion(),public.agent_tool_state(jsonb),public.agent_tool_transaction(text,jsonb,uuid,uuid,boolean,uuid),public.agent_write_contracts(),public.approve_cell_content_suggestion(uuid) from anon,authenticated;
+revoke all on function public.run_agent_tool(text,jsonb,uuid,uuid,boolean),public.approve_suggested_change(uuid) from public,anon;
+grant execute on function public.run_agent_tool(text,jsonb,uuid,uuid,boolean),public.approve_suggested_change(uuid) to authenticated;
+
+-- Preserve the deployment's SQL tier decision, including the permissive
+-- core seam. Only the checked transaction adds another permitted path.
+do $$
+declare body text; source text; patched text;
+begin
+  select pg_get_functiondef(p.oid), p.prosrc into body, source
+    from pg_proc p join pg_language l on l.oid=p.prolang
+    where p.oid='public.is_service_account()'::regprocedure and l.lanname='sql';
+  if source is null then raise exception 'The service-account tier must supply a SQL boolean decision'; end if;
+  patched:=replace(body,source,'select ('||regexp_replace(source,';[[:space:]]*$','')||
+    ') or (current_setting(''ub.agent_transaction'',true)=''on'' and public.caller_profile_id() is not null)');
+  if patched=body then raise exception 'Expected service-account tier body patch did not match'; end if;
+  execute patched;
+end $$;
+comment on function public.is_service_account() is
+  'The deployment tier decision, or the checked agent transaction for a linked profile. The transaction gate is local to its call; ordinary calls keep the deployment tier decision.';
+-- Proof: public entry points admit authenticated callers only. Helpers cannot
+-- be invoked to open the private authoring gate or apply unchecked payloads.
+do $$ declare signature text; begin
+  if has_function_privilege('anon','public.run_agent_tool(text,jsonb,uuid,uuid,boolean)','execute') then raise exception 'anon can run agent writes'; end if;
+  foreach signature in array array[
+    'public.agent_tool_transaction(text,jsonb,uuid,uuid,boolean,uuid)',
+    'public.agent_check_shape(jsonb,jsonb,text)', 'public.agent_named_cells(jsonb)',
+    'public.agent_refuse_secrets(jsonb)', 'public.agent_tool_state(jsonb)',
+    'public.agent_write_contracts()', 'public.validate_cell_content_suggestion()',
+    'public.approve_cell_content_suggestion(uuid)'
+  ] loop
+    if has_function_privilege('authenticated',signature,'execute') or has_function_privilege('anon',signature,'execute') then raise exception 'caller can bypass proposal admission through %',signature; end if;
+  end loop;
+  if not has_function_privilege('authenticated','public.approve_suggested_change(uuid)','execute') then raise exception 'signed-in approval is missing'; end if;
+end $$;

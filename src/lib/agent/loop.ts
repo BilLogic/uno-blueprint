@@ -946,6 +946,10 @@ export async function sendToAgent(input: {
                 result: detailText(admission.refusal),
               })
               break
+            case 'cell-limit':
+              // The server supplies a per-call cell count. The browser has
+              // no server transaction to pause; its caller reads the refusal.
+              break
             case 'not-enabled':
             case 'server-unavailable':
             case 'no-search':

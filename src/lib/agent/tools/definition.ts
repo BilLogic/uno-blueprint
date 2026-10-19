@@ -112,6 +112,8 @@ export type ToolContext = {
     getSession: (sessionId: string) => Promise<string>
     getChanges: (limit: number | undefined, currentSessionId: string) => string | Promise<string>
   }
+  /** A server applies the validated write in one database transaction. */
+  serverWrite?: (name: string, args: Record<string, unknown>) => Promise<string>
   /**
    * The roster this call was offered from: what the canvas adapter lists
    * when it is served, so the agent reads exactly the tools it can call.
@@ -184,8 +186,9 @@ export function defineWriteTool<Args extends z.ZodObject>(definition: {
     args: definition.args,
     availability: { sample: false, mobile: false },
     aliases: definition.aliases,
-    run: (args, ctx) =>
-      ctx.session.attributed(() => definition.run(args, { ...ctx, client: requireClient(ctx) })),
+    run: (args, ctx) => ctx.serverWrite
+      ? ctx.serverWrite(definition.name, args)
+      : ctx.session.attributed(() => definition.run(args, { ...ctx, client: requireClient(ctx) })),
   }
 }
 

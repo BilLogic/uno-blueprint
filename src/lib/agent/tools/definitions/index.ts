@@ -1,4 +1,5 @@
 import type { ToolDefinition } from '@/lib/agent/tools/definition'
+import { listSuggestedChangesTool, approveSuggestedChangeTool, declineSuggestedChangeTool } from '@/lib/agent/tools/definitions/proposals'
 import { getProfileTool } from '@/lib/agent/tools/definitions/profile'
 import {
   compareBlueprintTool,
@@ -78,6 +79,7 @@ import { getUiStateTool, listUiCommandsTool } from '@/lib/agent/tools/definition
  * stays a tool they can see.
  */
 export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
+  listSuggestedChangesTool,
   getProfileTool,
   getReferenceTool,
   listBlueprintTool,
@@ -133,6 +135,8 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
   updateEvidenceTool,
   createFindingTool,
   updateFindingTool,
+  approveSuggestedChangeTool,
+  declineSuggestedChangeTool,
 ]
 
 const byName = new Map(TOOL_DEFINITIONS.map((tool) => [tool.name, tool]))

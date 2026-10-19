@@ -5,8 +5,16 @@ import { createServerToolContext } from '@/lib/agent/tools/serverContext'
 import { findToolDefinition } from '@/lib/agent/tools/definitions'
 import { SCOPE_ALL } from '@/lib/agent/tools/serviceScope'
 import type { Database } from '@/types/database'
-import type { ToolContext } from '@/lib/agent/tools/definition'
+import { z } from 'zod'
+import { TOOL_DEFINITIONS } from '@/lib/agent/tools/definitions'
+import { toolSpec, type ToolContext } from '@/lib/agent/tools/definition'
 export { serverSearchConfig } from '@/lib/agent/server/searchConfig'
+
+/** Used by the migration generator and its drift test, never a hand-maintained roster. */
+export function serverWriteContracts() {
+  return Object.fromEntries(TOOL_DEFINITIONS.filter(tool => tool.surface === 'write')
+    .map(tool => [tool.name, toolSpec(tool).parameters]))
+}
 
 export function createToolServer(options: {
   url: string
@@ -30,6 +38,7 @@ export function createToolServer(options: {
       url: options.url, publishableKey: options.publishableKey,
       jwt: request.headers.get('Authorization')!.replace(/^Bearer\s+/i, ''),
       sessionId: crypto.randomUUID(), scope: SCOPE_ALL, signal: request.signal, fetch: options.fetch,
+      allowWrites: true,
       search: options.search,
     })
     const handler = createMcpHandler(() => {
@@ -42,7 +51,11 @@ export function createToolServer(options: {
       for (const spec of context.roster) {
         const definition = findToolDefinition(spec.name)!
         server.registerTool(spec.name, {
-          description: spec.description, inputSchema: definition.args,
+          description: spec.description,
+          inputSchema: definition.surface === 'write' ? definition.args.extend({
+            service_id: z.string().uuid().optional().describe('Service to create under; copy its id from list_blueprint.'),
+            confirmed: z.boolean().optional().describe('True only after the person explicitly confirmed this change; otherwise record a proposal.'),
+          }).passthrough() : definition.args,
           annotations: { readOnlyHint: definition.surface === 'read' },
         }, async args => {
           try {

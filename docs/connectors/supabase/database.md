@@ -928,6 +928,39 @@ conversation and signs out only its own Auth sessions. It writes no blueprint
 or profile rows. It verifies direct JWT authentication; browser consent and
 Cursor interaction remain separate checks.
 
+Remote writes pass the shared roster and admission, then `run_agent_tool`.
+The database transaction checks the derived tool schema, the applicable IR
+field rules and real relationships before committing. Incremental authoring
+still permits an empty phase or scenario while it is being built, as the
+canvas does; this does not certify a complete IR document for import.
+`generate-tool-contracts.mjs` derives the schemas from the definitions and
+`references/ir-schema.json`; its drift check requires a forward migration when
+an already deployed contract changes. The gateway calls the existing structural
+RPCs and applies direct-table edits in the same transaction as their durable
+log. Preview runs the same operation in a rolled-back subtransaction.
+
+A write needs a linked profile. Findings and evidence can be recorded freely;
+a blueprint change needs a person who may confirm and `confirmed:true` after
+that person's explicit yes. Otherwise it becomes a pending row in the existing
+`suggested_changes` table. Cell-content contributions keep the Profiles
+`record_contribution` path, including evidence in their giver's name; cell-spec
+and structural proposals carry the tool name and arguments. Approval checks the
+original tool's current admission and schema again, compares the named target
+rows with their proposal-time values, and runs the same transaction as a direct
+call under the approver's identity. A missing or changed target is a refusal;
+the proposal stays pending and nothing is written. List and decline include
+both existing cell-content suggestions and general tool proposals.
+
+The durable `authoring_changes` row carries the authenticated caller and, on
+approval, `proposed_by` and `approved_by`. This is the minimum attribution
+needed for server writes; it adds no browser undo or audit-row replay. The
+server neither installs a process-global log writer nor borrows browser agent
+attribution. Every call is capped at 50 distinct cells, including cells copied
+by a path or scenario duplication. The secret check matches the plugin hook's
+service-role JWT policy and runs over the whole argument tree, before schema
+parsing can discard unknown fields. The Supabase recipe also enforces it in
+the transaction; a different host must supply its own checker before writes
+can run.
 The server's `list_sessions`, `get_session` and `get_change_history` read
 `agent_sessions`, `agent_messages` and `authoring_changes` with the caller's
 JWT. Conversation reads stay private through RLS; durable change rows are a

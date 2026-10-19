@@ -35,6 +35,7 @@ it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('every database re
     const compare = paths.find(row => paths.filter(other => other.scenario_id === row.scenario_id).length > 1)!
     const cases: [string, Record<string, unknown>, string][] = [
       ['get_profile', {}, 'Reader profile'],
+      ['list_suggested_changes', {}, '[]'],
       ['list_blueprint', { granularity: ['cell'], limit: 500 }, cellId],
       ['get_blueprint', { scenario_id: path.scenario_id }, cellId],
       ['compare_blueprint', { scenario_id: compare.scenario_id }, 'Comparing'],
@@ -52,7 +53,8 @@ it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('every database re
       ['list_findings', { status: 'all' }, 'A persisted finding'],
       ['search_blueprint', { query: 'remote result', api_key: 'a-caller-cannot-replace-the-server-key' }, 'A remote search result'],
     ]
-    const listed = (await client.listTools()).tools.map(tool => tool.name).sort()
+    const readNames = new Set(TOOL_DEFINITIONS.filter(tool => tool.surface === 'read').map(tool => tool.name))
+    const listed = (await client.listTools()).tools.map(tool => tool.name).filter(name => readNames.has(name)).sort()
     expect(listed).toEqual(cases.map(([name]) => name).sort())
     expect(listed).toEqual(TOOL_DEFINITIONS.filter(tool => tool.surface === 'read' && tool.browserBacked === false && !tool.resourceOnly).map(tool => tool.name).sort())
     for (const [name, args, fact] of cases) {

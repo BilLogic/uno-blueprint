@@ -64,6 +64,7 @@
     "test:tool-writes:db": "node scripts/run-tool-write-db.mjs",
     "test:tool-writes:postgrest": "node scripts/run-tool-server-over-postgrest.mjs --writes",
     "test:tool-server:postgrest": "node scripts/run-tool-server-over-postgrest.mjs",
+    "test:tool-reads:postgrest": "node scripts/run-tool-server-over-postgrest.mjs --reads",
     "test:tool-server:project": "node scripts/smoke-tool-server.mjs",
     "test:profiles:postgrest": "node scripts/run-profiles-over-postgrest.mjs",
     "test:server-context:postgrest": "node scripts/run-server-context-over-postgrest.mjs",

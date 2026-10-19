@@ -1,12 +1,12 @@
-import { readServerSession } from '@/lib/agent/server/history'
+import { readServerSession, listServerSessions, readServerChanges } from '@/lib/agent/server/history'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import type { ToolSpec } from '@/lib/agent/providers/provider'
 import { PACKAGE_OFFLINE_BOARD } from '@/data/blueprintFallbacks'
 import { runTool, toolSpec, type ToolContext, type ToolUi } from '@/lib/agent/tools/definition'
-import { sessionRoster, type RosterMode } from '@/lib/agent/tools/roster'
+import { sessionRoster, toolEnabled, type RosterMode } from '@/lib/agent/tools/roster'
 import { admitToolCall } from '@/lib/agent/tools/admission'
-import { findToolDefinition } from '@/lib/agent/tools/definitions'
+import { findToolDefinition, TOOL_DEFINITIONS } from '@/lib/agent/tools/definitions'
 import { noSuchToolRefusal } from '@/lib/agent/tools/refusals'
 import { executeServerWrite, namedCells, refuseSecrets } from '@/lib/agent/server/writes'
 
@@ -26,6 +26,7 @@ const serverUi: ToolUi = {
 }
 
 export type ServerToolContext = {
+  readonly resources: readonly { name: string; uri: string; read: () => Promise<string> }[]
   readonly roster: readonly ToolSpec[]
   call: (name: string, args: Record<string, unknown>) => Promise<string>
 }
@@ -46,6 +47,7 @@ export function createServerToolContext(options: {
   /** A transport adapter, for a standalone PostgREST without the project prefix. */
   fetch?: typeof fetch
   allowWrites?: boolean
+  search?: NonNullable<ToolContext['meaning']>
 }): ServerToolContext {
   const client = createClient<Database>(options.url, options.publishableKey, {
     accessToken: async () => options.jwt,
@@ -55,17 +57,30 @@ export function createServerToolContext(options: {
   const mode: RosterMode = {
     server: true,
     sampleTrial: false, mobileReading: false, allowWrites: options.allowWrites ?? false,
-    searchOffered: false,
+    searchOffered: Boolean(options.search),
   }
   const roster = sessionRoster(mode)
   const context: ToolContext = {
     client, scope: options.scope,
     session: { id: options.sessionId, attributed: noServerWrites },
     ui: serverUi, offlineBoard: PACKAGE_OFFLINE_BOARD, roster,
-    history: { listSessions: noCanvas, getSession: id => readServerSession(client, id) },
+    history: {
+      listSessions: () => listServerSessions(client),
+      getSession: id => readServerSession(client, id),
+      getChanges: limit => readServerChanges(client, limit),
+    },
+    meaning: options.search,
     signal: options.signal,
   }
   return {
+    resources: TOOL_DEFINITIONS.filter(tool => tool.resource && toolEnabled(tool.name)).flatMap(tool => {
+      const resource = tool.resource!
+      return resource.names().map(name => ({
+        name,
+        uri: resource.uriPrefix + encodeURIComponent(name),
+        read: () => runTool(tool, { [resource.argument]: name }, context),
+      }))
+    }),
     roster: roster.map(toolSpec),
     async call(name, args) {
       const tool = findToolDefinition(name)

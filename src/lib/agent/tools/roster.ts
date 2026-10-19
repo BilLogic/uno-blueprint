@@ -145,7 +145,7 @@ export function toolStanding(
   // an index has been told the wrong thing.
   if (name === 'search_blueprint' && !mode.searchOffered)
     return { offered: false, ground: 'no-search' }
-  if (mode.server && (tool?.surface === 'interface' ||
+  if (mode.server && (tool?.resourceOnly || tool?.surface === 'interface' ||
     (tool?.surface === 'read' && tool.browserBacked !== false)))
     return { offered: false, ground: 'server-unavailable' }
   if (mode.sampleTrial && !tool?.availability.sample)

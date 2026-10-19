@@ -7,7 +7,8 @@ import { SCOPE_ALL } from '@/lib/agent/tools/serviceScope'
 import type { Database } from '@/types/database'
 import { z } from 'zod'
 import { TOOL_DEFINITIONS } from '@/lib/agent/tools/definitions'
-import { toolSpec } from '@/lib/agent/tools/definition'
+import { toolSpec, type ToolContext } from '@/lib/agent/tools/definition'
+export { serverSearchConfig } from '@/lib/agent/server/searchConfig'
 
 /** Used by the migration generator and its drift test, never a hand-maintained roster. */
 export function serverWriteContracts() {
@@ -21,6 +22,7 @@ export function createToolServer(options: {
   resourceUrl: string
   jwks?: SupabaseEnv['jwks']
   fetch?: typeof fetch
+  search?: NonNullable<ToolContext['meaning']>
 }) {
   return withOAuthProtectedResource({
     resourceServer: options.resourceUrl,
@@ -37,9 +39,15 @@ export function createToolServer(options: {
       jwt: request.headers.get('Authorization')!.replace(/^Bearer\s+/i, ''),
       sessionId: crypto.randomUUID(), scope: SCOPE_ALL, signal: request.signal, fetch: options.fetch,
       allowWrites: true,
+      search: options.search,
     })
     const handler = createMcpHandler(() => {
       const server = new McpServer({ name: 'uno-blueprint', version: '1.0.0' })
+      for (const resource of context.resources) {
+        server.registerResource(resource.name, resource.uri, { mimeType: 'text/markdown' }, async uri => ({
+          contents: [{ uri: uri.href, mimeType: 'text/markdown', text: await resource.read() }],
+        }))
+      }
       for (const spec of context.roster) {
         const definition = findToolDefinition(spec.name)!
         server.registerTool(spec.name, {

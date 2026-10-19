@@ -961,3 +961,26 @@ service-role JWT policy and runs over the whole argument tree, before schema
 parsing can discard unknown fields. The Supabase recipe also enforces it in
 the transaction; a different host must supply its own checker before writes
 can run.
+The server's `list_sessions`, `get_session` and `get_change_history` read
+`agent_sessions`, `agent_messages` and `authoring_changes` with the caller's
+JWT. Conversation reads stay private through RLS; durable change rows are a
+business audit and are never presented as replayable undo. `get_profile` reads
+only the signed-in person's profile, so an agent host can identify its person
+without choosing somebody else's profile id. The canvas retains its browser
+history adapter.
+
+References are MCP resources at `uno://references/<name>`, derived from the
+same reference definition and names as the canvas tools. The reference tools,
+all interface tools, UI-state and UI-command reads are absent from the server
+tool roster. Resource reads still require authentication.
+
+A person configures `BLUEPRINT_EMBEDDING_API_KEY` as a Supabase function secret,
+with `BLUEPRINT_EMBEDDING_MODEL` and `BLUEPRINT_EMBEDDING_DIMENSIONS` matching
+an existing search index; `BLUEPRINT_EMBEDDING_PROVIDER` is `openai` by default
+or `google`. The template does not create an index or set those secrets.
+Without a key and valid index metadata, ranked search is not offered. With
+them, the shared search reader embeds the question using the server key and
+forwards only the vector/model to the deployment's `search_blueprint` RPC.
+The key is never a tool argument, browser setting, database argument or reply.
+The MCP/database test supplies a fixture provider transport; it proves key
+handling and the RPC boundary, not a live provider or deployment index.

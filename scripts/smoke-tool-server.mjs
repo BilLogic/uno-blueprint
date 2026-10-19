@@ -48,6 +48,13 @@ export async function judge() {
         requestInit: { headers: { Authorization: `Bearer ${data.session.access_token}` } },
       }))
     }
+    step = 'reading the caller profile through MCP'
+    const profile = await clients[0].callTool({ name: 'get_profile', arguments: {} })
+    assert(!profile.isError && JSON.stringify(profile).includes('may_confirm'), 'Caller profile read completes.')
+    step = 'reading the reference resource through MCP'
+    const resources = await clients[0].listResources()
+    assert(resources.resources.some(resource => resource.uri === 'uno://references/lane-roles'))
+    assert(JSON.stringify(await clients[0].readResource({ uri: 'uno://references/lane-roles' })).includes('frontstage'))
     step = 'writing the temporary conversation'
     assert.notEqual(identities[0], identities[1], 'The test needs two distinct callers.')
     assert.equal((await databases[0].from('agent_sessions').insert({ id, title: 'Temporary MCP proof' })).error, null)
@@ -82,7 +89,7 @@ export async function judge() {
   }
   return {
     what: 'the remote MCP proof', count: 1, findings,
-    line: 'PASS: real Auth logins; owner MCP read; other-owner RLS refusal; blueprint read; missing and invalid JWT refusals. Temporary conversation removed.',
+    line: 'PASS: real Auth logins; caller profile; reference resource; owner MCP read; other-owner RLS refusal; blueprint read; missing and invalid JWT refusals. Temporary conversation removed.',
     closing: 'Run `npm run test:tool-server:project`.',
   }
 }

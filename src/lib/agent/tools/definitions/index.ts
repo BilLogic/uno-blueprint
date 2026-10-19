@@ -1,5 +1,6 @@
 import type { ToolDefinition } from '@/lib/agent/tools/definition'
 import { listSuggestedChangesTool, approveSuggestedChangeTool, declineSuggestedChangeTool } from '@/lib/agent/tools/definitions/proposals'
+import { getProfileTool } from '@/lib/agent/tools/definitions/profile'
 import {
   compareBlueprintTool,
   getBlueprintTool,
@@ -79,6 +80,7 @@ import { getUiStateTool, listUiCommandsTool } from '@/lib/agent/tools/definition
  */
 export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
   listSuggestedChangesTool,
+  getProfileTool,
   getReferenceTool,
   listBlueprintTool,
   searchBlueprintTool,

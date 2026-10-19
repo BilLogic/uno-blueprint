@@ -9,6 +9,10 @@ description: Start Uno, the agent keeping one business's blueprint, in a fresh s
 project this workspace is linked to (`.env`, `supabase link`). One session is
 one phase: onboarding, or a daily session.
 
+Run the state script from the business workspace, or give `--workspace <path>`
+after its command. Linked queries, blueprint detection and the default ledger
+resolve there; bundled helpers still resolve from the plugin.
+
 Paths resolve against the plugin root (`${CLAUDE_PLUGIN_ROOT}` in Claude Code) or the workspace root, per `AGENTS.md`.
 
 ## 1. Read the entry state

@@ -126,12 +126,12 @@ skill's `SKILL.md`, copied byte for byte into `.agents/skills/init/`,
 `map/`, `slice/`, `audit/` and `whatif/`. Open a checkout or a workspace in one of
 those tools and the skills are there, with no plugin to install.
 
-Cursor and Codex were checked by hand, and both showed the skills under
-their `ub:` names. In Cursor a skill is `ub:map`, or you describe a map
-task; in Codex it is `$ub:map`. A bare `map` is not registered in either.
+Codex was checked by hand and showed the skills under their `ub:` names;
+invoke one as `$ub:map`. Cursor invocation remains unverified until someone
+runs it; `ub:map` is the expected full name there.
 
-`ub:init` is called the same way, by its full name: `ub:init` in Cursor,
-`$ub:init` in Codex. The bare name would collide in Codex, whose own `/init`
+`ub:init` uses `$ub:init` in Codex. In Cursor, `ub:init` is the expected
+full name; invocation there remains unverified until someone runs it. The bare name would collide in Codex, whose own `/init`
 writes an `AGENTS.md`. Claude Code also ships `/init`, which writes
 `CLAUDE.md`; use the full `ub:init` name there too. Cursor's documented CLI commands carry no `/init`.
 Both facts come from each tool's documentation and have not been checked by

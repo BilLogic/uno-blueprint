@@ -83,7 +83,7 @@ fi
 python3 "$INIT" approve --db-url "$URL" --profile "$CONSULTANT" --suggestion "$suggestion" >/dev/null
 [ "$(owner "select confirmed_by from public.cells where id = '$CELL'")" = "$CONSULTANT" ] || fail "approval did not confirm"
 [ "$(owner "select content from public.cells where id = '$CELL'")" = 'Intake starts with a call' ] || fail "approval did not write the cell"
-[ "$(owner "select count(*) from public.authoring_changes where fn = 'approve_suggested_change' and author_id = (select user_id from public.profiles where id = '$CONSULTANT')")" = 1 ] || fail "approval did not log the approving login once"
+[ "$(owner "select count(*) from public.authoring_changes where fn = 'update_cell_content' and args ? 'update' and (revert->'args'->'update') ? 'confirmed_by' and revert->'args'->'update'->'confirmed_by' = 'null'::jsonb and author_id = (select user_id from public.profiles where id = '$CONSULTANT')")" = 1 ] || fail "approval did not log the approving login once"
 owner "insert into public.authoring_changes (fn, label) values ('update_cell_content', 'A canvas edit')" >/dev/null
 edits=$(python3 "$INIT" state --db-url "$URL" --profile "$EXPERT" | field changes_since_last_run)
 [[ "$edits" == *"A canvas edit"* ]] || fail "the canvas edit was not reported"

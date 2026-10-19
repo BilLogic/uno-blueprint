@@ -295,6 +295,10 @@ Writes are layered on top for signed-in sessions (`authenticated`):
   dependencies) — each performs one complete, valid edit in one
   transaction. No table-level `INSERT`/`DELETE` on structural tables is
   granted to app roles.
+- **New cell columns need an explicit UPDATE grant.** `cells` carries
+  column-level UPDATE grants, including for the service role; a migration
+  adding a writable column grants UPDATE on that column explicitly. New
+  confirmation columns stay closed unless a guarded RPC owns their writes.
 - **Ordinary text edits use column-scoped grants**: `cells.content/
   summary`, `cell_touchpoints.name/position/summary/role`,
   `resources.kind/name/url/position`, `lanes.name/lane_role`, `steps.name`,

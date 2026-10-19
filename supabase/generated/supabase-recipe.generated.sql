@@ -2836,15 +2836,15 @@ $profile_proof$;
 -- 21000311000000_a_proposal_is_a_validated_tool_call.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
--- Supabase service-role JWTs, the same policy as the plugin hook.
+-- refuse a Supabase JWT whose own decoded role is service_role.
 create or replace function public.agent_refuse_secrets(p_args jsonb) returns void
 language plpgsql immutable set search_path = pg_catalog, pg_temp as $$
-declare part text[]; payload text; encoded text;
+declare part text[]; payload jsonb; encoded text;
 begin
   for part in select regexp_matches(p_args::text,'eyJ[A-Za-z0-9_-]{5,}\.([A-Za-z0-9_-]{10,})\.[A-Za-z0-9_-]{5,}','g') loop
     encoded:=translate(part[1],'-_','+/');
-    begin payload:=convert_from(decode(rpad(encoded,((length(encoded)+3)/4)*4,'='),'base64'),'UTF8'); exception when others then payload:=''; end;
-    if payload ~ '"role"\s*:\s*"service_role"' then raise exception 'Remove the secret from this call; keep service-role keys in the ignored environment file.'; end if;
+    begin payload:=convert_from(decode(rpad(encoded,((length(encoded)+3)/4)*4,'='),'base64'),'UTF8')::jsonb; exception when others then payload:='{}'; end;
+    if payload->>'role'='service_role' then raise exception 'Remove the secret from this call; keep service-role keys in the ignored environment file.'; end if;
   end loop;
 end $$;
 -- grant the authenticated entry points; helpers stay private.

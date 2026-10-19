@@ -25,11 +25,13 @@ it('MCP admits a valid write and refuses invalid arguments, secrets and an overs
     expect((await client.listTools()).tools.some(tool => tool.name === 'update_cell')).toBe(true)
     expect(JSON.stringify(await call('update_cell', { cell_id: crypto.randomUUID(), content: 'Reviewed wording', confirmed: true }))).toContain('applied')
     expect(writes).toHaveLength(1)
+    const personToken = `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(JSON.stringify({ role: 'authenticated', context: { role: 'service_role' } })).toString('base64url')}.signature`
+    expect(JSON.stringify(await call('update_cell', { cell_id: crypto.randomUUID(), content: `${personToken} alongside the literal {"role":"service_role"}`, confirmed: true }))).toContain('applied')
     const secret = `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(JSON.stringify({ role: 'service_role' })).toString('base64url')}.signature`
     expect(JSON.stringify(await call('update_cell', { cell_id: crypto.randomUUID(), content: secret }))).toContain('secret')
     expect(JSON.stringify(await call('update_cell', { cell_id: crypto.randomUUID(), content: 'Reviewed wording', extra: { nested: secret } }))).toContain('secret')
     expect(JSON.stringify(await call('create_scenario', { phase_id: crypto.randomUUID(), name: 'Intake', step_count: -1 }))).toContain('positive')
     expect(JSON.stringify(await call('create_slice', { title: 'Brief', kind: 'journey', cell_ids: Array.from({ length: 51 }, () => crypto.randomUUID()) }))).toContain('50 cells')
-    expect(writes).toHaveLength(1)
+    expect(writes).toHaveLength(2)
   } finally { await client.close(); await http.close(); await database.close() }
 })

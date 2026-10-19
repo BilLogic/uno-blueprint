@@ -96,6 +96,7 @@ export type Database = {
           fingerprint: string
           id: string
           impact: string | null
+          recorded_by: string | null
           run_id: string
           service_id: string
           severity: string
@@ -113,6 +114,7 @@ export type Database = {
           fingerprint: string
           id?: string
           impact?: string | null
+          recorded_by?: string | null
           run_id: string
           service_id: string
           severity: string
@@ -130,6 +132,7 @@ export type Database = {
           fingerprint?: string
           id?: string
           impact?: string | null
+          recorded_by?: string | null
           run_id?: string
           service_id?: string
           severity?: string
@@ -139,6 +142,12 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "audit_findings_recorded_by_fkey"
+            columns: ["recorded_by"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "audit_findings_service_id_fkey"
             columns: ["service_id"]

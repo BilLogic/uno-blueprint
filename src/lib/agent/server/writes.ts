@@ -1,13 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/types/database'
 
-/** Same service-role JWT check as hooks/secret_guard.py, over the entire argument tree. */
+/** Refuse JWTs whose decoded top-level role is service_role, anywhere in the arguments. */
 export function refuseSecrets(args: Record<string, unknown>): void {
   const text = JSON.stringify(args)
   for (const match of text.matchAll(/eyJ[A-Za-z0-9_-]{5,}\.([A-Za-z0-9_-]{10,})\.[A-Za-z0-9_-]{5,}/g)) {
     try {
-      const payload = atob(match[1].replaceAll('-', '+').replaceAll('_', '/'))
-      if (/"role"\s*:\s*"service_role"/.test(payload) || /"role"\s*:\s*"service_role"/.test(text))
+      const payload = JSON.parse(atob(match[1].replaceAll('-', '+').replaceAll('_', '/')))
+      if (payload?.role === 'service_role')
         throw new Error('Remove the secret from this call; keep service-role keys in the ignored environment file.')
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('Remove the secret')) throw error

@@ -14976,6 +14976,11 @@ alter table public.authoring_changes
   add column proposed_by uuid references public.profiles(id) on delete set null,
   add column approved_by uuid references public.profiles(id) on delete set null;
 
+alter table public.audit_findings
+  add column recorded_by uuid references public.profiles(id) on delete set null;
+comment on column public.audit_findings.recorded_by is
+  'The profile that first recorded this finding through an agent tool. Null when the original recorder is unknown.';
+
 -- The service rename left the phase RPC's parameter ambiguous beside the
 -- renamed column. Qualify the parameter before the new boundary calls it.
 do $$ declare body text; before text; begin
@@ -15174,11 +15179,18 @@ begin
           perform set_config('ub.agent_transaction',coalesce(old_gate,''),true);
           return jsonb_build_object('outcome','suppressed','message','A person dismissed this finding; nothing was recorded.');
         elsif existing.status='open' then
+          if existing.recorded_by is distinct from profile and not exists(
+            select 1 from public.profiles p where p.id=profile and p.may_confirm
+          ) then
+            perform set_config('ub.agent_transaction',coalesce(old_gate,''),true);
+            return jsonb_build_object('outcome','unchanged','result',existing.id,
+              'message','An open finding already records this check. Only its original recorder or someone who may confirm can revise it; nothing was changed.');
+          end if;
           update public.audit_findings set run_id=coalesce((a->>'run_id')::uuid,gen_random_uuid()),source=a->>'source',severity=a->>'severity',impact=a->>'impact',effort=a->>'effort',summary=a->>'summary',cell_ids=ids,cell_keys=array(select x::text from unnest(ids) x),updated_at=now() where audit_findings.id=existing.id;
           id:=existing.id;
         else
-          insert into public.audit_findings(service_id,run_id,source,check_key,severity,impact,effort,summary,cell_ids,cell_keys,fingerprint)
-            values(p_service_id,coalesce((a->>'run_id')::uuid,gen_random_uuid()),a->>'source',a->>'check_key',a->>'severity',a->>'impact',a->>'effort',a->>'summary',ids,array(select x::text from unnest(ids) x),v_fingerprint)
+          insert into public.audit_findings(service_id,run_id,source,check_key,severity,impact,effort,summary,cell_ids,cell_keys,fingerprint,recorded_by)
+            values(p_service_id,coalesce((a->>'run_id')::uuid,gen_random_uuid()),a->>'source',a->>'check_key',a->>'severity',a->>'impact',a->>'effort',a->>'summary',ids,array(select x::text from unnest(ids) x),v_fingerprint,profile)
             returning audit_findings.id into id;
         end if;
         result:=to_jsonb(id);

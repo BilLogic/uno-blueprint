@@ -64,6 +64,11 @@ it.runIf(live)('every write works over MCP; contributions are proposals, approva
     await write('replace_slides', { slice_id: sliceId, slides: [{ cells: [second, cell], title: 'Review the sequence' }] })
     expect((await db.from('slides').select('cell_ids').eq('slice_id', sliceId).order('position')).data).toEqual([{ cell_ids: [second, cell] }])
     const finding = (await write('create_finding', { source: 'audit', check_key: 'source-gap', severity: 'warn', impact: 'medium', effort: 'low', summary: 'The follow-up source is missing.', cell_ids: [second] })).result
+    const originalFinding = (await db.from('audit_findings').select('*').eq('id', finding).single()).data
+    const unchanged = await call(contributor, 'create_finding', { source: 'whatif', check_key: 'source-gap', severity: 'critical', impact: 'high', effort: 'high', summary: 'Another person replaced this observation.', cell_ids: [second] }, false)
+    expect(unchanged.outcome).toBe('unchanged')
+    expect(unchanged.message).toContain('original recorder')
+    expect((await db.from('audit_findings').select('*').eq('id', finding).single()).data).toEqual(originalFinding)
     await write('update_finding', { finding_id: finding, status: 'resolved' })
     expect((await db.from('audit_findings').select('status').eq('id', finding).single()).data?.status).toBe('resolved')
     const ownEvidence = await call(contributor, 'create_evidence', { cell_id: cell, kind: 'interview', title: 'A contributed source' }, false)
@@ -72,7 +77,12 @@ it.runIf(live)('every write works over MCP; contributions are proposals, approva
     expect((await db.from('evidence').select('note').eq('id', ownEvidence.result).single()).data?.note).toBe('My source wording')
     expect((await call(contributor, 'update_evidence', { evidence_id: evidence, note: 'Unapproved source wording' })).outcome).toBe('proposed')
     expect((await db.from('evidence').select('note').eq('id', evidence).single()).data?.note).toBe('The team described this sequence.')
-    expect((await call(contributor, 'create_finding', { source: 'audit', check_key: 'contributed-gap', severity: 'warn', impact: 'medium', effort: 'low', summary: 'A contributed gap', cell_ids: [cell] }, false)).outcome).toBe('applied')
+    const ownFinding = await call(contributor, 'create_finding', { source: 'audit', check_key: 'contributed-gap', severity: 'warn', impact: 'medium', effort: 'low', summary: 'A contributed gap', cell_ids: [cell] }, false)
+    expect(ownFinding.outcome).toBe('applied')
+    const revisedFinding = await call(contributor, 'create_finding', { source: 'whatif', check_key: 'contributed-gap', severity: 'critical', impact: 'high', effort: 'high', summary: 'The recorder revised this observation.', cell_ids: [cell] }, false)
+    expect(revisedFinding.outcome).toBe('applied')
+    expect(revisedFinding.result).toBe(ownFinding.result)
+    expect((await db.from('audit_findings').select('summary, recorded_by').eq('id', ownFinding.result).single()).data).toEqual({ summary: 'The recorder revised this observation.', recorded_by: 'b0000000-0000-4000-8000-000000000002' })
     for (const status of ['dismissed', 'open']) {
       expect((await call(contributor, 'update_finding', { finding_id: finding, status })).outcome).toBe('proposed')
       expect((await db.from('audit_findings').select('status').eq('id', finding).single()).data?.status).toBe('resolved')

@@ -17,6 +17,11 @@ alter table public.authoring_changes
   add column proposed_by uuid references public.profiles(id) on delete set null,
   add column approved_by uuid references public.profiles(id) on delete set null;
 
+alter table public.audit_findings
+  add column recorded_by uuid references public.profiles(id) on delete set null;
+comment on column public.audit_findings.recorded_by is
+  'The profile that first recorded this finding through an agent tool. Null when the original recorder is unknown.';
+
 -- The service rename left the phase RPC's parameter ambiguous beside the
 -- renamed column. Qualify the parameter before the new boundary calls it.
 do $$ declare body text; before text; begin
@@ -102,15 +107,15 @@ language plpgsql immutable set search_path = pg_catalog, pg_temp as $$
 begin
   raise exception 'The host must supply secret validation before applying agent tools.';
 end $$;
--- @recipe — Supabase service-role JWTs, the same policy as the plugin hook.
+-- @recipe — refuse a Supabase JWT whose own decoded role is service_role.
 create or replace function public.agent_refuse_secrets(p_args jsonb) returns void
 language plpgsql immutable set search_path = pg_catalog, pg_temp as $$
-declare part text[]; payload text; encoded text;
+declare part text[]; payload jsonb; encoded text;
 begin
   for part in select regexp_matches(p_args::text,'eyJ[A-Za-z0-9_-]{5,}\.([A-Za-z0-9_-]{10,})\.[A-Za-z0-9_-]{5,}','g') loop
     encoded:=translate(part[1],'-_','+/');
-    begin payload:=convert_from(decode(rpad(encoded,((length(encoded)+3)/4)*4,'='),'base64'),'UTF8'); exception when others then payload:=''; end;
-    if payload ~ '"role"\s*:\s*"service_role"' then raise exception 'Remove the secret from this call; keep service-role keys in the ignored environment file.'; end if;
+    begin payload:=convert_from(decode(rpad(encoded,((length(encoded)+3)/4)*4,'='),'base64'),'UTF8')::jsonb; exception when others then payload:='{}'; end;
+    if payload->>'role'='service_role' then raise exception 'Remove the secret from this call; keep service-role keys in the ignored environment file.'; end if;
   end loop;
 end $$;
 -- @core
@@ -227,11 +232,18 @@ begin
           perform set_config('ub.agent_transaction',coalesce(old_gate,''),true);
           return jsonb_build_object('outcome','suppressed','message','A person dismissed this finding; nothing was recorded.');
         elsif existing.status='open' then
+          if existing.recorded_by is distinct from profile and not exists(
+            select 1 from public.profiles p where p.id=profile and p.may_confirm
+          ) then
+            perform set_config('ub.agent_transaction',coalesce(old_gate,''),true);
+            return jsonb_build_object('outcome','unchanged','result',existing.id,
+              'message','An open finding already records this check. Only its original recorder or someone who may confirm can revise it; nothing was changed.');
+          end if;
           update public.audit_findings set run_id=coalesce((a->>'run_id')::uuid,gen_random_uuid()),source=a->>'source',severity=a->>'severity',impact=a->>'impact',effort=a->>'effort',summary=a->>'summary',cell_ids=ids,cell_keys=array(select x::text from unnest(ids) x),updated_at=now() where audit_findings.id=existing.id;
           id:=existing.id;
         else
-          insert into public.audit_findings(service_id,run_id,source,check_key,severity,impact,effort,summary,cell_ids,cell_keys,fingerprint)
-            values(p_service_id,coalesce((a->>'run_id')::uuid,gen_random_uuid()),a->>'source',a->>'check_key',a->>'severity',a->>'impact',a->>'effort',a->>'summary',ids,array(select x::text from unnest(ids) x),v_fingerprint)
+          insert into public.audit_findings(service_id,run_id,source,check_key,severity,impact,effort,summary,cell_ids,cell_keys,fingerprint,recorded_by)
+            values(p_service_id,coalesce((a->>'run_id')::uuid,gen_random_uuid()),a->>'source',a->>'check_key',a->>'severity',a->>'impact',a->>'effort',a->>'summary',ids,array(select x::text from unnest(ids) x),v_fingerprint,profile)
             returning audit_findings.id into id;
         end if;
         result:=to_jsonb(id);

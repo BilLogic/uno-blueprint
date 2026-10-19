@@ -328,11 +328,18 @@ begin
           perform set_config('ub.agent_transaction',coalesce(old_gate,''),true);
           return jsonb_build_object('outcome','suppressed','message','A person dismissed this finding; nothing was recorded.');
         elsif existing.status='open' then
+          if existing.recorded_by is distinct from profile and not exists(
+            select 1 from public.profiles p where p.id=profile and p.may_confirm
+          ) then
+            perform set_config('ub.agent_transaction',coalesce(old_gate,''),true);
+            return jsonb_build_object('outcome','unchanged','result',existing.id,
+              'message','An open finding already records this check. Only its original recorder or someone who may confirm can revise it; nothing was changed.');
+          end if;
           update public.audit_findings set run_id=coalesce((a->>'run_id')::uuid,gen_random_uuid()),source=a->>'source',severity=a->>'severity',impact=a->>'impact',effort=a->>'effort',summary=a->>'summary',cell_ids=ids,cell_keys=array(select x::text from unnest(ids) x),updated_at=now() where audit_findings.id=existing.id;
           id:=existing.id;
         else
-          insert into public.audit_findings(service_id,run_id,source,check_key,severity,impact,effort,summary,cell_ids,cell_keys,fingerprint)
-            values(p_service_id,coalesce((a->>'run_id')::uuid,gen_random_uuid()),a->>'source',a->>'check_key',a->>'severity',a->>'impact',a->>'effort',a->>'summary',ids,array(select x::text from unnest(ids) x),v_fingerprint)
+          insert into public.audit_findings(service_id,run_id,source,check_key,severity,impact,effort,summary,cell_ids,cell_keys,fingerprint,recorded_by)
+            values(p_service_id,coalesce((a->>'run_id')::uuid,gen_random_uuid()),a->>'source',a->>'check_key',a->>'severity',a->>'impact',a->>'effort',a->>'summary',ids,array(select x::text from unnest(ids) x),v_fingerprint,profile)
             returning audit_findings.id into id;
         end if;
         result:=to_jsonb(id);
@@ -3722,6 +3729,7 @@ CREATE TABLE public.audit_findings (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     impact text,
     effort text,
+    recorded_by uuid,
     CONSTRAINT audit_findings_effort_check CHECK ((effort = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text]))),
     CONSTRAINT audit_findings_impact_check CHECK ((impact = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text]))),
     CONSTRAINT audit_findings_keys_match_ids CHECK ((cardinality(cell_ids) = cardinality(cell_keys))),
@@ -3771,6 +3779,12 @@ COMMENT ON COLUMN public.audit_findings.impact IS 'How much fixing this finding 
 --
 
 COMMENT ON COLUMN public.audit_findings.effort IS 'How much work the fix takes: low, medium or high. Null on a finding recorded before the rating existed, which reads as unrated.';
+
+--
+-- Name: COLUMN audit_findings.recorded_by; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.audit_findings.recorded_by IS 'The profile that first recorded this finding through an agent tool. Null when the original recorder is unknown.';
 
 --
 -- Name: authoring_changes; Type: TABLE; Schema: public; Owner: -
@@ -5590,6 +5604,13 @@ CREATE TRIGGER validate_cell_content_suggestion BEFORE INSERT ON public.suggeste
 
 ALTER TABLE ONLY public.agent_messages
     ADD CONSTRAINT agent_messages_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.agent_sessions(id) ON DELETE CASCADE;
+
+--
+-- Name: audit_findings audit_findings_recorded_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_findings
+    ADD CONSTRAINT audit_findings_recorded_by_fkey FOREIGN KEY (recorded_by) REFERENCES public.profiles(id) ON DELETE SET NULL;
 
 --
 -- Name: audit_findings audit_findings_service_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -

@@ -4,7 +4,7 @@ select set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-00000000
 set local role authenticated;
 do $$
 declare service uuid:='f0000000-0000-4000-8000-000000000010'; session uuid:=gen_random_uuid();
-  result jsonb; phase uuid; scenario uuid; path uuid; lane uuid; step uuid; cell uuid; second uuid; member uuid; evidence uuid; slice uuid; finding uuid; proposal uuid; own_evidence uuid; records int;
+  result jsonb; phase uuid; scenario uuid; path uuid; lane uuid; step uuid; cell uuid; second uuid; member uuid; evidence uuid; slice uuid; finding uuid; proposal uuid; own_evidence uuid; own_finding uuid; finding_args jsonb; before_finding jsonb; person_token text; records int;
 begin
   result:=public.run_agent_tool('create_phase','{"name":"New phase"}',session,service,true); phase:=(result->>'result')::uuid;
   result:=public.run_agent_tool('create_scenario',jsonb_build_object('phase_id',phase,'name','New scenario','step_count',2),session,service,true);
@@ -44,8 +44,36 @@ begin
   if result->>'outcome'<>'applied' or (select note from public.evidence where id=own_evidence)<>'My source note' then raise exception 'editing own evidence needs confirmation'; end if;
   result:=public.run_agent_tool('update_evidence',jsonb_build_object('evidence_id',evidence,'note','Someone else changed this source'),session,service,true);
   if result->>'outcome'<>'proposed' or (select e.note from public.evidence e where e.id=evidence)<>'A source note' then raise exception 'editing another person evidence bypassed proposal'; end if;
+  person_token:='eyJhbGciOiJIUzI1NiJ9.'||translate(rtrim(replace(encode(convert_to('{"role":"authenticated","context":{"role":"service_role"}}','UTF8'),'base64'),E'\n',''),'='),'+/','-_')||'.signature';
+  result:=public.run_agent_tool('create_evidence',jsonb_build_object('cell_id',cell,'kind','interview','title',person_token||' alongside the literal {"role":"service_role"}'),session,service,false);
+  if result->>'outcome' is distinct from 'applied' then raise exception 'a person token was treated as a service-role secret'; end if;
+  person_token:='eyJhbGciOiJIUzI1NiJ9.'||translate(rtrim(encode(convert_to('{"role":"service_role"}','UTF8'),'base64'),'='),'+/','-_')||'.signature';
+  begin
+    perform public.run_agent_tool('create_evidence',jsonb_build_object('cell_id',cell,'kind','interview','title',person_token),session,service,false);
+    raise exception 'a service-role token was admitted';
+  exception when others then
+    if sqlerrm<>'Remove the secret from this call; keep service-role keys in the ignored environment file.' then raise; end if;
+  end;
+
   result:=public.run_agent_tool('create_finding',jsonb_build_object('source','audit','check_key','contributed-gap','severity','warn','impact','medium','effort','low','summary','A contributed gap','cell_ids',jsonb_build_array(cell)),session,service,false);
   if result->>'outcome'<>'applied' then raise exception 'recording finding needs confirmation'; end if;
+  own_finding:=(result->>'result')::uuid;
+  finding_args:=jsonb_build_object('source','whatif','check_key','contributed-gap','severity','critical','impact','high','effort','high','summary','Recorder revised the observation','cell_ids',jsonb_build_array(cell));
+  result:=public.run_agent_tool('create_finding',finding_args,session,service,false);
+  if result->>'outcome'<>'applied' or (result->>'result')::uuid<>own_finding or (select summary from public.audit_findings where id=own_finding)<>'Recorder revised the observation' then raise exception 'recorder could not revise own open finding'; end if;
+  select to_jsonb(f) into before_finding from public.audit_findings f where f.id=own_finding;
+  select count(*) into records from public.authoring_changes;
+  perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+  result:=public.run_agent_tool('create_finding',finding_args||'{"source":"audit","severity":"info","impact":"low","effort":"low","summary":"Another person replaced the observation"}'::jsonb,session,service,false);
+  if result->>'outcome'<>'unchanged' or result->>'message' not like '%original recorder%' then raise exception 'another contributor overwrote the open finding'; end if;
+  if (select to_jsonb(f) from public.audit_findings f where f.id=own_finding) is distinct from before_finding then raise exception 'refused finding overwrite changed a row'; end if;
+  if (select count(*) from public.authoring_changes)<>records then raise exception 'refused finding overwrite appended a log'; end if;
+  perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+  result:=public.run_agent_tool('create_finding',finding_args||'{"summary":"A confirmer revised the observation"}'::jsonb,session,service,true);
+  if result->>'outcome'<>'applied' or (select summary from public.audit_findings where id=own_finding)<>'A confirmer revised the observation' then raise exception 'confirmer could not revise an open finding'; end if;
+  if (select to_jsonb(f)->>'recorded_by' from public.audit_findings f where f.id=own_finding) is distinct from 'b0000000-0000-4000-8000-000000000002' then raise exception 'finding lost its original recorder'; end if;
+  perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+
   result:=public.run_agent_tool('update_finding',jsonb_build_object('finding_id',finding,'status','dismissed'),session,service,true);
   if result->>'outcome'<>'proposed' or (select status from public.audit_findings where id=finding)<>'resolved' then raise exception 'dismissing finding bypassed proposal'; end if;
   result:=public.run_agent_tool('update_finding',jsonb_build_object('finding_id',finding,'status','open'),session,service,true);

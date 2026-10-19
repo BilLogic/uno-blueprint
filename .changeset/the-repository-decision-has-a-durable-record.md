@@ -2,4 +2,4 @@
 "uno-blueprint": patch
 ---
 
-The repository decision now records where Uno is developed and how each pilot keeps its own project and clone.
+The repository decision now distinguishes pilot operators' template checkouts from deployments that import the pinned template.

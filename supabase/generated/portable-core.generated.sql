@@ -14978,12 +14978,19 @@ alter table public.authoring_changes
 
 -- The service rename left the phase RPC's parameter ambiguous beside the
 -- renamed column. Qualify the parameter before the new boundary calls it.
-do $$ declare body text; begin
+do $$ declare body text; before text; begin
   body:=pg_get_functiondef('public.create_phase(uuid,text,text)'::regprocedure);
+  before:=body;
   body:=replace(body,'p.service_id = service_id','p.service_id = create_phase.service_id');
+  if body=before then raise exception 'Expected function body patch did not match: %',before; end if;
   execute body;
   body:=pg_get_functiondef('public.duplicate_scenario(uuid,text)'::regprocedure);
-  body:=replace(replace(body,'kind, label, note','kind, name, note'),'t.label','t.name');
+  before:=body;
+  body:=replace(body,'kind, label, note','kind, name, note');
+  if body=before then raise exception 'Expected duplicate-scenario column patch did not match'; end if;
+  before:=body;
+  body:=replace(body,'t.label','t.name');
+  if body=before then raise exception 'Expected function body patch did not match: %',before; end if;
   execute body;
 end $$;
 
@@ -15083,11 +15090,10 @@ language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
 declare
   a jsonb:=p_args; result jsonb; id uuid; before_cell public.cells;
   ids uuid[]; n int; value jsonb; slides jsonb; sid uuid; profile uuid:=public.caller_profile_id();
-  old_gate text:=current_setting('ub.agent_transaction',true); state jsonb; v_fingerprint text; existing public.audit_findings;
+  old_gate text:=current_setting('ub.agent_transaction',true); state jsonb; free boolean; v_fingerprint text; existing public.audit_findings;
 begin
   if profile is null then raise exception 'Sign in with a linked profile before writing.' using errcode='42501'; end if;
   perform public.agent_refuse_secrets(a);
-  if not p_preview and p_tool not in ('create_finding','update_finding','create_evidence','update_evidence') then perform public.confirming_profile_id(); end if;
   if public.agent_write_contracts()->p_tool is null then raise exception 'No write tool named %',p_tool; end if;
   perform public.agent_check_shape(a,public.agent_write_contracts()->p_tool);
   -- IR numeric fields are whole positions; scale advice is never a cap.
@@ -15097,12 +15103,14 @@ begin
     if btrim(value#>>'{}')='' then raise exception 'Name the text to write; blank text does not replace an existing value.'; end if;
   end loop;
   state:=public.agent_tool_state(a);
+  free:=p_tool in ('create_finding','create_evidence') or (p_tool='update_evidence' and exists(
+    select 1 from public.evidence e where e.id=(a->>'evidence_id')::uuid and e.contributed_by=profile));
+  if not p_preview and not free then perform public.confirming_profile_id(); end if;
   ids:=public.agent_named_cells(a);
   n:=cardinality(ids);
   if p_tool='duplicate_path' and coalesce((a->>'copy_cells')::boolean,true) then select count(*) into n from public.cells where path_id=(a->>'source_path_id')::uuid;
   elsif p_tool='duplicate_scenario' then select count(*) into n from public.cells c join public.paths p on p.id=c.path_id where p.scenario_id=(a->>'source_scenario_id')::uuid; end if;
   if n>50 then raise exception 'This call touches more than 50 cells. Split it into calls touching at most 50 cells each.'; end if;
-  if p_tool='duplicate_path' and not coalesce((a->>'copy_cells')::boolean,true) and coalesce((a->>'copy_dependencies')::boolean,true) then raise exception 'Dependencies need their cells. Copy the cells too, or set copy_dependencies:false.'; end if;
   if exists(select 1 from unnest(ids) x where not exists(select 1 from public.cells c where c.id=x)) then raise exception 'A named cell no longer exists; read the blueprint and try again.'; end if;
   if p_service_id is not null and exists(select 1 from public.cells c join public.paths p on p.id=c.path_id join public.scenarios s on s.id=p.scenario_id join public.phases ph on ph.id=s.phase_id where c.id=any(ids) and ph.service_id<>p_service_id) then raise exception 'A named cell belongs to another service.'; end if;
   -- The private gate widens legacy authoring RPCs only inside this checked
@@ -15115,7 +15123,7 @@ begin
         result:=to_jsonb(public.create_phase(p_service_id,a->>'name',a->>'summary'));
       when 'create_scenario' then result:=public.create_scenario((a->>'phase_id')::uuid,a->>'name','stacked',(a->>'lane_source_path_id')::uuid,'[]',coalesce((a->>'step_count')::int,5),coalesce(a->>'path_name','Happy Path'));
       when 'create_path' then result:=to_jsonb(public.create_path((a->>'scenario_id')::uuid,a->>'name',coalesce(a->>'kind','variant'),(a->>'lane_source_path_id')::uuid));
-      when 'duplicate_path' then result:=to_jsonb(public.duplicate_path((a->>'source_path_id')::uuid,a->>'name',coalesce(a->>'kind','variant'),coalesce((a->>'copy_cells')::boolean,true),coalesce((a->>'copy_dependencies')::boolean,true)));
+      when 'duplicate_path' then result:=to_jsonb(public.duplicate_path((a->>'source_path_id')::uuid,a->>'name',coalesce(a->>'kind','variant'),coalesce((a->>'copy_cells')::boolean,true),coalesce((a->>'copy_cells')::boolean,true)));
       when 'duplicate_scenario' then result:=to_jsonb(public.duplicate_scenario((a->>'source_scenario_id')::uuid,a->>'name'));
       when 'create_step' then result:=to_jsonb(public.add_step((a->>'path_id')::uuid,a->>'name',(a->>'at_position')::int));
       when 'create_lane' then result:=to_jsonb(public.add_lane((a->>'scenario_id')::uuid,a->>'name',a->>'lane_role',(a->>'at_position')::int));
@@ -15180,7 +15188,7 @@ begin
     end case;
     insert into public.authoring_changes(fn,args,author,author_id,agent_session_id,proposed_by,approved_by)
       values(p_tool,a||jsonb_build_object('service_id',p_service_id,'result',result),'agent',(select user_id from public.profiles where profiles.id=profile),p_session_id,p_proposer,
-        case when p_tool in ('create_finding','update_finding','create_evidence','update_evidence') then null else profile end);
+        case when free then null else profile end);
     perform set_config('ub.agent_transaction',coalesce(old_gate,''),true);
     if p_preview then raise exception using errcode='UB001',message='preview'; end if;
   exception when sqlstate 'UB001' then null;
@@ -15190,7 +15198,7 @@ end $$;
 
 create function public.run_agent_tool(p_tool text,p_args jsonb,p_session_id uuid,p_service_id uuid default null,p_confirmed boolean default false) returns jsonb
 language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
-declare profile public.profiles; preview jsonb; proposal uuid; free boolean:=p_tool in ('create_finding','update_finding','create_evidence','update_evidence');
+declare profile public.profiles; preview jsonb; proposal uuid; free boolean;
 begin
   if p_tool in ('approve_suggested_change','decline_suggested_change') then
     perform public.agent_refuse_secrets(p_args);
@@ -15200,6 +15208,8 @@ begin
   if p_tool='decline_suggested_change' then perform public.decline_suggested_change((p_args->>'suggested_change_id')::uuid); return jsonb_build_object('outcome','declined'); end if;
   select * into profile from public.profiles where id=public.caller_profile_id();
   if profile.id is null then raise exception 'Sign in with a linked profile before writing.' using errcode='42501'; end if;
+  free:=p_tool in ('create_finding','create_evidence') or (p_tool='update_evidence' and exists(
+    select 1 from public.evidence e where e.id=(p_args->>'evidence_id')::uuid and e.contributed_by=profile.id));
   if (profile.may_confirm and p_confirmed) or free then
     return public.agent_tool_transaction(p_tool,p_args,p_service_id,p_session_id,false);
   end if;
@@ -15215,10 +15225,14 @@ end $$;
 
 -- The existing approval function is retained for old cell-content proposals.
 alter function public.approve_suggested_change(uuid) rename to approve_cell_content_suggestion;
-do $$ declare body text; begin
+do $$ declare body text; before text; begin
   body:=pg_get_functiondef('public.approve_cell_content_suggestion(uuid)'::regprocedure);
+  before:=body;
   body:=replace(body,'(author, author_id, fn, args, revert)','(author, author_id, proposed_by, approved_by, fn, args, revert)');
+  if body=before then raise exception 'Expected function body patch did not match: %',before; end if;
+  before:=body;
   body:=replace(body,$old$('human', (select user_id from public.profiles where id = v_profile),$old$,$new$('human', (select user_id from public.profiles where id = v_profile), v_change.suggested_by, v_profile,$new$);
+  if body=before then raise exception 'Expected function body patch did not match: %',before; end if;
   execute body;
 end $$;
 create function public.approve_suggested_change(p_id uuid) returns jsonb

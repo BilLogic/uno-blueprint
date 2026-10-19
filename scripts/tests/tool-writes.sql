@@ -4,7 +4,7 @@ select set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-00000000
 set local role authenticated;
 do $$
 declare service uuid:='f0000000-0000-4000-8000-000000000010'; session uuid:=gen_random_uuid();
-  result jsonb; phase uuid; scenario uuid; path uuid; lane uuid; step uuid; cell uuid; second uuid; member uuid; evidence uuid; slice uuid; finding uuid; proposal uuid; records int;
+  result jsonb; phase uuid; scenario uuid; path uuid; lane uuid; step uuid; cell uuid; second uuid; member uuid; evidence uuid; slice uuid; finding uuid; proposal uuid; own_evidence uuid; records int;
 begin
   result:=public.run_agent_tool('create_phase','{"name":"New phase"}',session,service,true); phase:=(result->>'result')::uuid;
   result:=public.run_agent_tool('create_scenario',jsonb_build_object('phase_id',phase,'name','New scenario','step_count',2),session,service,true);
@@ -23,6 +23,8 @@ begin
   perform public.run_agent_tool('create_step',jsonb_build_object('path_id',path,'name','Last step'),session,service,true);
   perform public.run_agent_tool('create_path',jsonb_build_object('scenario_id',scenario,'name','Alternate path','lane_source_path_id',path),session,service,true);
   perform public.run_agent_tool('duplicate_path',jsonb_build_object('source_path_id',path,'name','Copied path'),session,service,true);
+  result:=public.run_agent_tool('duplicate_path',jsonb_build_object('source_path_id',path,'name','Structure without cells','copy_cells',false),session,service,true);
+  if exists(select 1 from public.cells where path_id=(result->>'result')::uuid) then raise exception 'structure-only copy included cells'; end if;
   perform public.run_agent_tool('duplicate_scenario',jsonb_build_object('source_scenario_id',scenario,'name','Copied scenario'),session,service,true);
   perform public.run_agent_tool('update_path',jsonb_build_object('path_id',path,'name','Reviewed path'),session,service,true);
   result:=public.run_agent_tool('create_stakeholder','{"name":"Dispatch","kind":"staff"}',session,service,true); member:=(result->>'result')::uuid;
@@ -35,6 +37,19 @@ begin
   result:=public.run_agent_tool('create_finding',jsonb_build_object('source','audit','check_key','gap','severity','warn','impact','medium','effort','low','summary','A gap','cell_ids',jsonb_build_array(cell)),session,service,true); finding:=(result->>'result')::uuid;
   perform public.run_agent_tool('update_finding',jsonb_build_object('finding_id',finding,'status','resolved'),session,service,true);
   perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+  result:=public.run_agent_tool('create_evidence',jsonb_build_object('cell_id',cell,'kind','interview','title','A contributed interview'),session,service,false);
+  if result->>'outcome'<>'applied' then raise exception 'recording evidence needs confirmation'; end if;
+  own_evidence:=(result->>'result')::uuid;
+  result:=public.run_agent_tool('update_evidence',jsonb_build_object('evidence_id',own_evidence,'note','My source note'),session,service,false);
+  if result->>'outcome'<>'applied' or (select note from public.evidence where id=own_evidence)<>'My source note' then raise exception 'editing own evidence needs confirmation'; end if;
+  result:=public.run_agent_tool('update_evidence',jsonb_build_object('evidence_id',evidence,'note','Someone else changed this source'),session,service,true);
+  if result->>'outcome'<>'proposed' or (select e.note from public.evidence e where e.id=evidence)<>'A source note' then raise exception 'editing another person evidence bypassed proposal'; end if;
+  result:=public.run_agent_tool('create_finding',jsonb_build_object('source','audit','check_key','contributed-gap','severity','warn','impact','medium','effort','low','summary','A contributed gap','cell_ids',jsonb_build_array(cell)),session,service,false);
+  if result->>'outcome'<>'applied' then raise exception 'recording finding needs confirmation'; end if;
+  result:=public.run_agent_tool('update_finding',jsonb_build_object('finding_id',finding,'status','dismissed'),session,service,true);
+  if result->>'outcome'<>'proposed' or (select status from public.audit_findings where id=finding)<>'resolved' then raise exception 'dismissing finding bypassed proposal'; end if;
+  result:=public.run_agent_tool('update_finding',jsonb_build_object('finding_id',finding,'status','open'),session,service,true);
+  if result->>'outcome'<>'proposed' or (select status from public.audit_findings where id=finding)<>'resolved' then raise exception 'editing finding bypassed proposal'; end if;
   result:=public.run_agent_tool('update_cell',jsonb_build_object('cell_id',cell,'form','Written request'),session,service,true); proposal:=(result->>'suggested_change_id')::uuid;
   if result->>'outcome'<>'proposed' then raise exception 'contributor applied a write'; end if;
   if (select form from public.cells where id=cell)='Written request' then raise exception 'preview changed the cell'; end if;
@@ -46,7 +61,7 @@ begin
   result:=public.run_agent_tool('create_phase','{"name":"Proposed structure"}',session,service,true); proposal:=(result->>'suggested_change_id')::uuid;
   if exists(select 1 from public.phases where name='Proposed structure') then raise exception 'preview wrote a phase'; end if;
   begin perform public.approve_suggested_change(proposal); raise exception 'contributor approved';
-  exception when others then if sqlerrm='contributor approved' then raise; end if; end;
+  exception when insufficient_privilege then null; end;
   perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
   perform public.approve_suggested_change(proposal);
   if not exists(select 1 from public.phases where name='Proposed structure') then raise exception 'approval lost a phase'; end if;
@@ -56,6 +71,7 @@ begin
   perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
   perform public.approve_suggested_change(proposal);
   if (select content from public.cells where id=cell)<>'A sourced contribution' then raise exception 'content approval failed'; end if;
+  if not exists(select 1 from public.authoring_changes where proposed_by='b0000000-0000-4000-8000-000000000002' and approved_by='b0000000-0000-4000-8000-000000000001' and fn='update_cell_content') then raise exception 'legacy content approval lost both people'; end if;
   perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
   result:=public.run_agent_tool('update_cell',jsonb_build_object('cell_id',cell,'form','Stale form'),session,service,true); proposal:=(result->>'suggested_change_id')::uuid;
   perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
@@ -77,7 +93,7 @@ begin
     perform public.run_agent_tool('create_scenario',jsonb_build_object('phase_id',phase,'name','Invalid scenario','step_count',-1),session,service,true);
     raise exception 'negative step count was admitted';
   exception when others then
-    if sqlerrm='negative step count was admitted' then raise; end if;
+    if sqlerrm<>'arguments.step_count is below the IR minimum' then raise; end if;
   end;
 end $$;
 rollback;

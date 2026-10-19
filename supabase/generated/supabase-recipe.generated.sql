@@ -2852,11 +2852,22 @@ revoke all on function public.agent_check_shape(jsonb,jsonb,text),public.agent_n
 revoke all on function public.run_agent_tool(text,jsonb,uuid,uuid,boolean),public.approve_suggested_change(uuid) from public,anon;
 grant execute on function public.run_agent_tool(text,jsonb,uuid,uuid,boolean),public.approve_suggested_change(uuid) to authenticated;
 
-create or replace function public.is_service_account() returns boolean
-language sql stable set search_path = pg_catalog, pg_temp as $$
-  select coalesce((auth.jwt()->'app_metadata'->>'role')='service',false)
-    or (current_setting('ub.agent_transaction',true)='on' and public.caller_profile_id() is not null)
-$$;
+-- Preserve the deployment's SQL tier decision, including the permissive
+-- core seam. Only the checked transaction adds another permitted path.
+do $$
+declare body text; source text; patched text;
+begin
+  select pg_get_functiondef(p.oid), p.prosrc into body, source
+    from pg_proc p join pg_language l on l.oid=p.prolang
+    where p.oid='public.is_service_account()'::regprocedure and l.lanname='sql';
+  if source is null then raise exception 'The service-account tier must supply a SQL boolean decision'; end if;
+  patched:=replace(body,source,'select ('||regexp_replace(source,';[[:space:]]*$','')||
+    ') or (current_setting(''ub.agent_transaction'',true)=''on'' and public.caller_profile_id() is not null)');
+  if patched=body then raise exception 'Expected service-account tier body patch did not match'; end if;
+  execute patched;
+end $$;
+comment on function public.is_service_account() is
+  'The deployment tier decision, or the checked agent transaction for a linked profile. The transaction gate is local to its call; ordinary calls keep the deployment tier decision.';
 -- Proof: public entry points admit authenticated callers only. Helpers cannot
 -- be invoked to open the private authoring gate or apply unchecked payloads.
 do $$ declare signature text; begin

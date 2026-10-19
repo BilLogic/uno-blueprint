@@ -386,7 +386,9 @@ so the offer and the admission cannot disagree about a declarable fact, plus
 the facts only the run holds — the abort signal, the write-batch count for
 this send, the repeat-read record for this turn, and whether this call writes
 (`ui_command` writes when its argument names a mutating control, which no
-roster can hold). **Not the roster**: the roster answers about a tool, an
+roster can hold). A server write may touch at most 50 cells in one call,
+including cells named inside slides and cells copied from a path or scenario;
+a larger write is refused with a request to split the call. **Not the roster**: the roster answers about a tool, an
 admission about a call.
 
 **Scope** — which service(s) one agent call covers: the active service,

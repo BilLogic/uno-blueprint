@@ -66,6 +66,17 @@ it.runIf(live)('every write works over MCP; contributions are proposals, approva
     const finding = (await write('create_finding', { source: 'audit', check_key: 'source-gap', severity: 'warn', impact: 'medium', effort: 'low', summary: 'The follow-up source is missing.', cell_ids: [second] })).result
     await write('update_finding', { finding_id: finding, status: 'resolved' })
     expect((await db.from('audit_findings').select('status').eq('id', finding).single()).data?.status).toBe('resolved')
+    const ownEvidence = await call(contributor, 'create_evidence', { cell_id: cell, kind: 'interview', title: 'A contributed source' }, false)
+    expect(ownEvidence.outcome).toBe('applied')
+    expect((await call(contributor, 'update_evidence', { evidence_id: ownEvidence.result, note: 'My source wording' }, false)).outcome).toBe('applied')
+    expect((await db.from('evidence').select('note').eq('id', ownEvidence.result).single()).data?.note).toBe('My source wording')
+    expect((await call(contributor, 'update_evidence', { evidence_id: evidence, note: 'Unapproved source wording' })).outcome).toBe('proposed')
+    expect((await db.from('evidence').select('note').eq('id', evidence).single()).data?.note).toBe('The team described this sequence.')
+    expect((await call(contributor, 'create_finding', { source: 'audit', check_key: 'contributed-gap', severity: 'warn', impact: 'medium', effort: 'low', summary: 'A contributed gap', cell_ids: [cell] }, false)).outcome).toBe('applied')
+    for (const status of ['dismissed', 'open']) {
+      expect((await call(contributor, 'update_finding', { finding_id: finding, status })).outcome).toBe('proposed')
+      expect((await db.from('audit_findings').select('status').eq('id', finding).single()).data?.status).toBe('resolved')
+    }
     const before = await db.from('cells').select('*').eq('id', cell).single()
     expect(before.data).toMatchObject({ content: 'Receive and record request', function: 'Capture needs', form: 'Conversation' })
     const proposed = await call(contributor, 'update_cell', { cell_id: cell, form: 'Written request' })

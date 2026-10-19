@@ -14,7 +14,9 @@ const oauth = {
   denyAuthorization: vi.fn().mockResolvedValue({ data: { redirect_url: 'http://localhost:48000/callback?error=access_denied' }, error: null }),
 }
 const signInWithPassword = vi.fn().mockResolvedValue({ error: null })
-const context = { client: { auth: { oauth, signInWithPassword } } }
+const signInWithOtp = vi.fn().mockResolvedValue({ error: null })
+const verifyOtp = vi.fn().mockResolvedValue({ error: null })
+const context = { client: { auth: { oauth, signInWithPassword, signInWithOtp, verifyOtp } } }
 vi.mock('@/lib/supabase', () => ({ createSupabaseClient: () => context.client }))
 afterEach(() => { cleanup(); vi.clearAllMocks() })
 
@@ -65,5 +67,26 @@ it('does not expose provider errors or redirect after a failed approval', async 
   await act(async () => { screen.getByRole('button', { name: 'Allow' }).click() })
   expect(screen.getByRole('status').textContent).toContain('could not be completed')
   expect(screen.queryByText('sensitive provider detail')).toBeNull()
+  expect(navigate).not.toHaveBeenCalled()
+})
+
+it('signs in with an emailed code while keeping the consent request', async () => {
+  oauth.getAuthorizationDetails.mockResolvedValueOnce({ data: null, error: { name: 'AuthSessionMissingError', status: 400 } })
+  const navigate = vi.fn()
+  render(<OAuthConsent authorizationId="request-one" navigate={navigate} />)
+  await screen.findByRole('button', { name: 'Sign in' })
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'owner@example.test' } })
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Email a sign-in code' })) })
+  expect(signInWithOtp).toHaveBeenCalledWith({
+    email: 'owner@example.test',
+    options: { shouldCreateUser: false, emailRedirectTo: expect.stringContaining('authorization_id=request-one') },
+  })
+  expect(oauth.approveAuthorization).not.toHaveBeenCalled()
+  fireEvent.change(screen.getByLabelText('Sign-in code'), { target: { value: '123456' } })
+  await act(async () => { fireEvent.submit(screen.getByRole('button', { name: 'Verify code' }).closest('form')!) })
+  expect(verifyOtp).toHaveBeenCalledWith({ email: 'owner@example.test', token: '123456', type: 'email' })
+  await screen.findByText('Blueprint host')
+  expect(oauth.getAuthorizationDetails).toHaveBeenNthCalledWith(2, 'request-one')
+  expect(oauth.approveAuthorization).not.toHaveBeenCalled()
   expect(navigate).not.toHaveBeenCalled()
 })

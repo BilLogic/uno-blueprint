@@ -45,8 +45,8 @@ beforeAll(() => {
 
 afterEach(cleanup)
 
-it('routes consent before mounting the board, without a request or database', () => {
-  window.history.replaceState(null, '', '/oauth/consent')
+it.each(['/oauth/consent', '/oauth/consent/'])('routes %s before mounting the board, without a request or database', path => {
+  window.history.replaceState(null, '', path)
   try {
     render(<App />)
     expect(screen.getByRole('heading', { name: 'Connect your agent' })).toBeDefined()

@@ -35,6 +35,7 @@ function treeStating(version, initialiser) {
   }
   write('package.json', JSON.stringify({ name: 'uno-blueprint', version }))
   write('.claude-plugin/plugin.json', JSON.stringify({ version }))
+  write('.cursor-plugin/plugin.json', JSON.stringify({ version }))
   write('CHANGELOG.md', `# Changelog\n\n## ${version}\n`)
   write('package-lock.json', JSON.stringify({ version, packages: { '': { version } } }))
   if (initialiser !== null) {
@@ -168,3 +169,11 @@ test.skipIf(!existsSync(join(ROOT, 'packages')))(
     assert.equal(typeof versions(ROOT)[INITIALISER_MANIFEST], 'string')
   },
 )
+
+test('a missing committed Cursor manifest cannot pass the version check', () => {
+  const root = treeStating('0.5.0', null)
+  try {
+    rmSync(join(root, '.cursor-plugin'), { recursive: true, force: true })
+    assert.throws(() => versions(root), /ENOENT/)
+  } finally { rmSync(root, { recursive: true, force: true }) }
+})

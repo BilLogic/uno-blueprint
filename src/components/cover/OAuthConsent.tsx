@@ -17,6 +17,7 @@ export function OAuthConsent({
   const [login, setLogin] = useState(false)
   const [revision, setRevision] = useState(0)
   const [busy, setBusy] = useState(false)
+  const [codeEmail, setCodeEmail] = useState<string | null>(null)
   const [message, setMessage] = useState('Loading authorization request…')
 
   useEffect(() => {
@@ -42,10 +43,32 @@ export function OAuthConsent({
     const fields = new FormData(event.currentTarget)
     setBusy(true)
     try {
-      const { error } = await client.auth.signInWithPassword({ email: String(fields.get('email')), password: String(fields.get('password')) })
-      if (error) setMessage('Sign-in failed. Check your email and password.')
+      const { error } = codeEmail
+        ? await client.auth.verifyOtp({ email: codeEmail, token: String(fields.get('code')).trim(), type: 'email' })
+        : await client.auth.signInWithPassword({ email: String(fields.get('email')), password: String(fields.get('password')) })
+      if (error) setMessage(codeEmail ? 'The sign-in code could not be verified. Try again.' : 'Sign-in failed. Check your email and password.')
       else { setMessage('Loading authorization request…'); setRevision(value => value + 1) }
     } catch { setMessage('Sign-in could not finish. Try again.') }
+    finally { setBusy(false) }
+  }
+
+  async function sendCode(form: HTMLFormElement | null) {
+    if (!client || !form || busy) return
+    const email = String(new FormData(form).get('email') ?? '').trim()
+    if (!email) { setMessage('Enter your email before requesting a sign-in code.'); return }
+    setBusy(true)
+    try {
+      const redirect = new URL(`${import.meta.env.BASE_URL}oauth/consent`, window.location.origin)
+      redirect.searchParams.set('authorization_id', authorizationId ?? '')
+      const { error } = await client.auth.signInWithOtp({
+        email, options: { shouldCreateUser: false, emailRedirectTo: redirect.href },
+      })
+      if (error) setMessage('A sign-in email could not be sent. Try again.')
+      else {
+        setCodeEmail(email)
+        setMessage('Check your email. Enter its sign-in code here, or follow its sign-in link to return to this request.')
+      }
+    } catch { setMessage('A sign-in email could not be sent. Try again.') }
     finally { setBusy(false) }
   }
 
@@ -83,9 +106,12 @@ export function OAuthConsent({
         </> : <>
           <p role="status">{message}</p>
           {login && <form onSubmit={event => void signIn(event)} className="flex flex-col gap-4">
-            <label>Email<Input name="email" type="email" autoComplete="username" required /></label>
-            <label>Password<Input name="password" type="password" autoComplete="current-password" required /></label>
-            <Button disabled={busy} type="submit">Sign in</Button>
+            <label>Email<Input name="email" type="email" autoComplete="username" readOnly={codeEmail !== null} required /></label>
+            {codeEmail
+              ? <label>Sign-in code<Input name="code" inputMode="numeric" autoComplete="one-time-code" required /></label>
+              : <label>Password<Input name="password" type="password" autoComplete="current-password" required /></label>}
+            <Button disabled={busy} type="submit">{codeEmail ? 'Verify code' : 'Sign in'}</Button>
+            {!codeEmail && <Button disabled={busy} variant="outline" type="button" onClick={event => void sendCode(event.currentTarget.form)}>Email a sign-in code</Button>}
           </form>}
         </>}
   </main>

@@ -56,6 +56,7 @@ function treeStating(version, initialiser = version) {
   }
   write('package.json', JSON.stringify({ name: 'uno-blueprint', version }))
   write('.claude-plugin/plugin.json', JSON.stringify({ version }))
+  write('.cursor-plugin/plugin.json', JSON.stringify({ version }))
   write('CHANGELOG.md', `# Changelog\n\n## ${version}\n`)
   write('package-lock.json', JSON.stringify({ version, packages: { '': { version } } }))
   if (initialiser !== null) {

@@ -15,8 +15,10 @@ The server must include these read tools before remote init can start.
 An operator supplies the test project's public tool endpoint:
 `https://<project-ref>.supabase.co/functions/v1/uno-tools`. Call the connection
 `uno` in every host. Use Streamable HTTP and the host's OAuth sign-in flow;
-the protected-resource metadata points at Supabase Auth. Tokens belong to
-the person signing in, and RLS still applies. Never configure a service role
+the protected-resource metadata points at Supabase Auth. Dynamic client
+registration lets any client register; the consent page shows the callback
+address so the person can review where the authorization returns. Tokens
+belong to the person signing in, and RLS still applies. Never configure a service role
 key. Do not put a token in a checked-in manifest or a command argument.
 
 While interactive sign-in is unavailable, a short-lived person JWT can be
@@ -149,3 +151,10 @@ Primary references: [Codex MCP](https://learn.chatgpt.com/docs/extend/mcp),
 [Claude Code MCP](https://code.claude.com/docs/en/mcp),
 [Cursor plugin specification](https://github.com/cursor/plugins),
 [Supabase OAuth setup](https://supabase.com/docs/guides/auth/oauth-server/getting-started).
+
+The consent page also offers email sign-in through the public Auth client,
+with account creation disabled. Its email link returns to the same consent
+request; operators can include `{{ .Token }}` in the Auth email template to
+support entering the one-time code directly on the page. Email delivery and
+the interactive OAuth round trip remain unverified until the project is
+configured for them.

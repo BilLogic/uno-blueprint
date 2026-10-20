@@ -51,6 +51,7 @@ export function CompareLaneRowShell({
             'data-blueprint-swimlane': '',
             'data-blueprint-row': '',
             'data-lane-id': row.lane.id,
+            'data-lane-position': row.lane.position,
             // Lets a picked cell name its lane without the selection
             // carrying the whole blueprint (see lib/canvasCellQuery).
             'data-lane-name': row.lane.name,

@@ -1,13 +1,13 @@
 import { BLUEPRINT_INSERT_HIT_HALF } from '@/lib/blueprintLayout'
 import {
   useLayoutEffect,
-  useRef,
   useState,
   type RefObject,
 } from 'react'
 import { Plus } from 'lucide-react'
 import { IconTooltip } from '@/components/editor/IconTooltip'
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent } from '@/components/ui/popover'
 import { useAtScenarioLevel, useEditor } from '@/contexts/EditorContext'
 import { useCanvasModeValue } from '@/contexts/canvasModeContext'
 import { useCellPick } from '@/contexts/cellPickContext'
@@ -56,12 +56,12 @@ function BlueprintLaneHandlesActive({
   const { client } = useSupabase()
   const { selectedScenarioId } = useEditor()
   const [boundaries, setBoundaries] = useState<Boundary[]>([])
-  const [bodyWidth, setBodyWidth] = useState(0)
-  const [naming, setNaming] = useState<Boundary | null>(null)
+  const [naming, setNaming] = useState<
+    (Boundary & { anchor: HTMLElement }) | null
+  >(null)
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
 
   const active =
     atScenarioLevel &&
@@ -97,14 +97,16 @@ function BlueprintLaneHandlesActive({
     // boundary drifts by (scale − 1) · y, worst at the bottom lanes (the
     // same un-projection the annotation layer needed).
     const scale = body.offsetWidth > 0 ? bodyBox.width / body.offsetWidth : 1
-    const next: Boundary[] = rows.map((row, index) => ({
-      at: index,
+    const next: Boundary[] = rows.map((row) => ({
+      at: Number(row.dataset.lanePosition),
       y: (row.getBoundingClientRect().top - bodyBox.top) / scale,
     }))
     const last = rows[rows.length - 1].getBoundingClientRect()
-    next.push({ at: rows.length, y: (last.bottom - bodyBox.top) / scale })
+    next.push({
+      at: Number(rows[rows.length - 1].dataset.lanePosition) + 1,
+      y: (last.bottom - bodyBox.top) / scale,
+    })
 
-    const width = body.offsetWidth
     const same =
       next.length === boundaries.length &&
       next.every(
@@ -113,7 +115,6 @@ function BlueprintLaneHandlesActive({
           entry.at === boundaries[index].at,
       )
     if (!same) setBoundaries(next)
-    if (Math.abs(width - bodyWidth) > 0.5) setBodyWidth(width)
   })
 
   if (!active || boundaries.length === 0) return null
@@ -154,11 +155,11 @@ function BlueprintLaneHandlesActive({
             <button
               type="button"
               aria-label={`Insert a lane here`}
-              onClick={() => {
-                setNaming(boundary)
+              onClick={(event) => {
+                event.stopPropagation()
+                setNaming({ ...boundary, anchor: event.currentTarget })
                 setName('')
                 setError(null)
-                requestAnimationFrame(() => inputRef.current?.focus())
               }}
               className="flex w-full items-center gap-1 opacity-0 transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none group-hover/lane-insert:opacity-100 focus-visible:opacity-100"
             >
@@ -171,33 +172,33 @@ function BlueprintLaneHandlesActive({
         </div>
       ))}
 
-      {naming ? (
-        <div
-          className="pointer-events-auto absolute left-6 z-40 flex items-center gap-2 rounded-md border border-border bg-popover p-2 shadow-md"
-          style={{ top: naming.y - 16, width: Math.min(260, bodyWidth - 48) }}
-        >
+      <Popover
+        open={naming !== null}
+        onOpenChange={(open) => {
+          if (!open && !busy) setNaming(null)
+        }}
+      >
+        <PopoverContent anchor={naming?.anchor} align="start" side="bottom">
           <Input
-            ref={inputRef}
+            aria-label="Lane name"
             value={name}
+            disabled={busy}
             placeholder="Lane name"
             className="h-6 flex-1 text-xs"
             onChange={(event) => setName(event.target.value)}
             onKeyDown={(event) => {
+              event.stopPropagation()
               if (event.key === 'Enter') void create()
-              if (event.key === 'Escape') setNaming(null)
-            }}
-            onBlur={() => {
-              // A click elsewhere abandons quietly; Enter is the commit.
-              if (!busy) setNaming(null)
+              if (event.key === 'Escape' && !busy) setNaming(null)
             }}
           />
           {error ? (
-            <span className="max-w-40 truncate text-xs text-destructive">
+            <span role="alert" className="text-xs text-destructive">
               {error}
             </span>
           ) : null}
-        </div>
-      ) : null}
+        </PopoverContent>
+      </Popover>
     </div>
   )
 }

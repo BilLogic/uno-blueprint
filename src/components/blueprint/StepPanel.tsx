@@ -75,13 +75,20 @@ function StepPanelBody({
   const { client, canWrite } = useSupabase()
   const canEdit = useCanvasModeValue() === 'design' && canWrite
 
-  const [baseline] = useState(step.summary)
+  const [baseline, setBaseline] = useState(step.summary)
   const [summary, setSummary] = useState(baseline)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const footerHost = usePanelFooterHost(STEP_PANEL_FOOTER_ID)
 
   const changed = summary !== baseline
+
+  // A reopened panel can mount from stale cache before its refetch finishes.
+  // Follow that response while pristine; a response must never replace a draft.
+  if (!changed && !busy && step.summary !== baseline) {
+    setBaseline(step.summary)
+    setSummary(step.summary)
+  }
 
   const handleSave = async () => {
     if (!client || busy || !changed) return

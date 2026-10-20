@@ -9,7 +9,7 @@ import { useSupabase } from '@/contexts/SupabaseProvider'
 import { addStep } from '@/lib/authoringRpc'
 import { reportWriteFailure } from '@/lib/writeFailures'
 
-type Step = { id: string; name: string }
+type Step = { id: string; name: string; position: number }
 type Column = { left: number; width: number }
 
 /**
@@ -78,7 +78,7 @@ export function BlueprintColumnHandles({
 
     const measured = steps.flatMap<Column>((_, stepIndex) => {
       const cell = body.querySelector(
-        `[data-blueprint-cell-anchor][data-step-index="${stepIndex}"]`,
+        `:is([data-blueprint-cell-anchor], [data-blueprint-empty-slot])[data-step-index="${stepIndex}"]`,
       )
       if (!(cell instanceof HTMLElement)) return []
 
@@ -106,8 +106,8 @@ export function BlueprintColumnHandles({
 
   /**
    * Where a new column could go: before the first, between each pair, after
-   * the last. `at_position` is the index the new step takes, so boundary `i`
-   * and position `i` are the same number.
+   * the last. The array index is not a stored position: imported paths can
+   * start at one or leave gaps.
    */
   const boundaries = columns.map((column, index) => {
     const previous = columns[index - 1]
@@ -125,10 +125,7 @@ export function BlueprintColumnHandles({
     if (!client || !pathId || busyAt !== null) return
     setBusyAt(at)
     try {
-      // Unnamed on purpose. A blank trailing column is always a valid grid and
-      // is named in place on the canvas; a dialog here would be a modal asking
-      // for the one thing that is easiest to type where it lands.
-      await addStep(client, { pathId, name: '', atPosition: at })
+      await addStep(client, { pathId, name: '', atPosition: steps[at]?.position })
     } catch (error) {
       reportWriteFailure('The step was not added', error)
     } finally {

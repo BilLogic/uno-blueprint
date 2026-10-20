@@ -37,6 +37,10 @@ import {
   duplicatePathTool,
   duplicateScenarioTool,
   updatePathTool,
+  updatePhaseTool,
+  updateScenarioTool,
+  updateStepTool,
+  updateLaneTool,
 } from '@/lib/agent/tools/definitions/journey'
 import {
   annotateCellsTool,
@@ -133,6 +137,10 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
   updateCellTool,
   createCellDependencyTool,
   updatePathTool,
+  updatePhaseTool,
+  updateScenarioTool,
+  updateStepTool,
+  updateLaneTool,
   createEvidenceTool,
   updateEvidenceTool,
   createFindingTool,

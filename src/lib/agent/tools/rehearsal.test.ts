@@ -23,6 +23,7 @@ const CELL_2 = 'a0000000-0000-4000-8000-000000040102'
 const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   create_stakeholder: { name: 'Dispatcher', kind: 'staff' },
   update_stakeholder: { stakeholder_id: 'st-1', summary: 'Runs the floor' },
+  create_service: { name: 'Request support' },
   create_phase: { name: 'Onboard' },
   create_scenario: { phase_id: 'ph-1', name: 'Intake' },
   create_path: { scenario_id: 'sc-1', name: 'Late' },

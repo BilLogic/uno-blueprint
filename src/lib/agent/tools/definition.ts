@@ -211,7 +211,7 @@ export function requireClient(ctx: ToolContext): Client {
 export function requireActiveService(ctx: ToolContext): string {
   const scope = requireScope(ctx)
   if (scope.kind === 'service') return scope.serviceId
-  throw new Error('No service is active — open a service before creating under it.')
+  throw new Error('No service is active — choose one from list_services, or propose create_service and ask someone who may confirm for a yes.')
 }
 
 /**

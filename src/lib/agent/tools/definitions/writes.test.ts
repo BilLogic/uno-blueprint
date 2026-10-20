@@ -136,7 +136,7 @@ const WRITES = TOOL_DEFINITIONS.filter((tool) => tool.surface === 'write')
 describe('every write is a definition on the write surface, off the trial and off mobile', () => {
   it('the writes and proposal decisions are on the write surface', () => {
     expect(WRITES.map((tool) => tool.name)).toEqual([
-      'create_stakeholder', 'update_stakeholder', 'create_phase', 'create_scenario', 'create_path',
+      'create_service', 'create_stakeholder', 'update_stakeholder', 'create_phase', 'create_scenario', 'create_path',
       'duplicate_path', 'duplicate_scenario', 'create_slice', 'update_slice', 'replace_slides',
       'create_step', 'create_lane', 'upsert_cell', 'update_cell', 'create_cell_dependency',
       'update_path', 'create_evidence', 'update_evidence', 'create_finding', 'update_finding',

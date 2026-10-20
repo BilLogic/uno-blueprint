@@ -61,6 +61,8 @@
     "test:init:db": "bash scripts/tests/init-state.test.sh",
     "build:tool-server": "node scripts/build-tool-server.mjs",
     "check:tool-contracts": "node scripts/generate-tool-contracts.mjs --check",
+    "test:services:db": "node scripts/run-service-db.mjs",
+    "test:services:postgrest": "node scripts/run-tool-server-over-postgrest.mjs --services",
     "test:tool-writes:db": "node scripts/run-tool-write-db.mjs",
     "test:tool-writes:postgrest": "node scripts/run-tool-server-over-postgrest.mjs --writes",
     "test:tool-server:postgrest": "node scripts/run-tool-server-over-postgrest.mjs",

@@ -179,7 +179,7 @@ test('every root document is in subject, the always-loaded tier included', () =>
   for (const doc of [
     'AGENTS.md',
     'README.md',
-    'CONTEXT.md',
+    'GLOSSARY.md',
     'SETUP.md',
     'INDEX.md',
     'CONTRIBUTING.md',

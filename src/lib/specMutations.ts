@@ -10,7 +10,7 @@ type Client = SupabaseClient<Database>
 /**
  * The one way a spec is written, at every level that has one.
  *
- * CONTEXT.md says spec is four levels and one word — what a board object is
+ * GLOSSARY.md says spec is four levels and one word — what a board object is
  * like, as opposed to where it sits — and a panel writes it over a
  * column-scoped grant rather than through an authoring RPC. The same paragraph
  * says scenario, step and path own no spec, and that is still true of the

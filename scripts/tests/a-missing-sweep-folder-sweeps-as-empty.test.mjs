@@ -39,7 +39,7 @@ function tree(files) {
  * documents: importing its answer would make each assertion below a
  * restatement of the walk rather than a claim about it.
  */
-const ROOT_FILES = ['AGENTS.md', 'CONTEXT.md', 'README.md']
+const ROOT_FILES = ['AGENTS.md', 'GLOSSARY.md', 'README.md']
 
 /**
  * A sink that keeps the announcement out of this run's annotations.
@@ -98,7 +98,7 @@ test('a root document nobody listed is swept; the changelog is the one that is n
   try {
     assert.deepEqual(sweptDocs(t.root), [
       'AGENTS.md',
-      'CONTEXT.md',
+      'GLOSSARY.md',
       'README.md',
       'SECURITY.md',
       'SETUP.md',

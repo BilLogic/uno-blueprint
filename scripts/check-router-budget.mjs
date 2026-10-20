@@ -6,7 +6,7 @@
  * before it decides anything, so every character in it is paid for by every
  * task, including the ones the character has nothing to do with — and a router
  * nobody finishes reading routes nobody. Who is in the tier, and why
- * `CONTEXT.md` and `INDEX.md` are not, is `scripts/always-loaded.mjs`.
+ * `GLOSSARY.md` and `INDEX.md` are not, is `scripts/always-loaded.mjs`.
  *
  * WHAT IS COUNTED, IN TWO CENSUSES. The router: characters of the files in
  * `ALWAYS_LOADED`, whole, as they sit on disk. The descriptions: characters

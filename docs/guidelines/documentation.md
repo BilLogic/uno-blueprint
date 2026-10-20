@@ -12,7 +12,7 @@ summary: The documentation grammar this repo follows — five root files each an
 | File | The question it answers |
 | --- | --- |
 | `README.md` | What is this, and why would I want it? |
-| `CONTEXT.md` | What does this word mean? |
+| `GLOSSARY.md` | What does this word mean? |
 | `SETUP.md` | How do I get it running? |
 | `INDEX.md` | Where is the thing I need? *(generated)* |
 | `AGENTS.md` | I am an agent — what do I read, and what am I not allowed to do? |

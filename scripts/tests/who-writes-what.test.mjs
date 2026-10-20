@@ -12,10 +12,10 @@
  * Three rules:
  *
  *   1. every tool the table credits is on the write roster — a renamed or
- *      deleted tool fails here rather than leaving CONTEXT.md quietly wrong
+ *      deleted tool fails here rather than leaving GLOSSARY.md quietly wrong
  *   2. every write tool that NAMES one of these records is assigned an owner —
  *      a `delete_slice` nobody added to the table fails here
- *   3. CONTEXT.md's own table PARSES to the rows below — not "the file
+ *   3. GLOSSARY.md's own table PARSES to the rows below — not "the file
  *      mentions these words somewhere", which `findings` and `slices` would
  *      satisfy from a dozen other paragraphs, but the three rows themselves
  *
@@ -42,11 +42,11 @@ import { toolSources, toolsOnSurface } from '../tool-sources.mjs'
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
-/** CONTEXT.md is a file of this tree; every deployment holds it beside this test. */
+/** GLOSSARY.md is a file of this tree; every deployment holds it beside this test. */
 const read = (path) => readFileSync(join(ROOT, path), 'utf8')
 
 /**
- * The ownership table, as CONTEXT.md states it.
+ * The ownership table, as GLOSSARY.md states it.
  *
  * `owner` is prose on purpose — it is the phrase a person should write in a
  * sentence, and "nobody" has to be sayable for the evidence row to be honest.
@@ -62,7 +62,7 @@ export const RECORD_OWNERS = [
     tools: ['create_finding', 'update_finding'],
     owner: 'the audit',
   },
-  // The cell is the claim the source grounds — see CONTEXT.md, where this row
+  // The cell is the claim the source grounds — see GLOSSARY.md, where this row
   // read "nobody" for as long as the panel was evidence's only writer.
   {
     records: ['evidence'],
@@ -90,7 +90,7 @@ export function writesWithNoOwner(rows, roster) {
 }
 
 /**
- * The ownership table as CONTEXT.md draws it, parsed back into rows.
+ * The ownership table as GLOSSARY.md draws it, parsed back into rows.
  *
  * Parsed rather than searched for. `findings` and `slices` appear in a dozen
  * other paragraphs of that file, so "the document mentions the word" is
@@ -100,7 +100,7 @@ export function writesWithNoOwner(rows, roster) {
 export function ownershipTable(markdown) {
   const lines = markdown.split('\n')
   const head = lines.findIndex((line) => line.startsWith('| record | written by | belongs to |'))
-  if (head < 0) throw new Error('no ownership table found in CONTEXT.md')
+  if (head < 0) throw new Error('no ownership table found in GLOSSARY.md')
 
   const rows = []
   for (const line of lines.slice(head + 2)) {
@@ -122,7 +122,7 @@ export function ownershipTable(markdown) {
 // ---------------------------------------------------------------------------
 
 test('creditedButUnreal names a tool the table invented', () => {
-  // The bug: a rename lands in specs.ts, CONTEXT.md keeps the old word, and a
+  // The bug: a rename lands in specs.ts, the glossary keeps the old word, and a
   // reader looking up who owns slices is told to call a tool nobody has.
   const roster = ['create_slice', 'update_slice']
   const rows = [{ records: ['slices'], tools: ['create_slice', 'rename_slice'], owner: 'the slice' }]
@@ -148,7 +148,7 @@ test('a further evidence write would need an owner before it shipped', () => {
 
 test('ownershipTable reads the rows, not the words around them', () => {
   // The bug it catches: `findings` and `slices` are common words in that file,
-  // so a rule that only asked "does CONTEXT.md mention them" stayed green
+  // so a rule that only asked "does the glossary mention them" stayed green
   // while the table itself said something else.
   const table = [
     '| record | written by | belongs to |',
@@ -193,7 +193,7 @@ test('every tool the ownership table credits is one the agent has', () => {
   assert.deepEqual(
     unreal,
     [],
-    'CONTEXT.md credits a write tool that is not on the roster: ' + unreal.join(', '),
+    'GLOSSARY.md credits a write tool that is not on the roster: ' + unreal.join(', '),
   )
 })
 
@@ -206,6 +206,6 @@ test('every write tool that names one of these records has an owner', () => {
   )
 })
 
-test('CONTEXT.md’s table parses to exactly the rows this file enforces', () => {
-  assert.deepEqual(ownershipTable(read('CONTEXT.md')), RECORD_OWNERS)
+test('GLOSSARY.md’s table parses to exactly the rows this file enforces', () => {
+  assert.deepEqual(ownershipTable(read('GLOSSARY.md')), RECORD_OWNERS)
 })

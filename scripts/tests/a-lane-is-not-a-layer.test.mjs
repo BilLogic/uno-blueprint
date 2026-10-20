@@ -2,7 +2,7 @@
  * Check F — a lane is a row of the board, and nothing else is a lane.
  *
  * A **lane** is one actor's activity across the steps: a ROW, a `lanes` row,
- * carrying a `lane_role` from a closed set. `CONTEXT.md` defines it. A
+ * carrying a `lane_role` from a closed set. `GLOSSARY.md` defines it. A
  * **layer** is anything stacked, staged, composited or tiered — the CSS
  * cascade's `@layer`, a composited paint layer, the opaque cover a boot
  * skeleton draws over a sidebar, a rung of the canvas reveal, a design-token
@@ -252,7 +252,7 @@ test('nothing called a lane is a layer', () => {
   assert.deepEqual(
     found,
     [],
-    'A lane is one actor\'s row across the steps — see CONTEXT.md. The word ' +
+    'A lane is one actor\'s row across the steps — see GLOSSARY.md. The word ' +
       'here is standing for something stacked, staged, composited or tiered, ' +
       'which is a LAYER, and the rename that moved the table `layers` to ' +
       `\`lanes\` did not retire that English word:\n${found.join('\n')}`,

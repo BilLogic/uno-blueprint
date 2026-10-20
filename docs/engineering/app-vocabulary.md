@@ -9,7 +9,7 @@ summary: The words that matter only inside the app's code — five words for arr
 not?
 
 A word defined here changes what the app's code does and nothing an agent
-writes to a board, a skill or a document; those words are `CONTEXT.md`'s. The
+writes to a board, a skill or a document; those words are `GLOSSARY.md`'s. The
 decision record that governs each group is named at its head.
 
 ## Five words for arrival
@@ -48,7 +48,7 @@ load shows no placeholder at all instead of one that flashes.
 `status` of a `QueryResult`. It is a fact about the data and not about the
 screen, so a bar can be `ready` while the sidebar is still `skeletoning`
 without the two contradicting each other. It only ever describes a read; the
-status stored in a column is the board's, defined in `CONTEXT.md`.
+status stored in a column is the board's, defined in `GLOSSARY.md`.
 
 ## The camera
 

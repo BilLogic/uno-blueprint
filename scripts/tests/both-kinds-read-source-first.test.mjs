@@ -12,7 +12,7 @@
  * Two kinds pointing opposite ways means an edge's direction cannot be read
  * without first checking its kind. `enables` puts both kinds source-first:
  * "Account has been verified" enables "Greets the customer by name".
- * CONTEXT.md says the same ("both read source-first"), and the panel groups
+ * GLOSSARY.md says the same ("both read source-first"), and the panel groups
  * are symmetric because of it.
  *
  * The agent surface has said the opposite before. `create_cell_dependency`
@@ -69,7 +69,7 @@ const read = (path) => {
  * is generated from it.
  */
 const TEACHING_SURFACES = [
-  'CONTEXT.md',
+  'GLOSSARY.md',
   'references/canvas-adapter.md',
   'src/lib/agent/tools/definitions/cells.ts',
 ]

@@ -60,6 +60,7 @@ const EVERY_WRITE = Object.keys({
   add_lane: true,
   upsert_cell: true,
   update_cell_content: true,
+  approve_suggested_change: true,
   update_cell_resources: true,
   update_placement_resources: true,
   set_featured_resource: true,
@@ -314,4 +315,9 @@ test('a slice delete is named and counts as destructive', () => {
     'Deleted a slice',
   )
   expect(sessionHasDestructive([entry('delete_slice')])).toBe(true)
+})
+
+
+test('an approval has its own sentence in the change sheet', () => {
+  expect(describeChange({ id: 'approval', fn: 'approve_suggested_change', args: {}, at: 0 })).toBe('Approved a suggested change')
 })

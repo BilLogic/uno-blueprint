@@ -99,7 +99,7 @@ begin
   perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
   perform public.approve_suggested_change(proposal);
   if (select content from public.cells where id=cell)<>'A sourced contribution' then raise exception 'content approval failed'; end if;
-  if not exists(select 1 from public.authoring_changes where proposed_by='b0000000-0000-4000-8000-000000000002' and approved_by='b0000000-0000-4000-8000-000000000001' and fn='update_cell_content') then raise exception 'legacy content approval lost both people'; end if;
+  if not exists(select 1 from public.authoring_changes where proposed_by='b0000000-0000-4000-8000-000000000002' and approved_by='b0000000-0000-4000-8000-000000000001' and fn='approve_suggested_change') then raise exception 'legacy content approval lost both people'; end if;
   perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
   result:=public.run_agent_tool('update_cell',jsonb_build_object('cell_id',cell,'form','Stale form'),session,service,true); proposal:=(result->>'suggested_change_id')::uuid;
   perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);

@@ -66,6 +66,7 @@ that repository's 0013 is the import decision, which lives here as 0020.
 | [0029](0029-the-script-policy-stays-strict-and-jitless-makes-it-free.md) | The script policy stays strict, and `jitless` makes that free |
 | [0030](0030-the-impact-tracer-walks-either-way.md) | The impact tracer walks either way |
 | [0031](0031-a-description-is-always-loaded-and-budgeted.md) | A description is always loaded, and is budgeted like the router |
+| [0032](0032-the-owner-agent-stays-in-the-template-for-v0.md) | The owner agent stays in the template for v0 |
 
 ## Moved here from BilLogic/plus-uno-blueprint (#551)
 

@@ -90,7 +90,7 @@ describe.runIf(live)('profiles over PostgREST', () => {
     expect(decided.data).toEqual([{ status: 'approved', decided_by: ownProfile.data?.id }])
     const account = await confirmer().from('profiles').select('user_id').single()
     const log = await confirmer().from('authoring_changes')
-      .select('author, author_id, args, revert').eq('fn', 'update_cell_content')
+      .select('author, author_id, args, revert').eq('fn', 'approve_suggested_change')
     expect(log.error).toBeNull()
     expect(log.data).toHaveLength(1)
     expect(log.data![0]).toMatchObject({

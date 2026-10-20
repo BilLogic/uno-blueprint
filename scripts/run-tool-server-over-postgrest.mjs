@@ -4,11 +4,15 @@ import { resolve } from 'node:path'
 import { runPostgrestTest } from './run-slice-over-postgrest.mjs'
 import { sweep } from './sweep.mjs'
 
-const search = process.argv.includes('--search')
-const writes = process.argv.includes('--writes')
-const reads = process.argv.includes('--reads')
-const TEST = search ? 'src/lib/agent/server/search.postgrest.test.ts' : writes ? 'src/lib/agent/server/writes.postgrest.test.ts'
-  : reads ? 'src/lib/agent/server/reads.postgrest.test.ts' : 'src/lib/agent/server/mcp.postgrest.test.ts'
+const cases = {
+  default: { test: 'src/lib/agent/server/mcp.postgrest.test.ts', fixtures: ['mcp-sessions'] },
+  '--writes': { test: 'src/lib/agent/server/writes.postgrest.test.ts', fixtures: ['tool-writes'] },
+  '--reads': { test: 'src/lib/agent/server/reads.postgrest.test.ts', fixtures: ['mcp-sessions','tool-reads'] },
+  '--search': { test: 'src/lib/agent/server/search.postgrest.test.ts', fixtures: ['mcp-sessions','cell-search'], recipe: 'scripts/recipes/cell-search.sql' },
+  '--authoring': { test: 'src/lib/agent/server/authoring.postgrest.test.tsx', fixtures: ['mcp-sessions','authoring'] },
+}
+const selected = Object.keys(cases).find(flag => process.argv.includes(flag)) ?? 'default'
+const { test: TEST, fixtures, recipe } = cases[selected]
 const test = sweep({ subject: 'app', root: process.cwd(), where: path => path === TEST, what: 'the MCP boundary' }).locate(TEST)
 
 const { privateKey, publicKey } = await generateKeyPair('ES256', { extractable: true })
@@ -23,12 +27,8 @@ await runPostgrestTest({
   test, label: 'the MCP tool server',
   jwtSecret: JSON.stringify(jwks), mintClaim: () => owner,
   prepare(psql) {
-    psql(['-f', resolve(writes ? 'scripts/tests/fixtures/tool-writes.sql' : 'scripts/tests/fixtures/mcp-sessions.sql')])
-    if (reads) psql(['-f', resolve('scripts/tests/fixtures/tool-reads.sql')])
-    if (search) {
-      psql(['-f', resolve('scripts/recipes/cell-search.sql')])
-      psql(['-f', resolve('scripts/tests/fixtures/cell-search.sql')])
-    }
+    if (recipe) psql(['-f', resolve(recipe)])
+    for (const fixture of fixtures) psql(['-f', resolve(`scripts/tests/fixtures/${fixture}.sql`)])
   },
   env: () => ({ MCP_TEST_JWKS: JSON.stringify(jwks), MCP_TEST_OWNER_JWT: owner, MCP_TEST_OTHER_JWT: other }),
 })

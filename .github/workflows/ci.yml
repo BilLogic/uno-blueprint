@@ -518,6 +518,10 @@ jobs:
         run: |
           PGPORT=5433 npm run test:tool-search:db
           PGPORT=5433 POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:tool-search:postgrest
+      - name: Server writes keep caller attribution and an open canvas refetches their rows
+        run: |
+          npm run test:authoring:db
+          POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:authoring:postgrest
       - name: Profiles are private, and only someone who may confirm approves, over PostgREST
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:profiles:postgrest
 

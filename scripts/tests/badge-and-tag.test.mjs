@@ -47,7 +47,7 @@
  * record is worse than the word it removes. `lane_role`'s catalogue comment
  * still reads "pill cells" because no migration has changed it, so the
  * documents that quote that comment — `references/data-model.md`,
- * `references/ir-schema.json`, `agents/render-checker.md`, `CONTEXT.md`'s lane
+ * `references/ir-schema.json`, `agents/render-checker.md`, `GLOSSARY.md`'s lane
  * definition — quote it accurately and are outside this file. They move when
  * the comment does. (The vendored mirror of the first of those does sit under
  * `src`, and is markdown: the walk's extension filter never opens it.)

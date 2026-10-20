@@ -30,7 +30,7 @@ import { repoConfig } from '../repo-config.mjs'
  * documents now: importing its answer would make each assertion below a
  * restatement of the walk rather than a claim about it.
  */
-const ROOT_FILES = ['AGENTS.md', 'CONTEXT.md', 'README.md']
+const ROOT_FILES = ['AGENTS.md', 'GLOSSARY.md', 'README.md']
 
 beforeEach(() => forgetUnverified())
 

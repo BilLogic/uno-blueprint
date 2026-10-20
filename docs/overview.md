@@ -45,7 +45,7 @@ for.
 | Path | Purpose |
 | --- | --- |
 | [INDEX.md](../INDEX.md) | Where to find things: routes by task, generated from the docs' frontmatter |
-| [CONTEXT.md](../CONTEXT.md) | The domain language: scenario, path, phase, step, cell, lane, touchpoint, the line of visibility, dependency, slice, finding |
+| [GLOSSARY.md](../GLOSSARY.md) | The domain language: scenario, path, phase, step, cell, lane, touchpoint, the line of visibility, dependency, slice, finding |
 | [SETUP.md](../SETUP.md) | Getting the repository running, adopting it for a team, and the checks to run before pushing |
 | [AGENTS.md](../AGENTS.md) | The agent router: which skill answers which intent |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | How to propose a change |
@@ -82,5 +82,5 @@ machines, so its path is a published interface. Same for `skills/`, `agents/`,
 [ADR 2](./adr/0002-plugin-contract-folder-names.md), and it is a decision
 rather than an oversight.
 
-**The domain language.** `CONTEXT.md` at the root, because every reader needs
+**The domain language.** `GLOSSARY.md` at the root, because every reader needs
 it and no folder owns it.

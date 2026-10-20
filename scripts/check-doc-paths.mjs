@@ -163,7 +163,7 @@ const UNHELD_PROSE = ['CHANGELOG.md', ...repoConfig.datedRecords.map((dir) => `$
 export function isPackagedProse(path) {
   if (!path.endsWith('.md')) return false
   if (UNHELD_PROSE.some((prefix) => path === prefix || path.startsWith(prefix))) return false
-  // A root-level document — README, CONTEXT, AGENTS, SETUP, INDEX and the
+  // A root-level document — README, GLOSSARY, AGENTS, SETUP, INDEX and the
   // rest — is packed and read from here exactly as the trees below are.
   return !path.includes('/') || PACKAGED_TREES.some((dir) => path.startsWith(dir))
 }

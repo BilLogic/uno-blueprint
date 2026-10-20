@@ -742,7 +742,7 @@ const MANGLED = [
  *
  * This file plants every shape to prove the sweep reads it. A changeset and
  * the CHANGELOG are the same case one step out: the note explaining that
- * "tabs laneed" became "tabs layered" has to quote both, and CONTEXT.md's
+ * "tabs laneed" became "tabs layered" has to quote both, and GLOSSARY.md's
  * standing rule — an applied or dated record keeps the spelling it was
  * written with — already covers the second. Neither is prose an agent or a
  * reader is taught from, which is what the sweep is protecting.

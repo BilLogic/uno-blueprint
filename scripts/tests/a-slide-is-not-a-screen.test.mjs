@@ -5,7 +5,7 @@
  * the `cells.frame` column. A **slide** is one row of a slice, the `slides`
  * table. **screen** is ordinary English — a display, a viewport, the surface a
  * reader happens to be looking at — and is not a name for anything on the
- * board. `CONTEXT.md` defines all three; `scripts/retired-vocabulary.mjs`
+ * board. `GLOSSARY.md` defines all three; `scripts/retired-vocabulary.mjs`
  * records why letting the schema's own prose call a slide a frame was the
  * defect the `slides` rename fixed.
  *
@@ -132,7 +132,7 @@ test('nothing on the slice surface is named a screen', () => {
     'A slide is a row of a slice and a frame is one image on one cell. ' +
       '"screen" names neither, and a name or a string on this surface that ' +
       'says it is either a slide wearing the wrong word or a frame wearing ' +
-      `it — see CONTEXT.md:\n${found.join('\n')}`,
+      `it — see GLOSSARY.md:\n${found.join('\n')}`,
   )
 })
 

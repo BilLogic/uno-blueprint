@@ -131,7 +131,7 @@ ${ROUTING.map(([task, target]) => `| ${task} | ${target} |`).join('\n')}
 | File | The question it answers |
 | --- | --- |
 | [README.md](./README.md) | What is this, and why would I want it? |
-| [CONTEXT.md](./CONTEXT.md) | What does this word mean? |
+| [GLOSSARY.md](./GLOSSARY.md) | What does this word mean? |
 | [SETUP.md](./SETUP.md) | How do I get it running? |
 | INDEX.md | Where is the thing I need? *(this file, generated)* |
 | [AGENTS.md](./AGENTS.md) | I am an agent — what do I read, and what may I not do? |

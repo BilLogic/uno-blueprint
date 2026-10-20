@@ -6,7 +6,7 @@ and run in any agent.
 ## Before the task
 
 - **Vocabulary** — before writing a domain word (lane, path, slice, finding)
-  into data, a skill or a doc: `CONTEXT.md`, by its ## heading.
+  into data, a skill or a doc: `GLOSSARY.md`, by its ## heading.
 - **Routing** — `INDEX.md` maps task to document. Generated from the docs' own
   frontmatter, so it states the tree as it is.
 - **Panel labels** — the word a field shows and the column behind it:

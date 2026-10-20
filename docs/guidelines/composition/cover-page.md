@@ -151,7 +151,7 @@ drawn to it, light and dark.
   the detail.
 - **Minimal text, sentence case.** A short title and a short line where a label
   is needed; no in-figure headline when the section already has one. No ALL
-  CAPS. Use the words `CONTEXT.md` fixes: lane, step, cell, slice, path.
+  CAPS. Use the words `GLOSSARY.md` fixes: lane, step, cell, slice, path.
 - **A label the app shows is marked.** Where a figure draws a field label the
   cell panel shows (Owner, Leads to, Enabled by), its `<text>` carries
   `class="uiLabel"` and nothing else in the class, styled like `.label`. That

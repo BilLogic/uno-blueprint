@@ -184,7 +184,7 @@ jobs:
       - run: npm run check:negation
       - run: npm run check:pointers
 
-      # The glossary's own check (#137). `CONTEXT.md` is the first pointer the
+      # The glossary's own check (#137). `GLOSSARY.md` is the first pointer the
       # router fires, so a session that reads `AGENTS.md` reads this next — and
       # it was two thirds reference material: a rename map, an interface-to-schema
       # map and a section of reasoning about which words a sweep should skip,

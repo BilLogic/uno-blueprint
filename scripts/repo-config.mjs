@@ -127,7 +127,7 @@ export const repoConfig = {
      */
     routing: [
       ['Purpose — what this is, and why I would want it', '`README.md`'],
-      ['Vocabulary — what lane, path, slice, dependency or finding means', '`CONTEXT.md`'],
+      ['Vocabulary — what lane, path, slice, dependency or finding means', '`GLOSSARY.md`'],
       ['Panel labels — what each one names in the schema', `\`${INTERFACE_MAP}\``],
       ['Setup — getting it running on my machine', '`SETUP.md`'],
       ['Guide — the whole thing, start to finish', '`docs/guide/`'],
@@ -171,7 +171,7 @@ export const repoConfig = {
   \`supabase/generated/portable-core.generated.sql\` → guide/04.
 - **Working on this repository** — SETUP → \`docs/guidelines/contributing.md\` →
   \`docs/engineering/checks.md\`, with \`docs/adr/\` before anything that renames.
-- **Agent sessions** — \`AGENTS.md\` (auto-loaded) → this table, and \`CONTEXT.md\`
+- **Agent sessions** — \`AGENTS.md\` (auto-loaded) → this table, and \`GLOSSARY.md\`
   when the task writes a domain word.`,
   },
 }

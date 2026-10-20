@@ -58,7 +58,7 @@ test('docs/ and the root documents are in subject; history and the records are n
   // named there resolves for every reader who will ever follow it.
   assert.equal(isPackagedProse('docs/engineering/checks.md'), true)
   assert.equal(isPackagedProse('docs/guidelines/documentation.md'), true)
-  assert.equal(isPackagedProse('CONTEXT.md'), true)
+  assert.equal(isPackagedProse('GLOSSARY.md'), true)
   assert.equal(isPackagedProse('AGENTS.md'), true)
   // A record of what shipped, and a record of what was decided. Both keep the
   // words of the day they were written.

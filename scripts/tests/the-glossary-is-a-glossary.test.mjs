@@ -1,5 +1,5 @@
 /**
- * The check that keeps `CONTEXT.md` a glossary, proven by glossaries that break
+ * The check that keeps `GLOSSARY.md` a glossary, proven by glossaries that break
  * it (#137).
  *
  * A guard seen only passing is not evidence. The committed glossary passes
@@ -56,7 +56,7 @@ test('a glossary that defines nothing fails, rather than breaking no rule', () =
   for (const empty of ['', '# Domain language\n', '# Domain language\n\nProse and no rows.\n']) {
     const found = findings(empty)
     assert.equal(found.length, 1, JSON.stringify(empty))
-    assert.match(found[0], /^CONTEXT\.md:1 defines no term at all/)
+    assert.match(found[0], /^GLOSSARY\.md:1 defines no term at all/)
   }
 })
 
@@ -71,7 +71,7 @@ test('one term row is enough to have a subject, and the rules then apply', () =>
 test('a fenced code block fails, and the failure names its line', () => {
   const found = findings(`${GLOSSARY}\n\`\`\`sql\nselect content from cells;\n\`\`\`\n`)
   assert.equal(found.length, 1)
-  assert.match(found[0], /^CONTEXT\.md:9 a fenced code block/)
+  assert.match(found[0], /^GLOSSARY\.md:9 a fenced code block/)
 })
 
 test('a tilde fence is a fence too, and an unclosed one still fails', () => {
@@ -116,7 +116,7 @@ test('the column test knows a path and a sentence from a name', () => {
   assert.equal(namesAColumn('cells.content'), true)
   assert.equal(namesAColumn('audit_findings.check_key'), true)
   assert.equal(namesAColumn('references/data-model.md'), false)
-  assert.equal(namesAColumn('CONTEXT.md'), false)
+  assert.equal(namesAColumn('GLOSSARY.md'), false)
   assert.equal(namesAColumn('scripts/validate_ir.py'), false)
   assert.equal(namesAColumn('one thing. another'), false)
 })
@@ -167,5 +167,5 @@ test('the script exits 0 and names its subject', () => {
     encoding: 'utf8',
   })
   assert.equal(run.status, 0, `${run.stdout}${run.stderr}`)
-  assert.match(run.stdout, /\[glossary\] CONTEXT\.md is \d+ term rows/)
+  assert.match(run.stdout, /\[glossary\] GLOSSARY\.md is \d+ term rows/)
 })

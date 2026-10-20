@@ -63,7 +63,7 @@ test('red — the opening, the findings and what to run, on stderr, and the exit
         what: 'packaged document',
         count: 58,
         opening: 'These lines name a path nothing matches:',
-        findings: ['  README.md:4  src/styles/tokens.css', '  CONTEXT.md:9  scripts/gone.mjs'],
+        findings: ['  README.md:4  src/styles/tokens.css', '  GLOSSARY.md:9  scripts/gone.mjs'],
         closing: '\n  npm run check:doc-paths\n',
         line: 'a line a failing check must not print',
       },
@@ -74,7 +74,7 @@ test('red — the opening, the findings and what to run, on stderr, and the exit
   assert.deepEqual(s.err, [
     'These lines name a path nothing matches:',
     '  README.md:4  src/styles/tokens.css',
-    '  CONTEXT.md:9  scripts/gone.mjs',
+    '  GLOSSARY.md:9  scripts/gone.mjs',
     '\n  npm run check:doc-paths\n',
   ])
   // The green line is never printed beside a failure, whatever the check hands over.

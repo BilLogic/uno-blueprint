@@ -501,6 +501,10 @@ jobs:
       - name: Every write and proposal approval crosses the MCP boundary
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:tool-writes:postgrest
       - run: npm run test:tool-writes:db
+      - name: Validate stored blueprints through MCP without writing
+        run: |
+          npm run test:validation:db
+          POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:validation:postgrest
       - name: Prove journey names and canvas refetch
         run: |
           npm run test:structure:db

@@ -62,6 +62,10 @@ const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url))
  */
 const REPOSITORY_ONLY = [
   {
+    script: 'scripts/generate-blueprint-validator.mjs',
+    why: 'it WRITES the template application’s bundled validator schema from its canonical reference. A deployment installs that artifact rather than regenerating its dependency.',
+  },
+  {
     script: 'scripts/generate_sample_blueprint.mjs',
     why:
       'it WRITES src/data/sampleBlueprint.ts and the seed beside it. The ' +

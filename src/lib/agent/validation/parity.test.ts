@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { expect, it } from 'vitest'
 import { validateDocument } from './service'
@@ -56,8 +57,8 @@ print(json.dumps(answers))
 }, 30000)
 
 it('changes to the canonical rules require renewing the parity proof', () => {
-  const fingerprint = execFileSync('python3', ['-c', "import ast,hashlib,pathlib; print(hashlib.sha256(ast.dump(ast.parse(pathlib.Path('scripts/validate_ir.py').read_text()),include_attributes=False).encode()).hexdigest())"], { encoding: 'utf8' }).trim()
-  expect(fingerprint, 'Extend the parity corpus for the changed validator rule before refreshing its fingerprint.').toBe('ba70fc9d6017cb456a5ab1de8e1eaddf172d6ab14f94f9480af782ca53f6b716')
+  const fingerprint = createHash('sha256').update(readFileSync('scripts/validate_ir.py')).digest('hex')
+  expect(fingerprint, 'Extend the parity corpus for the changed validator rule before refreshing its fingerprint.').toBe('a2893fb77f5398936777accd59fa26f79ea51daf54e210325e607098694430ab')
 })
 
 it('the bundled validator schema matches the canonical schema', () => {

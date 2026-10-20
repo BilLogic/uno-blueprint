@@ -68,6 +68,10 @@ it.runIf(live)('every write works over MCP; contributions are proposals, approva
     expect((await db.from('paths').select('id').eq('scenario_id', scenarioCopy)).data).toHaveLength(3)
     await write('update_path', { path_id: path, name: 'Main request' })
     expect((await db.from('paths').select('name').eq('id', path).single()).data?.name).toBe('Main request')
+    await write('update_phase', { phase_id: phase, name: 'Named phase' })
+    await write('update_scenario', { scenario_id: scenario, name: 'Named scenario' })
+    await write('update_step', { step_id: step, name: 'Named step' })
+    await write('update_lane', { lane_id: lane, name: 'Named lane' })
     const stakeholder = (await write('create_stakeholder', { name: 'Dispatch team', kind: 'staff' })).result
     await write('update_stakeholder', { stakeholder_id: stakeholder, summary: 'Handles incoming requests', aliases: ['Dispatch'] })
     expect((await db.from('stakeholders').select('summary').eq('id', stakeholder).single()).data?.summary).toBe('Handles incoming requests')

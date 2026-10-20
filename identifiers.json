@@ -243,9 +243,13 @@
     "update_cell",
     "update_evidence",
     "update_finding",
+    "update_lane",
     "update_path",
+    "update_phase",
+    "update_scenario",
     "update_slice",
     "update_stakeholder",
+    "update_step",
     "upsert_cell"
   ],
   "canvasReferenceNames": [

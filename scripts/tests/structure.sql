@@ -1,0 +1,51 @@
+begin;
+select set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+set local role authenticated;
+do $$ declare service uuid; phase uuid; scenario uuid; path uuid; step uuid; lane uuid;
+  result jsonb; proposal jsonb; item record; prior text; after_name text; session uuid:=gen_random_uuid(); checked int:=0;
+begin
+  result:=public.run_agent_tool('create_service','{"name":"Structure test only"}',session,null,true);
+  service:=(result->>'result')::uuid;
+  result:=public.run_agent_tool('create_phase','{"name":"Initial phase"}',session,service,true);
+  phase:=(result->>'result')::uuid;
+  result:=public.run_agent_tool('create_scenario',jsonb_build_object('phase_id',phase,'name','Initial scenario','step_names',jsonb_build_array('Choose support','Describe request')),session,service,true);
+  scenario:=(result->'result'->>'scenario_id')::uuid; path:=(result->'result'->>'path_id')::uuid;
+  if (select array_agg(s.name order by ps.position) from public.steps s join public.path_steps ps on ps.step_id=s.id where ps.path_id=path) is distinct from array['Choose support','Describe request'] then raise exception 'Initial names did not persist in order'; end if;
+  result:=public.run_agent_tool('create_step',jsonb_build_object('path_id',path,'name','Receive answer'),session,service,true);
+  step:=(result->>'result')::uuid;
+  perform public.run_agent_tool('create_lane',jsonb_build_object('scenario_id',scenario,'name','Initial lane'),session,service,true);
+  select id into strict lane from public.lanes where path_id=path and name='Initial lane';
+  for item in select * from (values ('phase',phase,'phases'),('scenario',scenario,'scenarios'),('step',step,'steps'),('lane',lane,'lanes')) t(level,id,tab) loop
+    execute format('select name from public.%I where id=$1',item.tab) into prior using item.id;
+    result:=public.run_agent_tool('update_'||item.level,jsonb_build_object(item.level||'_id',item.id,'name','Named '||item.level),session,service,true);
+    if result->>'outcome'<>'applied' then raise exception 'Rename was not applied: %',item.level; end if;
+    execute format('select name from public.%I where id=$1',item.tab) into after_name using item.id;
+    if after_name<>'Named '||item.level then raise exception 'Rename did not persist: %',item.level; end if;
+    if not exists(select 1 from public.authoring_changes c, jsonb_array_elements(c.revert->'rows') r where c.fn='update_'||item.level and c.author_id='c0000000-0000-4000-8000-000000000001' and c.agent_session_id=session and r->>'table'=item.tab and r->'before'->>'name'=prior) then raise exception 'Prior name or caller missing: %',item.level; end if;
+    perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+    proposal:=public.run_agent_tool('update_'||item.level,jsonb_build_object(item.level||'_id',item.id,'name','Proposed '||item.level),session,service,true);
+    if proposal->>'outcome'<>'proposed' then raise exception 'A contributor did not propose: %',item.level; end if;
+    execute format('select name from public.%I where id=$1',item.tab) into after_name using item.id;
+    if after_name<>'Named '||item.level then raise exception 'Preview changed a row: %',item.level; end if;
+    perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+    perform public.approve_suggested_change((proposal->>'suggested_change_id')::uuid);
+    execute format('select name from public.%I where id=$1',item.tab) into after_name using item.id;
+    if after_name<>'Proposed '||item.level then raise exception 'Approval did not rename: %',item.level; end if;
+    perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+    proposal:=public.run_agent_tool('update_'||item.level,jsonb_build_object(item.level||'_id',item.id,'name','Stale proposal'),session,service,true);
+    perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+    perform public.run_agent_tool('update_'||item.level,jsonb_build_object(item.level||'_id',item.id,'name','Newer name'),session,service,true);
+    begin
+      perform public.approve_suggested_change((proposal->>'suggested_change_id')::uuid);
+      raise exception 'A stale rename was accepted';
+    exception when raise_exception then
+      if sqlerrm='A stale rename was accepted' then raise; end if;
+    end;
+    execute format('select name from public.%I where id=$1',item.tab) into after_name using item.id;
+    if after_name<>'Newer name' then raise exception 'A stale approval changed a name'; end if;
+    checked:=checked+1;
+  end loop;
+  perform set_config('ub.structure_checked',checked::text,true);
+end $$;
+select 'structure_checked='||current_setting('ub.structure_checked');
+rollback;

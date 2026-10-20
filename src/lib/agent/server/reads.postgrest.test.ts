@@ -35,6 +35,7 @@ it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('every database re
     const compare = paths.find(row => paths.filter(other => other.scenario_id === row.scenario_id).length > 1)!
     const cases: [string, Record<string, unknown>, string][] = [
       ['get_profile', {}, 'Reader profile'],
+      ['list_services', {}, 'f0000000-0000-4000-8000-000000000010'],
       ['list_suggested_changes', {}, '[]'],
       ['list_blueprint', { granularity: ['cell'], limit: 500 }, cellId],
       ['get_blueprint', { scenario_id: path.scenario_id }, cellId],

@@ -175,6 +175,13 @@ describe('every write is a definition on the write surface, off the trial and of
 })
 
 describe('the structure writes call their RPC attributed, and the ledger records them', () => {
+  it('a write with no active service points to starting one before any mutation', async () => {
+    const { client, rpcs } = recordingClient()
+    await expect(runTool(createPhaseTool, { name: 'Arrival' }, fakeToolContext({ client, scope: null })))
+      .rejects.toThrow('create_service')
+    expect(rpcs).toEqual([])
+  })
+
   it('create_phase lands on the active service', async () => {
     const { text, rpcs, attributed, ledger } = await write(createPhaseTool, { name: 'Onboard' })
     expect(rpcs).toEqual([{ fn: 'create_phase', args: { service_id: 'svc-1', name: 'Onboard', summary: null } }])

@@ -49,7 +49,7 @@ import {
   uiCommandTool,
 } from '@/lib/agent/tools/definitions/interface'
 import { getReferenceTool, listReferencesTool } from '@/lib/agent/tools/definitions/references'
-import { getBusinessModelTool } from '@/lib/agent/tools/definitions/service'
+import { createServiceTool, listServicesTool, getBusinessModelTool } from '@/lib/agent/tools/definitions/service'
 import {
   getChangeHistoryTool,
   getSessionTool,
@@ -97,6 +97,7 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
   listEvidenceTool,
   getEvidenceTool,
   getBusinessModelTool,
+  listServicesTool,
   listSessionsTool,
   getSessionTool,
   getUiStateTool,
@@ -115,6 +116,7 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
   setSidebarTool,
   annotateCellsTool,
   // The writes, in the order the model was always offered them.
+  createServiceTool,
   createStakeholderTool,
   updateStakeholderTool,
   createPhaseTool,

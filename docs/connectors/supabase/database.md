@@ -982,9 +982,17 @@ both existing cell-content suggestions and general tool proposals.
 
 The durable `authoring_changes` row carries the authenticated caller and, on
 approval, `proposed_by` and `approved_by`. This is the minimum attribution
-needed for server writes; it adds no browser undo or audit-row replay. The
-server neither installs a process-global log writer nor borrows browser agent
-attribution. Every call is capped at 50 distinct cells, including cells copied
+needed for server writes. Each tool transaction also captures the actual
+changed rows under `revert: {kind: "captured_rows", rows: [...]}`: every row
+names its table and holds `before` and `after` values, with null on the absent
+side of an insert or delete. The capture includes RPC side effects such as
+placement changes and belongs to the same transaction; a preview rolls it
+back with the write. These are prior values for a later undo design, not a
+browser `RevertSpec`. No durable row enters the current undo stack, and there
+is no server undo action. Existing cell-content approvals keep their captured
+cell-update inverse. Both approval kinds use a distinct action label; the
+canvas records that action locally without duplicating the database log. The server neither installs
+a process-global log writer nor borrows browser agent attribution. Every call is capped at 50 distinct cells, including cells copied
 by a path or scenario duplication. The secret check matches the plugin hook's
 service-role JWT policy and runs over the whole argument tree, before schema
 parsing can discard unknown fields. The Supabase recipe also enforces it in

@@ -78,6 +78,7 @@ export type WriteFn =
   | 'add_lane'
   | 'upsert_cell'
   | 'update_cell_content'
+  | 'approve_suggested_change'
   | 'update_cell_resources'
   | 'update_placement_resources'
   | 'set_featured_resource'
@@ -240,11 +241,16 @@ export function sessionSnapshot(): SessionEntry[] {
   return entries
 }
 
-export function recordChange(
-  fn: WriteFn,
-  args: Record<string, unknown>,
-  revert?: RevertSpec,
-): void {
+export function recordChange(fn: WriteFn, args: Record<string, unknown>, revert?: RevertSpec): void {
+  appendToAuthoringLog(appendSessionChange(fn, args, revert))
+}
+
+/** Approval is already durable; add its local action without an undo payload. */
+export function recordSuggestionApproval(suggestedChangeId: string): void {
+  appendSessionChange('approve_suggested_change', { suggested_change_id: suggestedChangeId })
+}
+
+function appendSessionChange(fn: WriteFn, args: Record<string, unknown>, revert?: RevertSpec): ChangeEntry {
   counter += 1
   const entry: ChangeEntry = {
     id: `c${counter}`,
@@ -257,18 +263,13 @@ export function recordChange(
       : {}),
   }
   // The one mint of a `SessionEntry`, and the reason the type is worth
-  // having: an entry is branded here, after `recordChange` has assembled it
+  // having: an entry is branded here, after this module has assembled it
   // from arguments this build's own mutation modules passed in. Nothing that
   // arrived over the wire can acquire the brand, so nothing that arrived over
   // the wire can reach `executeRevert`.
   entries = [...entries, entry as SessionEntry]
   emit()
-  // The durable half. Here and not at the call sites for the same reason the
-  // array is filled here: one funnel, so the record and the list cannot
-  // disagree about what happened. It never throws — the write it describes
-  // has already landed, and failing an author's save because an audit append
-  // did not is a worse lie than the missing row.
-  appendToAuthoringLog(entry)
+  return entry
 }
 
 /** Save: the changes are wanted, so stop tracking them. Writes nothing. */
@@ -368,6 +369,7 @@ const DESCRIBERS: Record<WriteFn, (entry: ChangeEntry) => string> = {
   // an insert always has one. So the absence reads as an edit, not a create.
   upsert_cell: (entry) =>
     entry.revert?.fn === 'delete_cell' ? 'Added a cell' : 'Edited a cell’s text',
+  approve_suggested_change: () => 'Approved a suggested change',
   update_cell_content: () => 'Edited a cell’s text',
   update_cell_resources: () => 'Edited a cell’s resources',
   update_placement_resources: () => 'Edited a touchpoint’s resources at this cell',

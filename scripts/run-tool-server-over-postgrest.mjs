@@ -6,12 +6,13 @@ import { sweep } from './sweep.mjs'
 
 const cases = {
   default: { test: 'src/lib/agent/server/mcp.postgrest.test.ts', fixtures: ['mcp-sessions'] },
-  writes: { test: 'src/lib/agent/server/writes.postgrest.test.ts', fixtures: ['tool-writes'] },
-  reads: { test: 'src/lib/agent/server/reads.postgrest.test.ts', fixtures: ['mcp-sessions', 'tool-reads'] },
-  services: { test: 'src/lib/agent/server/services.postgrest.test.ts', fixtures: ['tool-writes', 'services'] },
+  '--writes': { test: 'src/lib/agent/server/writes.postgrest.test.ts', fixtures: ['tool-writes'] },
+  '--reads': { test: 'src/lib/agent/server/reads.postgrest.test.ts', fixtures: ['mcp-sessions','tool-reads'] },
+  '--services': { test: 'src/lib/agent/server/services.postgrest.test.ts', fixtures: ['tool-writes','services'] },
+  '--authoring': { test: 'src/lib/agent/server/authoring.postgrest.test.tsx', fixtures: ['mcp-sessions','authoring'] },
 }
-const selected = Object.entries(cases).find(([flag]) => process.argv.includes(`--${flag}`))?.[1] ?? cases.default
-const TEST = selected.test
+const selected = Object.keys(cases).find(flag => process.argv.includes(flag)) ?? 'default'
+const { test: TEST, fixtures } = cases[selected]
 const test = sweep({ subject: 'app', root: process.cwd(), where: path => path === TEST, what: 'the MCP boundary' }).locate(TEST)
 
 const { privateKey, publicKey } = await generateKeyPair('ES256', { extractable: true })
@@ -26,7 +27,7 @@ await runPostgrestTest({
   test, label: 'the MCP tool server',
   jwtSecret: JSON.stringify(jwks), mintClaim: () => owner,
   prepare(psql) {
-    for (const fixture of selected.fixtures) psql(['-f', resolve(`scripts/tests/fixtures/${fixture}.sql`)])
+    for (const fixture of fixtures) psql(['-f', resolve(`scripts/tests/fixtures/${fixture}.sql`)])
   },
   env: () => ({ MCP_TEST_JWKS: JSON.stringify(jwks), MCP_TEST_OWNER_JWT: owner, MCP_TEST_OTHER_JWT: other }),
 })

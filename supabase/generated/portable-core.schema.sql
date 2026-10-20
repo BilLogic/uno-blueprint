@@ -244,6 +244,7 @@ CREATE FUNCTION public.agent_tool_transaction(p_tool text, p_args jsonb, p_servi
 declare
   a jsonb:=p_args; result jsonb; id uuid; before_cell public.cells;
   ids uuid[]; n int; value jsonb; slides jsonb; sid uuid; profile uuid:=public.caller_profile_id();
+  old_capture text:=current_setting('ub.capture_agent_prior',true); old_rows text:=current_setting('ub.agent_prior_rows',true);
   old_gate text:=current_setting('ub.agent_transaction',true); state jsonb; free boolean; v_fingerprint text; existing public.audit_findings;
 begin
   if profile is null then raise exception 'Sign in with a linked profile before writing.' using errcode='42501'; end if;
@@ -271,6 +272,8 @@ begin
   -- transaction. It never alters a JWT or a person's stored permissions.
   begin
     perform set_config('ub.agent_transaction','on',true);
+    perform set_config('ub.agent_prior_rows','[]',true);
+    perform set_config('ub.capture_agent_prior','on',true);
     case p_tool
       when 'create_service' then
         id:=gen_random_uuid();
@@ -330,13 +333,17 @@ begin
         select * into existing from public.audit_findings f where f.service_id=p_service_id and f.fingerprint=v_fingerprint
           order by case f.status when 'open' then 0 when 'dismissed' then 1 else 2 end,updated_at desc limit 1 for update;
         if existing.status='dismissed' then
-          perform set_config('ub.agent_transaction',coalesce(old_gate,''),true);
+          perform set_config('ub.capture_agent_prior',coalesce(old_capture,''),true);
+    perform set_config('ub.agent_prior_rows',coalesce(old_rows,''),true);
+    perform set_config('ub.agent_transaction',coalesce(old_gate,''),true);
           return jsonb_build_object('outcome','suppressed','message','A person dismissed this finding; nothing was recorded.');
         elsif existing.status='open' then
           if existing.recorded_by is distinct from profile and not exists(
             select 1 from public.profiles p where p.id=profile and p.may_confirm
           ) then
-            perform set_config('ub.agent_transaction',coalesce(old_gate,''),true);
+            perform set_config('ub.capture_agent_prior',coalesce(old_capture,''),true);
+    perform set_config('ub.agent_prior_rows',coalesce(old_rows,''),true);
+    perform set_config('ub.agent_transaction',coalesce(old_gate,''),true);
             return jsonb_build_object('outcome','unchanged','result',existing.id,
               'message','An open finding already records this check. Only its original recorder or someone who may confirm can revise it; nothing was changed.');
           end if;
@@ -352,9 +359,12 @@ begin
         update public.audit_findings set status=a->>'status',updated_at=now() where audit_findings.id=(a->>'finding_id')::uuid returning audit_findings.id into id; result:=to_jsonb(id);
       else raise exception 'This write has no transactional implementation: %',p_tool;
     end case;
-    insert into public.authoring_changes(fn,args,author,author_id,agent_session_id,proposed_by,approved_by)
-      values(p_tool,a||jsonb_build_object('service_id',p_service_id,'result',result),'agent',(select user_id from public.profiles where profiles.id=profile),p_session_id,p_proposer,
-        case when free then null else profile end);
+    insert into public.authoring_changes(fn,args,author,author_id,agent_session_id,proposed_by,approved_by,revert)
+      values(case when p_proposer is null then p_tool else 'approve_suggested_change' end,a||jsonb_build_object('tool_name',p_tool,'service_id',p_service_id,'result',result),'agent',(select user_id from public.profiles where profiles.id=profile),p_session_id,p_proposer,
+        case when free then null else profile end,
+        jsonb_build_object('kind','captured_rows','rows',current_setting('ub.agent_prior_rows')::jsonb));
+    perform set_config('ub.capture_agent_prior',coalesce(old_capture,''),true);
+    perform set_config('ub.agent_prior_rows',coalesce(old_rows,''),true);
     perform set_config('ub.agent_transaction',coalesce(old_gate,''),true);
     if p_preview then raise exception using errcode='UB001',message='preview'; end if;
   exception when sqlstate 'UB001' then null;
@@ -403,7 +413,7 @@ begin
    where id = p_id;
   insert into public.authoring_changes (author, author_id, proposed_by, approved_by, fn, args, revert)
   values ('human', (select user_id from public.profiles where id = v_profile), v_change.suggested_by, v_profile,
-    'update_cell_content', jsonb_build_object('cell_id', v_change.cell_id, 'update',
+    'approve_suggested_change', jsonb_build_object('cell_id', v_change.cell_id, 'update',
       jsonb_build_object('content', v_change.proposed_content, 'confirmed_by', v_profile, 'confirmed_at', now())),
     jsonb_build_object('fn', 'update_cell_content', 'args',
       jsonb_build_object('cell_id', v_previous.id, 'update',
@@ -478,6 +488,26 @@ CREATE FUNCTION public.caller_profile_id() RETURNS uuid
 --
 
 COMMENT ON FUNCTION public.caller_profile_id() IS 'The profile of the person making this request, identified by auth.uid(); null when the caller has none.';
+
+--
+-- Name: capture_agent_prior_rows(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.capture_agent_prior_rows() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'pg_temp'
+    AS $$
+begin
+  if current_setting('ub.agent_transaction',true)='on'
+     and current_setting('ub.capture_agent_prior',true)='on' then
+    perform set_config('ub.agent_prior_rows',
+      (coalesce(nullif(current_setting('ub.agent_prior_rows',true),''),'[]')::jsonb
+        || jsonb_build_array(jsonb_build_object('table',tg_table_name,
+          'before',case when tg_op='INSERT' then null else to_jsonb(old) end,
+          'after',case when tg_op='DELETE' then null else to_jsonb(new) end)))::text,true);
+  end if;
+  return null;
+end $$;
 
 --
 -- Name: cell_natural_key(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -3848,7 +3878,7 @@ COMMENT ON COLUMN public.authoring_changes.args IS 'Exactly what was sent. Ids, 
 -- Name: COLUMN authoring_changes.revert; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.authoring_changes.revert IS 'The captured inverse, {fn, args}, where one exists. Recorded so a row can say what would undo it. Nothing replays it — see the header.';
+COMMENT ON COLUMN public.authoring_changes.revert IS 'Audit-only inverse data: browser writes and existing cell-content approvals hold a RevertSpec; server tool transactions and their approvals hold captured_rows with before and after values. Durable rows are never replayed by canvas undo.';
 
 --
 -- Name: business_models; Type: TABLE; Schema: public; Owner: -
@@ -5458,6 +5488,120 @@ CREATE TRIGGER authoring_changes_no_rewrite BEFORE DELETE OR UPDATE ON public.au
 --
 
 CREATE TRIGGER authoring_changes_no_truncate BEFORE TRUNCATE ON public.authoring_changes FOR EACH STATEMENT EXECUTE FUNCTION public.authoring_changes_are_append_only();
+
+--
+-- Name: audit_findings capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.audit_findings FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: business_models capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.business_models FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: cell_dependencies capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.cell_dependencies FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: cell_touchpoints capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.cell_touchpoints FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: cells capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.cells FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: evidence capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.evidence FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: lanes capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.lanes FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: path_steps capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.path_steps FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: paths capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.paths FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: phases capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.phases FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: resources capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.resources FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: scenarios capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.scenarios FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: services capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.services FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: slices capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.slices FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: slide_images capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.slide_images FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: slides capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.slides FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: stakeholders capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.stakeholders FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: steps capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.steps FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: touchpoints capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.touchpoints FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
 
 --
 -- Name: cells cells_validate_path_match; Type: TRIGGER; Schema: public; Owner: -

@@ -2883,3 +2883,10 @@ do $$ declare signature text; begin
   end loop;
   if not has_function_privilege('authenticated','public.approve_suggested_change(uuid)','execute') then raise exception 'signed-in approval is missing'; end if;
 end $$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000312000000_a_server_write_captures_its_prior_rows.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- host request roles must not call the trigger helper.
+revoke all on function public.capture_agent_prior_rows() from anon,authenticated;

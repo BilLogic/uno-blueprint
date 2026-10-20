@@ -29,7 +29,21 @@ it.runIf(live)('every write works over MCP; contributions are proposals, approva
   try {
     const owner = await connect(process.env.MCP_TEST_OWNER_JWT!)
     const contributor = await connect(process.env.MCP_TEST_OTHER_JWT!)
-    const write = (name: string, args: Record<string, unknown>) => call(owner, name, args)
+    const write = async (name: string, args: Record<string, unknown>) => {
+      const before = await db.from('authoring_changes').select('id')
+      expect(before.error).toBeNull()
+      const result = await call(owner, name, args)
+      const after = await db.from('authoring_changes').select('id,revert')
+      expect(after.error).toBeNull()
+      const priorIds = new Set(before.data!.map(row => row.id))
+      const added = after.data!.filter(row => !priorIds.has(row.id))
+      if (result.outcome === 'applied') {
+        expect(added, name).toHaveLength(1)
+        expect(added[0].revert, name).toMatchObject({ kind: 'captured_rows', rows: expect.any(Array) })
+        expect((added[0].revert as { rows: unknown[] }).rows.length, name).toBeGreaterThan(0)
+      } else expect(added, name).toHaveLength(0)
+      return result
+    }
     const newService = await write('create_service', { name: 'Another service' })
     expect((await db.from('services').select('name').eq('id', newService.result).single()).data?.name).toBe('Another service')
     const phase = (await write('create_phase', { name: 'MCP phase' })).result

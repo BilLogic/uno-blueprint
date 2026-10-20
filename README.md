@@ -2,7 +2,7 @@
 
 Get your human and AI teammates on the same page.
 
-An open-source toolkit for context engineering: a canvas for your team, a harness for your agents. One service blueprint that people read as a canvas and agents read as structured data.
+An open-source context-engineering toolkit: it turns a team's scattered context into service blueprints that people and AI agents work from. A canvas for your team, a harness for your agents.
 
 [Website](https://uno-blueprint.netlify.app) · [Try the demo](https://uno-blueprint.netlify.app/demo/) · [Agent guide](https://uno-blueprint.netlify.app/uno-blueprint.md) · [Changelog](./CHANGELOG.md) · [Latest release](https://github.com/BilLogic/uno-blueprint/releases/latest)
 

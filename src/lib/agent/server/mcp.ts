@@ -53,7 +53,7 @@ export function createToolServer(options: {
         server.registerTool(spec.name, {
           description: spec.description,
           inputSchema: definition.surface === 'write' ? definition.args.extend({
-            service_id: z.string().uuid().optional().describe('Service to create under; copy its id from list_blueprint.'),
+            service_id: z.string().uuid().optional().describe('Service to create under; copy its id from list_services or list_blueprint.'),
             confirmed: z.boolean().optional().describe('True only after the person explicitly confirmed this change; otherwise record a proposal.'),
           }).passthrough() : definition.args,
           annotations: { readOnlyHint: definition.surface === 'read' },

@@ -899,6 +899,25 @@ use an existing actor's exact name to link them. Reused kinds must fit the role
 (consultant: partner; owner: staff or team; expert: staff). Re-running updates
 links and names but preserves an operator's may-confirm decision.
 
+## Starting a service through Uno
+
+`list_services` reads the business's service rows directly, including services
+with no cells, and returns each id, name, summary and slug. `create_service`
+uses the existing checked write transaction and proposal queue. With a linked
+profile that may confirm and the person's explicit yes (`confirmed: true`),
+it creates the service and returns its id. Otherwise it records a proposal;
+a confirmer can approve it through `approve_suggested_change`. Each new service
+gets a unique route slug derived from its id. The agent can then pass the
+returned id as `service_id` to `create_phase`.
+
+A deployment is one business in one database. The tool writes through the
+caller's configured project and existing profile guard; no argument chooses
+another business or database. No table grants or RLS policies are widened.
+Creation and approval use the existing caller-attributed authoring log.
+Missing-service write refusals point to `list_services` and `create_service`.
+The native and MCP service proofs use disposable scratch databases only;
+the pilot's second service must be created by its person through Uno.
+
 ## Remote read and write tools
 
 Run `npm ci`, then `npm run build:tool-server` to bundle the shared read and

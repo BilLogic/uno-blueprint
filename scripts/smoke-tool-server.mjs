@@ -51,7 +51,13 @@ export async function judge() {
     step = 'listing the deployed write tools'
     const { tools } = await clients[0].listTools()
     const writes = tools.filter(tool => tool.annotations?.readOnlyHint === false).map(tool => tool.name)
-    assert(writes.includes('create_phase') && writes.includes('create_finding'), 'Deployed roster includes write tools.')
+    assert(writes.includes('create_phase') && writes.includes('create_finding') && writes.includes('create_service'), 'Deployed roster includes write tools.')
+    step = 'discovering services through MCP'
+    const services = await clients[0].callTool({ name: 'list_services', arguments: {} })
+    assert(!services.isError, 'Service discovery completes.')
+    const known = await databases[0].from('services').select('id').limit(1)
+    assert(!known.error, 'Service rows are readable as the caller.')
+    if (known.data.length) assert(JSON.stringify(services.content).includes(known.data[0].id), 'Service discovery returns an existing service id.')
     step = 'checking a database gateway refusal without changing blueprint rows'
     const refusal = await clients[0].callTool({ name: 'create_finding', arguments: {
       source: 'audit', check_key: 'tool-server-proof', severity: 'info', impact: 'low', effort: 'low',
@@ -59,7 +65,7 @@ export async function judge() {
     } })
     assert(refusal.isError, 'A finding without service_id must be refused.')
     assert(refusal.content.some(item => item.type === 'text'
-      && item.text === 'Pass service_id before recording a finding.'), 'Refusal reaches the database gateway.')
+      && item.text.includes('list_services') && item.text.includes('create_service')), 'Refusal reaches the database gateway.')
     step = 'reading the caller profile through MCP'
     const profile = await clients[0].callTool({ name: 'get_profile', arguments: {} })
     assert(!profile.isError && JSON.stringify(profile).includes('may_confirm'), 'Caller profile read completes.')
@@ -101,7 +107,7 @@ export async function judge() {
   }
   return {
     what: 'the remote MCP proof', count: 1, findings,
-    line: 'PASS: real Auth logins; deployed write roster; database gateway refusal for missing service_id; caller profile; reference resource; owner MCP read; other-owner RLS refusal; blueprint read; missing and invalid JWT refusals. Temporary conversation removed.',
+    line: 'PASS: real Auth logins; deployed service tools and service discovery; database gateway refusal for missing service_id; caller profile; reference resource; owner MCP read; other-owner RLS refusal; blueprint read; missing and invalid JWT refusals. Temporary conversation removed.',
     closing: 'Run `npm run test:tool-server:project`.',
   }
 }

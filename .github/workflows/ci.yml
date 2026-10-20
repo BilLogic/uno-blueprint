@@ -501,6 +501,9 @@ jobs:
       - name: Every write and proposal approval crosses the MCP boundary
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:tool-writes:postgrest
       - run: npm run test:tool-writes:db
+      - run: npm run test:services:db
+      - name: A confirmer starts a service and contributors propose over MCP
+        run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:services:postgrest
       - run: npm run check:tool-contracts
       - name: Every server read and resource crosses MCP with the caller identity
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:tool-reads:postgrest

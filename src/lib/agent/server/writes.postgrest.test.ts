@@ -44,6 +44,8 @@ it.runIf(live)('every write works over MCP; contributions are proposals, approva
       } else expect(added, name).toHaveLength(0)
       return result
     }
+    const newService = await write('create_service', { name: 'Another service' })
+    expect((await db.from('services').select('name').eq('id', newService.result).single()).data?.name).toBe('Another service')
     const phase = (await write('create_phase', { name: 'MCP phase' })).result
     const created = (await write('create_scenario', { phase_id: phase, name: 'MCP scenario', step_count: 2 })).result
     const path = created.path_id

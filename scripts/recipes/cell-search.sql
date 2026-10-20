@@ -32,6 +32,10 @@ set search_path = pg_catalog, public, extensions, pg_temp
 as $$
 declare question extensions.vector(768);
 begin
+  if granularity is null or cardinality(granularity) = 0 or
+    exists (select 1 from unnest(granularity) level where level is distinct from 'cell') then
+    raise exception 'This search recipe searches cells only; use granularity cell.';
+  end if;
   if query_embedding is not null then
     if embed_model is distinct from 'gemini-embedding-001' then
       raise exception 'embedding model mismatch';

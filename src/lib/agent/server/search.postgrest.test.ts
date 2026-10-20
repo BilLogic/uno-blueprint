@@ -32,6 +32,11 @@ it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('MCP ranks indexed
     const { data: indexed, error } = await db.from('cells').select('id,content').order('id').limit(2)
     expect(error).toBeNull()
     expect(indexed).toHaveLength(2)
+    for (const granularity of [['phase'], ['cell', 'phase']]) {
+      const unsupported = await client.callTool({ name: 'search_blueprint', arguments: { query: 'request', granularity } })
+      expect(unsupported.isError).toBe(true)
+      expect(JSON.stringify(unsupported.content)).toContain('searches cells only')
+    }
     const ranked = await client.callTool({ name: 'search_blueprint', arguments: { query: '__meaning_probe__', granularity: ['cell'] } })
     expect(ranked.isError).not.toBe(true)
     const text = JSON.stringify(ranked.content)

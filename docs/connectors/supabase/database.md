@@ -603,9 +603,16 @@ migration; it neither creates cells nor changes existing blueprint rows. The
 function runs as its caller, and only authenticated callers can execute it.
 
 After applying the recipe, run `npm run build:tool-server` and deploy
-`index-cell-search` alongside `uno-tools`. Both functions use the same existing
-`BLUEPRINT_EMBEDDING_*` secrets; this indexer requires Google,
-`gemini-embedding-001` and 768 dimensions. Run `npm run index:tool-search`
+`index-cell-search` alongside `uno-tools`. Both functions use the same four secrets: `BLUEPRINT_EMBEDDING_API_KEY`,
+`BLUEPRINT_EMBEDDING_PROVIDER`, `BLUEPRINT_EMBEDDING_MODEL` and
+`BLUEPRINT_EMBEDDING_DIMENSIONS`; this indexer requires Google,
+`gemini-embedding-001` and 768 dimensions. Set `BLUEPRINT_EMBEDDING_PROVIDER=google` for this recipe.
+Unsupported search levels explicitly report that this recipe searches cells only.
+
+### Operate the cell search index
+
+`index:tool-search` is an operator action that writes embedding rows, not a check.
+Run `npm run index:tool-search`
 with the existing synthetic test login in ignored `.env`, linked to a profile
 that may confirm. The handler validates the caller and checks their own
 profile before sending document text to the provider. The storage function

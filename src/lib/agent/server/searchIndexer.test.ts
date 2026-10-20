@@ -5,7 +5,7 @@ import { createCellSearchIndexer } from '@/lib/agent/server/searchIndexer'
 it('an authenticated index batch reads existing cells and writes only embeddings using a server-held document key', async () => {
   const writes: string[] = []
   const key = 'fixture-only-server-key'
-  const handler = createCellSearchIndexer({ url: 'https://database.example.test', publishableKey: 'public-project-key', apiKey: key,
+  const handler = createCellSearchIndexer({ url: 'https://database.example.test', publishableKey: 'public-project-key', search: { apiKey: key, index: { provider: 'google', model: 'gemini-embedding-001', dimensions: 768 } },
     fetch: async (input, init) => {
       const url = String(input)
       if (url.startsWith('https://generativelanguage.googleapis.com/')) {
@@ -31,7 +31,7 @@ it('an authenticated index batch reads existing cells and writes only embeddings
 
 it('a provider quota refusal is returned with counts and its key redacted, with no embedding or blueprint write', async () => {
   const key = 'fixture-only-server-key'
-  const handler = createCellSearchIndexer({ url: 'https://database.example.test', publishableKey: 'public-project-key', apiKey: key,
+  const handler = createCellSearchIndexer({ url: 'https://database.example.test', publishableKey: 'public-project-key', search: { apiKey: key, index: { provider: 'google', model: 'gemini-embedding-001', dimensions: 768 } },
     fetch: async input => {
       const url = String(input)
       if (url.includes('/auth/v1/user')) return Response.json({ id: 'c0000000-0000-4000-8000-000000000001' })
@@ -49,14 +49,14 @@ it('a provider quota refusal is returned with counts and its key redacted, with 
 })
 
 it('an unsigned request sends no provider request and writes nothing', async () => {
-  const handler = createCellSearchIndexer({ url: 'https://database.example.test', publishableKey: 'public-project-key', apiKey: 'held-on-server',
+  const handler = createCellSearchIndexer({ url: 'https://database.example.test', publishableKey: 'public-project-key', search: { apiKey: 'held-on-server', index: { provider: 'google', model: 'gemini-embedding-001', dimensions: 768 } },
     fetch: async () => { throw new Error('Unsigned calls must not reach a dependency.') },
   })
   expect((await handler(new Request('https://function.example.test', { method: 'POST' }))).status).toBe(401)
 })
 
 it('a signed-in person without confirmation rights cannot spend the document embedding key', async () => {
-  const handler = createCellSearchIndexer({ url: 'https://database.example.test', publishableKey: 'public-project-key', apiKey: 'held-on-server',
+  const handler = createCellSearchIndexer({ url: 'https://database.example.test', publishableKey: 'public-project-key', search: { apiKey: 'held-on-server', index: { provider: 'google', model: 'gemini-embedding-001', dimensions: 768 } },
     fetch: async input => {
       const url = String(input)
       if (url.includes('/auth/v1/user')) return Response.json({ id: 'c0000000-0000-4000-8000-000000000001' })
@@ -65,4 +65,14 @@ it('a signed-in person without confirmation rights cannot spend the document emb
     },
   })
   expect((await handler(new Request('https://function.example.test', { method: 'POST', headers: { Authorization: 'Bearer person-token' } }))).status).toBe(403)
+})
+
+it('a configured model mismatch names the index requirement instead of a missing key', async () => {
+  const handler = createCellSearchIndexer({ url: 'https://database.example.test', publishableKey: 'public-project-key',
+    search: { apiKey: 'held-on-server', index: { provider: 'google', model: 'another-model', dimensions: 768 } },
+    fetch: async () => { throw new Error('Invalid configuration must not reach a dependency.') },
+  })
+  const response = await handler(new Request('https://function.example.test', { method: 'POST', headers: { Authorization: 'Bearer person-token' } }))
+  expect(response.status).toBe(503)
+  expect(await response.text()).toContain('requires google/gemini-embedding-001 with 768 dimensions')
 })

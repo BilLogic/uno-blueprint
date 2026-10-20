@@ -60,3 +60,5 @@ supabase/pilot/profiles.json
 
 # Built from the shared tool definitions before Edge deployment.
 supabase/functions/uno-tools/server.generated.js
+
+/supabase/functions/index-cell-search/server.generated.js

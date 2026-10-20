@@ -1,5 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 
+import { serverSearchConfig } from '@/lib/agent/server/searchConfig'
+export { serverSearchConfig }
+
+// This runtime contract matches the fixed vector space in the cell-search recipe.
+const INDEX = { provider: 'google', model: 'gemini-embedding-001', dimensions: 768 } as const
 const BATCH_SIZE = 5
 
 type PendingCell = { cell_id: string; document: string; content_hash: string }
@@ -8,7 +13,7 @@ type PendingCell = { cell_id: string; document: string; content_hash: string }
 export function createCellSearchIndexer(options: {
   url: string
   publishableKey: string
-  apiKey: string | undefined
+  search: ReturnType<typeof serverSearchConfig>
   fetch?: typeof fetch
 }): (request: Request) => Promise<Response> {
   const fetcher = options.fetch ?? fetch
@@ -16,8 +21,11 @@ export function createCellSearchIndexer(options: {
     if (request.method !== 'POST') return new Response(null, { status: 405 })
     const jwt = request.headers.get('Authorization')?.match(/^Bearer\s+(\S+)$/i)?.[1]
     if (!jwt) return new Response(null, { status: 401 })
-    if (!options.apiKey) return Response.json({ error: 'The document embedding key is not configured.' }, { status: 503 })
-    const key = options.apiKey
+    const search = options.search
+    if (!search) return Response.json({ error: 'The document embedding configuration is unavailable.' }, { status: 503 })
+    if (search.index.provider !== INDEX.provider || search.index.model !== INDEX.model || search.index.dimensions !== INDEX.dimensions)
+      return Response.json({ error: `The document index requires ${INDEX.provider}/${INDEX.model} with ${INDEX.dimensions} dimensions.` }, { status: 503 })
+    const key = search.apiKey
     const client = createClient(options.url, options.publishableKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
       global: { fetch: fetcher, headers: { Authorization: `Bearer ${jwt}` } },
@@ -33,9 +41,9 @@ export function createCellSearchIndexer(options: {
       if (pending.error || !Array.isArray(pending.data)) throw new Error()
       const cells = pending.data as PendingCell[]
       for (const cell of cells) {
-        const response = await fetcher('https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent', {
+        const response = await fetcher(`https://generativelanguage.googleapis.com/v1beta/models/${INDEX.model}:embedContent`, {
           method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-          body: JSON.stringify({ model: 'models/gemini-embedding-001', content: { parts: [{ text: cell.document }] }, taskType: 'RETRIEVAL_DOCUMENT', outputDimensionality: 768 }),
+          body: JSON.stringify({ model: `models/${INDEX.model}`, content: { parts: [{ text: cell.document }] }, taskType: 'RETRIEVAL_DOCUMENT', outputDimensionality: INDEX.dimensions }),
           signal: AbortSignal.timeout(8000),
         })
         if (!response.ok) {
@@ -50,9 +58,9 @@ export function createCellSearchIndexer(options: {
         }
         const body = await response.json() as { embedding?: { values?: number[] } }
         const values = body.embedding?.values
-        if (!values || values.length !== 768 || !values.every(Number.isFinite) || !values.some(value => value !== 0)) throw new Error()
+        if (!values || values.length !== INDEX.dimensions || !values.every(Number.isFinite) || !values.some(value => value !== 0)) throw new Error()
         const stored = await client.rpc('store_cell_search_embedding', {
-          p_cell_id: cell.cell_id, p_model: 'gemini-embedding-001',
+          p_cell_id: cell.cell_id, p_model: INDEX.model,
           p_embedding: JSON.stringify(values), p_content_hash: cell.content_hash,
         })
         if (stored.error) throw new Error()

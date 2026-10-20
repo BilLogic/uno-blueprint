@@ -4,6 +4,12 @@ do $$
 declare first_id uuid; second_id uuid; result_id uuid; n integer;
   question text := '[1,0,' || array_to_string(array_fill(0,array[766]),',') || ']';
 begin
+  begin
+    perform public.search_blueprint('request',array['phase'],10);
+    raise exception 'A cell-only search silently accepted another level';
+  exception when raise_exception then
+    if sqlerrm <> 'This search recipe searches cells only; use granularity cell.' then raise; end if;
+  end;
   select id into first_id from public.cells order by id limit 1;
   select id into second_id from public.cells where id<>first_id order by id limit 1;
   select id into result_id from public.search_blueprint('__meaning_probe__',array['cell'],1,
@@ -56,4 +62,6 @@ do $$ begin
     raise exception 'A non-confirming caller wrote an embedding';
   exception when insufficient_privilege then null; end;
 end $$;
+reset role;
+select 'indexed_cells=' || count(*) from public.cell_search_embeddings;
 rollback;

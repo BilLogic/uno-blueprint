@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { recordChange } from '@/lib/authoringSession'
+import { recordSuggestionApproval } from '@/lib/authoringSession'
 import { invalidateAfterRpc } from '@/lib/authoringRpc'
 import { defineTool, defineWriteTool, requireClient } from '@/lib/agent/tools/definition'
 
@@ -23,7 +23,7 @@ export const approveSuggestedChangeTool = defineWriteTool({
     if (error) throw new Error(error.message)
     // The database has already appended the audit row. This local entry
     // records the action, without importing any durable inverse into undo.
-    recordChange('approve_suggested_change', { suggested_change_id }, undefined, { alreadyLogged: true })
+    recordSuggestionApproval(suggested_change_id)
     invalidateAfterRpc('approve_suggested_change', { suggested_change_id })
     return JSON.stringify(data)
   },

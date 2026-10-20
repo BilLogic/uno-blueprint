@@ -355,7 +355,7 @@ begin
       else raise exception 'This write has no transactional implementation: %',p_tool;
     end case;
     insert into public.authoring_changes(fn,args,author,author_id,agent_session_id,proposed_by,approved_by,revert)
-      values(p_tool,a||jsonb_build_object('service_id',p_service_id,'result',result),'agent',(select user_id from public.profiles where profiles.id=profile),p_session_id,p_proposer,
+      values(case when p_proposer is null then p_tool else 'approve_suggested_change' end,a||jsonb_build_object('tool_name',p_tool,'service_id',p_service_id,'result',result),'agent',(select user_id from public.profiles where profiles.id=profile),p_session_id,p_proposer,
         case when free then null else profile end,
         jsonb_build_object('kind','captured_rows','rows',current_setting('ub.agent_prior_rows')::jsonb));
     perform set_config('ub.capture_agent_prior',coalesce(old_capture,''),true);
@@ -3873,7 +3873,7 @@ COMMENT ON COLUMN public.authoring_changes.args IS 'Exactly what was sent. Ids, 
 -- Name: COLUMN authoring_changes.revert; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.authoring_changes.revert IS 'Audit-only inverse data: browser writes may hold a RevertSpec; server tool writes capture changed rows with before and after values. Durable rows are never replayed by canvas undo.';
+COMMENT ON COLUMN public.authoring_changes.revert IS 'Audit-only inverse data: browser writes and existing cell-content approvals hold a RevertSpec; server tool transactions and their approvals hold captured_rows with before and after values. Durable rows are never replayed by canvas undo.';
 
 --
 -- Name: business_models; Type: TABLE; Schema: public; Owner: -
@@ -5491,6 +5491,12 @@ CREATE TRIGGER authoring_changes_no_truncate BEFORE TRUNCATE ON public.authoring
 CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.audit_findings FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
 
 --
+-- Name: business_models capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.business_models FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
 -- Name: cell_dependencies capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -5549,6 +5555,12 @@ CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.re
 --
 
 CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.scenarios FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: services capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.services FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
 
 --
 -- Name: slices capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -

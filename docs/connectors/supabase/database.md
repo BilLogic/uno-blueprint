@@ -967,8 +967,8 @@ placement changes and belongs to the same transaction; a preview rolls it
 back with the write. These are prior values for a later undo design, not a
 browser `RevertSpec`. No durable row enters the current undo stack, and there
 is no server undo action. Existing cell-content approvals keep their captured
-cell-update inverse and gain a distinct action label; the canvas records that
-action locally without duplicating the database log. The server neither installs
+cell-update inverse. Both approval kinds use a distinct action label; the
+canvas records that action locally without duplicating the database log. The server neither installs
 a process-global log writer nor borrows browser agent attribution. Every call is capped at 50 distinct cells, including cells copied
 by a path or scenario duplication. The secret check matches the plugin hook's
 service-role JWT policy and runs over the whole argument tree, before schema

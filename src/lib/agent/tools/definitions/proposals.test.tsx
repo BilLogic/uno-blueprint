@@ -1,4 +1,7 @@
-import { beforeEach, expect, it, vi } from 'vitest'
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { SessionChangesSheet } from '@/components/editor/SessionChangesSheet'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { runTool } from '@/lib/agent/tools/definition'
 import { approveSuggestedChangeTool } from '@/lib/agent/tools/definitions/proposals'
 import { fakeToolContext } from '@/lib/agent/tools/definitions/testContext'
@@ -7,6 +10,8 @@ import { appendToAuthoringLog } from '@/lib/authoringLog'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 
+vi.mock('@/contexts/SupabaseProvider', () => ({ useSupabase: () => ({ client: {}, configured: true }) }))
+afterEach(cleanup)
 vi.mock('@/lib/authoringLog', () => ({ appendToAuthoringLog: vi.fn() }))
 beforeEach(() => { clearSession(); vi.clearAllMocks() })
 
@@ -19,4 +24,8 @@ it('a canvas approval gets a distinct session entry without duplicating its serv
   expect(describeChange(sessionSnapshot()[0])).toBe('Approved a suggested change')
   expect(sessionSnapshot()[0].revert).toBeUndefined()
   expect(appendToAuthoringLog).not.toHaveBeenCalled()
+  render(<SessionChangesSheet />)
+  fireEvent.click(screen.getByRole('button', { name: 'Review 1 changes' }))
+  expect(screen.getByText('Approved a suggested change')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Revert this change' })).toBeNull()
 })

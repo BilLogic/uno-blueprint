@@ -20,10 +20,11 @@ revoke all on function public.capture_agent_prior_rows() from public;
 revoke all on function public.capture_agent_prior_rows() from anon,authenticated;
 -- @core
 
--- These are the authored relations the existing server writes can change.
+-- Capture the canonical authored surface and the structural RPC side effects.
+-- run-authoring-db checks this against PANEL_WRITE_SURFACE.
 -- Private profiles and conversations are outside this capture.
 do $$ declare relation text; begin
-  foreach relation in array array['phases','scenarios','paths','steps','path_steps',
+  foreach relation in array array['services','business_models','phases','scenarios','paths','steps','path_steps',
     'lanes','cells','cell_dependencies','stakeholders','evidence','slices','slides',
     'slide_images','audit_findings','cell_touchpoints','touchpoints','resources'] loop
     execute format('create trigger capture_agent_prior after insert or update or delete on public.%I for each row execute function public.capture_agent_prior_rows()',relation);
@@ -58,6 +59,10 @@ do $$ declare body text; previous text; begin
     perform set_config('ub.agent_prior_rows',coalesce(old_rows,''),true);
     perform set_config('ub.agent_transaction',coalesce(old_gate,''),true);$patch$);
   if body=previous then raise exception 'The transaction capture exit did not match'; end if;
+  previous:=body;
+  body:=replace(body,'values(p_tool,a||jsonb_build_object(',
+    $patch$values(case when p_proposer is null then p_tool else 'approve_suggested_change' end,a||jsonb_build_object('tool_name',p_tool,$patch$);
+  if body=previous then raise exception 'The tool approval action label did not match'; end if;
   execute body;
   body:=pg_get_functiondef('public.approve_cell_content_suggestion(uuid)'::regprocedure);
   previous:=body;
@@ -69,4 +74,4 @@ do $$ declare body text; previous text; begin
 end $$;
 
 comment on column public.authoring_changes.revert is
-  'Audit-only inverse data: browser writes may hold a RevertSpec; server tool writes capture changed rows with before and after values. Durable rows are never replayed by canvas undo.';
+  'Audit-only inverse data: browser writes and existing cell-content approvals hold a RevertSpec; server tool transactions and their approvals hold captured_rows with before and after values. Durable rows are never replayed by canvas undo.';

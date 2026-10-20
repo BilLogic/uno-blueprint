@@ -22,5 +22,11 @@ do $$ declare target public.cells; previous jsonb; log public.authoring_changes;
   perform public.approve_suggested_change(suggestion);
   if not exists(select 1 from public.authoring_changes where fn='approve_suggested_change' and args->>'cell_id'=target.id::text and revert->'args'->'update'->>'content'='A new request action') then
     raise exception 'The approval lost its distinct label or prior content'; end if;
+  result:=public.run_agent_tool('update_cell',jsonb_build_object('cell_id',target.id,'summary','A proposed summary'),gen_random_uuid(),null,false);
+  suggestion:=(result->>'suggested_change_id')::uuid;
+  perform public.approve_suggested_change(suggestion);
+  if not exists(select 1 from public.authoring_changes where fn='approve_suggested_change' and args->>'tool_name'='update_cell' and revert->>'kind'='captured_rows') then
+    raise exception 'A tool approval lost its distinct label or captured rows'; end if;
 end $$;
+select 'authoring_rows=' || count(*) from public.authoring_changes;
 rollback;

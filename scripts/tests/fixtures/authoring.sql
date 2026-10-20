@@ -1,4 +1,6 @@
--- Synthetic profiles for the MCP write seam; scratch databases only.
+-- Synthetic profiles for attribution; scratch databases only.
+-- Unlike tool-writes.sql, the second profile may confirm: both callers
+-- make approved writes rather than testing a non-confirmer proposal.
 insert into auth.users(id,email) values
  ('c0000000-0000-4000-8000-000000000001','reviewer@example.test'),
  ('c0000000-0000-4000-8000-000000000002','contributor@example.test'),

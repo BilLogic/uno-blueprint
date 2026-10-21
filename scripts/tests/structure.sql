@@ -2,7 +2,7 @@ begin;
 select set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 set local role authenticated;
 do $$ declare service uuid; phase uuid; scenario uuid; path uuid; step uuid; lane uuid;
-  result jsonb; proposal jsonb; item record; prior text; after_name text; session uuid:=gen_random_uuid(); checked int:=0;
+  result jsonb; proposal jsonb; item record; prior text; after_name text; session uuid:=gen_random_uuid(); checked int:=0; wrong_service uuid; failure text; bad record;
 begin
   result:=public.run_agent_tool('create_service','{"name":"Structure test only"}',session,null,true);
   service:=(result->>'result')::uuid;
@@ -15,8 +15,27 @@ begin
   step:=(result->>'result')::uuid;
   perform public.run_agent_tool('create_lane',jsonb_build_object('scenario_id',scenario,'name','Initial lane'),session,service,true);
   select id into strict lane from public.lanes where path_id=path and name='Initial lane';
+  wrong_service:=(public.run_agent_tool('create_service','{"name":"Other test only service"}',session,null,true)->>'result')::uuid;
   for item in select * from (values ('phase',phase,'phases'),('scenario',scenario,'scenarios'),('step',step,'steps'),('lane',lane,'lanes')) t(level,id,tab) loop
     execute format('select name from public.%I where id=$1',item.tab) into prior using item.id;
+    if item.level in ('step','lane') then
+      for bad in select * from (values
+        (gen_random_uuid(),'Missing',service,'read the blueprint'),
+        (item.id,'   ',service,'blank'),
+        (item.id,'Outside scope',wrong_service,'another service')
+      ) t(id,name,service_id,reason) loop
+        failure:=null;
+        begin
+          perform public.run_agent_tool('update_'||item.level,jsonb_build_object(item.level||'_id',bad.id,'name',bad.name),session,bad.service_id,true);
+        exception when raise_exception then failure:=sqlerrm;
+        end;
+        if failure is null or position(bad.reason in failure)=0 then
+          raise exception 'Expected actionable % refusal for %, got %',bad.reason,item.level,failure;
+        end if;
+        execute format('select name from public.%I where id=$1',item.tab) into after_name using item.id;
+        if after_name is distinct from prior then raise exception 'A refused rename changed %',item.level; end if;
+      end loop;
+    end if;
     result:=public.run_agent_tool('update_'||item.level,jsonb_build_object(item.level||'_id',item.id,'name','Named '||item.level),session,service,true);
     if result->>'outcome'<>'applied' then raise exception 'Rename was not applied: %',item.level; end if;
     execute format('select name from public.%I where id=$1',item.tab) into after_name using item.id;

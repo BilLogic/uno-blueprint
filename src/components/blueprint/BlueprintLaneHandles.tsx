@@ -15,21 +15,16 @@ import { useSupabase } from '@/contexts/SupabaseProvider'
 import { addLane } from '@/lib/authoringRpc'
 import { errorMessage } from '@/lib/utils'
 
-type Boundary = { at: number; y: number }
+type Boundary = { storedPosition: number; y: number }
 
 /**
  * Insert handles between lanes — the missing "add row".
  *
- * Mirrors `BlueprintColumnHandles` in every convention that matters: Edit
- * mode at scenario level only, measured off the rendered rows rather than
- * recomputed from data, hit bands wider than the hairline they reveal.
- *
- * One difference is forced by the operation itself: `add_lane` requires a
- * name. A blank *column* names itself in place on the grid, but a lane's
- * name is its rail label — a nameless lane is an invisible row. So the
- * click opens a small inline name field at the insert point, and Enter
- * creates. Lanes are also scenario-wide (every path gets the row), which is
- * why this asks the editor for the selected scenario rather than a path.
+ * Available in Design mode at scenario level, with hit bands measured from
+ * rendered rows. Clicking a handle opens the shared portaled popover anchored
+ * to that button, so the name field clears the canvas stacking contexts.
+ * Enter creates the named lane. Lanes are scenario-wide (every path gets the
+ * row), so insertion uses the selected scenario and the row's stored position.
  */
 export function BlueprintLaneHandles({
   bodyRef,
@@ -89,7 +84,16 @@ function BlueprintLaneHandlesActive({
     const rows = Array.from(
       body.querySelectorAll<HTMLElement>('[data-blueprint-row][data-lane-id]'),
     )
-    if (rows.length === 0) return
+    const storedPositions = rows.map((row) => {
+      const value = row.dataset.lanePosition
+      return value?.trim() ? Number(value) : NaN
+    })
+    // Invalid DOM metadata must neither reach the write nor defeat equality
+    // (NaN !== NaN would keep this measuring effect updating forever).
+    if (rows.length === 0 || storedPositions.some((position) => !Number.isFinite(position))) {
+      if (boundaries.length > 0) setBoundaries([])
+      return
+    }
 
     const bodyBox = body.getBoundingClientRect()
     // Client rects are camera-SCALED, but this overlay renders inside the
@@ -97,13 +101,13 @@ function BlueprintLaneHandlesActive({
     // boundary drifts by (scale − 1) · y, worst at the bottom lanes (the
     // same un-projection the annotation layer needed).
     const scale = body.offsetWidth > 0 ? bodyBox.width / body.offsetWidth : 1
-    const next: Boundary[] = rows.map((row) => ({
-      at: Number(row.dataset.lanePosition),
+    const next: Boundary[] = rows.map((row, rowIndex) => ({
+      storedPosition: storedPositions[rowIndex],
       y: (row.getBoundingClientRect().top - bodyBox.top) / scale,
     }))
     const last = rows[rows.length - 1].getBoundingClientRect()
     next.push({
-      at: Number(rows[rows.length - 1].dataset.lanePosition) + 1,
+      storedPosition: storedPositions[storedPositions.length - 1] + 1,
       y: (last.bottom - bodyBox.top) / scale,
     })
 
@@ -112,7 +116,7 @@ function BlueprintLaneHandlesActive({
       next.every(
         (entry, index) =>
           Math.abs(entry.y - boundaries[index].y) < 0.5 &&
-          entry.at === boundaries[index].at,
+          entry.storedPosition === boundaries[index].storedPosition,
       )
     if (!same) setBoundaries(next)
   })
@@ -129,7 +133,7 @@ function BlueprintLaneHandlesActive({
       await addLane(client, {
         scenarioId: selectedScenarioId,
         name: trimmed,
-        atPosition: naming.at,
+        atPosition: naming.storedPosition,
       })
       setNaming(null)
       setName('')
@@ -144,7 +148,7 @@ function BlueprintLaneHandlesActive({
     <div className="pointer-events-none absolute inset-0 z-30" aria-hidden={false}>
       {boundaries.map((boundary) => (
         <div
-          key={boundary.at}
+          key={boundary.storedPosition}
           className="group/lane-insert pointer-events-auto absolute left-0 flex w-full items-center"
           style={{
             top: boundary.y - BLUEPRINT_INSERT_HIT_HALF,

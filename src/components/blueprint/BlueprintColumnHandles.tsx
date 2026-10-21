@@ -10,7 +10,8 @@ import { addStep } from '@/lib/authoringRpc'
 import { reportWriteFailure } from '@/lib/writeFailures'
 
 type Step = { id: string; name: string; position: number }
-type Column = { left: number; width: number }
+type Column = { stepIndex: number; storedPosition: number; left: number; width: number }
+type Boundary = { stepIndex: number; storedPosition: number | undefined; x: number }
 
 /**
  * Column handles above the grid, in Design mode only.
@@ -76,7 +77,7 @@ export function BlueprintColumnHandles({
     const body = bodyRef.current
     if (!body) return
 
-    const measured = steps.flatMap<Column>((_, stepIndex) => {
+    const measured = steps.flatMap<Column>((step, stepIndex) => {
       const cell = body.querySelector(
         `:is([data-blueprint-cell-anchor], [data-blueprint-empty-slot])[data-step-index="${stepIndex}"]`,
       )
@@ -90,13 +91,15 @@ export function BlueprintColumnHandles({
         left += node.offsetLeft
         node = node.offsetParent instanceof HTMLElement ? node.offsetParent : null
       }
-      return [{ left, width: cell.offsetWidth }]
+      return [{ stepIndex, storedPosition: step.position, left, width: cell.offsetWidth }]
     })
 
     const changed =
       measured.length !== columns.length ||
       measured.some(
         (column, index) =>
+          column.stepIndex !== columns[index]?.stepIndex ||
+          column.storedPosition !== columns[index]?.storedPosition ||
           column.left !== columns[index]?.left ||
           column.width !== columns[index]?.width,
       )
@@ -107,25 +110,31 @@ export function BlueprintColumnHandles({
   /**
    * Where a new column could go: before the first, between each pair, after
    * the last. The array index is not a stored position: imported paths can
-   * start at one or leave gaps.
+   * start at one or leave gaps. Each measurement retains its original step
+   * index and stored position even when another step has no measurable cell.
    */
-  const boundaries = columns.map((column, index) => {
+  const boundaries: Boundary[] = columns.map((column, index) => {
     const previous = columns[index - 1]
-    const x = previous
+    const x = previous && previous.stepIndex === column.stepIndex - 1
       ? (previous.left + previous.width + column.left) / 2
       : column.left
-    return { at: index, x }
+    return { stepIndex: column.stepIndex, storedPosition: column.storedPosition, x }
   })
   const last = columns[columns.length - 1]
-  if (last) boundaries.push({ at: columns.length, x: last.left + last.width })
+  if (last?.stepIndex === steps.length - 1) {
+    boundaries.push({ stepIndex: steps.length, storedPosition: undefined, x: last.left + last.width })
+  }
 
   const insertable = canWrite && client !== null && pathId !== undefined
 
-  const insertAt = async (at: number) => {
+  const insertAt = async ({ stepIndex, storedPosition }: Boundary) => {
     if (!client || !pathId || busyAt !== null) return
-    setBusyAt(at)
+    setBusyAt(stepIndex)
     try {
-      await addStep(client, { pathId, name: '', atPosition: steps[at]?.position })
+      // Unnamed on purpose. A blank trailing column is always a valid grid and
+      // is named in place on the canvas; a dialog here would be a modal asking
+      // for the one thing that is easiest to type where it lands.
+      await addStep(client, { pathId, name: '', atPosition: storedPosition })
     } catch (error) {
       reportWriteFailure('The step was not added', error)
     } finally {
@@ -143,22 +152,22 @@ export function BlueprintColumnHandles({
       {insertable
         ? boundaries.map((boundary) => (
             <IconTooltip
-              key={`insert-${boundary.at}`}
+              key={`insert-${boundary.stepIndex}`}
               label={
-                boundary.at === 0
+                boundary.stepIndex === 0
                   ? 'Insert a step before this one'
-                  : boundary.at === columns.length
+                  : boundary.stepIndex === steps.length
                     ? 'Add a step at the end'
                     : 'Insert a step here'
               }
             >
               <button
                 type="button"
-                aria-label={`Insert a step at position ${boundary.at + 1}`}
+                aria-label={`Insert a step at position ${boundary.stepIndex + 1}`}
                 disabled={busyAt !== null}
                 onClick={(event) => {
                   event.stopPropagation()
-                  void insertAt(boundary.at)
+                  void insertAt(boundary)
                 }}
                 className="group/insert pointer-events-auto absolute z-40 flex justify-center"
                 style={{
@@ -185,14 +194,14 @@ export function BlueprintColumnHandles({
           ))
         : null}
 
-      {columns.map((column, stepIndex) => (
+      {columns.map((column) => (
         <IconTooltip
-          key={steps[stepIndex]?.id ?? stepIndex}
-          label={`Select the ${steps[stepIndex]?.name ?? 'step'} step`}
+          key={steps[column.stepIndex]?.id ?? column.stepIndex}
+          label={`Select the ${steps[column.stepIndex]?.name ?? 'step'} step`}
         >
           <button
             type="button"
-            aria-label={`Select the ${steps[stepIndex]?.name ?? 'step'} step`}
+            aria-label={`Select the ${steps[column.stepIndex]?.name ?? 'step'} step`}
             onClick={(event) => {
               // Scoped to *this* column's blueprint, not the whole canvas: the
               // overview shows every scenario at once, and a handle that
@@ -202,7 +211,7 @@ export function BlueprintColumnHandles({
               if (!body) return
               const cells = Array.from(
                 body.querySelectorAll(
-                  `[data-blueprint-cell][data-blueprint-cell-interactive][data-step-index="${stepIndex}"]`,
+                  `[data-blueprint-cell][data-blueprint-cell-interactive][data-step-index="${column.stepIndex}"]`,
                 ),
               )
                 .map((cell) => cell.getAttribute('data-blueprint-cell'))
@@ -214,7 +223,7 @@ export function BlueprintColumnHandles({
             className="pointer-events-auto absolute truncate rounded-md border border-dashed border-muted bg-card/90 px-2 py-1 text-xs font-medium text-muted-foreground shadow-sm transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:border-primary hover:text-foreground"
             style={{ left: column.left, width: column.width, top: -32 }}
           >
-            {steps[stepIndex]?.name ?? `Step ${stepIndex + 1}`}
+            {steps[column.stepIndex]?.name ?? `Step ${column.stepIndex + 1}`}
           </button>
         </IconTooltip>
       ))}

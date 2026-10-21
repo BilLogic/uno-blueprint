@@ -26,5 +26,5 @@
   // keeps it at its root, typechecks it rather than leaving it to whatever
   // Playwright tolerates at run time. A deployment keeps no copy at its root,
   // and there the include matches nothing.
-  "include": ["vite.config.ts", "render-walk", "browser-tests"]
+  "include": ["vite.config.ts", "render-walk"]
 }

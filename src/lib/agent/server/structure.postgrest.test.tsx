@@ -85,3 +85,57 @@ it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('journey names per
     await Promise.all(clients.map(client => client.close())); await http.close(); vi.unstubAllGlobals()
   }
 }, 30000)
+
+it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('structure summaries land with labels and preserve both prior values through MCP', async () => {
+  vi.stubGlobal('crypto', webcrypto)
+  const db = postgrestClientAs(process.env.MCP_TEST_OWNER_JWT!)
+  const http = await openMcpHttp(request => handler(request))
+  const handler = createToolServer({ url: POSTGREST_URL, publishableKey: 'sb_publishable_test', resourceUrl: http.url,
+    jwks: JSON.parse(process.env.MCP_TEST_JWKS!), fetch: postgrestFetch(POSTGREST_URL) })
+  const clients: Client[] = []
+  async function connect(jwt: string) {
+    const client = new Client({ name: 'summary-caller', version: '1' }); clients.push(client)
+    await client.connect(new StreamableHTTPClientTransport(new URL(http.url), { requestInit: { headers: { Authorization: `Bearer ${jwt}` } } }))
+    return client
+  }
+  try {
+    const owner = await connect(process.env.MCP_TEST_OWNER_JWT!)
+    const contributor = await connect(process.env.MCP_TEST_OTHER_JWT!)
+    async function call(client: Client, name: string, args: Record<string, unknown>) {
+      const reply = await client.callTool({ name, arguments: { ...args, confirmed: true } })
+      expect(reply.isError, JSON.stringify(reply)).not.toBe(true)
+      return JSON.parse((reply.content as { text: string }[])[0].text)
+    }
+    const service = (await call(owner, 'create_service', { name: 'Summary test only' })).result as string
+    const phase = (await call(owner, 'create_phase', { service_id: service, name: 'Original phase', summary: 'Original phase explanation' })).result as string
+    const { scenario_id: scenario, path_id: path } = (await call(owner, 'create_scenario', {
+      phase_id: phase, name: 'Original scenario', summary: 'Original scenario explanation', step_names: ['Arrival'],
+    })).result as { scenario_id: string; path_id: string }
+    const step = (await call(owner, 'create_step', { path_id: path, name: 'Original step', summary: 'Original step explanation' })).result as string
+    expect((await db.from('path_steps').select('position').eq('path_id', path).order('position')).data).toEqual([{ position: 0 }, { position: 1 }])
+    for (const [kind, id, table] of [['phase', phase, 'phases'], ['scenario', scenario, 'scenarios'], ['step', step, 'steps']] as const) {
+      const args = { [`${kind}_id`]: id, name: `Short ${kind}`, summary: `New explanation for ${kind}` }
+      expect((await call(owner, `update_${kind}`, args)).outcome).toBe('applied')
+      expect((await db.from(table).select('name,summary').eq('id', id).single()).data).toEqual({ name: args.name, summary: args.summary })
+      const readback = await owner.callTool({ name: 'list_blueprint', arguments: { granularity: [kind], service: 'all' } })
+      expect(JSON.stringify(readback.content)).toContain(args.summary)
+      const logs = await db.from('authoring_changes').select('revert').eq('fn', `update_${kind}`)
+      expect(logs.error).toBeNull()
+      expect(logs.data).toEqual(expect.arrayContaining([expect.objectContaining({ revert: expect.objectContaining({ rows: expect.arrayContaining([
+        expect.objectContaining({ table, before: expect.objectContaining({ id, name: `Original ${kind}`, summary: `Original ${kind} explanation` }) }),
+        expect.objectContaining({ table, after: expect.objectContaining({ id, name: args.name, summary: args.summary }) }),
+      ]) }) })]))
+      await call(owner, `update_${kind}`, { [`${kind}_id`]: id, name: 'A person may choose a much longer label than the writing guidance' })
+      expect((await db.from(table).select('summary').eq('id', id).single()).data?.summary).toBe(args.summary)
+    }
+    const gridReadback = await owner.callTool({ name: 'get_blueprint', arguments: { scenario_id: scenario } })
+    expect(JSON.stringify(gridReadback.content)).toContain('New explanation for step')
+    const proposed = await call(contributor, 'update_step', { step_id: step, name: 'Proposed label', summary: 'Proposed explanation' })
+    expect(proposed.outcome).toBe('proposed')
+    expect((await db.from('steps').select('summary').eq('id', step).single()).data?.summary).toBe('New explanation for step')
+    await call(owner, 'approve_suggested_change', { suggested_change_id: proposed.suggested_change_id })
+    expect((await db.from('steps').select('name,summary').eq('id', step).single()).data).toEqual({ name: 'Proposed label', summary: 'Proposed explanation' })
+  } finally {
+    await Promise.all(clients.map(client => client.close())); await http.close(); vi.unstubAllGlobals()
+  }
+}, 30000)

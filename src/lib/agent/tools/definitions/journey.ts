@@ -2,16 +2,13 @@ import { z } from 'zod'
 import { arg, defineWriteTool, requireActiveService } from '@/lib/agent/tools/definition'
 import {
   addLane,
-  addStep,
   createPath,
   createPhase,
-  createScenario,
   duplicatePath,
   duplicateScenario,
   renamePath,
 } from '@/lib/authoringRpc'
-import { executeServerWrite } from '@/lib/agent/server/writes'
-import { invalidateStructure } from '@/lib/queryClient'
+import { structureWrite } from '@/lib/agent/tools/structureWrite'
 import { PATH_KINDS } from '@/lib/versionValidation'
 
 /**
@@ -50,29 +47,15 @@ export const createScenarioTool = defineWriteTool({
     'Create a new scenario in a phase, with its first path and empty steps. lane_source_path_id copies an existing path\'s lane stack (STRONGLY preferred — lane labels must match across scenarios). Propose as text and get a nod first.',
   args: z.object({
     phase_id: arg.text('Phase id from list_blueprint'),
-    name: arg.text('Scenario name'),
+    name: arg.text('Short stage label; put the explanation in summary'),
+    summary: arg.optionalText('Explanation of this scenario; omit for none'),
     path_name: arg.optionalText('First path name; defaults to "Happy Path"'),
     step_count: arg.number('Initial step columns (default 5, or the number of step_names)').optional(),
     step_names: z.array(z.string().trim().min(1)).min(1).describe('Initial step names in order; step_count must match when supplied').optional(),
     lane_source_path_id: arg.optionalText('Path id whose lanes to copy; omit for none'),
   }),
-  run: async (args, ctx) => {
-    if (args.step_names) {
-      const result = await executeServerWrite(ctx.client, 'create_scenario', args, { sessionId: ctx.session.id, confirmed: true })
-      invalidateStructure()
-      return result
-    }
-    const { phase_id, name, path_name, step_count, lane_source_path_id } = args
-    const { client } = ctx
-    const created = await createScenario(client, {
-      phaseId: phase_id,
-      name,
-      pathName: path_name,
-      stepCount: step_count,
-      laneSourcePathId: lane_source_path_id ?? null,
-    })
-    return `Created scenario. ${JSON.stringify(created)} — re-read the blueprint for its steps and lanes.`
-  },
+  confirmation: true,
+  run: structureWrite('create_scenario'),
 })
 
 export const createPathTool = defineWriteTool({
@@ -137,13 +120,12 @@ export const createStepTool = defineWriteTool({
     'Add a step (column) to a path. Read sibling paths first — step names align across paths BY NAME, so reuse the exact name when the step exists elsewhere.',
   args: z.object({
     path_id: arg.text('Path id'),
-    name: arg.text('Step name'),
+    name: arg.text('Short label for what happens; put the explanation in summary'),
+    summary: arg.optionalText('Explanation of this step; omit for none'),
     at_position: arg.number('Insert position (1-based); omit to append').optional(),
   }),
-  run: async ({ path_id, name, at_position }, { client }) => {
-    const id = await addStep(client, { pathId: path_id, name, atPosition: at_position })
-    return `Added step (${id}).`
-  },
+  confirmation: true,
+  run: structureWrite('create_step'),
 })
 
 export const createLaneTool = defineWriteTool({
@@ -185,43 +167,31 @@ export const updatePathTool = defineWriteTool({
 export const updatePhaseTool = defineWriteTool({
   name: 'update_phase',
   description: 'Rename a phase. Ask someone who may confirm for a yes; other callers record a proposal.',
-  args: z.object({ phase_id: arg.text('Phase id'), name: z.string().trim().min(1).describe('New name') }),
-  run: async (args, ctx) => {
-    const result = await executeServerWrite(ctx.client, 'update_phase', args, { sessionId: ctx.session.id, confirmed: true })
-    invalidateStructure()
-    return result
-  },
+  args: z.object({ phase_id: arg.text('Phase id'), name: z.string().trim().min(1).describe('Short label; put the explanation in summary'), summary: arg.optionalText('Explanation; omit to keep') }),
+  confirmation: true,
+  run: structureWrite('update_phase'),
 })
 
 export const updateScenarioTool = defineWriteTool({
   name: 'update_scenario',
   description: 'Rename a scenario. Ask someone who may confirm for a yes; other callers record a proposal.',
-  args: z.object({ scenario_id: arg.text('Scenario id'), name: z.string().trim().min(1).describe('New name') }),
-  run: async (args, ctx) => {
-    const result = await executeServerWrite(ctx.client, 'update_scenario', args, { sessionId: ctx.session.id, confirmed: true })
-    invalidateStructure()
-    return result
-  },
+  args: z.object({ scenario_id: arg.text('Scenario id'), name: z.string().trim().min(1).describe('Short label; put the explanation in summary'), summary: arg.optionalText('Explanation; omit to keep') }),
+  confirmation: true,
+  run: structureWrite('update_scenario'),
 })
 
 export const updateStepTool = defineWriteTool({
   name: 'update_step',
   description: 'Rename a step. Ask someone who may confirm for a yes; other callers record a proposal.',
-  args: z.object({ step_id: arg.text('Step id'), name: z.string().trim().min(1).describe('New name') }),
-  run: async (args, ctx) => {
-    const result = await executeServerWrite(ctx.client, 'update_step', args, { sessionId: ctx.session.id, confirmed: true })
-    invalidateStructure()
-    return result
-  },
+  args: z.object({ step_id: arg.text('Step id'), name: z.string().trim().min(1).describe('Short label; put the explanation in summary'), summary: arg.optionalText('Explanation; omit to keep') }),
+  confirmation: true,
+  run: structureWrite('update_step'),
 })
 
 export const updateLaneTool = defineWriteTool({
   name: 'update_lane',
   description: 'Rename a lane. Ask someone who may confirm for a yes; other callers record a proposal.',
   args: z.object({ lane_id: arg.text('Lane id'), name: z.string().trim().min(1).describe('New name') }),
-  run: async (args, ctx) => {
-    const result = await executeServerWrite(ctx.client, 'update_lane', args, { sessionId: ctx.session.id, confirmed: true })
-    invalidateStructure()
-    return result
-  },
+  confirmation: true,
+  run: structureWrite('update_lane'),
 })

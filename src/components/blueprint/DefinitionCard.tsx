@@ -154,6 +154,7 @@ export function DefinitionPopover({
         closeDelay={80}
       />
       <PopoverContent
+        initialFocus={false}
         side={side}
         sideOffset={6}
         anchor={anchor ?? undefined}

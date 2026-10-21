@@ -15,7 +15,6 @@ import {
   createLaneTool,
   createPathTool,
   createPhaseTool,
-  createScenarioTool,
   createStepTool,
   duplicatePathTool,
   duplicateScenarioTool,
@@ -190,19 +189,6 @@ describe('the structure writes call their RPC attributed, and the ledger records
     expect(ledger).toEqual(['create_phase'])
   })
 
-  it('create_scenario passes the lane source and step count through', async () => {
-    const { text, rpcs, ledger } = await write(
-      createScenarioTool,
-      { phase_id: 'ph-1', name: 'Intake', step_count: 3, lane_source_path_id: 'p-0' },
-      {},
-      () => ({ scenario_id: 'sc-1', path_id: 'p-1' }),
-    )
-    expect(rpcs[0]!.fn).toBe('create_scenario')
-    expect(rpcs[0]!.args).toMatchObject({ phase_id: 'ph-1', name: 'Intake', step_count: 3, lane_source_path_id: 'p-0' })
-    expect(text).toContain('"scenario_id":"sc-1"')
-    expect(ledger).toEqual(['create_scenario'])
-  })
-
   it('create_path defaults the kind to variant and refuses one outside the three', async () => {
     const { rpcs, ledger } = await write(createPathTool, { scenario_id: 'sc-1', name: 'Late' })
     expect(rpcs[0]!.args).toMatchObject({ kind: 'variant', lane_source_path_id: null })
@@ -226,13 +212,6 @@ describe('the structure writes call their RPC attributed, and the ledger records
     expect(rpcs).toEqual([{ fn: 'duplicate_scenario', args: { source_scenario_id: 'sc-1', name: 'Intake (copy)' } }])
     expect(text).toMatch(/none of them are the source's/)
     expect(ledger).toEqual(['duplicate_scenario'])
-  })
-
-  it('create_step appends when no position is given', async () => {
-    const { rpcs, text, ledger } = await write(createStepTool, { path_id: 'p-1', name: 'Verify' })
-    expect(rpcs).toEqual([{ fn: 'add_step', args: { path_id: 'p-1', name: 'Verify', at_position: null } }])
-    expect(text).toBe('Added step (new-id).')
-    expect(ledger).toEqual(['add_step'])
   })
 
   it('create_lane adds to every path and asks for a re-read', async () => {

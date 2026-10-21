@@ -14,6 +14,7 @@ import type { BlueprintData } from '@/types/blueprint'
 export type CompareGridColumn = {
   key: string
   label: string
+  summary?: string | null
   /** This column's backing step id per path — absent path ⇒ inert spacer. */
   stepIdByPath: Readonly<Record<string, string>>
   /** Column-level verdict !== 'shared'. */
@@ -40,6 +41,7 @@ export function buildCompareGridTracks(
             kind: 'column',
             key: `${blueprint.path.id}:${step.id}`,
             label: step.name,
+            ...(step.summary !== undefined ? { summary: step.summary } : {}),
             stepIdByPath: { [blueprint.path.id]: step.id },
             divergent: false,
           }),
@@ -47,11 +49,14 @@ export function buildCompareGridTracks(
     )
   }
 
+  const summaries = new Map(blueprints.flatMap(board => board.steps.map(step => [step.id, step.summary] as const)))
   return model.columns.map(
     (column): CompareGridTrack => ({
       kind: 'column',
       key: column.columnKey,
       label: column.label,
+      ...(summaries.get(Object.values(column.stepIdByPath)[0]) !== undefined
+        ? { summary: summaries.get(Object.values(column.stepIdByPath)[0]) } : {}),
       stepIdByPath: column.stepIdByPath,
       divergent: column.verdict !== 'shared',
     }),

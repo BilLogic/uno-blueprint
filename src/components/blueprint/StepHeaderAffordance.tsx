@@ -53,11 +53,13 @@ function InfoGlyph() {
 export function StepHeaderAffordance({
   stepId,
   name,
+  summary,
   className,
   style,
 }: {
   stepId: string
   name: string
+  summary?: string | null
   className?: string
   style?: React.CSSProperties
 }) {
@@ -100,6 +102,7 @@ export function StepHeaderAffordance({
       )}
     >
       {name}
+      {summary && <span className="hidden whitespace-normal print:block">{summary}</span>}
     </span>
   )
 
@@ -108,6 +111,9 @@ export function StepHeaderAffordance({
   const info = (
     <EntityDefinitionPopover
       kind="step"
+      name={name}
+      description={summary}
+      showDescription={Boolean(summary)}
       side="top"
       open={defOpen}
       onOpenChange={setDefOpen}
@@ -138,6 +144,9 @@ export function StepHeaderAffordance({
         ref={blockRef}
         data-blueprint-column-header=""
         style={style}
+        tabIndex={0}
+        onFocus={(event) => { if (event.target === event.currentTarget) setDefOpen(true) }}
+        onBlur={cancelHover}
         onPointerEnter={armHover}
         onPointerLeave={cancelHover}
         className={cn(
@@ -182,6 +191,8 @@ export function StepHeaderAffordance({
         data-canvas-header-opener=""
         aria-label={`View details: ${name}`}
         aria-pressed={open}
+        onFocus={() => setDefOpen(true)}
+        onBlur={cancelHover}
         className={CANVAS_HEADER_OPENER}
       />
       {label}

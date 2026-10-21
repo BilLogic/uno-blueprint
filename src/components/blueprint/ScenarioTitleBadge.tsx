@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useRef, useState, type CSSProperties } from 'react'
 import { EntityDefinitionPopover } from '@/components/blueprint/EntityDefinitionPopover'
 import { Badge } from '@/components/ui/badge'
 import { PATH_KIND_COLORS } from '@/lib/pathKindTheme'
@@ -50,12 +50,16 @@ export function ScenarioTitleBadge({
   tone = 'default',
   note,
 }: ScenarioTitleBadgeProps) {
+  const pointerFocus = useRef(false)
+  const [open, setOpen] = useState(false)
   const pathAccent = pathKind ? PATH_KIND_COLORS[pathKind] : undefined
   const panelTone = tone === 'panel' && !pathKind
   const phaseTone = tone === 'phase' && !pathKind
 
   return (
     <EntityDefinitionPopover
+      open={open}
+      onOpenChange={setOpen}
       kind={tone === 'phase' ? 'phase' : 'scenario'}
       description={summary}
       name={name}
@@ -64,6 +68,11 @@ export function ScenarioTitleBadge({
       side={side}
     >
       <Badge
+        onPointerDown={() => { pointerFocus.current = true }}
+        onPointerUp={() => { pointerFocus.current = false }}
+        onPointerCancel={() => { pointerFocus.current = false }}
+        onFocus={() => { if (phaseTone && !pointerFocus.current) setOpen(true) }}
+        onBlur={() => { pointerFocus.current = false }}
         data-blueprint-fill={pathAccent ? '' : undefined}
         data-scenario-panel-title-badge={panelTone ? '' : undefined}
         data-phase-title-badge={phaseTone ? '' : undefined}
@@ -94,6 +103,7 @@ export function ScenarioTitleBadge({
           )}
         >
           {name}
+          {summary && <span className="hidden whitespace-normal print:block">{summary}</span>}
         </span>
       </Badge>
     </EntityDefinitionPopover>

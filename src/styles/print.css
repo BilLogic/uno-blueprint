@@ -4,6 +4,13 @@
 }
 
 @media print {
+  /* Printed explanations determine header height; the canvas sets fixed
+     tracks inline, so paper overrides that geometry on these grids alone. */
+  [data-structure-grid] {
+    grid-template-rows: auto !important;
+    grid-auto-rows: auto;
+  }
+
   /*
    * Force the light palette so a page printed from dark mode still comes out
    * dark-on-white.

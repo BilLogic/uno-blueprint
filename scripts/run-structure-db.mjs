@@ -23,8 +23,10 @@ export async function judge() {
     for (const file of [...STACK, 'scripts/tests/fixtures/tool-writes.sql', 'scripts/tests/structure.sql'])
       output = run('psql', ['-X', '-q', '-v', 'ON_ERROR_STOP=1', '-d', database, '-f', file])
     const count = Number(output.match(/structure_checked=(\d+)/)?.[1] ?? 0)
+    const summaries = Number(output.match(/structure_summaries_checked=(\d+)/)?.[1] ?? 0)
+    if (summaries !== 3) throw new Error('The proof did not examine summaries at all three structure levels.')
     if (count !== 4) throw new Error('The proof did not examine all four structure levels.')
-    return { what, count, line: `PASS: ${count} structure levels checked for renaming, proposals, labels and prior names.` }
+    return { what, count, line: `PASS: ${count} structure levels checked for renaming, proposals, labels and prior names; summaries checked at all three named levels.` }
   } catch (error) {
     return { what, findings: [`${error.stderr?.toString().trim() || error.message} ${rerun}`] }
   } finally { if (created) run('dropdb', ['--if-exists', '--force', database]) }

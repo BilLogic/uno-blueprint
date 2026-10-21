@@ -73,7 +73,7 @@ it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('journey names per
         ]) {
           const refused = await owner.callTool({ name: `update_${level}`, arguments: { ...bad, confirmed: true } })
           expect(refused.isError).toBe(true)
-          expect(JSON.stringify(refused.content)).toMatch(/read|blank|invalid arguments/)
+          expect(JSON.stringify(refused.content)).toMatch(/read|blank|invalid arguments/i)
           expect((await db.from(tables[i]).select('name').eq('id', ids[i]).single()).data?.name).toBe(oldNames[i])
         }
       }

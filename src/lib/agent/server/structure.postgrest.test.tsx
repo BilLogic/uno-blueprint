@@ -99,7 +99,7 @@ it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('journey names per
     const canvasContext = fakeToolContext({ client: db, session: { id: crypto.randomUUID(), attributed: work => work() }, scope: { kind: 'service', serviceId: service, serviceName: 'Structure test only' } })
     for (const [name, args] of [
       ['create_service', { name: 'Canvas test only' }],
-      ['create_scenario', { phase_id: phase, name: 'Canvas scenario', step_count: 2 }],
+      ['create_scenario', { phase_id: phase, name: 'Canvas initial scenario', step_count: 2 }],
       ...levels.map((level, i) => [`update_${level}`, { [`${level}_id`]: ids[i], name: `Canvas ${level}` }]),
     ] as [string, Record<string, unknown>][]) {
       const tool = findToolDefinition(name)!

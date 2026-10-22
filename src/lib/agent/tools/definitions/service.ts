@@ -1,8 +1,8 @@
 import { z } from 'zod'
 import { validateService } from '@/lib/agent/validation/service'
+import { SERVICE_REQUIRED } from '@/lib/agent/tools/serviceRefusal'
 import { arg, defineTool, defineWriteTool, requireClient, requireScope } from '@/lib/agent/tools/definition'
-import { executeServerWrite } from '@/lib/agent/server/writes'
-import { invalidateStructure } from '@/lib/queryClient'
+import { structureWrite } from '@/lib/agent/tools/structureWrite'
 import { getBusinessModel } from '@/lib/agent/tools/read'
 
 /** The service itself: what it is, and how it sustains itself. */
@@ -31,7 +31,7 @@ export const listServicesTool = defineTool({
   run: async (_args, ctx) => {
     const { data, error } = await requireClient(ctx).from('services').select('id,name,summary,slug').order('name')
     if (error) throw new Error(error.message)
-    return data?.length ? JSON.stringify(data) : 'No services yet. Propose create_service and ask someone who may confirm for a yes.'
+    return data?.length ? JSON.stringify(data) : `No services yet. ${SERVICE_REQUIRED}`
   },
 })
 
@@ -39,12 +39,8 @@ export const createServiceTool = defineWriteTool({
   name: 'create_service',
   description: 'Start a new service when a topic fits none of this business’s services. Propose its name and get a yes from someone who may confirm first. Other callers record a proposal. Returns the service id for creating its first phase.',
   args: z.object({ name: arg.text('Service name'), summary: arg.optionalText('What this service offers; omit for none') }),
-  run: async (args, ctx) => {
-    // The same transaction owns proposals and attribution on every host.
-    const result = await executeServerWrite(ctx.client, 'create_service', args, { sessionId: ctx.session.id, confirmed: true })
-    invalidateStructure()
-    return result
-  },
+  confirmation: true,
+  run: structureWrite('create_service'),
 })
 
 export const validateBlueprintTool = defineTool({

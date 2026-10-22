@@ -2898,3 +2898,9 @@ revoke all on function public.capture_agent_prior_rows() from anon,authenticated
 -- the export uses the caller's existing read grants and policies.
 revoke all on function public.read_service_blueprint(uuid) from anon,authenticated;
 grant execute on function public.read_service_blueprint(uuid) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000316000000_structure_writes_refuse_unapplied_changes.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+revoke all on function public.agent_service_required_message() from anon, authenticated;

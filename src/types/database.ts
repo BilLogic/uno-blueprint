@@ -1334,6 +1334,10 @@ export type Database = {
       }
       agent_named_cells: { Args: { p_args: Json }; Returns: string[] }
       agent_refuse_secrets: { Args: { p_args: Json }; Returns: undefined }
+      agent_service_required_message: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       agent_tool_state: { Args: { p_args: Json }; Returns: Json }
       agent_tool_transaction: {
         Args: {

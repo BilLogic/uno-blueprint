@@ -7,13 +7,14 @@ import { SCOPE_ALL } from '@/lib/agent/tools/serviceScope'
 import type { Database } from '@/types/database'
 import { z } from 'zod'
 import { TOOL_DEFINITIONS } from '@/lib/agent/tools/definitions'
-import { toolSpec, type ToolContext } from '@/lib/agent/tools/definition'
+import { businessToolSpec, type ToolContext } from '@/lib/agent/tools/definition'
+export { SERVICE_REQUIRED } from '@/lib/agent/tools/serviceRefusal'
 export { serverSearchConfig } from '@/lib/agent/server/searchConfig'
 
 /** Used by the migration generator and its drift test, never a hand-maintained roster. */
 export function serverWriteContracts() {
   return Object.fromEntries(TOOL_DEFINITIONS.filter(tool => tool.surface === 'write')
-    .map(tool => [tool.name, toolSpec(tool).parameters]))
+    .map(tool => [tool.name, businessToolSpec(tool).parameters]))
 }
 
 export function createToolServer(options: {

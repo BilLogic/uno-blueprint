@@ -56,6 +56,17 @@ Decline early what this isn't for: org charts, gantt charts, non-journey
 diagrams, real-time multi-user editing — point elsewhere rather than bend
 the model.
 
+## Naming structure
+
+Use short labels for step, phase and scenario names: aim for 1–3 words and
+about 24 characters. Name a step for what happens ("Referral received",
+"Intake call"), and a phase or scenario for its stage ("Referral and enrollment").
+Put the explanation in the structure's summary. These are writing guidelines;
+keep a person's chosen label when it is longer. Lanes use their short role
+names and stay name-only. In a slice or export, show the name and summary
+together so the explanation is available without hover. Before closing a
+structure-writing run, read back the names and summaries that were written.
+
 ## Hard rules
 
 Everything in this skill is guidance you may adapt to the org — **except

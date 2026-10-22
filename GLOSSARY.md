@@ -69,10 +69,12 @@ your business".
 
 **Phase** — an ordered stage of a service. A phase may point back at an
 earlier phase (`loops_to_phase_id`), which is how a renewal or a repeat visit
-is modelled without duplicating the journey.
+is modelled without duplicating the journey. Its name is a short stage label
+whose summary carries the explanation. Naming guidance lives in [Naming structure](skills/map/SKILL.md#naming-structure).
 
 **Scenario** — a situation within a phase, and the unit a reader navigates.
-A scenario owns its steps and its paths.
+A scenario owns its steps and its paths. Its name is a short stage label
+whose summary carries the explanation. Naming guidance lives in [Naming structure](skills/map/SKILL.md#naming-structure).
 
 **Path** — one route through a scenario. A path is named for the *condition*
 that routes you down it, never for the activity — the scenario already said
@@ -83,7 +85,8 @@ is an **alternative, not a stage**: the paths of a scenario are read beside one
 another rather than after one another, and nothing connects across them.
 
 **Step** — a column. Steps are scenario-scoped and shared across the paths of
-that scenario; a path selects the steps it uses and their order.
+that scenario; a path selects the steps it uses and their order. Its name
+is a label for what happens; its summary carries the explanation. Naming guidance lives in [Naming structure](skills/map/SKILL.md#naming-structure).
 
 **Lane** — a row, holding one actor's activity across the steps. A lane's
 display label is free text in any language; its behaviour comes from a

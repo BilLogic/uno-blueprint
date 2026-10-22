@@ -53,20 +53,20 @@ export function toolSources(repoRoot) {
 }
 
 /**
- * Each tool's surface, read out of its definition: a `defineWriteTool` is a
+ * Each tool's surface, read out of its definition: a `defineWriteTool` or its `structureWrite` wrapper is a
  * write by construction, and every other definition states `surface:`
  * itself. The checks that hold the adapter document to the read and write
  * surfaces read this rather than a list — there is no list.
  */
 export function toolSurfaces(source) {
   const surfaces = new Map()
-  const openers = [...source.matchAll(/\bdefine(Write)?Tool\(\{/g)]
+  const openers = [...source.matchAll(/\b(?:define(Write)?Tool|(structureWrite))\(\{/g)]
   openers.forEach((opener, index) => {
     const end = index + 1 < openers.length ? openers[index + 1].index : source.length
     const body = source.slice(opener.index, end)
     const name = /\bname: '([a-z_]+)'/.exec(body)
     if (!name) return
-    const surface = opener[1] ? 'write' : /\bsurface: '(read|interface|write)'/.exec(body)?.[1]
+    const surface = (opener[1] || opener[2]) ? 'write' : /\bsurface: '(read|interface|write)'/.exec(body)?.[1]
     if (!surface) throw new Error(`${name[1]} declares no surface`)
     surfaces.set(name[1], surface)
   })

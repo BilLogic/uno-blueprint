@@ -123,6 +123,7 @@ export function DefinitionPopover({
   anchor,
   openOnHover = true,
   delay = 200,
+  keepTriggerFocus = false,
 }: {
   sections: DefinitionSection[]
   children: ReactElement
@@ -143,6 +144,8 @@ export function DefinitionPopover({
   openOnHover?: boolean
   /** Hover open delay in ms. */
   delay?: number
+  /** Focus-controlled headers retain their keyboard position when their card opens. */
+  keepTriggerFocus?: boolean
 }) {
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -154,6 +157,7 @@ export function DefinitionPopover({
         closeDelay={80}
       />
       <PopoverContent
+        {...(keepTriggerFocus ? { initialFocus: false as const } : {})}
         side={side}
         sideOffset={6}
         anchor={anchor ?? undefined}

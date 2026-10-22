@@ -493,13 +493,13 @@ test('the spec table declares nothing and the dispatcher switches on nothing', (
   )
 })
 
-test('every write tool is a defineWriteTool definition', () => {
+test('every write tool uses a write definition', () => {
   const definitions = toolSources(REPO_ROOT)
   const writes = toolsOnSurface(definitions, 'write')
   assert.equal(writes.length, 27, `expected the write tools and proposal decisions, found ${writes.length}`)
   for (const name of writes) {
     assert.ok(
-      /^export const \w+ = defineWriteTool\(/m.test(definitions) && definitions.includes(`name: '${name}'`),
+      /^export const \w+ = (?:defineWriteTool|structureWrite)\(/m.test(definitions) && definitions.includes(`name: '${name}'`),
       `${name} is on the write surface but no definition declares it`,
     )
   }

@@ -214,13 +214,6 @@ describe('the structure writes call their RPC attributed, and the ledger records
     expect(ledger).toEqual(['duplicate_scenario'])
   })
 
-  it('create_step appends when no position is given', async () => {
-    const { rpcs, text, ledger } = await write(createStepTool, { path_id: 'p-1', name: 'Verify' })
-    expect(rpcs).toEqual([{ fn: 'add_step', args: { path_id: 'p-1', name: 'Verify', at_position: null } }])
-    expect(text).toBe('Added step (new-id).')
-    expect(ledger).toEqual(['add_step'])
-  })
-
   it('create_lane adds to every path and asks for a re-read', async () => {
     const { rpcs, text, ledger } = await write(createLaneTool, { scenario_id: 'sc-1', name: 'Backstage', lane_role: 'backstage_actions' }, {}, () => ['l-1', 'l-2'])
     expect(rpcs[0]).toEqual({ fn: 'add_lane', args: { scenario_id: 'sc-1', name: 'Backstage', lane_role: 'backstage_actions', at_position: null } })

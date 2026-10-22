@@ -59,7 +59,7 @@ export async function judge() {
     assert(!known.error, 'Service rows are readable as the caller.')
     if (!known.data.length) return {
       what: 'the remote MCP proof',
-      unverified: 'There are no visible services. Run npm run test:tool-server:project after a person creates one through Uno; no blueprint rows were seeded.',
+      unverified: 'There are no visible services; no blueprint rows were seeded. After a person creates one through Uno, run npm run test:tool-server:project.',
     }
     assert(JSON.stringify(services.content).includes(known.data[0].id), 'Service discovery returns an existing service id.')
     step = 'checking a database gateway refusal without changing blueprint rows'

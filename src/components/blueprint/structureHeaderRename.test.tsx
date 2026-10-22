@@ -13,6 +13,7 @@ import { StepHeaderAffordance } from './StepHeaderAffordance'
 const writes = vi.hoisted(() => ({
   lane: vi.fn(async () => {}),
   step: vi.fn(async () => {}),
+  toggle: vi.fn(),
 }))
 vi.mock('@/lib/authoringRpc', () => ({
   renameLane: writes.lane,
@@ -25,7 +26,7 @@ vi.mock('@/contexts/canvasModeContext', () => ({
   useCanvasModeValue: () => 'design',
 }))
 vi.mock('@/contexts/EntityDetailContext', () => ({
-  useEntityDetail: () => ({ toggleEntity: vi.fn(), selection: null }),
+  useEntityDetail: () => ({ toggleEntity: writes.toggle, selection: null }),
 }))
 vi.mock('@/contexts/BlueprintCellDetailContext', () => ({
   useBlueprintCellDetailOptional: () => ({ enabled: true }),
@@ -47,7 +48,11 @@ for (const kind of ['lane', 'step'] as const) {
         <StepHeaderAffordance stepId="saved" name="Review" />
       ),
     )
-    fireEvent.doubleClick(screen.getByText('Review', { exact: true }))
+    const label = screen.getByText('Review', { exact: true })
+    fireEvent.click(label, { detail: 1 })
+    fireEvent.click(label, { detail: 2 })
+    fireEvent.doubleClick(label)
+    expect(writes.toggle).not.toHaveBeenCalled()
     const input = screen.getByRole('textbox', { name: `Rename ${kind}` })
     expect(document.activeElement).toBe(input)
     fireEvent.change(input, { target: { value: 'Decision' } })

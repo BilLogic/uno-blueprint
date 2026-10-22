@@ -1,3 +1,6 @@
+import { toAuthoringError } from '@/lib/authoringErrors'
+import { PathOrderSection } from './PathOrderSection'
+import { useStructureCreatePaths, NEW_STRUCTURE_ITEM } from '@/hooks/useStructureCreatePaths'
 import { useState } from 'react'
 import {
   STEP_PANEL_FOOTER_ID,
@@ -37,12 +40,13 @@ import { updateStepSummary } from '@/lib/stepSpecMutations'
 export function StepPanel({
   stepId,
   draft,
-  onCreated,
+  onCreated, focusNext,
   onClose,
 }: {
   stepId: string
   draft?: Extract<StructureDraft, { kind: 'step' }>
   onCreated?: (id: string) => void
+  focusNext?: boolean
   onClose: () => void
 }) {
   const result = useStepSpec(draft ? null : stepId)
@@ -78,6 +82,7 @@ export function StepPanel({
             step={step}
             draft={draft}
             onCreated={onCreated}
+            focusNext={focusNext}
             onDone={onClose}
           />
         ) : result.status === 'error' ? (
@@ -96,12 +101,13 @@ export function StepPanel({
 function StepPanelBody({
   step,
   draft,
-  onCreated,
+  onCreated, focusNext,
   onDone,
 }: {
   step: StepSpec
   draft?: Extract<StructureDraft, { kind: 'step' }>
   onCreated?: (id: string) => void
+  focusNext?: boolean
   onDone: () => void
 }) {
   const { client, canWrite } = useSupabase()
@@ -116,6 +122,7 @@ function StepPanelBody({
   const [summary, setSummary] = useState(baseline)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const paths = useStructureCreatePaths(draft, name)
   const footerHost = usePanelFooterHost(STEP_PANEL_FOOTER_ID)
 
   const changed = summary !== baseline || name !== originalName
@@ -134,13 +141,16 @@ function StepPanelBody({
   }
 
   const handleSave = async () => {
-    if (!client || busy || !name.trim() || (!draft && !changed)) return
+    if (!client || busy || (!draft && !changed)) return
+    if (!name.trim()) { setError('Enter a name'); return }
+    if (draft && paths.status !== 'ready') return
     setBusy(true)
     setError(null)
     try {
       if (draft) {
         const id = await createStepWithDetails(client, {
           ...draft,
+          pathOrders: Object.fromEntries(paths.value.map(entry=>[entry.pathId,entry.order])),
           name,
           summary,
           frames,
@@ -158,7 +168,7 @@ function StepPanelBody({
         onDone()
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That did not save.')
+      setError(toAuthoringError(cause instanceof Error ? cause : new Error('Unknown write failure')).message)
     } finally {
       setBusy(false)
     }
@@ -225,15 +235,20 @@ function StepPanelBody({
           <Input
             aria-label="Name"
             required
-            autoFocus
+            autoFocus={Boolean(draft)}
             value={name}
             onChange={(event) => setName(event.target.value)}
           />
+          {error === 'Enter a name' ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
         </Field>
       ) : null}
 
+      {draft ? <>
+        {paths.status === 'ready' ? <PathOrderSection paths={paths.paths} value={paths.value} onChange={paths.onChange} defaultOrder={paths.defaultOrder} item={{id:NEW_STRUCTURE_ITEM,name:name.trim() || 'New step'}} /> : <p className="text-xs text-muted-foreground">{paths.status === 'error' ? 'Paths could not be loaded. Close this draft and try again.' : 'Loading paths…'}</p>}
+      </> : null}
       <PanelTextareaField
         label="Summary"
+        autoFocus={focusNext}
         hint="What happens in this moment, across every lane — the sentence that makes the step legible without reading five cells."
         placeholder="e.g. The student picks a slot; the system holds it 10 minutes."
         value={summary}
@@ -320,9 +335,9 @@ function StepPanelBody({
         <PanelFooterControls
           footerHost={footerHost}
           busy={busy}
-          changed={Boolean(name.trim()) && (Boolean(draft) || changed)}
-          error={error}
-          saveLabel={draft ? 'Add step' : undefined}
+          changed={draft ? true : Boolean(name.trim()) && changed}
+          error={error === 'Enter a name' ? null : error}
+          saveLabel={draft ? `Add step${paths.value.length > 1 ? ` to ${paths.value.length} paths` : ''}` : undefined}
           onSave={handleSave}
           onCancel={onDone}
         />

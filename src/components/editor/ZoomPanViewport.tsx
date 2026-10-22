@@ -1,3 +1,5 @@
+import { useStructurePreview } from '@/contexts/EntityDetailContext'
+import { useStructureDraftCamera } from '@/hooks/useStructureDraftCamera'
 import { useCallback, type ReactNode } from 'react'
 import { useCanvasActive, useCanvasActiveEffect } from '@/contexts/canvasActiveContext'
 import {
@@ -93,6 +95,7 @@ function ZoomPanViewportInner({
   onFitReady,
 }: ZoomPanViewportProps) {
   const canvasActive = useCanvasActive()
+  const structureDraft = useStructurePreview()?.selection?.draft
   const { isAnnotating } = useCanvasAnnotationTool()
   // A slice tab registers while its board is still loading, so a focus a
   // presentation badge left pending can only land once a fit has.
@@ -128,7 +131,7 @@ function ZoomPanViewportInner({
     fitTopInset,
     fitBottomInset,
     animateFit,
-    refitOnResize: refitOnResize && canvasActive,
+    refitOnResize: refitOnResize && canvasActive && !structureDraft,
     enableWindowZoomKeys: canvasActive,
     cameraStateKey,
     cameraDestinationKey,
@@ -136,6 +139,8 @@ function ZoomPanViewportInner({
     cameraOutcomeKey,
     onFitReady: handleFitReady,
   })
+
+  useStructureDraftCamera(contentRef,panBy,canvasActive)
 
   usePublishCanvasZoomChrome({
     onResetView,

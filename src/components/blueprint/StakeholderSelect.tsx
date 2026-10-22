@@ -24,11 +24,12 @@ import { cn } from '@/lib/utils'
  * a first-class choice rather than an empty state.
  */
 export function StakeholderSelect({
-  value,
+  value, autoFocus,
   onChange,
   disabled = false,
 }: {
   value: string | null
+  autoFocus?: boolean
   onChange: (next: string | null) => void
   disabled?: boolean
 }) {
@@ -108,6 +109,8 @@ export function StakeholderSelect({
         <PopoverTrigger
           render={
             <Button
+              autoFocus={autoFocus}
+              aria-label="Actor"
               type="button"
               variant="outline"
               size="sm"

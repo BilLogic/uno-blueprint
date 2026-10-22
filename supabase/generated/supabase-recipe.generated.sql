@@ -2744,3 +2744,37 @@ begin
     end;
   end loop;
 end $draft_refusals$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000319000000_a_structure_draft_keeps_every_path_order.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- Signed-in callers may attempt the guarded writes; helpers stay private.
+grant execute on function public.add_step_with_details(uuid,text,jsonb,text,jsonb) to authenticated;
+grant execute on function public.add_lane_with_details(uuid,text,text,jsonb,jsonb) to authenticated;
+grant execute on function public.add_step_with_details(uuid,text,integer,text,jsonb) to authenticated;
+grant execute on function public.add_lane_with_details(uuid,text,text,integer,jsonb) to authenticated;
+grant execute on function public.undo_structure_add(jsonb) to authenticated;
+
+-- The new writes and their inverse refuse a caller without the author tier.
+do $draft_permissions$
+begin
+  perform set_config('request.jwt.claims','{}',true);
+  begin
+    perform public.add_step_with_details(null::uuid,'Blocked','{}'::jsonb);
+    raise exception 'step draft accepted a reader';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.add_lane_with_details(null::uuid,'Blocked','frontstage_actions','{}'::jsonb);
+    raise exception 'lane draft accepted a reader';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.undo_structure_add('{}'::jsonb);
+    raise exception 'draft undo accepted a reader';
+  exception when insufficient_privilege then null; end;
+  if has_function_privilege('anon','public.undo_structure_add(jsonb)','EXECUTE')
+    or has_function_privilege('anon','public.add_step_with_details(uuid,text,jsonb,text,jsonb)','EXECUTE')
+    or has_function_privilege('anon','public.add_lane_with_details(uuid,text,text,jsonb,jsonb)','EXECUTE') then
+    raise exception 'an anonymous caller can execute a draft write';
+  end if;
+end $draft_permissions$;

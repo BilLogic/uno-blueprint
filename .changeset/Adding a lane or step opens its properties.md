@@ -2,4 +2,4 @@
 "uno-blueprint": patch
 ---
 
-Adding a lane or step opens its properties before saving, and names can be edited and undone from the canvas.
+Opening an insert seam lets you name a lane or step, choose its paths and arrange their items before saving everything with one undo.

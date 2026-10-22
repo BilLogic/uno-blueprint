@@ -8,6 +8,7 @@ import {
   useRef,
   useSyncExternalStore,
   type ReactNode,
+  type RefObject,
 } from 'react'
 import {
   claimPanel,
@@ -16,9 +17,11 @@ import {
   subscribePanelOwner,
 } from '@/lib/openPanelStore'
 
+export type StructurePreview = { name: string; clickedPathId?: string; role?: string; kind?: 'lane' | 'step'; orders: Array<{pathId:string;order:string[]}>; paths: Array<{id:string;items:Array<{id:string;name:string}>}> }
+
 export type StructureDraft =
-  | { kind: 'lane'; scenarioId: string; atPosition?: number }
-  | { kind: 'step'; pathId: string; atPosition?: number }
+  | { kind: 'lane'; scenarioId: string; pathId?: string; pathIds?: string[]; atPosition?: number }
+  | { kind: 'step'; pathId: string; pathIds?: string[]; atPosition?: number }
 
 /**
  * The levels of the tree that own spec fields and are not a cell.
@@ -39,10 +42,15 @@ export type EntityDetailSelection = {
   /** The row's id — the panel reads everything else from the database. */
   id: string
   draft?: StructureDraft
+  focusNext?: boolean
+  draftKey?: number
 }
 
 type EntityDetailContextValue = {
   selection: EntityDetailSelection | null
+  preview: StructurePreview | null
+  draftBoard: RefObject<Element | null>
+  setPreview: (preview: StructurePreview | null) => void
   openEntity: (selection: EntityDetailSelection) => void
   /**
    * Open it, or close it if it is already the one open.
@@ -67,6 +75,11 @@ export function EntityDetailProvider({
   children: ReactNode
   resetKey?: string
 }) {
+  const [preview,setPreview] = useState<StructurePreview | null>(null)
+  const draftSequence = useRef(0)
+  const openerBoard = useRef<Element | null>(null)
+  const openerIndex = useRef(0)
+  const openerLabel = useRef<string | null>(null)
   const openerRef = useRef<HTMLButtonElement | null>(null)
   const [selection, setSelection] = useState<EntityDetailSelection | null>(null)
 
@@ -84,9 +97,13 @@ export function EntityDetailProvider({
 
   const openCreate = useCallback(
     (draft: StructureDraft, opener: HTMLButtonElement) => {
+      setPreview(null)
       openerRef.current = opener
+      openerBoard.current = opener.closest('[data-structure-board]')
+      openerLabel.current = opener.getAttribute('aria-label')
+      openerIndex.current = [...(openerBoard.current?.querySelectorAll('button') ?? [])].filter(button=>button.getAttribute('aria-label')===openerLabel.current).indexOf(opener)
       claimPanel('entity')
-      setSelection({ kind: draft.kind, id: 'draft', draft })
+      setSelection({ kind: draft.kind, id: 'draft', draft, draftKey: ++draftSequence.current })
     },
     [],
   )
@@ -104,11 +121,14 @@ export function EntityDetailProvider({
 
   const closeEntity = useCallback(() => {
     setSelection(null)
+    setPreview(null)
     releasePanel('entity')
     const opener = openerRef.current
     openerRef.current = null
     requestAnimationFrame(() => {
+      const replacement = openerBoard.current?.isConnected && openerLabel.current ? openerBoard.current.querySelectorAll<HTMLButtonElement>(`button[aria-label="${CSS.escape(openerLabel.current)}"]`)[openerIndex.current] : null
       if (opener?.isConnected) opener.focus()
+      else replacement?.focus()
     })
   }, [])
 
@@ -123,13 +143,16 @@ export function EntityDetailProvider({
   const value = useMemo<EntityDetailContextValue>(
     () => ({
       selection,
+      preview,
+      draftBoard: openerBoard,
+      setPreview,
       openEntity,
       openCreate,
       toggleEntity,
       closeEntity,
       isOpen: selection !== null,
     }),
-    [selection, openEntity, openCreate, toggleEntity, closeEntity],
+    [selection, preview, openEntity, openCreate, toggleEntity, closeEntity],
   )
 
   return (
@@ -164,3 +187,6 @@ export function useEntityDetail(): EntityDetailContextValue {
   }
   return value
 }
+
+/** Draft preview is optional for standalone panel bodies. */
+export function useStructurePreview() { return useContext(EntityDetailContext) }

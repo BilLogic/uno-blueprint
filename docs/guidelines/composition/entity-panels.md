@@ -2,6 +2,9 @@
 summary: One shell, six subjects — the drawer chrome every entity panel is made of, what the six panels share, where they legitimately differ, and the invariants a well-meaning edit breaks.
 claims:
   - src/components/blueprint/DraftStoryboardFields.tsx
+  - src/components/blueprint/PathOrderSection.tsx
+  - src/components/blueprint/structureSeamLayout.ts
+  - src/components/blueprint/structureHighlight.ts
   - src/components/blueprint/StructureInsert.tsx
   - src/components/blueprint/StructureRenameEditor.tsx
   - src/components/blueprint/useStructureRename.tsx

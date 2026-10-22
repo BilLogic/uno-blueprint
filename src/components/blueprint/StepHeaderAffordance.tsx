@@ -1,3 +1,5 @@
+import { highlightStructure } from './structureHighlight'
+import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
 import { useStructureRename } from './useStructureRename'
 import { useEffect, useRef, useState } from 'react'
 import { EntityDefinitionPopover } from '@/components/blueprint/EntityDefinitionPopover'
@@ -52,12 +54,13 @@ function InfoGlyph() {
  * stays centred over the cells it names and the mark sits at the box's edge.
  */
 export function StepHeaderAffordance({
-  stepId,
+  stepId, stepIndex,
   name,
   className,
   style,
 }: {
   stepId: string
+  stepIndex?: number
   name: string
   className?: string
   style?: React.CSSProperties
@@ -136,14 +139,20 @@ export function StepHeaderAffordance({
 
   // Inert prose, not a disabled button — see LaneHeaderAffordance. The
   // definition rides on the block whether the panel is reachable or not.
-  if (!isInteractive) {
+  if (!isInteractive || stepId === STRUCTURE_PLACEHOLDER_ID) {
     return (
       <div
         ref={blockRef}
+        role={stepId === STRUCTURE_PLACEHOLDER_ID ? 'status' : undefined}
+        aria-label={stepId === STRUCTURE_PLACEHOLDER_ID ? 'New step position' : undefined}
         data-blueprint-column-header=""
+        data-step-index={stepIndex}
+        data-structure-placeholder={stepId === STRUCTURE_PLACEHOLDER_ID ? '' : undefined}
         style={style}
-        onPointerEnter={armHover}
-        onPointerLeave={cancelHover}
+        onPointerEnter={event=>{ highlightStructure(event.currentTarget,'step',stepIndex ?? 0,true);armHover(event) }}
+        onPointerLeave={event=>{ highlightStructure(event.currentTarget,'step',stepIndex ?? 0,false);cancelHover() }}
+      onFocusCapture={event=>highlightStructure(event.currentTarget,'step',stepIndex ?? 0,true)}
+      onBlurCapture={event=>{if (!event.currentTarget.contains(event.relatedTarget as Node)) highlightStructure(event.currentTarget,'step',stepIndex ?? 0,false)}}
         className={cn(
           'group/step-header relative flex h-full min-w-0 items-center justify-center',
           CANVAS_HEADER_BOX,
@@ -151,7 +160,7 @@ export function StepHeaderAffordance({
         )}
       >
         {label}
-        {info}
+        {stepId === STRUCTURE_PLACEHOLDER_ID ? null : info}
       </div>
     )
   }
@@ -166,15 +175,18 @@ export function StepHeaderAffordance({
     <div
       ref={blockRef}
       data-blueprint-column-header=""
+      data-step-index={stepIndex}
       data-open={open ? '' : undefined}
       style={style}
-      onClick={rename.editing ? undefined : openPanel}
+      onClick={rename.editing ? undefined : (event) => rename.click(event, () => openPanel(event))}
       onDoubleClick={(event) => {
         cancelHover()
         rename.begin(event)
       }}
-      onPointerEnter={armHover}
-      onPointerLeave={cancelHover}
+      onPointerEnter={event=>{ highlightStructure(event.currentTarget,'step',stepIndex ?? 0,true);armHover(event) }}
+      onPointerLeave={event=>{ highlightStructure(event.currentTarget,'step',stepIndex ?? 0,false);cancelHover() }}
+      onFocusCapture={event=>highlightStructure(event.currentTarget,'step',stepIndex ?? 0,true)}
+      onBlurCapture={event=>{if (!event.currentTarget.contains(event.relatedTarget as Node)) highlightStructure(event.currentTarget,'step',stepIndex ?? 0,false)}}
       className={cn(
         'group/step-header relative flex h-full min-w-0 items-center justify-center',
         CANVAS_HEADER_BOX,

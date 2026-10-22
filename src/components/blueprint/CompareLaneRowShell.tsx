@@ -1,3 +1,4 @@
+import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
 import {
   BLUEPRINT_OVERHEAD_RAIL_CORRIDOR_MARGIN,
   BLUEPRINT_IN_LANE_LOOP_CORRIDOR_MARGIN,
@@ -50,6 +51,7 @@ export function CompareLaneRowShell({
         ? {
             'data-blueprint-swimlane': '',
             'data-blueprint-row': '',
+            'data-structure-placeholder': row.lane.id === STRUCTURE_PLACEHOLDER_ID ? '' : undefined,
             'data-lane-id': row.lane.id,
             'data-lane-position': row.lane.position,
             // Lets a picked cell name its lane without the selection
@@ -71,7 +73,7 @@ export function CompareLaneRowShell({
       style={{
         gridRow: rowIndex + 1,
         ...(cellTracksOnly ? { gridColumn: '2 / -1' } : {}),
-        backgroundColor: isDivider ? undefined : 'transparent',
+        backgroundColor: isDivider || row.lane?.id === STRUCTURE_PLACEHOLDER_ID ? undefined : 'transparent',
       }}
       {...(isDivider ? { role: 'separator' as const } : {})}
     >

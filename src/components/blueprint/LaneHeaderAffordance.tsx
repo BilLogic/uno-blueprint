@@ -1,3 +1,5 @@
+import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
+import { highlightStructure } from './structureHighlight'
 import { useStructureRename } from './useStructureRename'
 import { useEffect, useRef, useState } from 'react'
 import { EntityDefinitionPopover } from '@/components/blueprint/EntityDefinitionPopover'
@@ -159,13 +161,15 @@ export function LaneHeaderAffordance({
   // control that announces itself and refuses is worse than no control. The
   // definition is still on the block, because "what is a lane?" is not a
   // question about which board is in scope.
-  if (!isInteractive) {
+  if (!isInteractive || laneId === STRUCTURE_PLACEHOLDER_ID) {
     return (
       <div
         ref={blockRef}
         data-blueprint-row-header=""
-        onPointerEnter={armHover}
-        onPointerLeave={cancelHover}
+        onPointerEnter={event=>{ highlightStructure(event.currentTarget,'lane',laneName,true);armHover(event) }}
+        onPointerLeave={event=>{ highlightStructure(event.currentTarget,'lane',laneName,false);cancelHover() }}
+      onFocusCapture={event=>highlightStructure(event.currentTarget,'lane',laneName,true)}
+      onBlurCapture={event=>{if (!event.currentTarget.contains(event.relatedTarget as Node)) highlightStructure(event.currentTarget,'lane',laneName,false)}}
         className={cn(
           'group/lane-header relative flex min-w-0 flex-1 items-start self-stretch text-left',
           CANVAS_HEADER_BOX,
@@ -173,7 +177,7 @@ export function LaneHeaderAffordance({
         )}
       >
         {nameSpan}
-        {info}
+        {laneId === STRUCTURE_PLACEHOLDER_ID ? null : info}
       </div>
     )
   }
@@ -192,13 +196,15 @@ export function LaneHeaderAffordance({
       ref={blockRef}
       data-blueprint-row-header=""
       data-open={open ? '' : undefined}
-      onClick={rename.editing ? undefined : openPanel}
+      onClick={rename.editing ? undefined : (event) => rename.click(event, () => openPanel(event))}
       onDoubleClick={(event) => {
         cancelHover()
         rename.begin(event)
       }}
-      onPointerEnter={armHover}
-      onPointerLeave={cancelHover}
+      onPointerEnter={event=>{ highlightStructure(event.currentTarget,'lane',laneName,true);armHover(event) }}
+      onPointerLeave={event=>{ highlightStructure(event.currentTarget,'lane',laneName,false);cancelHover() }}
+      onFocusCapture={event=>highlightStructure(event.currentTarget,'lane',laneName,true)}
+      onBlurCapture={event=>{if (!event.currentTarget.contains(event.relatedTarget as Node)) highlightStructure(event.currentTarget,'lane',laneName,false)}}
       className={cn(
         // No negative margins. They pulled the ink block outside the rail,
         // which clips (`overflow-hidden`) — so the hover surface came back cut

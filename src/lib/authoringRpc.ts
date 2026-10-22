@@ -241,8 +241,7 @@ async function invoke<T>(
 const FRESHNESS: Record<string, (args: Record<string, unknown>) => void> = {
   upsert_cell: (args) => {
     invalidateQueries(queryKeys.servicePhases.prefix)
-    if (typeof args.path_id === 'string')
-      invalidateCanvasBlueprintsForPath(args.path_id)
+    if (typeof args.path_id === 'string') invalidateCanvasBlueprintsForPath(args.path_id)
     else invalidateQueries(queryKeys.canvasBlueprints.prefix)
   },
   restore_cell_content: (args) =>
@@ -370,6 +369,9 @@ function deriveRevert(
   args: Record<string, unknown>,
   data: unknown,
 ): RevertSpec | undefined {
+  if ((fn === 'add_step_with_details' || fn === 'add_lane_with_details') && data && typeof data === 'object' && 'before' in data) {
+    return { fn: 'undo_structure_add', args: { snapshot: data } }
+  }
   switch (fn) {
     case 'add_step':
     case 'add_step_with_details':
@@ -408,8 +410,7 @@ function deriveRevert(
       // per-caller. The write's own account is neither.
       const outcome = data as CellWrite | null
       if (!outcome?.id) return undefined
-      if (outcome.inserted)
-        return { fn: 'delete_cell', args: { cell_id: outcome.id } }
+      if (outcome.inserted) return { fn: 'delete_cell', args: { cell_id: outcome.id } }
       // An update whose before-state did not come back cannot be restored, and
       // a row with no `revert` is how the ledger says so — the same silence it
       // shows on a delete, rather than an approximation that reads like an
@@ -1057,7 +1058,7 @@ export async function renameOwnerTag(
  */
 
 /** Create the panel's complete draft atomically; the existing delete is its inverse. */
-export function createStepWithDetails(
+export async function createStepWithDetails(
   client: Client,
   input: {
     pathId: string
@@ -1065,24 +1066,27 @@ export function createStepWithDetails(
     summary: string
     atPosition?: number
     frames: Array<{ laneId: string; url: string }>
+    pathOrders?: Record<string, string[]>
   },
 ): Promise<string> {
-  return call<string>(client, 'add_step_with_details', {
+  const result = await call<string | {ids:string[]}>(client, 'add_step_with_details', {
     path_id: input.pathId,
     name: input.name.trim(),
     summary: input.summary.trim(),
-    at_position: input.atPosition ?? null,
+    ...(input.pathOrders ? {path_orders:input.pathOrders} : {at_position: input.atPosition ?? null}),
     frames: input.frames.map((frame) => ({
       lane_id: frame.laneId,
       url: frame.url.trim(),
     })),
   })
+  return typeof result === 'string' ? result : result.ids[0]
 }
 
-export function createLaneWithDetails(
+export async function createLaneWithDetails(
   client: Client,
   input: {
     scenarioId: string
+    pathId?: string
     name: string
     laneRole: string
     atPosition?: number
@@ -1090,13 +1094,14 @@ export function createLaneWithDetails(
     stakeholderId: string | null
     kpis: string[]
     tools: string[]
+    pathOrders?: Record<string, string[]>
   },
 ): Promise<string[]> {
-  return call<string[]>(client, 'add_lane_with_details', {
+  const result = await call<string[] | {ids:string[];by_path?:Record<string,string>}>(client, 'add_lane_with_details', {
     scenario_id: input.scenarioId,
     name: input.name.trim(),
     lane_role: input.laneRole,
-    at_position: input.atPosition ?? null,
+    ...(input.pathOrders ? {path_orders:input.pathOrders} : {at_position: input.atPosition ?? null}),
     details: {
       owner_team: input.ownerTeam.trim() || null,
       stakeholder_id: input.stakeholderId,
@@ -1104,6 +1109,9 @@ export function createLaneWithDetails(
       tools: input.tools.map((v) => v.trim()).filter(Boolean),
     },
   })
+  if (Array.isArray(result)) return result
+  const clicked = input.pathId && result.by_path?.[input.pathId]
+  return clicked ? [clicked,...result.ids.filter(id=>id!==clicked)] : result.ids
 }
 
 export function renameStep(

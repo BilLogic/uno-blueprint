@@ -1,20 +1,22 @@
-import { BLUEPRINT_INSERT_HIT_HALF } from '@/lib/blueprintLayout'
+import { partStructureBoard } from './structureSeamLayout'
 import { useLayoutEffect, useState, type RefObject } from 'react'
 import { useAtScenarioLevel, useEditor } from '@/contexts/EditorContext'
 import { useCanvasModeValue } from '@/contexts/canvasModeContext'
 import { useCellPick } from '@/contexts/cellPickContext'
 import { useSupabase } from '@/contexts/SupabaseProvider'
 import { useEntityDetail } from '@/contexts/EntityDetailContext'
-import { StructureInsert, StructurePlaceholder } from './StructureInsert'
+import { StructureInsert } from './StructureInsert'
 
 type Boundary = { storedPosition: number; y: number; label: string }
 
 /** Scenario-wide lane insertion, measured from the rendered row gaps.
  * Activating a target opens an unwritten draft in the existing lane panel. */
 export function BlueprintLaneHandles({
-  bodyRef,
+  bodyRef, pathId, pathIds,
 }: {
   bodyRef: RefObject<HTMLDivElement | null>
+  pathId?: string
+  pathIds?: string[]
 }) {
   const mode = useCanvasModeValue()
   const pick = useCellPick()
@@ -22,15 +24,17 @@ export function BlueprintLaneHandles({
 
   if (mode !== 'design' || pick === null || !canWrite || client === null)
     return null
-  return <BlueprintLaneHandlesActive bodyRef={bodyRef} />
+  return <BlueprintLaneHandlesActive bodyRef={bodyRef} pathId={pathId} pathIds={pathIds} />
 }
 
 /** Mounted only while authoring, so read-mode boards do not subscribe every
  *  lane overlay to the combined navigation context. */
 function BlueprintLaneHandlesActive({
-  bodyRef,
+  bodyRef, pathId, pathIds,
 }: {
   bodyRef: RefObject<HTMLDivElement | null>
+  pathId?: string
+  pathIds?: string[]
 }) {
   const atScenarioLevel = useAtScenarioLevel()
   const { client } = useSupabase()
@@ -123,24 +127,23 @@ function BlueprintLaneHandlesActive({
   if (!active || boundaries.length === 0) return null
 
   const draft = selection?.draft
-  const pending =
-    draft?.kind === 'lane' && draft.scenarioId === selectedScenarioId
-      ? boundaries.find(
-          (boundary) => boundary.storedPosition === draft.atPosition,
-        )
-      : undefined
   return (
     <div className="pointer-events-none absolute inset-0 z-30">
-      {boundaries.map((boundary) => (
+      {!draft ? boundaries.map((boundary) => (
         <StructureInsert
           key={boundary.storedPosition}
           orientation="horizontal"
           label={boundary.label}
-          style={{ left: bodyWidth / 2, top: boundary.y }}
+          style={{ left: 0, width: bodyWidth, top: boundary.y }}
+          onOpenChange={open=>{
+            const row = bodyRef.current?.querySelector<HTMLElement>(`[data-lane-position="${boundary.storedPosition}"]`)
+            partStructureBoard(bodyRef.current,'horizontal',row ? Number(row.style.gridRow) : Number.MAX_SAFE_INTEGER,open)
+          }}
           onClick={(opener) =>
             openCreate(
               {
                 kind: 'lane',
+                pathId, pathIds,
                 scenarioId: selectedScenarioId!,
                 atPosition: boundary.storedPosition,
               },
@@ -148,18 +151,8 @@ function BlueprintLaneHandlesActive({
             )
           }
         />
-      ))}
-      {pending ? (
-        <StructurePlaceholder
-          kind="lane"
-          style={{
-            top: pending.y - BLUEPRINT_INSERT_HIT_HALF,
-            left: 0,
-            width: bodyWidth,
-            minHeight: 32,
-          }}
-        />
-      ) : null}
+      )) : null}
+
     </div>
   )
 }

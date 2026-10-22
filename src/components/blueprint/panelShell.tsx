@@ -187,8 +187,8 @@ export function PanelDrawerShell({
     for a CHOICE the reader made about content (which path), not for a posture
     they nudged.
   */
-  const [snapPoint, setSnapPoint] = useState<number | string>(() =>
-    rememberedSheetSnap(),
+  const [snapPoint, setSnapPoint] = useState<number | string>(
+    () => rememberedSheetSnap(),
   )
   return (
     <Drawer
@@ -310,7 +310,10 @@ export function Field({
            entries — definitions — on a shell that has a phone posture. The
            field's own label is the section's term, which is why the hint
            itself no longer has to open by naming the field. */
-        <DefinitionPopover sections={[{ term: label, body: hint }]} side="left">
+        <DefinitionPopover
+          sections={[{ term: label, body: hint }]}
+          side="left"
+        >
           {labelText}
         </DefinitionPopover>
       ) : (
@@ -481,7 +484,9 @@ export function PanelHeader({
         </>
       ) : (
         <div className="min-w-0 flex-1">
-          <DrawerTitle className={titleShown ? PANEL_HEADING_CLASS : 'sr-only'}>
+          <DrawerTitle
+            className={titleShown ? PANEL_HEADING_CLASS : 'sr-only'}
+          >
             {title}
           </DrawerTitle>
           <DrawerDescription

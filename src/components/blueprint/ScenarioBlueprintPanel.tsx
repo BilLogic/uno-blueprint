@@ -1,3 +1,5 @@
+import { useStructurePreview } from '@/contexts/EntityDetailContext'
+import { previewStructureDraft } from '@/lib/structureDraftPreview'
 import { memo, useEffect, useMemo, useRef, type RefObject } from 'react'
 import { ResizableComparePanel } from '@/components/blueprint/ResizableComparePanel'
 import { MergedCompareGrid } from '@/components/blueprint/MergedCompareGrid'
@@ -125,7 +127,8 @@ export const ScenarioBlueprintPanelBody = memo(function ScenarioBlueprintPanelBo
   // differently.
   const useSideBySideLayout = selectedPathIds.length > 0
 
-  const visibleBlueprints = useMemo(
+  const draftContext = useStructurePreview()
+  const loadedBlueprints = useMemo(
     () =>
       useSideBySideLayout
         ? itemsInSelectionOrder(selectedPathIds, (id) =>
@@ -134,6 +137,8 @@ export const ScenarioBlueprintPanelBody = memo(function ScenarioBlueprintPanelBo
         : [],
     [blueprintsByPathId, selectedPathIds, useSideBySideLayout],
   )
+
+  const visibleBlueprints = useMemo(() => draftContext?.selection?.draft && draftContext.preview ? previewStructureDraft(loadedBlueprints, draftContext.preview) : loadedBlueprints, [loadedBlueprints,draftContext?.selection?.draft,draftContext?.preview])
 
   /*
     THE compare model — computed once here, distributed via props; consumers
@@ -145,8 +150,11 @@ export const ScenarioBlueprintPanelBody = memo(function ScenarioBlueprintPanelBo
     if (!useSideBySideLayout) return null
     if (visibleBlueprints.length < 2) return null
     if (visibleBlueprints.length !== selectedPathIds.length) return null
-    return buildCompareModel(visibleBlueprints as CompareBlueprints)
-  }, [selectedPathIds.length, useSideBySideLayout, visibleBlueprints])
+    const clickedId=(draftContext?.selection?.draft || draftContext?.selection?.focusNext) ? draftContext.preview?.clickedPathId : undefined
+    const clicked=visibleBlueprints.find(blueprint=>blueprint.path.id===clickedId)
+    const axis=clicked ? [clicked,...visibleBlueprints.filter(blueprint=>blueprint!==clicked)] : visibleBlueprints
+    return buildCompareModel(axis as CompareBlueprints)
+  }, [selectedPathIds.length, useSideBySideLayout, visibleBlueprints,draftContext?.selection,draftContext?.preview?.clickedPathId])
 
   /*
     Merged = ONE COMBINED BLUEPRINT (Phase 4b). `MergedCompareGrid` renders

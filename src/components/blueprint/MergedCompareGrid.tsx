@@ -1,3 +1,4 @@
+import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
 import { BlueprintLaneHandles } from './BlueprintLaneHandles'
 import { BlueprintColumnHandles } from './BlueprintColumnHandles'
 import { Fragment, useMemo, useRef, type RefObject } from 'react'
@@ -275,6 +276,7 @@ export function MergedCompareGrid({
 
   return (
     <div
+      data-structure-board=""
       className={cn('w-max shrink-0', className)}
       style={getCompareBoardWrapperPadding()}
     >
@@ -301,7 +303,7 @@ export function MergedCompareGrid({
             marginTop: COMPARE_STACKED_HEADER_GAP,
           }}
         >
-          <BlueprintLaneHandles bodyRef={bandRef} />
+          <BlueprintLaneHandles bodyRef={bandRef} pathId={blueprints[0]?.path.id} pathIds={blueprints.map(blueprint=>blueprint.path.id)} />
           <BlueprintColumnHandles
             bodyRef={bandRef}
             selectionHandles={false}
@@ -312,7 +314,7 @@ export function MergedCompareGrid({
               const step = path.steps.find(
                 (step) => step.id === track.stepIdByPath[path.path.id],
               )!
-              return { ...step, pathId: path.path.id, pathName: path.path.name }
+              return { ...step, pathId: path.path.id, pathName: path.path.name, pathIds: Object.keys(track.stepIdByPath) }
             })}
           />
           <MergedSectionFrame blueprints={blueprints} />
@@ -548,8 +550,9 @@ function MergedLaneRow({
               <div
                 aria-hidden
                 data-compare-column-spacer=""
+                data-structure-placeholder={lane.id === STRUCTURE_PLACEHOLDER_ID || Object.values(track.stepIdByPath).includes(STRUCTURE_PLACEHOLDER_ID) ? '' : undefined}
                 data-step-index={trackIndex}
-                className="shrink-0"
+                className="shrink-0 self-stretch rounded-md"
                 style={{
                   width: STEP_COLUMN_WIDTH,
                   minWidth: STEP_COLUMN_WIDTH,

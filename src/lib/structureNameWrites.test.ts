@@ -44,3 +44,16 @@ for (const kind of ['lane', 'step'] as const) {
     expect(saved).toBe('Review')
   })
 }
+
+it('creates a step with complete path orders and reverts the captured database snapshot once', async () => {
+  const { createStepWithDetails } = await import('./authoringRpc')
+  const snapshot = {kind:'step',ids:['created'],before:{one:[{id:'start',position:4}],two:[]},after:{one:[{id:'created',position:0},{id:'start',position:1}],two:[{id:'created',position:0}]}}
+  const rpc = vi.fn(async () => ({data:snapshot,error:null}))
+  const client = {rpc} as unknown as SupabaseClient<Database>
+  expect(await createStepWithDetails(client,{pathId:'one',name:'Review',summary:'Check the request.',frames:[],pathOrders:{one:['new','start'],two:['new']}})).toBe('created')
+  expect(rpc).toHaveBeenCalledExactlyOnceWith('add_step_with_details',{path_id:'one',name:'Review',summary:'Check the request.',frames:[],path_orders:{one:['new','start'],two:['new']}})
+  const [entry] = sessionSnapshot()
+  expect(entry.revert).toEqual({fn:'undo_structure_add',args:{snapshot}})
+  await executeRevert(client,entry)
+  expect(rpc).toHaveBeenLastCalledWith('undo_structure_add',{snapshot})
+})

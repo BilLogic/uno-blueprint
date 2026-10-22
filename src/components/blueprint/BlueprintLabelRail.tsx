@@ -1,3 +1,5 @@
+import { highlightStructure } from './structureHighlight'
+import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
 import { useStructureRename } from './useStructureRename'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import {
@@ -237,7 +239,7 @@ export function BlueprintLabelRow({
   const pick = useCellPick()
   const laneId = row.kind === 'lane' ? row.lane?.id ?? null : null
   const laneSelectable =
-    canvasMode === 'design' && pick !== null && laneId !== null
+    canvasMode === 'design' && pick !== null && laneId !== null && laneId !== STRUCTURE_PLACEHOLDER_ID
   const selectLane = (event: ReactMouseEvent<HTMLElement>) => {
     if (!laneSelectable || laneId === null) return
     const cells = cellsInLane(laneId)
@@ -271,6 +273,9 @@ export function BlueprintLabelRow({
 
   return (
     <div
+      role={laneId === STRUCTURE_PLACEHOLDER_ID ? 'status' : undefined}
+      aria-label={laneId === STRUCTURE_PLACEHOLDER_ID ? 'New lane position' : undefined}
+      data-structure-placeholder={laneId === STRUCTURE_PLACEHOLDER_ID ? '' : undefined}
       className={cn(
         'sticky left-0 isolate flex h-full min-h-0 flex-col overflow-hidden',
         // No right border. The rail already reads as its own column through
@@ -407,7 +412,7 @@ function LaneSelectionName({
   return rename.editing ? (
     rename.editor
   ) : (
-    <button {...props} onDoubleClick={rename.begin}>
+    <button {...props} onPointerEnter={event=>highlightStructure(event.currentTarget,'lane',name,true)} onPointerLeave={event=>highlightStructure(event.currentTarget,'lane',name,false)} onFocus={event=>highlightStructure(event.currentTarget,'lane',name,true)} onBlur={event=>highlightStructure(event.currentTarget,'lane',name,false)} onClick={event=>rename.click(event,()=>props.onClick?.(event))} onDoubleClick={rename.begin}>
       {children}
     </button>
   )

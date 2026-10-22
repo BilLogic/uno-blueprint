@@ -30,6 +30,10 @@ const state = vi.hoisted(() => ({
     siblingLaneIds: ['lane'],
   },
 }))
+vi.mock('@/hooks/useStructureCreatePaths', () => ({
+  NEW_STRUCTURE_ITEM:'new',
+  useStructureCreatePaths: () => ({status:'ready',paths:[],value:[],onChange:vi.fn(),defaultOrder:()=>[]})
+}))
 vi.mock('@/hooks/useStepSpec', () => ({
   useStepSpec: () => ({ status: 'ready', data: state.step }),
 }))
@@ -82,3 +86,17 @@ for (const kind of ['step', 'lane'] as const) {
     })
   })
 }
+
+it('opening an existing step preserves focus, while a just-added step focuses Summary', () => {
+  const opener = document.createElement('button')
+  document.body.append(opener)
+  opener.focus()
+  const view = render(<Drawer open><StepPanel stepId="step" onClose={() => {}} /></Drawer>)
+  expect(document.activeElement).toBe(opener)
+  view.rerender(<Drawer open><StepPanel stepId="step" focusNext onClose={() => {}} /></Drawer>)
+  // Focus on entering the post-create edit form, rather than re-focusing a mounted input.
+  view.unmount()
+  render(<Drawer open><StepPanel stepId="step" focusNext onClose={() => {}} /></Drawer>)
+  expect(document.activeElement?.getAttribute('aria-label')).toBe('Summary')
+  opener.remove()
+})

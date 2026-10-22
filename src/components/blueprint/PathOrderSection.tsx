@@ -1,0 +1,295 @@
+import { useState, useRef } from 'react'
+import { Reorder, useDragControls, useReducedMotion } from 'framer-motion'
+import { ChevronDown, GripVertical } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import { EASE_POINTS, MOTION_MICRO_MS } from '@/lib/motion'
+
+export type OrderItem = { id: string; name: string; position?: number }
+export type OrderPath = { id: string; name: string; items: OrderItem[] }
+export type PathOrder = { pathId: string; order: string[]; moved: string[] }
+
+/** One controlled path membership and order editor, shared by structure panels. */
+export function PathOrderSection({
+  paths,
+  value,
+  onChange,
+  item,
+  defaultOrder,
+  unavailable = {},
+  label = 'Add to paths',
+}: {
+  paths: OrderPath[]
+  value: PathOrder[]
+  onChange: (value: PathOrder[]) => void
+  item: OrderItem
+  defaultOrder: (path: OrderPath) => string[]
+  unavailable?: Record<string, string>
+  label?: string
+}) {
+  const unticked = useRef(new Map<string, PathOrder>())
+  const dragging = useRef<string | undefined>(undefined)
+  const [dropAt, setDropAt] = useState<string | null>(null)
+  const [open, setOpen] = useState<string | null>(value[0]?.pathId ?? null)
+  const changeOrder = (pathId: string, order: string[], moved?: string) =>
+    onChange(
+      value.map((entry) => {
+        if (entry.pathId !== pathId) return entry
+        const base = paths
+          .find((path) => path.id === pathId)!
+          .items.map((row) => row.id)
+        const current = order.filter((id) => id !== item.id)
+        const restored = current.every((id, index) => id === base[index])
+        return {
+          ...entry,
+          order,
+          moved: restored
+            ? []
+            : [
+                ...new Set([
+                  ...entry.moved,
+                  ...(moved && moved !== item.id ? [moved] : []),
+                ]),
+              ],
+        }
+      }),
+    )
+  const toggle = (path: OrderPath) => {
+    const selected = value.some((entry) => entry.pathId === path.id)
+    if (selected && value.length === 1) return
+    if (selected)
+      unticked.current.set(
+        path.id,
+        value.find((entry) => entry.pathId === path.id)!,
+      )
+    onChange(
+      selected
+        ? value.filter((entry) => entry.pathId !== path.id)
+        : [
+            ...value,
+            unticked.current.get(path.id) ?? {
+              pathId: path.id,
+              order: defaultOrder(path),
+              moved: [],
+            },
+          ],
+    )
+    setOpen(selected ? null : path.id)
+  }
+  return (
+    <section className="space-y-2" aria-label={label}>
+      <div className="flex justify-between text-xs text-muted-foreground">
+        <span>{label}</span>
+        <span>
+          {value.length} of {paths.length}
+        </span>
+      </div>
+      {paths.map((path) => {
+        const entry = value.find((entry) => entry.pathId === path.id)
+        const expanded = Boolean(
+          entry &&
+            (open === path.id ||
+              (open !== null &&
+                !value.some((selected) => selected.pathId === open) &&
+                value[0]?.pathId === path.id)),
+        )
+        const reason = unavailable[path.id]
+        return (
+          <div key={path.id} className="border-b border-muted">
+            <div className="flex items-center gap-2 py-2 text-xs">
+              <input
+                type="checkbox"
+                className="accent-primary"
+                aria-label={`Add to ${path.name}`}
+                aria-checked={Boolean(entry)}
+                checked={Boolean(entry)}
+                disabled={Boolean(reason)}
+                onChange={() => toggle(path)}
+              />
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                aria-expanded={expanded}
+                aria-controls={`path-order-${path.id}`}
+                disabled={Boolean(reason)}
+                onClick={() => {
+                  if (!entry) toggle(path)
+                  else setOpen(expanded ? null : path.id)
+                }}
+              >
+                <span className="truncate">{path.name}</span>
+                <span className="ml-auto text-muted-foreground">
+                  {reason ||
+                    (!expanded && entry?.moved.length
+                      ? `${entry.moved.length} moved`
+                      : '')}
+                </span>
+                {entry ? (
+                  <ChevronDown
+                    aria-hidden
+                    className={cn(
+                      'size-3 transition-transform ease-arrive duration-(--motion-micro) motion-reduce:transition-none',
+                      expanded && 'rotate-180',
+                    )}
+                  />
+                ) : null}
+              </button>
+            </div>
+            {expanded && entry ? (
+              <div id={`path-order-${path.id}`} className="pb-3">
+                <Reorder.Group
+                  axis="y"
+                  values={entry.order}
+                  onReorder={(order) => {
+                    setDropAt(
+                      dragging.current
+                        ? `${path.id}:${order.indexOf(dragging.current)}`
+                        : null,
+                    )
+                    changeOrder(path.id, order, dragging.current)
+                  }}
+                  className="relative ml-1 space-y-1 before:absolute before:bottom-3 before:left-2 before:top-3 before:w-px before:bg-border"
+                >
+                  {entry.order.map((id, index) => (
+                    <RailRow
+                      key={id}
+                      id={id}
+                      name={
+                        id === item.id
+                          ? item.name
+                          : path.items.find((row) => row.id === id)?.name ?? ''
+                      }
+                      pathName={path.name}
+                      current={id === item.id}
+                      moved={entry.moved.includes(id)}
+                      onDrag={() => {
+                        dragging.current = id
+                      }}
+                      dropBefore={dropAt === `${path.id}:${index}`}
+                      onDragEnd={() => {
+                        dragging.current = undefined
+                        setDropAt(null)
+                      }}
+                      onMove={(direction) => {
+                        const target = index + direction
+                        if (target < 0 || target >= entry.order.length) return
+                        const next = [...entry.order]
+                        next.splice(index, 1)
+                        next.splice(target, 0, id)
+                        changeOrder(path.id, next, id)
+                      }}
+                    />
+                  ))}
+                </Reorder.Group>
+                {entry.moved.length ? (
+                  <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{entry.moved.length} moved</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      type="button"
+                      onClick={() => {
+                        const order = path.items.map((row) => row.id)
+                        order.splice(
+                          Math.min(entry.order.indexOf(item.id), order.length),
+                          0,
+                          item.id,
+                        )
+                        changeOrder(path.id, order)
+                      }}
+                    >
+                      Reset order
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        )
+      })}
+    </section>
+  )
+}
+function RailRow({
+  id,
+  name,
+  pathName,
+  current,
+  moved,
+  onMove,
+  onDrag,
+  dropBefore,
+  onDragEnd,
+}: {
+  id: string
+  name: string
+  pathName: string
+  current: boolean
+  moved: boolean
+  onMove: (direction: number) => void
+  onDrag: () => void
+  dropBefore?: boolean
+  onDragEnd?: () => void
+}) {
+  const controls = useDragControls()
+  const reduced = useReducedMotion()
+  return (
+    <Reorder.Item
+      value={id}
+      dragListener={false}
+      dragControls={controls}
+      onDragStart={onDrag}
+      onDragEnd={onDragEnd}
+      transition={{
+        duration: reduced ? 0 : MOTION_MICRO_MS / 1000,
+        ease: EASE_POINTS.move,
+      }}
+      whileDrag={{ outline: '1px solid var(--primary)' }}
+      className="group/order relative flex cursor-grab touch-none items-center gap-2 rounded-md active:cursor-grabbing"
+      onPointerDown={(event) => controls.start(event)}
+    >
+      {dropBefore ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-primary"
+        />
+      ) : null}
+      <button
+        type="button"
+        aria-label={`Move ${name} in ${pathName}`}
+        className={cn(
+          'relative grid size-4 shrink-0 place-items-center outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          current ? 'text-text-primary' : 'text-muted-foreground',
+        )}
+        onKeyDown={(event) => {
+          if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+          event.preventDefault()
+          onMove(event.key === 'ArrowUp' ? -1 : 1)
+        }}
+      >
+        <span
+          className={cn(
+            'size-2.5 rounded-full border border-current bg-background group-hover/order:hidden group-focus-within/order:hidden [@media(hover:none)]:hidden',
+            current && 'bg-primary',
+          )}
+        />
+        <GripVertical
+          aria-hidden
+          className="hidden size-3.5 group-hover/order:block group-focus-within/order:block [@media(hover:none)]:block"
+        />
+      </button>
+      <span
+        className={cn(
+          'min-w-0 flex-1 rounded-md px-2 py-2 text-xs',
+          current && 'border border-primary/20 bg-primary/10',
+          !current && !moved && 'text-muted-foreground',
+        )}
+      >
+        <span>{name}</span>
+        {moved ? (
+          <span className="ml-2 text-xs text-muted-foreground">Moved</span>
+        ) : null}
+      </span>
+    </Reorder.Item>
+  )
+}

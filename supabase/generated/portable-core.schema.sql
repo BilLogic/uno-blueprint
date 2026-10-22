@@ -117,6 +117,43 @@ begin
 end $$;
 
 --
+-- Name: add_lane_with_details(uuid, text, text, jsonb, jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.add_lane_with_details(scenario_id uuid, name text, lane_role text, path_orders jsonb, details jsonb DEFAULT '{}'::jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare p uuid; requested jsonb; ids uuid[]; new_id uuid; created uuid[] := '{}'; by_path jsonb := '{}'; snapshot jsonb := '{}'; after_orders jsonb := '{}'; rows jsonb;
+begin
+  perform public.require_structure_author();
+  if nullif(trim(name),'') is null then raise exception 'Enter a name'; end if;
+  if nullif(trim(lane_role),'') is null then raise exception 'Choose a role'; end if;
+  if jsonb_typeof(path_orders) is distinct from 'object' or path_orders='{}' then raise exception 'Choose at least one path'; end if;
+  if jsonb_typeof(coalesce(details->'kpis','[]')) <> 'array' or jsonb_typeof(coalesce(details->'tools','[]')) <> 'array' then raise exception 'KPIs and tools must be lists'; end if;
+  perform 1 from public.paths where paths.scenario_id=add_lane_with_details.scenario_id order by id for update;
+  for p,requested in select key::uuid,value from jsonb_each(path_orders) order by key loop
+    if not exists(select 1 from public.paths where id=p and paths.scenario_id=add_lane_with_details.scenario_id) then raise exception 'Choose paths in the same scenario'; end if;
+    perform 1 from public.lanes where lanes.path_id=p order by id for update;
+    if exists(select 1 from public.lanes where lanes.path_id=p and lower(trim(lanes.name))=lower(trim(add_lane_with_details.name))) then
+      raise exception 'This path already has a lane named %. Choose another name or untick this path',trim(name);
+    end if;
+    select array_agg(id order by position),coalesce(jsonb_agg(jsonb_build_object('id',id,'position',position) order by position),'[]') into ids,rows from public.lanes where lanes.path_id=p;
+    perform public.check_structure_draft_order(ids,requested);
+    snapshot := snapshot || jsonb_build_object(p,rows);
+    insert into public.lanes(path_id,name,lane_role,position,owner_team,stakeholder_id,kpis,tools,origin)
+    values(p,trim(name),lane_role,coalesce((select max(position)+1 from public.lanes where lanes.path_id=p),0),nullif(trim(details->>'owner_team'),''),nullif(details->>'stakeholder_id','')::uuid,coalesce(details->'kpis','[]'),coalesce(details->'tools','[]'),'app') returning id into new_id;
+    created := array_append(created,new_id);
+    by_path := by_path || jsonb_build_object(p,new_id);
+    update public.lanes l set position=q.ordinality-1 from jsonb_array_elements_text(requested) with ordinality q(id,ordinality)
+      where l.path_id=p and l.id=case when q.id='new' then new_id else q.id::uuid end;
+    select jsonb_agg(jsonb_build_object('id',id,'position',position) order by position) into rows from public.lanes where lanes.path_id=p;
+    after_orders := after_orders || jsonb_build_object(p,rows);
+  end loop;
+  return jsonb_build_object('kind','lane','ids',to_jsonb(created),'by_path',by_path,'before',snapshot,'after',after_orders);
+end $$;
+
+--
 -- Name: add_step(uuid, text, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -191,6 +228,47 @@ begin
 end $$;
 
 --
+-- Name: add_step_with_details(uuid, text, jsonb, text, jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.add_step_with_details(path_id uuid, name text, path_orders jsonb, summary text DEFAULT NULL::text, frames jsonb DEFAULT '[]'::jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare sc uuid; p uuid; requested jsonb; ids uuid[]; new_id uuid; snapshot jsonb := '{}'; after_orders jsonb := '{}'; f jsonb;
+begin
+  perform public.require_structure_author();
+  if nullif(trim(name),'') is null then raise exception 'Enter a name'; end if;
+  select scenario_id into sc from public.paths where id=add_step_with_details.path_id;
+  if not found then raise exception 'That path no longer exists. Reload and choose a path'; end if;
+  if jsonb_typeof(path_orders) is distinct from 'object' or path_orders='{}' or not path_orders ? path_id::text then
+    raise exception 'Choose at least the path where you opened the new step';
+  end if;
+  perform 1 from public.paths where scenario_id=sc order by id for update;
+  for p,requested in select key::uuid,value from jsonb_each(path_orders) order by key loop
+    if not exists(select 1 from public.paths where id=p and scenario_id=sc) then raise exception 'Choose paths in the same scenario'; end if;
+    perform 1 from public.path_steps where path_steps.path_id=p order by step_id for update;
+    select array_agg(step_id order by position),coalesce(jsonb_agg(jsonb_build_object('id',step_id,'position',position) order by position),'[]') into ids,f from public.path_steps where path_steps.path_id=p;
+    perform public.check_structure_draft_order(ids,requested);
+    snapshot := snapshot || jsonb_build_object(p,f);
+  end loop;
+  -- The established operation also validates and writes storyboard frames.
+  new_id := public.add_step_with_details(path_id,name,null::integer,summary,frames);
+  for p,requested in select key::uuid,value from jsonb_each(path_orders) order by key loop
+    if not exists(select 1 from public.path_steps where path_steps.path_id=p and step_id=new_id) then
+    insert into public.path_steps(path_id,step_id,position)
+      select p,new_id,coalesce(max(position)+1,0) from public.path_steps where path_steps.path_id=p;
+    end if;
+    update public.path_steps ps set position=q.ordinality-1
+      from jsonb_array_elements_text(requested) with ordinality q(id,ordinality)
+      where ps.path_id=p and ps.step_id=case when q.id='new' then new_id else q.id::uuid end;
+    select jsonb_agg(jsonb_build_object('id',step_id,'position',position) order by position) into f from public.path_steps where path_steps.path_id=p;
+    after_orders := after_orders || jsonb_build_object(p,f);
+  end loop;
+  return jsonb_build_object('kind','step','ids',jsonb_build_array(new_id),'before',snapshot,'after',after_orders);
+end $$;
+
+--
 -- Name: authoring_changes_are_append_only(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -251,6 +329,26 @@ begin
   return new;
 end;
 $$;
+
+--
+-- Name: check_structure_draft_order(uuid[], jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.check_structure_draft_order(current_ids uuid[], requested jsonb) RETURNS void
+    LANGUAGE plpgsql
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+begin
+  if jsonb_typeof(requested) is distinct from 'array' then
+    raise exception 'Reload this path and include every item exactly once, plus the new item';
+  end if;
+  if jsonb_array_length(requested) <> coalesce(cardinality(current_ids),0)+1
+    or (select count(*) from jsonb_array_elements_text(requested) x where x='new') <> 1
+    or (select count(distinct x) from jsonb_array_elements_text(requested) x) <> jsonb_array_length(requested)
+    or exists(select 1 from jsonb_array_elements_text(requested) x where x <> 'new' and not x = any(coalesce(current_ids,'{}')::text[])) then
+    raise exception 'Reload this path and include every item exactly once, plus the new item';
+  end if;
+end $$;
 
 --
 -- Name: clear_cell_dependency(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -1384,21 +1482,17 @@ CREATE FUNCTION public.rename_lane(lane_id uuid, new_name text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
     AS $$
-declare scen uuid; previous text;
+declare p uuid;
 begin
-  if not public.is_service_account() then
-    raise exception 'This account cannot edit the blueprint' using errcode = '42501';
-  end if;
-  if nullif(trim(new_name), '') is null then raise exception 'A lane needs a name'; end if;
-  select p.scenario_id, l.name into scen, previous from public.lanes l join public.paths p on p.id = l.path_id
-  where l.id = lane_id for update of l;
+  perform public.require_structure_author();
+  if nullif(trim(new_name),'') is null then raise exception 'Enter a name'; end if;
+  select path_id into p from public.lanes where id=lane_id;
   if not found then raise exception 'That lane no longer exists'; end if;
-  if exists(select 1 from public.lanes l join public.paths p on p.id = l.path_id
-    where p.scenario_id = scen and l.name = trim(new_name) and l.name <> previous) then
-    raise exception 'That lane name already exists in this scenario';
-  end if;
-  update public.lanes l set name = trim(new_name) from public.paths p
-  where p.id = l.path_id and p.scenario_id = scen and l.name = previous;
+  perform 1 from public.paths where id=p for update;
+  perform 1 from public.lanes where id=lane_id and path_id=p for update;
+  if not found then raise exception 'That lane no longer exists'; end if;
+  if exists(select 1 from public.lanes where path_id=p and id<>lane_id and lower(trim(name))=lower(trim(new_name))) then raise exception 'This path already has that lane name. Choose another name'; end if;
+  update public.lanes set name=trim(new_name) where id=lane_id;
 end $$;
 
 --
@@ -1823,6 +1917,20 @@ $_$;
 --
 
 COMMENT ON FUNCTION public.replace_slides(p_slice_id uuid, p_slides jsonb) IS 'Replace a slice''s slides, and their slide_images, whole and in one transaction. Each element of p_slides is one slide in order: cell_ids, cell_keys, title, caption, shows_all_images, images, and optionally the id it keeps. A refusal anywhere leaves the prior slides as they were. Returns previous: the deleted slides with their image sets as they stood, which restore_slides writes back.';
+
+--
+-- Name: require_structure_author(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.require_structure_author() RETURNS void
+    LANGUAGE plpgsql
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+begin
+  if not public.is_service_account() then
+    raise exception 'This account cannot edit the blueprint' using errcode='42501';
+  end if;
+end $$;
 
 --
 -- Name: restore_cell_content(uuid, text); Type: FUNCTION; Schema: public; Owner: -
@@ -2902,6 +3010,39 @@ $$;
 --
 
 COMMENT ON FUNCTION public.sync_placement_resources(p_placement_id uuid, p_rows jsonb) IS 'The touchpoint''s list at one cell, replaced in order: delete the rows not named, update the named ones (name, url, position — never kind or featured), insert the rest. Refuses another placement''s id and a placement that is gone.';
+
+--
+-- Name: undo_structure_add(jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.undo_structure_add(snapshot jsonb) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare p uuid; rows jsonb; actual jsonb; ids uuid[];
+begin
+  perform public.require_structure_author();
+  if snapshot->>'kind' not in ('lane','step') or jsonb_typeof(snapshot->'before') is distinct from 'object' then raise exception 'This change cannot be undone. Reload the canvas'; end if;
+  select array_agg(x::uuid) into ids from jsonb_array_elements_text(snapshot->'ids') x;
+  perform 1 from public.paths where id in(select key::uuid from jsonb_each(snapshot->'before')) order by id for update;
+  for p,rows in select key::uuid,value from jsonb_each(snapshot->'after') order by key loop
+    if snapshot->>'kind'='step' then
+      select jsonb_agg(jsonb_build_object('id',step_id,'position',position) order by position) into actual from public.path_steps where path_id=p;
+    else
+      select jsonb_agg(jsonb_build_object('id',id,'position',position) order by position) into actual from public.lanes where path_id=p;
+    end if;
+    if actual is distinct from rows then raise exception 'This path changed since Add. Reload before undoing this change'; end if;
+  end loop;
+  if snapshot->>'kind'='step' then delete from public.steps where id=any(ids);
+  else delete from public.lanes where id=any(ids); end if;
+  for p,rows in select key::uuid,value from jsonb_each(snapshot->'before') loop
+    if snapshot->>'kind'='step' then
+      update public.path_steps ps set position=(q->>'position')::int from jsonb_array_elements(rows) q where ps.path_id=p and ps.step_id=(q->>'id')::uuid;
+    else
+      update public.lanes l set position=(q->>'position')::int from jsonb_array_elements(rows) q where l.path_id=p and l.id=(q->>'id')::uuid;
+    end if;
+  end loop;
+end $$;
 
 --
 -- Name: update_cell_dependency(uuid, text, uuid, text); Type: FUNCTION; Schema: public; Owner: -

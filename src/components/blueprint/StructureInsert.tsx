@@ -1,68 +1,80 @@
 import { Plus } from 'lucide-react'
-import type { CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { cn } from '@/lib/utils'
 
-/** The same short gap target on both axes; its hit area never spans the grid. */
+/** A focusable gap; the entire opened slot is the action. The plus has no chrome. */
 export function StructureInsert({
   orientation,
   label,
   style,
   onClick,
+  onOpenChange,
 }: {
   orientation: 'horizontal' | 'vertical'
   label: string
   style?: CSSProperties
   onClick: (opener: HTMLButtonElement) => void
+  onOpenChange?: (open: boolean) => void
 }) {
+  const [open, setOpen] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const notify = useRef(onOpenChange)
+  useEffect(() => {
+    notify.current = onOpenChange
+  })
+  useEffect(() => {
+    notify.current?.(open)
+    return () => notify.current?.(false)
+  }, [open])
+  useEffect(() => () => clearTimeout(timer.current), [])
+  const arm = (next: boolean, delay: number) => {
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => setOpen(next), delay)
+  }
   return (
     <button
       type="button"
       aria-label={label}
-      style={style}
+      data-structure-seam=""
+      data-open={open ? '' : undefined}
+      style={{
+        ...style,
+        ...(open
+          ? orientation === 'vertical'
+            ? { left: Number(style?.left ?? 0) + 17 }
+            : { top: Number(style?.top ?? 0) + 17 }
+          : {}),
+        ...(orientation === 'vertical'
+          ? { width: open ? 44 : 14 }
+          : { height: open ? 44 : 14 }),
+      }}
+      onPointerDown={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+      }}
+      onPointerEnter={(event) => {
+        if (event.pointerType !== 'touch') arm(true, 90)
+      }}
+      onPointerLeave={() => arm(false, 140)}
+      onFocus={() => {
+        clearTimeout(timer.current)
+        setOpen(true)
+      }}
+      onBlur={() => arm(false, 140)}
       onClick={(event) => {
         event.stopPropagation()
+        clearTimeout(timer.current)
         onClick(event.currentTarget)
       }}
       className={cn(
-        'group/structure-insert pointer-events-auto absolute flex items-center justify-center rounded-md text-text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-        orientation === 'horizontal'
-          ? 'h-6 w-16 -translate-x-1/2 -translate-y-1/2'
-          : 'h-16 w-6 -translate-x-1/2 -translate-y-1/2',
+        'pointer-events-auto absolute flex appearance-none items-center justify-center rounded-md border bg-transparent p-0 text-text-primary outline-none transition-[width,height,background-color,border-color] duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
+        orientation === 'vertical' ? '-translate-x-1/2' : '-translate-y-1/2',
+        open
+          ? 'border-dashed border-primary/50 bg-primary/5 hover:border-primary focus-visible:border-solid'
+          : 'border-transparent [&>svg]:opacity-0 [@media(hover:none)]:border-primary/20 [@media(hover:none)]:bg-primary/5 [@media(hover:none)]:[&>svg]:opacity-40',
       )}
     >
-      <span
-        aria-hidden
-        className="flex size-full items-center justify-center opacity-0 transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none group-hover/structure-insert:opacity-100 group-focus-visible/structure-insert:opacity-100 [@media(hover:none)]:opacity-40"
-      >
-        <span
-          className={cn(
-            'absolute bg-primary/60',
-            orientation === 'horizontal' ? 'h-px w-full' : 'h-full w-px',
-          )}
-        />
-        <span className="relative grid size-4 place-items-center rounded-full bg-background ring-1 ring-primary/60">
-          <Plus className="size-3" />
-        </span>
-      </span>
+      <Plus aria-hidden className="pointer-events-none size-4 shrink-0" />
     </button>
-  )
-}
-
-export function StructurePlaceholder({
-  kind,
-  style,
-}: {
-  kind: 'lane' | 'step'
-  style: CSSProperties
-}) {
-  return (
-    <div
-      role="status"
-      aria-label={`New ${kind} position`}
-      style={style}
-      className="pointer-events-none absolute rounded-md border border-dashed border-primary bg-primary/5 px-2 py-1 text-xs text-text-primary"
-    >
-      New {kind}
-    </div>
   )
 }

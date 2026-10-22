@@ -1253,3 +1253,11 @@
     }
   }
 }
+
+/* Structural previews move at the same cadence as canvas micro interactions. */
+.structure-seam-motion { transition: translate var(--motion-micro) var(--ease-arrive); }
+@media (prefers-reduced-motion: reduce) { .structure-seam-motion { transition: none; } }
+[data-structure-placeholder] { border: 1px dashed var(--primary); background: color-mix(in oklch, var(--primary) 5%, transparent); pointer-events: none; }
+
+[data-structure-highlight="label"] { outline: 1px solid var(--primary); outline-offset: -1px; }
+[data-structure-highlight="cells"] { box-shadow: inset 0 0 0 9999px color-mix(in oklch, var(--primary) 4%, transparent); }

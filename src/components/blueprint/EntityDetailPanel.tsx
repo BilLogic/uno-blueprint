@@ -1,3 +1,10 @@
+import { createPortal } from 'react-dom'
+import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { useSupabase } from '@/contexts/SupabaseProvider'
+import { sessionSnapshot, forgetChange, type SessionEntry } from '@/lib/authoringSession'
+import { executeRevert } from '@/lib/revertChange'
+import { reportWriteFailure } from '@/lib/writeFailures'
 import { useEffect, useState, type ComponentType } from 'react'
 import { ServicePanel } from '@/components/blueprint/ServicePanel'
 import { LanePanel } from '@/components/blueprint/LanePanel'
@@ -52,16 +59,18 @@ const PANELS: Record<
   ComponentType<{
     id: string
     draft?: StructureDraft
+    focusNext?: boolean
     onCreated: (id: string) => void
     onClose: () => void
   }>
 > = {
   service: ({ onClose }) => <ServicePanel onClose={onClose} />,
-  lane: ({ id, draft, onCreated, onClose }) => (
+  lane: ({ id, draft, focusNext, onCreated, onClose }) => (
     <LanePanel
       laneId={id}
       draft={draft?.kind === 'lane' ? draft : undefined}
       onCreated={onCreated}
+      focusNext={focusNext}
       onClose={onClose}
     />
   ),
@@ -69,18 +78,22 @@ const PANELS: Record<
   scenario: ({ id, onClose }) => (
     <ScenarioPanel scenarioId={id} onClose={onClose} />
   ),
-  step: ({ id, draft, onCreated, onClose }) => (
+  step: ({ id, draft, focusNext, onCreated, onClose }) => (
     <StepPanel
       stepId={id}
       draft={draft?.kind === 'step' ? draft : undefined}
       onCreated={onCreated}
+      focusNext={focusNext}
       onClose={onClose}
     />
   ),
 }
 
 function EntityDetailPanelBody() {
-  const { selection, closeEntity, openEntity } = useEntityDetail()
+  const { selection, preview, closeEntity, openEntity } = useEntityDetail()
+  const { client } = useSupabase()
+  const [notice,setNotice] = useState<{entry:SessionEntry; message:string} | null>(null)
+  const [undoBusy,setUndoBusy] = useState(false)
   /*
     Kept only so the exit animation has something to draw. Captured with a
     guarded render-phase set — the codebase's derive-during-render idiom —
@@ -124,20 +137,32 @@ function EntityDetailPanelBody() {
   const Panel = PANELS[shown.kind]
 
   return (
+    <>
+    {notice ? createPortal(<div role="status" className="pointer-events-none fixed inset-x-0 bottom-4 z-50 mx-auto w-[min(32rem,calc(100vw-2rem))]"><Alert className="pointer-events-auto shadow-md"><AlertDescription>{notice.message}</AlertDescription><AlertAction><Button type="button" size="sm" variant="ghost" disabled={undoBusy} onClick={async()=>{
+      if (!client) return
+      setUndoBusy(true)
+      try { await executeRevert(client,notice.entry);forgetChange(notice.entry.id);setNotice(null);closeEntity() } catch(error) { reportWriteFailure('The addition was not undone',error) } finally {setUndoBusy(false)}
+    }}>Undo</Button></AlertAction></Alert></div>,document.body) : null}
     <PanelDrawerShell
       open={selection !== null}
       onCloseRequest={closeEntity}
       onClosed={() => setClosing(null)}
     >
       <Panel
-        key={`${shown.kind}-${shown.id}`}
+        key={`${shown.kind}-${shown.draftKey ?? shown.id}`}
         id={shown.id}
         draft={shown.draft}
-        onCreated={(id) => openEntity({ kind: shown.kind, id })}
+        focusNext={shown.focusNext}
+        onCreated={(id) => {
+          const entry = sessionSnapshot().at(-1)
+          if (entry?.revert) setNotice({entry,message:`Added the ${preview?.name.trim() || ''} ${shown.kind} to ${preview?.orders.length ?? 1} ${(preview?.orders.length ?? 1) === 1 ? 'path' : 'paths'}`})
+          openEntity({ kind: shown.kind, id, focusNext:true })
+        }}
         onClose={() => {
           if (!panelEditorBusy()) closeEntity()
         }}
       />
     </PanelDrawerShell>
+    </>
   )
 }

@@ -1,3 +1,4 @@
+import { useStructurePreview } from '@/contexts/EntityDetailContext'
 import { useMemo } from 'react'
 import { useCollapsedBlueprintLanes } from '@/hooks/useCollapsedBlueprintLanes'
 import { STEP_COLUMN_WIDTH } from '@/lib/blueprintLayout'
@@ -35,13 +36,16 @@ export function useCompareGridAxis(
   blueprints: BlueprintData[],
   compact = false,
 ): CompareGridAxis {
+  const context=useStructurePreview()
+  const clickedId=(context?.selection?.draft || context?.selection?.focusNext) ? context.preview?.clickedPathId : undefined
+  const axisBlueprints=useMemo(()=>{const clicked=blueprints.find(blueprint=>blueprint.path.id === clickedId);return clicked ? [clicked,...blueprints.filter(blueprint=>blueprint!==clicked)] : blueprints},[blueprints,clickedId])
   const { collapsedLaneIds, toggleLane } = useCollapsedBlueprintLanes()
 
-  const lanes = useMemo(() => getCanonicalLanes(blueprints), [blueprints])
+  const lanes = useMemo(() => getCanonicalLanes(axisBlueprints), [axisBlueprints])
 
   const rows = useMemo(
-    () => buildSideBySideLabelRowSpecs(blueprints, compact, collapsedLaneIds),
-    [blueprints, collapsedLaneIds, compact],
+    () => buildSideBySideLabelRowSpecs(axisBlueprints, compact, collapsedLaneIds),
+    [axisBlueprints, collapsedLaneIds, compact],
   )
 
   const tracks = useMemo(

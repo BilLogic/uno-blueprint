@@ -1,3 +1,4 @@
+import { toAuthoringError } from '@/lib/authoringErrors'
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { useSupabase } from '@/contexts/SupabaseProvider'
@@ -40,7 +41,7 @@ export function StructureRenameEditor({
         })
       onDone()
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That did not save.')
+      setError(toAuthoringError(cause instanceof Error ? cause : new Error('Unknown write failure')).message)
     } finally {
       setBusy(false)
     }

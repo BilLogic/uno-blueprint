@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
  * group owns the border and the single focus ring.
  */
 export function PanelTextareaField({
-  label,
+  label, autoFocus,
   hint,
   value,
   rows = 3,
@@ -18,6 +18,7 @@ export function PanelTextareaField({
   onChange,
 }: {
   label: string
+  autoFocus?: boolean
   hint: string
   value: string
   rows?: number
@@ -39,6 +40,7 @@ export function PanelTextareaField({
         </p>
       ) : (
         <textarea
+          autoFocus={autoFocus}
           aria-label={label}
           value={value}
           rows={rows}

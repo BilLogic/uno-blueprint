@@ -1150,31 +1150,57 @@ export type Database = {
         }
         Returns: string[]
       }
-      add_lane_with_details: {
-        Args: {
-          at_position?: number
-          details?: Json
-          lane_role: string
-          name: string
-          scenario_id: string
-        }
-        Returns: string[]
-      }
+      add_lane_with_details:
+        | {
+            Args: {
+              at_position?: number
+              details?: Json
+              lane_role: string
+              name: string
+              scenario_id: string
+            }
+            Returns: string[]
+          }
+        | {
+            Args: {
+              details?: Json
+              lane_role: string
+              name: string
+              path_orders: Json
+              scenario_id: string
+            }
+            Returns: Json
+          }
       add_step: {
         Args: { at_position?: number; name: string; path_id: string }
         Returns: string
       }
-      add_step_with_details: {
-        Args: {
-          at_position?: number
-          frames?: Json
-          name: string
-          path_id: string
-          summary?: string
-        }
-        Returns: string
-      }
+      add_step_with_details:
+        | {
+            Args: {
+              at_position?: number
+              frames?: Json
+              name: string
+              path_id: string
+              summary?: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              frames?: Json
+              name: string
+              path_id: string
+              path_orders: Json
+              summary?: string
+            }
+            Returns: Json
+          }
       cell_natural_key: { Args: { cell_id: string }; Returns: string }
+      check_structure_draft_order: {
+        Args: { current_ids: string[]; requested: Json }
+        Returns: undefined
+      }
       clear_cell_dependency: {
         Args: { dependency_id: string }
         Returns: undefined
@@ -1306,6 +1332,10 @@ export type Database = {
         Args: { p_slice_id: string; p_slides: Json }
         Returns: Json
       }
+      require_structure_author: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       restore_cell_content: {
         Args: { cell_id: string; content: string }
         Returns: undefined
@@ -1378,6 +1408,7 @@ export type Database = {
         Args: { p_placement_id: string; p_rows: Json }
         Returns: undefined
       }
+      undo_structure_add: { Args: { snapshot: Json }; Returns: undefined }
       update_cell_dependency: {
         Args: {
           dependency_id: string

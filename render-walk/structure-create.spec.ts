@@ -94,14 +94,13 @@ for (const theme of ['light', 'dark'] as const) {
       const scenarioId = new URL(page.url()).searchParams.get('scenario')
       const board = page.locator(`[data-focus-slide-id="${scenarioId}"]`)
       for (const kind of ['lane', 'step'] as const) {
-        const opener = board
-          .getByRole('button', { name: new RegExp(`^Add a ${kind}`) })
-          .first()
+        const seams = board.getByRole('button', { name: new RegExp(`^Add a ${kind}`) })
+        const opener = kind === 'step' ? seams.last() : seams.first()
         await page.keyboard.press('Tab')
         await opener.focus()
         await expect(opener).toBeFocused()
-        const ink = opener.locator('span').first()
-        await expect(ink).toHaveCSS('opacity', '1')
+        await expect(opener.locator('svg')).toHaveCount(1)
+        await expect(opener).toHaveAttribute('data-open','')
         const requests: string[] = []
         const track = (request: import('@playwright/test').Request) => {
           if (
@@ -111,21 +110,26 @@ for (const theme of ['light', 'dark'] as const) {
             requests.push(request.url())
         }
         page.on('request', track)
+        await page.screenshot({path:join(VIEW_SCREENSHOT_DIR, `seam-${kind}-${layout}-${theme}.png`)})
         await page.keyboard.press('Enter')
         const name = page.getByRole('textbox', { name: 'Name', exact: true })
         await expect(name).toBeFocused()
         await expect(name).toHaveAttribute('required', '')
+        if (kind === 'step') await expect.poll(async()=>{
+          const marker=await page.getByRole('status',{name:'New step position'}).first().boundingBox()
+          const panel=await page.getByRole('dialog').boundingBox()
+          return Boolean(marker && panel && marker.x+marker.width <= panel.x-8)
+        }).toBe(true)
         await expect(
           page.getByRole('status', { name: `New ${kind} position` }).first(),
         ).toBeVisible()
         const add = page.getByRole('button', {
-          name: `Add ${kind}`,
-          exact: true,
+          name: new RegExp(`^Add ${kind}(?: to [0-9]+ paths)?$`),
         })
-        await expect(add).toBeDisabled()
+        await expect(add).toBeEnabled()
         await name.fill('Review')
         if (kind === 'lane') {
-          await expect(add).toBeDisabled()
+          await expect(add).toBeEnabled()
           const role = page.getByRole('combobox', { name: 'Role', exact: true })
           await page.keyboard.press('Tab')
           await expect(role).toBeFocused()
@@ -136,6 +140,24 @@ for (const theme of ['light', 'dark'] as const) {
             .click()
         }
         await expect(add).toBeEnabled()
+        const rail = page.getByRole('region',{name:'Add to paths'}).getByRole('list')
+        const rows = rail.getByRole('button')
+        const rowCount=await rows.count()
+        const firstName=await rows.first().getAttribute('aria-label')
+        const from=await rows.nth(firstName?.startsWith('Move Review in ') ? 1 : 0).boundingBox()
+        const to=await rows.last().boundingBox()
+        expect(from && to).toBeTruthy()
+        await page.mouse.move(from!.x+from!.width/2,from!.y+from!.height/2)
+        await page.mouse.down()
+        await page.mouse.move(to!.x+to!.width/2,to!.y+to!.height/2,{steps:12})
+        await page.mouse.up()
+        await expect(page.getByText('Moved',{exact:true})).toBeVisible()
+        await page.screenshot({path:join(VIEW_SCREENSHOT_DIR,`rail-moved-${kind}-${layout}-${theme}.png`)})
+        const current = rail.getByRole('button',{name:/^Move Review in /})
+        await current.press(kind === 'step' ? 'ArrowUp' : 'ArrowDown')
+        await expect(rows).toHaveCount(rowCount)
+        await page.getByRole('button',{name:'Reset order',exact:true}).click()
+        await expect(page.getByText('Moved',{exact:true})).toHaveCount(0)
         const dir = join(VIEW_SCREENSHOT_DIR, 'structure-create')
         mkdirSync(dir, { recursive: true })
         await page.screenshot({
@@ -154,7 +176,7 @@ for (const theme of ['light', 'dark'] as const) {
           [],
         )
         await opener.hover()
-        await expect(ink).toHaveCSS('opacity', '1')
+        await expect(opener).toHaveAttribute('data-open','')
         await opener.click()
         await expect(name).toBeFocused()
         await page.getByRole('button', { name: 'Cancel', exact: true }).click()

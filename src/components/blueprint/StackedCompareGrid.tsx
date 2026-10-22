@@ -73,6 +73,7 @@ export function StackedCompareGrid({
 
   return (
     <div
+      data-structure-board=""
       className={cn('w-max shrink-0', className)}
       style={getCompareBoardWrapperPadding()}
     >

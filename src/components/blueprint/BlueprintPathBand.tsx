@@ -146,10 +146,10 @@ export function BlueprintPathBand({
           disjoint, so each carries its own. */}
       {arrangement.kind === 'column' ? (
         arrangement.withLaneHandles ? (
-          <BlueprintLaneHandles bodyRef={bandRef} />
+          <BlueprintLaneHandles bodyRef={bandRef} pathId={blueprint.path.id} />
         ) : null
       ) : (
-        <BlueprintLaneHandles bodyRef={bandRef} />
+        <BlueprintLaneHandles bodyRef={bandRef} pathId={blueprint.path.id} />
       )}
       <ComparePathSectionFrame
         blueprint={blueprint}

@@ -22,6 +22,7 @@ export function CompareStepHeaderRow({
           // A canonical column can carry a different step id per path; they
           // are the same MOMENT, and the summary is stored once per step, so
           // the first is the one to open.
+          stepIndex={trackIndex}
           stepId={Object.values(track.stepIdByPath)[0] ?? ''}
           name={track.label}
           // `relative z-1`: when a path frame extends up to wrap this

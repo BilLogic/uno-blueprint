@@ -1,8 +1,9 @@
+import { partStructureBoard } from './structureSeamLayout'
 import { useStructureRename } from './useStructureRename'
 
 import { useLayoutEffect, useState, type RefObject } from 'react'
 import { useEntityDetail } from '@/contexts/EntityDetailContext'
-import { StructureInsert, StructurePlaceholder } from './StructureInsert'
+import { StructureInsert } from './StructureInsert'
 import { IconTooltip } from '@/components/editor/IconTooltip'
 import { useAtScenarioLevel } from '@/contexts/EditorContext'
 import { useCanvasModeValue } from '@/contexts/canvasModeContext'
@@ -15,6 +16,7 @@ type Step = {
   position: number
   pathId?: string
   pathName?: string
+  pathIds?: string[]
 }
 type Column = {
   stepIndex: number
@@ -180,7 +182,7 @@ export function BlueprintColumnHandles({
       className="pointer-events-none absolute inset-x-0 top-0 z-30"
       data-blueprint-column-handles=""
     >
-      {insertable
+      {insertable && !draft
         ? boundaries.map((boundary) => {
             const target = steps[boundary.stepIndex] ?? steps[steps.length - 1]
             const targetPath = target.pathId ?? pathId!
@@ -195,12 +197,14 @@ export function BlueprintColumnHandles({
                 label={
                   target.pathName ? `${label} in ${target.pathName}` : label
                 }
-                style={{ left: boundary.x, top: 16 }}
+                style={{ left: boundary.x, top: 0, height: bodyHeight }}
+                onOpenChange={open=>partStructureBoard(bodyRef.current,'vertical',boundary.stepIndex,open)}
                 onClick={(opener) =>
                   openCreate(
                     {
                       kind: 'step',
                       pathId: targetPath,
+                      pathIds: target.pathIds,
                       atPosition: boundary.storedPosition,
                     },
                     opener,
@@ -210,31 +214,9 @@ export function BlueprintColumnHandles({
             )
           })
         : null}
-      {draft?.kind === 'step' &&
-      (draft.pathId === pathId ||
-        steps.some(
-          (step) =>
-            step.pathId === (draft?.kind === 'step' ? draft.pathId : undefined),
-        )) ? (
-        <StructurePlaceholder
-          kind="step"
-          style={{
-            left:
-              boundaries.find(
-                (boundary) =>
-                  boundary.storedPosition === draft.atPosition &&
-                  (pathId !== undefined ||
-                    (steps[boundary.stepIndex] ?? steps[steps.length - 1])
-                      .pathId === draft.pathId),
-              )?.x ?? 0,
-            top: 0,
-            width: visibleColumns[0]?.width,
-            height: bodyHeight,
-          }}
-        />
-      ) : null}
 
-      {selectionHandles
+
+      {selectionHandles && !draft
         ? visibleColumns.map((column) => (
             <IconTooltip
               key={steps[column.stepIndex]?.id ?? column.stepIndex}
@@ -292,7 +274,7 @@ function StepSelectionName({
       {rename.editor}
     </div>
   ) : (
-    <button {...props} onDoubleClick={rename.begin}>
+    <button {...props} onClick={event=>rename.click(event,()=>props.onClick?.(event))} onDoubleClick={rename.begin}>
       {children}
     </button>
   )

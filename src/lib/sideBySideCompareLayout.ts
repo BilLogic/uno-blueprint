@@ -1,3 +1,4 @@
+import { normalizeCompareName } from '@/lib/compareSlots'
 import { ARROW_VIEWPORT_PAD } from '@/lib/blueprintArrowGeometry'
 import {
   BLUEPRINT_ARTBOARD_HEIGHT_BUFFER,
@@ -424,9 +425,19 @@ export function getScenarioBlueprintPanelHeight(
 }
 
 export function getCanonicalLanes(blueprints: BlueprintData[]): BlueprintLane[] {
-  const source = blueprints[0]
-  if (!source) return []
-  return [...source.lanes].sort((a, b) => a.position - b.position)
+  const lanes: BlueprintLane[] = []
+  for (const blueprint of blueprints) {
+    const ordered = [...blueprint.lanes].sort((a,b)=>a.position-b.position)
+    for (let index=0;index<ordered.length;index++) {
+      const lane=ordered[index]
+      if (lanes.some(existing=>normalizeCompareName(existing.name) === normalizeCompareName(lane.name))) continue
+      const previous=ordered[index-1]
+      const next=ordered.slice(index+1).find(candidate=>lanes.some(existing=>normalizeCompareName(existing.name) === normalizeCompareName(candidate.name)))
+      const anchor=previous ? lanes.findIndex(existing=>normalizeCompareName(existing.name) === normalizeCompareName(previous.name))+1 : next ? lanes.findIndex(existing=>normalizeCompareName(existing.name) === normalizeCompareName(next.name)) : lanes.length
+      lanes.splice(anchor,0,lane)
+    }
+  }
+  return lanes
 }
 
 export function getCompareCellShellMinHeight(

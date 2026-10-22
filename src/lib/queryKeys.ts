@@ -46,7 +46,9 @@ export const queryKeys = {
   serviceSpec: {
     prefix: 'service-spec:',
     of: (serviceId: string, privateRead: boolean) =>
-      privateRead ? `service-spec:${serviceId}:private` : `service-spec:${serviceId}`,
+      privateRead
+        ? `service-spec:${serviceId}:private`
+        : `service-spec:${serviceId}`,
   },
 
   // Per-row reads.
@@ -55,6 +57,7 @@ export const queryKeys = {
   phaseSpec: family('phase-spec'),
   scenarioSpec: family('scenario-spec'),
   laneSpec: family('lane-spec'),
+  draftStoryboardLanes: family('draft-storyboard-lanes'),
   stepSpec: family('step-spec'),
   evidence: family('evidence'),
   registryTouchpoints: family('registry-touchpoints'),
@@ -65,7 +68,8 @@ export const queryKeys = {
   /** A slice's scenario, keyed by the cells it cites. */
   sliceScenario: {
     prefix: 'slice-scenario:',
-    of: (cellIds: readonly string[]) => `slice-scenario:${[...cellIds].sort().join('|')}`,
+    of: (cellIds: readonly string[]) =>
+      `slice-scenario:${[...cellIds].sort().join('|')}`,
   },
 
   /**
@@ -101,6 +105,7 @@ export const STRUCTURE_KEYS: readonly string[] = [
   queryKeys.canvasBlueprints.prefix,
   queryKeys.scenarioPaths.prefix,
   queryKeys.laneSources,
+  queryKeys.draftStoryboardLanes.prefix,
   queryKeys.slices.prefix,
   // A slice's own detail is keyed separately, and a cascade can empty it.
   queryKeys.slice.prefix,
@@ -110,6 +115,6 @@ export const STRUCTURE_KEYS: readonly string[] = [
  * Every prefix a key can start with, for the guard that no key is spelled
  * outside this module.
  */
-export const KEY_PREFIXES: readonly string[] = Object.values(queryKeys).map((entry) =>
-  typeof entry === 'string' ? entry : entry.prefix,
+export const KEY_PREFIXES: readonly string[] = Object.values(queryKeys).map(
+  (entry) => (typeof entry === 'string' ? entry : entry.prefix),
 )

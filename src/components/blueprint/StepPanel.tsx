@@ -18,6 +18,10 @@ import { useStepSpec, type StepSpec } from '@/hooks/useStepSpec'
 import { usePanelFooterHost } from '@/hooks/usePanelFooterHost'
 import { useSupabase } from '@/contexts/SupabaseProvider'
 import { useCanvasModeValue } from '@/contexts/canvasModeContext'
+import { Input } from '@/components/ui/input'
+import type { StructureDraft } from '@/contexts/EntityDetailContext'
+import { createStepWithDetails, renameStep } from '@/lib/authoringRpc'
+import { DraftStoryboardFields } from './DraftStoryboardFields'
 import { updateStepSummary } from '@/lib/stepSpecMutations'
 
 /**
@@ -32,26 +36,50 @@ import { updateStepSummary } from '@/lib/stepSpecMutations'
  */
 export function StepPanel({
   stepId,
+  draft,
+  onCreated,
   onClose,
 }: {
   stepId: string
+  draft?: Extract<StructureDraft, { kind: 'step' }>
+  onCreated?: (id: string) => void
   onClose: () => void
 }) {
-  const result = useStepSpec(stepId)
-  const step = result.status === 'ready' ? result.data : null
+  const result = useStepSpec(draft ? null : stepId)
+  const step: StepSpec | null = draft
+    ? {
+        id: 'draft',
+        name: '',
+        summary: '',
+        scenarioId: '',
+        scenarioName: '',
+        phaseName: '',
+        positions: [],
+        frames: [],
+      }
+    : result.status === 'ready'
+    ? result.data
+    : null
 
   return (
     <>
       <PanelHeader
         crumbs={[step?.phaseName ?? '', step?.scenarioName ?? '']}
-        title="Step properties"
+        title={draft ? 'Add step' : 'Step properties'}
+        titleShown={Boolean(draft)}
         description="What this moment is, across every lane"
         closeLabel="Close step properties"
         onClose={onClose}
       />
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-4 blueprint-scroll">
         {step ? (
-          <StepPanelBody key={step.id} step={step} onDone={onClose} />
+          <StepPanelBody
+            key={step.id}
+            step={step}
+            draft={draft}
+            onCreated={onCreated}
+            onDone={onClose}
+          />
         ) : result.status === 'error' ? (
           <p className="text-sm text-muted-foreground">
             That step could not be loaded: {result.message}
@@ -67,36 +95,68 @@ export function StepPanel({
 
 function StepPanelBody({
   step,
+  draft,
+  onCreated,
   onDone,
 }: {
   step: StepSpec
+  draft?: Extract<StructureDraft, { kind: 'step' }>
+  onCreated?: (id: string) => void
   onDone: () => void
 }) {
   const { client, canWrite } = useSupabase()
   const canEdit = useCanvasModeValue() === 'design' && canWrite
 
+  const [name, setName] = useState(step.name)
+  const [originalName, setOriginalName] = useState(step.name)
+  const [frames, setFrames] = useState<Array<{ laneId: string; url: string }>>(
+    [],
+  )
   const [baseline, setBaseline] = useState(step.summary)
   const [summary, setSummary] = useState(baseline)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const footerHost = usePanelFooterHost(STEP_PANEL_FOOTER_ID)
 
-  const changed = summary !== baseline
+  const changed = summary !== baseline || name !== originalName
 
   // A reopened panel can mount from stale cache before its refetch finishes.
   // Follow that response while pristine; a response must never replace a draft.
-  if (!changed && !busy && step.summary !== baseline) {
+  if (
+    !changed &&
+    !busy &&
+    (step.summary !== baseline || step.name !== originalName)
+  ) {
+    setOriginalName(step.name)
+    setName(step.name)
     setBaseline(step.summary)
     setSummary(step.summary)
   }
 
   const handleSave = async () => {
-    if (!client || busy || !changed) return
+    if (!client || busy || !name.trim() || (!draft && !changed)) return
     setBusy(true)
     setError(null)
     try {
-      await updateStepSummary(client, step.id, summary, baseline)
-      onDone()
+      if (draft) {
+        const id = await createStepWithDetails(client, {
+          ...draft,
+          name,
+          summary,
+          frames,
+        })
+        onCreated?.(id)
+      } else {
+        if (name.trim() !== originalName)
+          await renameStep(client, {
+            stepId: step.id,
+            name: name.trim(),
+            previousName: originalName,
+          })
+        if (summary !== baseline)
+          await updateStepSummary(client, step.id, summary, baseline)
+        onDone()
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'That did not save.')
     } finally {
@@ -117,10 +177,10 @@ function StepPanelBody({
     step.positions.length === 0
       ? 'in no path yet'
       : distinct.size > 1
-        ? `different positions on ${step.positions.length} paths`
-        : step.positions.length > 1
-          ? `${step.positions.length} paths`
-          : null
+      ? `different positions on ${step.positions.length} paths`
+      : step.positions.length > 1
+      ? `${step.positions.length} paths`
+      : null
 
   /*
     The row's frames open, and step to one another.
@@ -156,6 +216,22 @@ function StepPanelBody({
         meta={positionLabel ?? ''}
       />
 
+      {canEdit ? (
+        <Field
+          label="Name"
+          required
+          hint="Use a short label: usually 1–3 words, about 24 characters. Put the explanation in Summary; longer names are allowed."
+        >
+          <Input
+            aria-label="Name"
+            required
+            autoFocus
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </Field>
+      ) : null}
+
       <PanelTextareaField
         label="Summary"
         hint="What happens in this moment, across every lane — the sentence that makes the step legible without reading five cells."
@@ -165,6 +241,14 @@ function StepPanelBody({
         disabled={!canEdit}
         onChange={setSummary}
       />
+
+      {draft ? (
+        <DraftStoryboardFields
+          pathId={draft.pathId}
+          frames={frames}
+          onChange={setFrames}
+        />
+      ) : null}
 
       {step.frames.length > 0 ? (
         // A LABELLED field: "Storyboard" reads as plain text beside Summary,
@@ -236,8 +320,9 @@ function StepPanelBody({
         <PanelFooterControls
           footerHost={footerHost}
           busy={busy}
-          changed={changed}
+          changed={Boolean(name.trim()) && (Boolean(draft) || changed)}
           error={error}
+          saveLabel={draft ? 'Add step' : undefined}
           onSave={handleSave}
           onCancel={onDone}
         />

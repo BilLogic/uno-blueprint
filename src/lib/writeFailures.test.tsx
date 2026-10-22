@@ -174,7 +174,7 @@ describe('⌘Z, when the revert fails', () => {
 })
 
 /**
- * The three remaining paths that failed silently, and the `catch` in each.
+ * The remaining immediate-write paths that failed silently, and the `catch` in each.
  *
  * Read as source, for the reason at the top of the file — but read for shape
  * rather than for characters. A path that moves is a failing test rather than
@@ -184,10 +184,6 @@ const FAILING_PATHS = [
   {
     file: 'components/editor/CanvasCellContextMenu.tsx',
     subject: 'The cell was not deleted',
-  },
-  {
-    file: 'components/blueprint/BlueprintColumnHandles.tsx',
-    subject: 'The step was not added',
   },
   {
     file: 'components/editor/SlicesSidebarSection.tsx',
@@ -220,7 +216,12 @@ function catchBodies(source: string): string[] {
       else if (char === '}') depth -= 1
       index += 1
     }
-    bodies.push(withoutComments.slice(start, index - 1).replace(/\s+/g, ' ').trim())
+    bodies.push(
+      withoutComments
+        .slice(start, index - 1)
+        .replace(/\s+/g, ' ')
+        .trim(),
+    )
   }
   return bodies
 }
@@ -234,7 +235,9 @@ describe('the paths that used to fail in silence', () => {
       )
 
       const bodies = catchBodies(source)
-      expect(bodies.length, `no catch block found in ${file}`).toBeGreaterThan(0)
+      expect(bodies.length, `no catch block found in ${file}`).toBeGreaterThan(
+        0,
+      )
       for (const body of bodies) {
         // A `catch` that swallows deliberately is allowed to say nothing —
         // the pointer-capture guards are the standing example. What is not
@@ -289,7 +292,10 @@ describe('the notice outlives the shell', () => {
     const closed = app.indexOf('</EditorErrorBoundary>')
     const notice = app.indexOf('<WriteFailureNotices />')
 
-    expect(opened, 'App.tsx no longer mounts the error boundary').toBeGreaterThan(-1)
+    expect(
+      opened,
+      'App.tsx no longer mounts the error boundary',
+    ).toBeGreaterThan(-1)
     expect(notice, 'App.tsx no longer mounts the notice').toBeGreaterThan(-1)
     expect(
       notice < opened || notice > closed,

@@ -13,7 +13,9 @@ import {
   useEntityDetail,
   type EntityDetailKind,
   type EntityDetailSelection,
+  type StructureDraft,
 } from '@/contexts/EntityDetailContext'
+import { panelEditorBusy } from '@/lib/panelEditorBusy'
 import { useCanvasTopOffset } from '@/hooks/useCanvasTopOffset'
 
 /**
@@ -47,26 +49,47 @@ export function EntityDetailPanel() {
  */
 const PANELS: Record<
   EntityDetailKind,
-  ComponentType<{ id: string; onClose: () => void }>
+  ComponentType<{
+    id: string
+    draft?: StructureDraft
+    onCreated: (id: string) => void
+    onClose: () => void
+  }>
 > = {
   service: ({ onClose }) => <ServicePanel onClose={onClose} />,
-  lane: ({ id, onClose }) => <LanePanel laneId={id} onClose={onClose} />,
+  lane: ({ id, draft, onCreated, onClose }) => (
+    <LanePanel
+      laneId={id}
+      draft={draft?.kind === 'lane' ? draft : undefined}
+      onCreated={onCreated}
+      onClose={onClose}
+    />
+  ),
   phase: ({ id, onClose }) => <PhasePanel phaseId={id} onClose={onClose} />,
   scenario: ({ id, onClose }) => (
     <ScenarioPanel scenarioId={id} onClose={onClose} />
   ),
-  step: ({ id, onClose }) => <StepPanel stepId={id} onClose={onClose} />,
+  step: ({ id, draft, onCreated, onClose }) => (
+    <StepPanel
+      stepId={id}
+      draft={draft?.kind === 'step' ? draft : undefined}
+      onCreated={onCreated}
+      onClose={onClose}
+    />
+  ),
 }
 
 function EntityDetailPanelBody() {
-  const { selection, closeEntity } = useEntityDetail()
+  const { selection, closeEntity, openEntity } = useEntityDetail()
   /*
     Kept only so the exit animation has something to draw. Captured with a
     guarded render-phase set — the codebase's derive-during-render idiom —
     and cleared when the drawer reports it has finished closing. Without it
     the panel empties instantly and then slides out blank.
   */
-  const [closing, setClosing] = useState<EntityDetailSelection | null>(selection)
+  const [closing, setClosing] = useState<EntityDetailSelection | null>(
+    selection,
+  )
   if (selection && closing !== selection) setClosing(selection)
 
   /*
@@ -106,7 +129,15 @@ function EntityDetailPanelBody() {
       onCloseRequest={closeEntity}
       onClosed={() => setClosing(null)}
     >
-      <Panel id={shown.id} onClose={closeEntity} />
+      <Panel
+        key={`${shown.kind}-${shown.id}`}
+        id={shown.id}
+        draft={shown.draft}
+        onCreated={(id) => openEntity({ kind: shown.kind, id })}
+        onClose={() => {
+          if (!panelEditorBusy()) closeEntity()
+        }}
+      />
     </PanelDrawerShell>
   )
 }

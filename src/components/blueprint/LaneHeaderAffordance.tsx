@@ -1,3 +1,4 @@
+import { useStructureRename } from './useStructureRename'
 import { useEffect, useRef, useState } from 'react'
 import { EntityDefinitionPopover } from '@/components/blueprint/EntityDefinitionPopover'
 import { useBlueprintCellDetailOptional } from '@/contexts/BlueprintCellDetailContext'
@@ -74,6 +75,7 @@ export function LaneHeaderAffordance({
   color?: string
   className?: string
 }) {
+  const rename = useStructureRename('lane', laneId, laneName)
   const { toggleEntity, selection } = useEntityDetail()
   const detail = useBlueprintCellDetailOptional()
   const boardInScope = useScenarioBoardInScope()
@@ -97,11 +99,13 @@ export function LaneHeaderAffordance({
   */
   const blockRef = useRef<HTMLDivElement>(null)
   const [defOpen, setDefOpen] = useState(false)
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  )
   useEffect(() => () => clearTimeout(hoverTimer.current), [])
 
   const armHover = (event: React.PointerEvent) => {
-    if (event.pointerType === 'touch') return
+    if (rename.editing || event.pointerType === 'touch') return
     clearTimeout(hoverTimer.current)
     hoverTimer.current = setTimeout(
       () => setDefOpen(true),
@@ -188,7 +192,11 @@ export function LaneHeaderAffordance({
       ref={blockRef}
       data-blueprint-row-header=""
       data-open={open ? '' : undefined}
-      onClick={openPanel}
+      onClick={rename.editing ? undefined : openPanel}
+      onDoubleClick={(event) => {
+        cancelHover()
+        rename.begin(event)
+      }}
       onPointerEnter={armHover}
       onPointerLeave={cancelHover}
       className={cn(
@@ -205,15 +213,21 @@ export function LaneHeaderAffordance({
           ⓘ opens the panel; the click bubbles to the block, which carries the
           open — so a click that reaches the block (a keyboard activation, a
           click on the label falling through) opens it too. */}
-      <button
-        type="button"
-        data-lane-header-affordance=""
-        data-canvas-header-opener=""
-        aria-label={`View details: ${laneName}`}
-        aria-pressed={open}
-        className={CANVAS_HEADER_OPENER}
-      />
-      {nameSpan}
+      {rename.editing ? (
+        rename.editor
+      ) : (
+        <>
+          <button
+            type="button"
+            data-lane-header-affordance=""
+            data-canvas-header-opener=""
+            aria-label={`View details: ${laneName}`}
+            aria-pressed={open}
+            className={CANVAS_HEADER_OPENER}
+          />
+          {nameSpan}
+        </>
+      )}
       {info}
     </div>
   )

@@ -241,7 +241,8 @@ async function invoke<T>(
 const FRESHNESS: Record<string, (args: Record<string, unknown>) => void> = {
   upsert_cell: (args) => {
     invalidateQueries(queryKeys.servicePhases.prefix)
-    if (typeof args.path_id === 'string') invalidateCanvasBlueprintsForPath(args.path_id)
+    if (typeof args.path_id === 'string')
+      invalidateCanvasBlueprintsForPath(args.path_id)
     else invalidateQueries(queryKeys.canvasBlueprints.prefix)
   },
   restore_cell_content: (args) =>
@@ -256,6 +257,14 @@ const FRESHNESS: Record<string, (args: Record<string, unknown>) => void> = {
     // storyboard reads it as the column's picture.
     invalidateStructure()
     invalidateQueries(queryKeys.stepSpec.prefix)
+  },
+  rename_step: () => {
+    invalidateStructure()
+    invalidateQueries(queryKeys.stepSpec.prefix)
+  },
+  rename_lane: () => {
+    invalidateStructure()
+    invalidateQueries(queryKeys.laneSpec.prefix)
   },
   rename_owner_tag: ownerTagWritten,
   rename_owner_tag_scoped: ownerTagWritten,
@@ -288,7 +297,10 @@ function ownerTagWritten(): void {
  * Called by `call()` after every forward write, and by the revert path after
  * an inverse it sends to the database itself.
  */
-export function invalidateAfterRpc(fn: string, args: Record<string, unknown>): void {
+export function invalidateAfterRpc(
+  fn: string,
+  args: Record<string, unknown>,
+): void {
   const narrow = Object.hasOwn(FRESHNESS, fn) ? FRESHNESS[fn] : undefined
   if (narrow) narrow(args)
   else invalidateStructure()
@@ -360,10 +372,12 @@ function deriveRevert(
 ): RevertSpec | undefined {
   switch (fn) {
     case 'add_step':
+    case 'add_step_with_details':
       return typeof data === 'string'
         ? { fn: 'remove_step', args: { path_id: args.path_id, step_id: data } }
         : undefined
     case 'add_lane':
+    case 'add_lane_with_details':
       // By identity, like every other inverse here. The name-keyed
       // `remove_lane(scenario_id, lane_name)` this replaces held only under
       // clean LIFO: rename the lane and it matched nothing; rename a
@@ -394,7 +408,8 @@ function deriveRevert(
       // per-caller. The write's own account is neither.
       const outcome = data as CellWrite | null
       if (!outcome?.id) return undefined
-      if (outcome.inserted) return { fn: 'delete_cell', args: { cell_id: outcome.id } }
+      if (outcome.inserted)
+        return { fn: 'delete_cell', args: { cell_id: outcome.id } }
       // An update whose before-state did not come back cannot be restored, and
       // a row with no `revert` is how the ledger says so — the same silence it
       // shows on a delete, rather than an approximation that reads like an
@@ -435,7 +450,10 @@ function deriveRevert(
       const outcome = data as CellDependencyWrite | null
       if (!outcome?.id) return undefined
       if (outcome.inserted)
-        return { fn: 'clear_cell_dependency', args: { dependency_id: outcome.id } }
+        return {
+          fn: 'clear_cell_dependency',
+          args: { dependency_id: outcome.id },
+        }
       // An update whose before-state did not come back cannot be restored, and
       // a row with no `revert` is how the ledger says so — the same silence it
       // shows on a delete, rather than an approximation that reads like an
@@ -965,7 +983,10 @@ export function deletionImpact(
  * that destroys it, so the client skips its own append for exactly these six
  * (`ARCHIVED_BY_THE_DATABASE` in `authoringLog.ts`).
  */
-export function deleteScenario(client: Client, scenarioId: string): Promise<string> {
+export function deleteScenario(
+  client: Client,
+  scenarioId: string,
+): Promise<string> {
   return call<string>(client, 'delete_scenario', { scenario_id: scenarioId })
 }
 
@@ -978,7 +999,10 @@ export function removeStep(
   pathId: string,
   stepId: string,
 ): Promise<string> {
-  return call<string>(client, 'remove_step', { path_id: pathId, step_id: stepId })
+  return call<string>(client, 'remove_step', {
+    path_id: pathId,
+    step_id: stepId,
+  })
 }
 
 export function removeLane(
@@ -1031,3 +1055,83 @@ export async function renameOwnerTag(
  * the work, and `authoringSession.test.ts` still names both as reads that must
  * never become members of `WriteFn`.
  */
+
+/** Create the panel's complete draft atomically; the existing delete is its inverse. */
+export function createStepWithDetails(
+  client: Client,
+  input: {
+    pathId: string
+    name: string
+    summary: string
+    atPosition?: number
+    frames: Array<{ laneId: string; url: string }>
+  },
+): Promise<string> {
+  return call<string>(client, 'add_step_with_details', {
+    path_id: input.pathId,
+    name: input.name.trim(),
+    summary: input.summary.trim(),
+    at_position: input.atPosition ?? null,
+    frames: input.frames.map((frame) => ({
+      lane_id: frame.laneId,
+      url: frame.url.trim(),
+    })),
+  })
+}
+
+export function createLaneWithDetails(
+  client: Client,
+  input: {
+    scenarioId: string
+    name: string
+    laneRole: string
+    atPosition?: number
+    ownerTeam: string
+    stakeholderId: string | null
+    kpis: string[]
+    tools: string[]
+  },
+): Promise<string[]> {
+  return call<string[]>(client, 'add_lane_with_details', {
+    scenario_id: input.scenarioId,
+    name: input.name.trim(),
+    lane_role: input.laneRole,
+    at_position: input.atPosition ?? null,
+    details: {
+      owner_team: input.ownerTeam.trim() || null,
+      stakeholder_id: input.stakeholderId,
+      kpis: input.kpis.map((v) => v.trim()).filter(Boolean),
+      tools: input.tools.map((v) => v.trim()).filter(Boolean),
+    },
+  })
+}
+
+export function renameStep(
+  client: Client,
+  input: { stepId: string; name: string; previousName: string },
+): Promise<void> {
+  return call<void>(
+    client,
+    'rename_step',
+    { step_id: input.stepId, new_name: input.name },
+    {
+      fn: 'rename_step',
+      args: { step_id: input.stepId, new_name: input.previousName },
+    },
+  )
+}
+
+export function renameLane(
+  client: Client,
+  input: { laneId: string; name: string; previousName: string },
+): Promise<void> {
+  return call<void>(
+    client,
+    'rename_lane',
+    { lane_id: input.laneId, new_name: input.name },
+    {
+      fn: 'rename_lane',
+      args: { lane_id: input.laneId, new_name: input.previousName },
+    },
+  )
+}

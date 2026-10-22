@@ -38,7 +38,10 @@ import {
 import { sourceOf } from '@/lib/sourceTree'
 import { clearSession, sessionSnapshot } from '@/lib/authoringSession'
 import { executeRevert } from '@/lib/revertChange'
-import { updateBusinessModel, updateServiceSummary } from '@/lib/serviceSpecMutations'
+import {
+  updateBusinessModel,
+  updateServiceSummary,
+} from '@/lib/serviceSpecMutations'
 import { inMemoryDatabase } from '@/test/inMemoryDatabase'
 import type { Database } from '@/types/database'
 
@@ -82,6 +85,8 @@ const MUTATION_MODULES = [
  * was not one of them.
  */
 const RPC_BACKED = new Set([
+  'rename_lane',
+  'rename_step',
   'clear_cell_dependency',
   'delete_cell',
   'delete_path',
@@ -178,7 +183,9 @@ describe('revert coverage', () => {
       stranded,
       `Recorded by a mutation, handled by neither an executeRevert case nor a ` +
         `real Postgres function. These will 404 when reverted: ` +
-        `${stranded.join(', ')}. Add a case to revertChange.ts, or add the name ` +
+        `${stranded.join(
+          ', ',
+        )}. Add a case to revertChange.ts, or add the name ` +
         `to RPC_BACKED if you just shipped it as an RPC.`,
     ).toEqual([])
   })
@@ -190,7 +197,9 @@ describe('revert coverage', () => {
     const orphans = [...RPC_BACKED].filter((fn) => !recorded.has(fn)).sort()
     expect(
       orphans,
-      `RPC_BACKED lists names no mutation records any more: ${orphans.join(', ')}`,
+      `RPC_BACKED lists names no mutation records any more: ${orphans.join(
+        ', ',
+      )}`,
     ).toEqual([])
   })
 
@@ -211,12 +220,29 @@ describe('revert coverage', () => {
       services: [{ id: 'svc-1' }],
       business_models: [{ service_id: 'svc-1' }],
     })
-    await updateServiceSummary(db.client, 'svc-1', 'The new sentence', 'The old sentence')
+    await updateServiceSummary(
+      db.client,
+      'svc-1',
+      'The new sentence',
+      'The old sentence',
+    )
     await updateBusinessModel(
       db.client,
       'svc-1',
-      { funding: 'Grant', pricing: '', deliveryCost: '', revenueModel: '', partners: '' },
-      { funding: 'Fees', pricing: '', deliveryCost: '', revenueModel: '', partners: '' },
+      {
+        funding: 'Grant',
+        pricing: '',
+        deliveryCost: '',
+        revenueModel: '',
+        partners: '',
+      },
+      {
+        funding: 'Fees',
+        pricing: '',
+        deliveryCost: '',
+        revenueModel: '',
+        partners: '',
+      },
     )
 
     expect(sessionSnapshot().map((entry) => entry.revert)).toEqual([
@@ -228,7 +254,13 @@ describe('revert coverage', () => {
         fn: 'update_business_model',
         args: {
           service_id: 'svc-1',
-          update: { funding: 'Fees', pricing: '', deliveryCost: '', revenueModel: '', partners: '' },
+          update: {
+            funding: 'Fees',
+            pricing: '',
+            deliveryCost: '',
+            revenueModel: '',
+            partners: '',
+          },
         },
       },
     ])
@@ -255,7 +287,10 @@ describe('an upsert’s inverse follows what it did, not what it is called', () 
     const client = {
       rpc: async (fn: string, args: Record<string, unknown>) => {
         calls.push({ fn, args })
-        return { data: fn === 'set_cell_dependency' ? outcome : null, error: null }
+        return {
+          data: fn === 'set_cell_dependency' ? outcome : null,
+          error: null,
+        }
       },
     } as unknown as SupabaseClient<Database>
     return { client, calls }
@@ -276,7 +311,11 @@ describe('an upsert’s inverse follows what it did, not what it is called', () 
   })
 
   it('reverts an upsert that INSERTED by deleting the row it created', async () => {
-    const { client } = written({ id: AN_EDGE.id, inserted: true, previous: null })
+    const { client } = written({
+      id: AN_EDGE.id,
+      inserted: true,
+      previous: null,
+    })
     await setCellDependency(client, {
       sourceCellId: 'cell-a',
       targetCellId: 'cell-b',
@@ -345,7 +384,11 @@ describe('an upsert’s inverse follows what it did, not what it is called', () 
     // the edge between the capture and the upsert, so this call updated a row
     // it never saw. No inverse is the right answer, and the ledger already
     // knows how to show one — a row with no revert control, as a delete has.
-    const { client } = written({ id: AN_EDGE.id, inserted: false, previous: null })
+    const { client } = written({
+      id: AN_EDGE.id,
+      inserted: false,
+      previous: null,
+    })
     await setCellDependency(client, {
       sourceCellId: 'cell-a',
       targetCellId: 'cell-b',
@@ -402,7 +445,10 @@ describe('a cell upsert’s inverse follows what it did, not what it is called',
 
     const [entry] = sessionSnapshot()
     expect(entry.fn).toBe('upsert_cell')
-    expect(entry.revert).toEqual({ fn: 'delete_cell', args: { cell_id: 'cell-1' } })
+    expect(entry.revert).toEqual({
+      fn: 'delete_cell',
+      args: { cell_id: 'cell-1' },
+    })
   })
 
   it('reverts an upsert that UPDATED to the previous text, not by deleting', async () => {
@@ -439,12 +485,19 @@ describe('a cell upsert’s inverse follows what it did, not what it is called',
     const [entry] = sessionSnapshot()
     await executeRevert(client, entry)
 
-    expect(calls.map((call) => call.fn)).toEqual(['upsert_cell', 'restore_cell_content'])
+    expect(calls.map((call) => call.fn)).toEqual([
+      'upsert_cell',
+      'restore_cell_content',
+    ])
     expect(calls[1].args).toEqual({ cell_id: 'cell-1', content: '' })
   })
 
   it('offers no undo for an update whose before-state did not come back', async () => {
-    const { client } = written({ id: 'cell-1', inserted: false, previous: null })
+    const { client } = written({
+      id: 'cell-1',
+      inserted: false,
+      previous: null,
+    })
     await upsertCell(client, AT)
 
     const [entry] = sessionSnapshot()
@@ -466,7 +519,10 @@ describe('an edit in place is undone by itself, keyed on the row', () => {
     const client = {
       rpc: async (fn: string, args: Record<string, unknown>) => {
         calls.push({ fn, args })
-        return { data: fn === 'update_cell_dependency' ? before : null, error: null }
+        return {
+          data: fn === 'update_cell_dependency' ? before : null,
+          error: null,
+        }
       },
     } as unknown as SupabaseClient<Database>
     return { client, calls }
@@ -557,8 +613,14 @@ describe('a featured image is undone by itself, keyed on the cell', () => {
   })
 
   it('records the frame as it stood as the inverse, and the undo sends it back', async () => {
-    const { client, calls } = written({ cell_id: 'cell-1', frame: '/storyboards/one.png' })
-    await setCellFeaturedImage(client, { cellId: 'cell-1', imageUrl: '/touchpoint-logos/example-logo.png' })
+    const { client, calls } = written({
+      cell_id: 'cell-1',
+      frame: '/storyboards/one.png',
+    })
+    await setCellFeaturedImage(client, {
+      cellId: 'cell-1',
+      imageUrl: '/touchpoint-logos/example-logo.png',
+    })
 
     const [entry] = sessionSnapshot()
     expect(entry.fn).toBe('set_cell_featured_image')
@@ -576,7 +638,10 @@ describe('a featured image is undone by itself, keyed on the cell', () => {
 
   it('an empty frame as it stood is undone by clearing', async () => {
     const { client } = written({ cell_id: 'cell-1', frame: null })
-    await setCellFeaturedImage(client, { cellId: 'cell-1', imageUrl: 'https://x.example/a.png' })
+    await setCellFeaturedImage(client, {
+      cellId: 'cell-1',
+      imageUrl: 'https://x.example/a.png',
+    })
     expect(sessionSnapshot()[0]!.revert).toEqual({
       fn: 'set_cell_featured_image',
       args: { cell_id: 'cell-1', image_url: null },
@@ -585,7 +650,10 @@ describe('a featured image is undone by itself, keyed on the cell', () => {
 
   it('offers no undo when the frame as it stood did not come back', async () => {
     const { client } = written(null)
-    await setCellFeaturedImage(client, { cellId: 'cell-1', imageUrl: 'https://x.example/a.png' })
+    await setCellFeaturedImage(client, {
+      cellId: 'cell-1',
+      imageUrl: 'https://x.example/a.png',
+    })
     expect(sessionSnapshot()[0]!.revert).toBeUndefined()
   })
 })

@@ -86,6 +86,37 @@ end;
 $$;
 
 --
+-- Name: add_lane_with_details(uuid, text, text, integer, jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.add_lane_with_details(scenario_id uuid, name text, lane_role text, at_position integer DEFAULT NULL::integer, details jsonb DEFAULT '{}'::jsonb) RETURNS uuid[]
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare ids uuid[];
+begin
+  if not public.is_service_account() then
+    raise exception 'This account cannot edit the blueprint' using errcode = '42501';
+  end if;
+  if nullif(trim(name), '') is null or nullif(trim(lane_role), '') is null then
+    raise exception 'A lane needs a name and role';
+  end if;
+  if jsonb_typeof(coalesce(details->'kpis', '[]'::jsonb)) <> 'array'
+    or jsonb_typeof(coalesce(details->'tools', '[]'::jsonb)) <> 'array' then
+    raise exception 'KPIs and tools must be lists';
+  end if;
+  ids := public.add_lane(scenario_id, trim(name), lane_role, at_position);
+  if coalesce(cardinality(ids), 0) = 0 then raise exception 'That scenario has no paths'; end if;
+  update public.lanes set
+    owner_team = nullif(trim(details->>'owner_team'), ''),
+    stakeholder_id = nullif(details->>'stakeholder_id', '')::uuid,
+    kpis = coalesce(details->'kpis', '[]'::jsonb),
+    tools = coalesce(details->'tools', '[]'::jsonb)
+  where id = any(ids);
+  return ids;
+end $$;
+
+--
 -- Name: add_step(uuid, text, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -128,6 +159,36 @@ begin
   return new_step_id;
 end;
 $$;
+
+--
+-- Name: add_step_with_details(uuid, text, integer, text, jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.add_step_with_details(path_id uuid, name text, at_position integer DEFAULT NULL::integer, summary text DEFAULT NULL::text, frames jsonb DEFAULT '[]'::jsonb) RETURNS uuid
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare step uuid; frame jsonb; lane uuid;
+begin
+  if not public.is_service_account() then
+    raise exception 'This account cannot edit the blueprint' using errcode = '42501';
+  end if;
+  if nullif(trim(name), '') is null then raise exception 'A step needs a name'; end if;
+  if jsonb_typeof(frames) <> 'array' then raise exception 'Storyboard frames must be a list'; end if;
+  step := public.add_step(path_id, trim(name), at_position);
+  update public.steps set summary = nullif(trim(add_step_with_details.summary), '') where id = step;
+  for frame in select * from jsonb_array_elements(frames) loop
+    lane := (frame->>'lane_id')::uuid;
+    if not exists(select 1 from public.lanes l where l.id = lane and l.path_id = add_step_with_details.path_id
+      and coalesce(l.lane_role, '') not in ('storyboard', 'frontstage_touchpoints', 'backstage_touchpoints')) then
+      raise exception 'Choose an actor lane on this path for the storyboard frame';
+    end if;
+    if nullif(trim(frame->>'url'), '') is null or frame->>'url' !~ '^https?://' then raise exception 'A storyboard frame needs an HTTP image URL'; end if;
+    insert into public.cells(path_id, lane_id, step_id, content, frame, origin)
+    values(add_step_with_details.path_id, lane, step, '', frame->>'url', 'app');
+  end loop;
+  return step;
+end $$;
 
 --
 -- Name: authoring_changes_are_append_only(); Type: FUNCTION; Schema: public; Owner: -
@@ -1316,6 +1377,31 @@ $_$;
 COMMENT ON FUNCTION public.rename_content_item(p_content text, p_from text, p_to text) IS 'Replace one whole item in a delimited cell content string. The match is against the trimmed item, never a substring, so renaming Zoom leaves Zoom Recording alone.';
 
 --
+-- Name: rename_lane(uuid, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.rename_lane(lane_id uuid, new_name text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare scen uuid; previous text;
+begin
+  if not public.is_service_account() then
+    raise exception 'This account cannot edit the blueprint' using errcode = '42501';
+  end if;
+  if nullif(trim(new_name), '') is null then raise exception 'A lane needs a name'; end if;
+  select p.scenario_id, l.name into scen, previous from public.lanes l join public.paths p on p.id = l.path_id
+  where l.id = lane_id for update of l;
+  if not found then raise exception 'That lane no longer exists'; end if;
+  if exists(select 1 from public.lanes l join public.paths p on p.id = l.path_id
+    where p.scenario_id = scen and l.name = trim(new_name) and l.name <> previous) then
+    raise exception 'That lane name already exists in this scenario';
+  end if;
+  update public.lanes l set name = trim(new_name) from public.paths p
+  where p.id = l.path_id and p.scenario_id = scen and l.name = previous;
+end $$;
+
+--
 -- Name: rename_owner_tag(text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1459,6 +1545,23 @@ begin
   end if;
 end;
 $$;
+
+--
+-- Name: rename_step(uuid, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.rename_step(step_id uuid, new_name text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+begin
+  if not public.is_service_account() then
+    raise exception 'This account cannot edit the blueprint' using errcode = '42501';
+  end if;
+  if nullif(trim(new_name), '') is null then raise exception 'A step needs a name'; end if;
+  update public.steps set name = trim(new_name) where id = step_id;
+  if not found then raise exception 'That step no longer exists'; end if;
+end $$;
 
 --
 -- Name: rename_touchpoint(uuid, text); Type: FUNCTION; Schema: public; Owner: -

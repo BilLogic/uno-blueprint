@@ -1,3 +1,4 @@
+import { useStructureRename } from './useStructureRename'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import {
   BlueprintDividerRailLabel,
@@ -11,9 +12,7 @@ import {
   BLUEPRINT_IN_LANE_LOOP_CORRIDOR_MARGIN,
   BLUEPRINT_WRAP_CORRIDOR_MARGIN,
 } from '@/lib/blueprintLayout'
-import {
-  BLUEPRINT_LANE_COLLAPSE_ENABLED,
-} from '@/lib/blueprintLaneCollapse'
+import { BLUEPRINT_LANE_COLLAPSE_ENABLED } from '@/lib/blueprintLaneCollapse'
 import {
   COMPARE_LABEL_WIDTH,
   COMPARE_PATH_SECTION_H_INSET,
@@ -72,7 +71,8 @@ export function BlueprintStickyLabelBackdrop({
         marginBottom: bleedBottom > 0 ? -bleedBottom : undefined,
         // The frame's inner corner is rounded; a square gray corner poking
         // into it reads as a layering bug.
-        borderBottomLeftRadius: bleedLeft > 0 && bleedBottom > 0 ? 9 : undefined,
+        borderBottomLeftRadius:
+          bleedLeft > 0 && bleedBottom > 0 ? 9 : undefined,
         backgroundColor: blueprintPanelLabelRailColor(),
       }}
     />
@@ -83,11 +83,7 @@ export function BlueprintStickyLabelBackdrop({
  * Starts at column 2 so it stays inside path boards and does not leak
  * across the label rail / card-gap gutter outside the section frame.
  */
-export function BlueprintSwimLaneDivider({
-  rowIndex,
-}: {
-  rowIndex: number
-}) {
+export function BlueprintSwimLaneDivider({ rowIndex }: { rowIndex: number }) {
   return (
     <div
       aria-hidden
@@ -156,16 +152,14 @@ export function BlueprintDividerRow({
   style?: CSSProperties
 }) {
   const gridPlacement: CSSProperties =
-    rowIndex != null
-      ? { gridColumn: '1 / -1', gridRow: rowIndex + 1 }
-      : {}
+    rowIndex != null ? { gridColumn: '1 / -1', gridRow: rowIndex + 1 } : {}
 
   const dividerKind =
     lineStyle === 'dashed'
       ? 'interaction'
       : lineStyle === 'dotted'
-        ? 'internal-interaction'
-        : 'visibility'
+      ? 'internal-interaction'
+      : 'visibility'
 
   return (
     <div
@@ -241,7 +235,7 @@ export function BlueprintLabelRow({
   // View, so reading the blueprint is untouched.
   const canvasMode = useCanvasModeValue()
   const pick = useCellPick()
-  const laneId = row.kind === 'lane' ? (row.lane?.id ?? null) : null
+  const laneId = row.kind === 'lane' ? row.lane?.id ?? null : null
   const laneSelectable =
     canvasMode === 'design' && pick !== null && laneId !== null
   const selectLane = (event: ReactMouseEvent<HTMLElement>) => {
@@ -333,7 +327,9 @@ export function BlueprintLabelRow({
       >
         {laneSelectable ? (
           <IconTooltip label={`Select the ${row.label} lane`}>
-            <button
+            <LaneSelectionName
+              id={row.lane!.id}
+              name={row.label}
               type="button"
               onClick={selectLane}
               data-blueprint-row-header=""
@@ -344,7 +340,7 @@ export function BlueprintLabelRow({
               style={{ color: labelColor }}
             >
               {row.label}
-            </button>
+            </LaneSelectionName>
           </IconTooltip>
         ) : row.kind === 'lane' && row.lane ? (
           // View mode: the label is inert prose, so the whole block becomes
@@ -398,5 +394,21 @@ export function BlueprintLabelRow({
         />
       )}
     </div>
+  )
+}
+
+function LaneSelectionName({
+  id,
+  name,
+  children,
+  ...props
+}: React.ComponentProps<'button'> & { id: string; name: string }) {
+  const rename = useStructureRename('lane', id, name)
+  return rename.editing ? (
+    rename.editor
+  ) : (
+    <button {...props} onDoubleClick={rename.begin}>
+      {children}
+    </button>
   )
 }

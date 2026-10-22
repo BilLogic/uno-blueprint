@@ -187,8 +187,8 @@ export function PanelDrawerShell({
     for a CHOICE the reader made about content (which path), not for a posture
     they nudged.
   */
-  const [snapPoint, setSnapPoint] = useState<number | string>(
-    () => rememberedSheetSnap(),
+  const [snapPoint, setSnapPoint] = useState<number | string>(() =>
+    rememberedSheetSnap(),
   )
   return (
     <Drawer
@@ -310,10 +310,7 @@ export function Field({
            entries — definitions — on a shell that has a phone posture. The
            field's own label is the section's term, which is why the hint
            itself no longer has to open by naming the field. */
-        <DefinitionPopover
-          sections={[{ term: label, body: hint }]}
-          side="left"
-        >
+        <DefinitionPopover sections={[{ term: label, body: hint }]} side="left">
           {labelText}
         </DefinitionPopover>
       ) : (
@@ -484,9 +481,7 @@ export function PanelHeader({
         </>
       ) : (
         <div className="min-w-0 flex-1">
-          <DrawerTitle
-            className={titleShown ? PANEL_HEADING_CLASS : 'sr-only'}
-          >
+          <DrawerTitle className={titleShown ? PANEL_HEADING_CLASS : 'sr-only'}>
             {title}
           </DrawerTitle>
           <DrawerDescription
@@ -584,7 +579,9 @@ export function PanelIdentity({
     <div className="flex min-w-0 flex-col items-start gap-2">
       {badge}
       {title ? <p className={PANEL_HEADING_CLASS}>{title}</p> : null}
-      {meta ? <p className="text-xs font-normal text-muted-foreground">{meta}</p> : null}
+      {meta ? (
+        <p className="text-xs font-normal text-muted-foreground">{meta}</p>
+      ) : null}
       {children}
     </div>
   )
@@ -761,19 +758,26 @@ export function PanelFooterControls({
   error,
   onSave,
   onCancel,
+  saveLabel = 'Save',
 }: {
   footerHost: HTMLElement | null
   busy: boolean
   /** Save stays disabled until something actually differs from the baseline. */
   changed: boolean
   error: string | null
+  saveLabel?: string
   onSave: () => void
   onCancel: () => void
 }) {
   const controls = (
     <div className="flex items-center gap-2">
-      <Button type="button" size="sm" disabled={busy || !changed} onClick={onSave}>
-        {busy ? 'Saving…' : 'Save'}
+      <Button
+        type="button"
+        size="sm"
+        disabled={busy || !changed}
+        onClick={onSave}
+      >
+        {busy ? 'Saving…' : saveLabel}
       </Button>
       <Button
         type="button"

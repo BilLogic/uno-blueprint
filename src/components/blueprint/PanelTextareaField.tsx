@@ -1,7 +1,4 @@
-import {
-  Field,
-  PANEL_TEXTAREA_CLASS,
-} from '@/components/blueprint/panelShell'
+import { Field, PANEL_TEXTAREA_CLASS } from '@/components/blueprint/panelShell'
 import { cn } from '@/lib/utils'
 
 /**
@@ -36,10 +33,13 @@ export function PanelTextareaField({
         // CellOverviewSpec render every authored value at. A disabled
         // textarea reads as a broken input; prose reads as prose.
         <p className="text-sm whitespace-pre-wrap text-foreground">
-          {value || <span className="text-muted-foreground">Not specified.</span>}
+          {value || (
+            <span className="text-muted-foreground">Not specified.</span>
+          )}
         </p>
       ) : (
         <textarea
+          aria-label={label}
           value={value}
           rows={rows}
           placeholder={placeholder}

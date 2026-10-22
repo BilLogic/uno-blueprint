@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useRef,
   useSyncExternalStore,
   type ReactNode,
 } from 'react'
@@ -14,6 +15,10 @@ import {
   releasePanel,
   subscribePanelOwner,
 } from '@/lib/openPanelStore'
+
+export type StructureDraft =
+  | { kind: 'lane'; scenarioId: string; atPosition?: number }
+  | { kind: 'step'; pathId: string; atPosition?: number }
 
 /**
  * The levels of the tree that own spec fields and are not a cell.
@@ -33,6 +38,7 @@ export type EntityDetailSelection = {
   kind: EntityDetailKind
   /** The row's id — the panel reads everything else from the database. */
   id: string
+  draft?: StructureDraft
 }
 
 type EntityDetailContextValue = {
@@ -46,6 +52,7 @@ type EntityDetailContextValue = {
    * for the ✕ after every glance.
    */
   toggleEntity: (selection: EntityDetailSelection) => void
+  openCreate: (draft: StructureDraft, opener: HTMLButtonElement) => void
   closeEntity: () => void
   isOpen: boolean
 }
@@ -60,35 +67,49 @@ export function EntityDetailProvider({
   children: ReactNode
   resetKey?: string
 }) {
+  const openerRef = useRef<HTMLButtonElement | null>(null)
   const [selection, setSelection] = useState<EntityDetailSelection | null>(null)
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate reset-on-key: the entity a panel is describing may not exist in the new workspace
     setSelection(null)
+    openerRef.current = null
   }, [resetKey])
 
   const openEntity = useCallback((next: EntityDetailSelection) => {
+    openerRef.current = null
     claimPanel('entity')
     setSelection(next)
   }, [])
 
-  const toggleEntity = useCallback(
-    (next: EntityDetailSelection) => {
-      setSelection((current) => {
-        if (current && current.kind === next.kind && current.id === next.id) {
-          releasePanel('entity')
-          return null
-        }
-        claimPanel('entity')
-        return next
-      })
+  const openCreate = useCallback(
+    (draft: StructureDraft, opener: HTMLButtonElement) => {
+      openerRef.current = opener
+      claimPanel('entity')
+      setSelection({ kind: draft.kind, id: 'draft', draft })
     },
     [],
   )
 
+  const toggleEntity = useCallback((next: EntityDetailSelection) => {
+    setSelection((current) => {
+      if (current && current.kind === next.kind && current.id === next.id) {
+        releasePanel('entity')
+        return null
+      }
+      claimPanel('entity')
+      return next
+    })
+  }, [])
+
   const closeEntity = useCallback(() => {
     setSelection(null)
     releasePanel('entity')
+    const opener = openerRef.current
+    openerRef.current = null
+    requestAnimationFrame(() => {
+      if (opener?.isConnected) opener.focus()
+    })
   }, [])
 
   // One panel at a time: when the cell panel takes the drawer, this one drops
@@ -103,11 +124,12 @@ export function EntityDetailProvider({
     () => ({
       selection,
       openEntity,
+      openCreate,
       toggleEntity,
       closeEntity,
       isOpen: selection !== null,
     }),
-    [selection, openEntity, toggleEntity, closeEntity],
+    [selection, openEntity, openCreate, toggleEntity, closeEntity],
   )
 
   return (

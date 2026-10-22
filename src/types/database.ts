@@ -1150,8 +1150,28 @@ export type Database = {
         }
         Returns: string[]
       }
+      add_lane_with_details: {
+        Args: {
+          at_position?: number
+          details?: Json
+          lane_role: string
+          name: string
+          scenario_id: string
+        }
+        Returns: string[]
+      }
       add_step: {
         Args: { at_position?: number; name: string; path_id: string }
+        Returns: string
+      }
+      add_step_with_details: {
+        Args: {
+          at_position?: number
+          frames?: Json
+          name: string
+          path_id: string
+          summary?: string
+        }
         Returns: string
       }
       cell_natural_key: { Args: { cell_id: string }; Returns: string }
@@ -1246,6 +1266,10 @@ export type Database = {
         Args: { p_content: string; p_from: string; p_to: string }
         Returns: string
       }
+      rename_lane: {
+        Args: { lane_id: string; new_name: string }
+        Returns: undefined
+      }
       rename_owner_tag: {
         Args: { from_name: string; to_name: string }
         Returns: string[]
@@ -1260,6 +1284,10 @@ export type Database = {
       }
       rename_scenario: {
         Args: { new_name: string; scenario_id: string }
+        Returns: undefined
+      }
+      rename_step: {
+        Args: { new_name: string; step_id: string }
         Returns: undefined
       }
       rename_touchpoint: {

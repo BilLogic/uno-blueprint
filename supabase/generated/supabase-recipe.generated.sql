@@ -2715,3 +2715,32 @@ begin
   end if;
 end
 $anon_definer$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000318000000_a_draft_becomes_one_structural_write.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- Only signed-in callers can attempt these guarded authoring operations.
+grant execute on function public.add_lane_with_details(uuid,text,text,integer,jsonb) to authenticated;
+grant execute on function public.add_step_with_details(uuid,text,integer,text,jsonb) to authenticated;
+grant execute on function public.rename_lane(uuid,text) to authenticated;
+grant execute on function public.rename_step(uuid,text) to authenticated;
+
+-- The recipe's identity guard refuses every new write without a service claim.
+do $draft_refusals$
+declare statement text;
+begin
+  perform set_config('request.jwt.claims', '{}', true);
+  foreach statement in array array[
+    'select public.rename_step(null, ''Forbidden'')',
+    'select public.rename_lane(null, ''Forbidden'')',
+    'select public.add_step_with_details(null, ''Forbidden'')',
+    'select public.add_lane_with_details(null, ''Forbidden'', ''frontstage_actions'')'
+  ] loop
+    begin
+      execute statement;
+      raise exception 'an unauthenticated structural write was accepted' using errcode='P0003';
+    exception when insufficient_privilege then null;
+    end;
+  end loop;
+end $draft_refusals$;

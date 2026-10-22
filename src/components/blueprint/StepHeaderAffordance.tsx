@@ -1,3 +1,4 @@
+import { useStructureRename } from './useStructureRename'
 import { useEffect, useRef, useState } from 'react'
 import { EntityDefinitionPopover } from '@/components/blueprint/EntityDefinitionPopover'
 import { useBlueprintCellDetailOptional } from '@/contexts/BlueprintCellDetailContext'
@@ -61,6 +62,7 @@ export function StepHeaderAffordance({
   className?: string
   style?: React.CSSProperties
 }) {
+  const rename = useStructureRename('step', stepId, name)
   const { toggleEntity, selection } = useEntityDetail()
   const detail = useBlueprintCellDetailOptional()
   const boardInScope = useScenarioBoardInScope()
@@ -75,11 +77,13 @@ export function StepHeaderAffordance({
 
   const blockRef = useRef<HTMLDivElement>(null)
   const [defOpen, setDefOpen] = useState(false)
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  )
   useEffect(() => () => clearTimeout(hoverTimer.current), [])
 
   const armHover = (event: React.PointerEvent) => {
-    if (event.pointerType === 'touch') return
+    if (rename.editing || event.pointerType === 'touch') return
     clearTimeout(hoverTimer.current)
     hoverTimer.current = setTimeout(
       () => setDefOpen(true),
@@ -164,7 +168,11 @@ export function StepHeaderAffordance({
       data-blueprint-column-header=""
       data-open={open ? '' : undefined}
       style={style}
-      onClick={openPanel}
+      onClick={rename.editing ? undefined : openPanel}
+      onDoubleClick={(event) => {
+        cancelHover()
+        rename.begin(event)
+      }}
       onPointerEnter={armHover}
       onPointerLeave={cancelHover}
       className={cn(
@@ -176,15 +184,21 @@ export function StepHeaderAffordance({
     >
       {/* The full-block opener — any click that is not the ⓘ opens the panel;
           the block carries the open, so a click reaching it opens it too. */}
-      <button
-        type="button"
-        data-step-header-affordance=""
-        data-canvas-header-opener=""
-        aria-label={`View details: ${name}`}
-        aria-pressed={open}
-        className={CANVAS_HEADER_OPENER}
-      />
-      {label}
+      {rename.editing ? (
+        rename.editor
+      ) : (
+        <>
+          <button
+            type="button"
+            data-step-header-affordance=""
+            data-canvas-header-opener=""
+            aria-label={`View details: ${name}`}
+            aria-pressed={open}
+            className={CANVAS_HEADER_OPENER}
+          />
+          {label}
+        </>
+      )}
       {info}
     </div>
   )

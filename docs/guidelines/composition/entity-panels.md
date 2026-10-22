@@ -1,6 +1,10 @@
 ---
 summary: One shell, six subjects — the drawer chrome every entity panel is made of, what the six panels share, where they legitimately differ, and the invariants a well-meaning edit breaks.
 claims:
+  - src/components/blueprint/DraftStoryboardFields.tsx
+  - src/components/blueprint/StructureInsert.tsx
+  - src/components/blueprint/StructureRenameEditor.tsx
+  - src/components/blueprint/useStructureRename.tsx
   - src/components/blueprint/BlueprintCellDetailPanel.tsx
   - src/components/blueprint/cellDetailCrumbs.ts
   - src/components/blueprint/CellDetailDifferencesSurface.tsx
@@ -455,3 +459,13 @@ it renders as inert prose, not a disabled button.
 > `NotionPropertyRow`'s docstring says it belongs to the cell detail panel. It
 > does not — its only consumer is `ScenarioSlideHeader`. The docstring is stale;
 > the component is a plain label/value row.
+
+## Lane and step creation
+
+The shared gap target opens these same panels with a draft, without writing.
+Name is first and required; a lane also requires Role, chosen through
+`OptionSelect`. Optional properties use the existing field treatments. The
+primary action is Add lane or Add step. Cancel and Escape remove the preview
+and restore focus to the insert target. A successful atomic creation changes
+the open panel to the new item's editor. Panel and header renames share the
+structural write and captured inverse used by the change sheet.

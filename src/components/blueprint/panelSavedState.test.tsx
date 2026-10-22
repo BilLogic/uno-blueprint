@@ -6,27 +6,62 @@ import { LanePanel } from './LanePanel'
 import { Drawer } from '@/components/ui/drawer'
 
 const state = vi.hoisted(() => ({
-  step: { id: 'step', name: 'Review', summary: '', scenarioId: 'scenario', scenarioName: 'Sample', phaseName: 'Start', positions: [], frames: [] },
-  lane: { id: 'lane', name: 'Reviewer', role: null, ownerTeam: '', kpis: [] as string[], tools: [] as string[], stakeholderId: null, scenarioId: 'scenario', scenarioName: 'Sample', phaseName: 'Start', siblingLaneIds: ['lane'] },
+  step: {
+    id: 'step',
+    name: 'Review',
+    summary: '',
+    scenarioId: 'scenario',
+    scenarioName: 'Sample',
+    phaseName: 'Start',
+    positions: [],
+    frames: [],
+  },
+  lane: {
+    id: 'lane',
+    name: 'Reviewer',
+    role: null,
+    ownerTeam: '',
+    kpis: [] as string[],
+    tools: [] as string[],
+    stakeholderId: null,
+    scenarioId: 'scenario',
+    scenarioName: 'Sample',
+    phaseName: 'Start',
+    siblingLaneIds: ['lane'],
+  },
 }))
-vi.mock('@/hooks/useStepSpec', () => ({ useStepSpec: () => ({ status: 'ready', data: state.step }) }))
-vi.mock('@/hooks/useLaneSpec', () => ({ useLaneSpec: () => ({ status: 'ready', data: state.lane }) }))
-vi.mock('@/contexts/SupabaseProvider', () => ({ useSupabase: () => ({ client: {}, canWrite: true }) }))
-vi.mock('@/contexts/canvasModeContext', () => ({ useCanvasModeValue: () => 'design' }))
+vi.mock('@/hooks/useStepSpec', () => ({
+  useStepSpec: () => ({ status: 'ready', data: state.step }),
+}))
+vi.mock('@/hooks/useLaneSpec', () => ({
+  useLaneSpec: () => ({ status: 'ready', data: state.lane }),
+}))
+vi.mock('@/contexts/SupabaseProvider', () => ({
+  useSupabase: () => ({ client: {}, canWrite: true }),
+}))
+vi.mock('@/contexts/canvasModeContext', () => ({
+  useCanvasModeValue: () => 'design',
+}))
 vi.mock('@/hooks/useOwnerTags', () => ({ useOwnerTags: () => [] }))
 vi.mock('./StakeholderSelect', () => ({ StakeholderSelect: () => null }))
 afterEach(cleanup)
 
 for (const kind of ['step', 'lane'] as const) {
   describe(`${kind} editor after a stale cached snapshot is revalidated`, () => {
-    const mount = () => kind === 'step'
-      ? <StepPanel stepId="step" onClose={() => {}} />
-      : <LanePanel laneId="lane" onClose={() => {}} />
+    const mount = () =>
+      kind === 'step' ? (
+        <StepPanel stepId="step" onClose={() => {}} />
+      ) : (
+        <LanePanel laneId="lane" onClose={() => {}} />
+      )
     const setSaved = (text: string) => {
       if (kind === 'step') state.step = { ...state.step, summary: text }
       else state.lane = { ...state.lane, ownerTeam: text }
     }
-    const input = (container: HTMLElement) => container.querySelector(kind === 'step' ? 'textarea' : 'input') as HTMLInputElement
+    const input = (container: HTMLElement) =>
+      container.querySelector(
+        kind === 'step' ? 'textarea' : 'input[aria-label="Owner team"]',
+      ) as HTMLInputElement
 
     it('follows the saved value when the reader has not typed', () => {
       setSaved('')

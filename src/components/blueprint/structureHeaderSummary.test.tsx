@@ -48,3 +48,21 @@ it('a shared column keeps its step summary when paths are compared', async () =>
   act(() => header.focus())
   expect(within(await screen.findByRole('dialog')).getByText(summary)).not.toBeNull()
 })
+
+
+it.each(['step', 'phase'] as const)('%s pointer focus does not open its definition before click', kind => {
+  render(<EntityDetailProvider>{kind === 'step'
+    ? <StepHeaderAffordance stepId="step" name="Arrival" summary={summary} />
+    : <ScenarioTitleBadge tone="phase" name="Arrival" summary={summary} />}</EntityDetailProvider>)
+  const trigger = document.querySelector<HTMLElement>(kind === 'step' ? '[data-blueprint-column-header]' : '[data-phase-title-badge]')!
+  fireEvent.pointerDown(trigger)
+  act(() => trigger.focus())
+  expect(screen.queryByRole('dialog')).toBeNull()
+})
+
+it('a step header has one keyboard door', () => {
+  const { container } = render(<EntityDetailProvider><StepHeaderAffordance stepId="step" name="Arrival" summary={summary} /></EntityDetailProvider>)
+  const header = container.querySelector<HTMLElement>('[data-blueprint-column-header]')!
+  const stops = [header, ...header.querySelectorAll<HTMLElement>('button, [tabindex]')].filter(node => node.tabIndex >= 0)
+  expect(stops).toHaveLength(1)
+})

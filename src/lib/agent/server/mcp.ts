@@ -7,13 +7,14 @@ import { SCOPE_ALL } from '@/lib/agent/tools/serviceScope'
 import type { Database } from '@/types/database'
 import { z } from 'zod'
 import { TOOL_DEFINITIONS } from '@/lib/agent/tools/definitions'
-import { businessToolSpec, type ToolContext } from '@/lib/agent/tools/definition'
+import { CONFIRMATION_DESCRIPTION, toolContractSpec, type ToolContext } from '@/lib/agent/tools/definition'
+export { SERVICE_REQUIRED } from '@/lib/agent/tools/serviceRefusal'
 export { serverSearchConfig } from '@/lib/agent/server/searchConfig'
 
 /** Used by the migration generator and its drift test, never a hand-maintained roster. */
 export function serverWriteContracts() {
   return Object.fromEntries(TOOL_DEFINITIONS.filter(tool => tool.surface === 'write')
-    .map(tool => [tool.name, businessToolSpec(tool).parameters]))
+    .map(tool => [tool.name, toolContractSpec(tool).parameters]))
 }
 
 export function createToolServer(options: {
@@ -54,7 +55,7 @@ export function createToolServer(options: {
           description: spec.description,
           inputSchema: definition.surface === 'write' ? definition.args.extend({
             service_id: z.string().uuid().optional().describe('Service to create under; copy its id from list_services or list_blueprint.'),
-            confirmed: z.boolean().optional().describe('True only after the person explicitly confirmed this change; otherwise record a proposal.'),
+            confirmed: z.boolean().optional().describe(CONFIRMATION_DESCRIPTION),
           }).passthrough() : definition.args,
           annotations: { readOnlyHint: definition.surface === 'read' },
         }, async args => {

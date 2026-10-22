@@ -51,14 +51,15 @@ export function buildCompareGridTracks(
 
   const summaries = new Map(blueprints.flatMap(board => board.steps.map(step => [step.id, step.summary] as const)))
   return model.columns.map(
-    (column): CompareGridTrack => ({
+    (column): CompareGridTrack => {
+      const summary = summaries.get(Object.values(column.stepIdByPath)[0])
+      return ({
       kind: 'column',
       key: column.columnKey,
       label: column.label,
-      ...(summaries.get(Object.values(column.stepIdByPath)[0]) !== undefined
-        ? { summary: summaries.get(Object.values(column.stepIdByPath)[0]) } : {}),
+      ...(summary !== undefined ? { summary } : {}),
       stepIdByPath: column.stepIdByPath,
       divergent: column.verdict !== 'shared',
-    }),
+    }) },
   )
 }

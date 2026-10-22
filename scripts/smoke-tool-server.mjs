@@ -57,7 +57,11 @@ export async function judge() {
     assert(!services.isError, 'Service discovery completes.')
     const known = await databases[0].from('services').select('id').limit(1)
     assert(!known.error, 'Service rows are readable as the caller.')
-    if (known.data.length) assert(JSON.stringify(services.content).includes(known.data[0].id), 'Service discovery returns an existing service id.')
+    if (!known.data.length) return {
+      what: 'the remote MCP proof',
+      unverified: 'There are no visible services; no blueprint rows were seeded. After a person creates one through Uno, run npm run test:tool-server:project.',
+    }
+    assert(JSON.stringify(services.content).includes(known.data[0].id), 'Service discovery returns an existing service id.')
     step = 'checking a database gateway refusal without changing blueprint rows'
     const refusal = await clients[0].callTool({ name: 'create_finding', arguments: {
       source: 'audit', check_key: 'tool-server-proof', severity: 'info', impact: 'low', effort: 'low',

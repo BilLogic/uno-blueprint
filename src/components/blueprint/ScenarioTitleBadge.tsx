@@ -1,4 +1,5 @@
-import { useRef, useState, type CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
+import { useDefinitionFocus } from '@/hooks/useDefinitionFocus'
 import { EntityDefinitionPopover } from '@/components/blueprint/EntityDefinitionPopover'
 import { Badge } from '@/components/ui/badge'
 import { PATH_KIND_COLORS } from '@/lib/pathKindTheme'
@@ -50,14 +51,15 @@ export function ScenarioTitleBadge({
   tone = 'default',
   note,
 }: ScenarioTitleBadgeProps) {
-  const pointerFocus = useRef(false)
   const [open, setOpen] = useState(false)
+  const definitionFocus = useDefinitionFocus(() => setOpen(true))
   const pathAccent = pathKind ? PATH_KIND_COLORS[pathKind] : undefined
   const panelTone = tone === 'panel' && !pathKind
   const phaseTone = tone === 'phase' && !pathKind
 
   return (
     <EntityDefinitionPopover
+      keepTriggerFocus
       open={open}
       onOpenChange={setOpen}
       kind={tone === 'phase' ? 'phase' : 'scenario'}
@@ -68,11 +70,7 @@ export function ScenarioTitleBadge({
       side={side}
     >
       <Badge
-        onPointerDown={() => { pointerFocus.current = true }}
-        onPointerUp={() => { pointerFocus.current = false }}
-        onPointerCancel={() => { pointerFocus.current = false }}
-        onFocus={() => { if (phaseTone && !pointerFocus.current) setOpen(true) }}
-        onBlur={() => { pointerFocus.current = false }}
+        {...definitionFocus}
         data-blueprint-fill={pathAccent ? '' : undefined}
         data-scenario-panel-title-badge={panelTone ? '' : undefined}
         data-phase-title-badge={phaseTone ? '' : undefined}

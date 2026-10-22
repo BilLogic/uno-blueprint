@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useDefinitionFocus } from '@/hooks/useDefinitionFocus'
 import { EntityDefinitionPopover } from '@/components/blueprint/EntityDefinitionPopover'
 import { useBlueprintCellDetailOptional } from '@/contexts/BlueprintCellDetailContext'
 import { useScenarioBoardInScope } from '@/contexts/scenarioBoardScopeContext'
@@ -88,10 +89,12 @@ export function StepHeaderAffordance({
       CANVAS_HEADER_HOVER_DELAY,
     )
   }
-  const cancelHover = () => {
+  const closeDefinition = () => {
     clearTimeout(hoverTimer.current)
     setDefOpen(false)
   }
+
+  const definitionFocus = useDefinitionFocus(() => setDefOpen(true), closeDefinition)
 
   const label = (
     <span
@@ -110,6 +113,7 @@ export function StepHeaderAffordance({
   // `CANVAS_HEADER_INFO`. Its tap opens the card and never the panel.
   const info = (
     <EntityDefinitionPopover
+      keepTriggerFocus
       kind="step"
       name={name}
       description={summary}
@@ -124,6 +128,7 @@ export function StepHeaderAffordance({
       <button
         type="button"
         data-canvas-header-info=""
+        tabIndex={-1}
         aria-label="What is a step?"
         onClick={(event) => event.stopPropagation()}
         className={cn(
@@ -145,10 +150,9 @@ export function StepHeaderAffordance({
         data-blueprint-column-header=""
         style={style}
         tabIndex={0}
-        onFocus={(event) => { if (event.target === event.currentTarget) setDefOpen(true) }}
-        onBlur={cancelHover}
+        {...definitionFocus}
         onPointerEnter={armHover}
-        onPointerLeave={cancelHover}
+        onPointerLeave={closeDefinition}
         className={cn(
           'group/step-header relative flex h-full min-w-0 items-center justify-center',
           CANVAS_HEADER_BOX,
@@ -175,7 +179,7 @@ export function StepHeaderAffordance({
       style={style}
       onClick={openPanel}
       onPointerEnter={armHover}
-      onPointerLeave={cancelHover}
+      onPointerLeave={closeDefinition}
       className={cn(
         'group/step-header relative flex h-full min-w-0 items-center justify-center',
         CANVAS_HEADER_BOX,
@@ -191,8 +195,7 @@ export function StepHeaderAffordance({
         data-canvas-header-opener=""
         aria-label={`View details: ${name}`}
         aria-pressed={open}
-        onFocus={() => setDefOpen(true)}
-        onBlur={cancelHover}
+        {...definitionFocus}
         className={CANVAS_HEADER_OPENER}
       />
       {label}

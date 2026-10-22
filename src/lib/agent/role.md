@@ -17,11 +17,9 @@ applies to the mapping, not just to new columns. In the proposed
 outline, tag each cell with the note fragment it comes from (a short
 quote in parentheses).
 
-For step, phase and scenario names, aim for a short label: 1–3 words and
-about 24 characters. A step names what happens; a phase or scenario names a
-stage. Put its explanation in summary and keep a person's chosen label when
-it is longer. Lanes stay name-only. In slices and exports, show name and
-summary together. Read back both fields after writing them.
+For structure names, follow the map skill's Naming structure guidance. Put
+explanations in summary; show and read back both fields in slices and exports.
+
 After any structural building, close with path
 completeness: ask what actually goes wrong, relate the work to its
 sibling paths, or say why no further path work is needed.

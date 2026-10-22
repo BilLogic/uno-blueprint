@@ -1,3 +1,5 @@
+import { HOST_OPERATIONS, isHostOperation, type HostOperation, type HostReceipt, type RecordedAuthoringWrite } from '@/lib/hostAuthoringOperations'
+export type { RecordedAuthoringWrite } from '@/lib/hostAuthoringOperations'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { asEntityStatus, type EntityStatus } from '@/lib/entityStatus'
@@ -42,9 +44,6 @@ type Client = SupabaseClient<Database>
 
 /** What `create_scenario` hands back: the blueprint and its first version. */
 export type CreatedScenario = { scenario_id: string; path_id: string }
-
-/** Receipt from an optional host operation that records itself atomically. */
-export type RecordedAuthoringWrite = { id: string; change_id: string }
 
 /**
  * One slice that would lose frames to a delete.
@@ -321,26 +320,25 @@ async function call<T>(
 }
 
 /** Not a portable-core promise: the host must implement this operation. */
-async function callRecorded<T extends RecordedAuthoringWrite>(
+async function callRecorded<Fn extends HostOperation>(
   client: Client,
-  fn: 'rename_step' | 'move_cell' | 'insert_cell_at_position',
+  fn: Fn,
   args: Record<string, unknown>,
   options: { record?: boolean },
-): Promise<T> {
-  const data = await invoke<T>(client, fn, args)
-  const cellKey = (data as (RecordedAuthoringWrite & { cell_key?: unknown }) | null)?.cell_key
-  if (!data || typeof data.id !== 'string' || !data.id.trim()
-      || typeof data.change_id !== 'string' || !data.change_id.trim()
-      || (fn === 'rename_step' && data.id !== args.step_id)
-      || (fn === 'move_cell' && data.id !== args.cell_id)
-      || (fn === 'insert_cell_at_position' && (typeof cellKey !== 'string' || !cellKey.trim()))) {
-    throw new Error('The authoring operation returned no matching row or durable change id; read back before retrying.')
-  }
+): Promise<HostReceipt<Fn>> {
+  const operation = HOST_OPERATIONS[fn]
+  const data = operation.receipt(await invoke<unknown>(client, fn, args), args)
   const inverse = deriveRevert(fn, args, data)
   if (!inverse) throw new Error('The authoring operation has no supported inverse.')
   invalidateAfterRpc(fn, args)
   if (options.record !== false) recordChange(fn, args, inverse)
-  return data
+  // The operation selected by Fn owns the validator that produced this shape.
+  return data as HostReceipt<Fn>
+}
+
+/** Re-run a known session inverse through its host receipt validator. */
+export async function revertHostOperation(client: Client, fn: HostOperation, args: Record<string, unknown>): Promise<void> {
+  await callRecorded(client, fn, args, { record: false })
 }
 
 /**
@@ -385,13 +383,8 @@ function deriveRevert(
   args: Record<string, unknown>,
   data: unknown,
 ): RevertSpec | undefined {
+  if (isHostOperation(fn)) return HOST_OPERATIONS[fn].inverse(args, data as RecordedAuthoringWrite)
   switch (fn) {
-    case 'move_cell':
-      return { fn: 'move_cell', args: { cell_id: args.cell_id, expected_source: args.destination, destination: args.expected_source } }
-    case 'insert_cell_at_position':
-      return { fn: 'delete_cell', args: { cell_id: (data as RecordedAuthoringWrite).id } }
-    case 'rename_step':
-      return { fn: 'rename_step', args: { step_id: args.step_id, expected_name: args.new_name, new_name: args.expected_name } }
     case 'add_step':
       return typeof data === 'string'
         ? { fn: 'remove_step', args: { path_id: args.path_id, step_id: data } }
@@ -730,14 +723,15 @@ export function moveCell(
 /** Optional host RPC: creates a new identity at a vacant explicit slot. */
 export function insertCellAtPosition(
   client: Client,
-  input: { pathId: string; laneId: string; stepId: string; position: number; content: string; status: EntityStatus },
+  input: CellCoordinates & { content: string; status: EntityStatus },
+  options: { record?: boolean } = {},
 ): Promise<RecordedAuthoringWrite & { cell_key: string }> {
-  const slot = capturedCoordinates({ path_id: input.pathId, lane_id: input.laneId, step_id: input.stepId, position: input.position })
+  const slot = capturedCoordinates(input)
   if (!input.content.trim() || !asEntityStatus(input.status)) throw new Error('Insertion requires content and an explicit valid status.')
   return callRecorded(client, 'insert_cell_at_position', {
     path_id: slot.path_id, lane_id: slot.lane_id, step_id: slot.step_id, at_position: slot.position,
     content: input.content, status: input.status,
-  }, {})
+  }, options)
 }
 
 /** Add a column to a version. `atPosition` inserts; omitted appends. */

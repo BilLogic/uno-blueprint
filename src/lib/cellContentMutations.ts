@@ -5,7 +5,7 @@ import type { CellSpecUpdate } from '@/lib/cellSpecMutations'
 import { cellBudgetKindForLane, type CellBudgetKind } from '@/lib/cellContentLimits'
 import type { CellResource } from '@/types/blueprint'
 import type { Database, Json } from '@/types/database'
-import { recordChange } from '@/lib/authoringSession'
+import { recordChange, recordRequiredChange } from '@/lib/authoringSession'
 import { toAuthoringError } from '@/lib/authoringErrors'
 import { ConflictError, requireRowsWritten } from '@/lib/optimisticConcurrency'
 import { supabaseAuthoringLogWriter } from '@/lib/authoringLog'
@@ -23,11 +23,9 @@ type Client = SupabaseClient<Database>
  */
 export async function updateCellStatus(
   client: Client,
-  cellId: string,
-  status: EntityStatus,
-  expectedStatus: EntityStatus,
-  options: { record?: boolean } = {},
+  input: { cellId: string; status: EntityStatus; expectedStatus: EntityStatus; record?: boolean },
 ): Promise<string | null> {
+  const { cellId, status, expectedStatus } = input
   if (!asEntityStatus(status) || !asEntityStatus(expectedStatus)) {
     throw new Error('A status edit requires valid current and new statuses.')
   }
@@ -36,20 +34,16 @@ export async function updateCellStatus(
   if (!before.data) throw new Error('That cell no longer exists or is not readable.')
   const previous = asEntityStatus(before.data.status)
   if (previous !== expectedStatus) throw new ConflictError('The cell status changed; refresh before editing.')
-  if (previous === status) throw new Error('A status edit must change the status.')
+  if (previous === status) return null
   const { data, error } = await client.from('cells').update({ status })
     .eq('id', cellId).eq('status', previous).select('id')
   if (error) throw toAuthoringError(error)
   requireRowsWritten(data, 'cell')
   cellWritten(cellId)
-  if (options.record === false) return null
-  try {
-    return await recordChange('update_cell_status', { cell_id: cellId, status, expected_status: previous }, {
-      fn: 'update_cell_status', args: { cell_id: cellId, status: previous, expected_status: status },
-    }, { durableWriter: supabaseAuthoringLogWriter(client) })
-  } catch (cause) {
-    throw new Error('Cell status changed, but its durable authoring record failed. Do not retry blindly; the session retains the inverse.', { cause })
-  }
+  if (input.record === false) return null
+  return recordRequiredChange('update_cell_status', { cell_id: cellId, status, expected_status: previous }, {
+    fn: 'update_cell_status', args: { cell_id: cellId, status: previous, expected_status: status },
+  }, supabaseAuthoringLogWriter(client))
 }
 
 /**

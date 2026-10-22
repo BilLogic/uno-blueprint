@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { updateCellStatus } from '@/lib/cellContentMutations'
-import { clearSession, sessionSnapshot } from '@/lib/authoringSession'
+import { clearSession, sessionSnapshot, PartialAuthoringWriteError, attributedTo } from '@/lib/authoringSession'
 import { setAuthoringLogWriter, supabaseAuthoringLogWriter } from '@/lib/authoringLog'
 import { renameStep, moveCell, insertCellAtPosition } from '@/lib/authoringRpc'
 import { inMemoryDatabase, type InMemoryDatabase } from '@/test/inMemoryDatabase'
@@ -17,9 +17,26 @@ describe('optional host-recorded structural authoring', () => {
     { id: 'step', change_id: null },
     { id: 'other-step', change_id: 'change' },
     { id: 'step', change_id: '' },
+    { id: 'step', change_id: '00000000-0000-0000-0000-000000000000' },
+    { id: '00000000-0000-0000-0000-000000000000', change_id: 'change' },
   ])('refuses malformed rename receipts without minting a session inverse: %j', async (receipt) => {
     const db = inMemoryDatabase({}, { rpc: () => receipt })
     await expect(renameStep(db.client, { stepId: 'step', expectedName: 'Before', name: 'After' })).rejects.toThrow(/read back before retrying/)
+    expect(sessionSnapshot()).toHaveLength(0)
+  })
+
+  it('fails on a missing host RPC without claiming a session success', async () => {
+    const db = inMemoryDatabase({}, { rpc() { throw new Error('PGRST202: function not found') } })
+    await expect(renameStep(db.client, { stepId: 'step', expectedName: 'Before', name: 'After' })).rejects.toThrow(/function not found/)
+    expect(sessionSnapshot()).toHaveLength(0)
+    expect(db.updates).toHaveLength(0)
+  })
+
+  it('refuses an all-zero created identity before minting an inverse', async () => {
+    const db = inMemoryDatabase({}, { rpc: () => ({ id: '00000000-0000-0000-0000-000000000000', change_id: 'change', cell_key: 'key' }) })
+    await expect(insertCellAtPosition(db.client, {
+      path_id: 'path', lane_id: 'lane', step_id: 'step', position: 1, content: 'Text', status: 'planned',
+    })).rejects.toThrow(/read back before retrying/)
     expect(sessionSnapshot()).toHaveLength(0)
   })
 
@@ -49,7 +66,7 @@ describe('optional host-recorded structural authoring', () => {
   it('requires a created key and durable receipt for explicit-slot insertion', async () => {
     const db = inMemoryDatabase({}, { rpc: () => ({ id: 'created', change_id: 'change' }) })
     await expect(insertCellAtPosition(db.client, {
-      pathId: 'path', laneId: 'lane', stepId: 'step', position: 1, content: 'Text', status: 'planned',
+      path_id: 'path', lane_id: 'lane', step_id: 'step', position: 1, content: 'Text', status: 'planned',
     })).rejects.toThrow(/read back before retrying/)
     expect(sessionSnapshot()).toHaveLength(0)
   })
@@ -88,12 +105,22 @@ describe('optional host-recorded structural authoring', () => {
       },
     })
     const result = await insertCellAtPosition(db.client, {
-      pathId: 'path', laneId: 'lane', stepId: 'step', position: 1, content: 'New text', status: 'planned',
+      path_id: 'path', lane_id: 'lane', step_id: 'step', position: 1, content: 'New text', status: 'planned',
     })
     expect(result).toEqual({ id: 'created', change_id: 'insert-change', cell_key: 'new-key' })
     expect(db.tables.cells).toEqual([{ id: 'existing', position: 0 }, { id: 'created', position: 1, content: 'New text', status: 'planned' }])
     expect(db.tables.authoring_changes).toHaveLength(1)
     expect(sessionSnapshot()[0].revert).toEqual({ fn: 'delete_cell', args: { cell_id: 'created' } })
+  })
+
+  it('keeps creation undo human-only and supports suppressing a session record', async () => {
+    const db = inMemoryDatabase({}, { rpc: () => ({ id: 'created', change_id: 'change', cell_key: 'key' }) })
+    const input = { path_id: 'path', lane_id: 'lane', step_id: 'step', position: 1, content: 'Text', status: 'planned' as const }
+    await insertCellAtPosition(db.client, input, { record: false })
+    expect(sessionSnapshot()).toHaveLength(0)
+    await insertCellAtPosition(db.client, input)
+    await expect(attributedTo('agent-session', () => executeRevert(db.client, sessionSnapshot()[0]))).rejects.toThrow(/human-only/)
+    expect(db.rpcs.map((rpc) => rpc.fn)).toEqual(['insert_cell_at_position', 'insert_cell_at_position'])
   })
 
   it('renames a shared step with one server record and a locally constructed session inverse', async () => {
@@ -126,7 +153,7 @@ describe('optional host-recorded structural authoring', () => {
   })
 })
 
-function blankCellDatabase(ledger?: 'error' | 'zero') {
+function blankCellDatabase(ledger?: 'error' | 'zero' | 'nil') {
   const id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
   const database: InMemoryDatabase = inMemoryDatabase({
     cells: [{ id: 'blank-cell', content: '', summary: 'Keep this', status: 'live' }],
@@ -137,6 +164,7 @@ function blankCellDatabase(ledger?: 'error' | 'zero') {
       if (fn !== 'record_authoring_change') throw new Error(`Unexpected RPC ${fn}`)
       if (ledger === 'error') throw new Error('Ledger unavailable')
       if (ledger === 'zero') return null
+      if (ledger === 'nil') return '00000000-0000-0000-0000-000000000000'
       database.tables.authoring_changes.push({ id, ...args })
       return id
     },
@@ -147,7 +175,7 @@ function blankCellDatabase(ledger?: 'error' | 'zero') {
 describe('status-only authoring through the mutation and durable/session ledgers', () => {
   it('changes a blank cell status, preserving text and placements, with one exact inverse', async () => {
     const db = blankCellDatabase()
-    const changeId = await updateCellStatus(db.client, 'blank-cell', 'deprecated', 'live')
+    const changeId = await updateCellStatus(db.client, { cellId: 'blank-cell', status: 'deprecated', expectedStatus: 'live' })
     const read = await db.client.from('cells').select('*').eq('id', 'blank-cell').maybeSingle()
     expect(read.data).toMatchObject({ content: '', summary: 'Keep this', status: 'deprecated' })
     expect(db.tables.cell_touchpoints).toEqual([{ id: 'placement', cell_id: 'blank-cell', name: 'Keep placement', position: 0 }])
@@ -161,9 +189,17 @@ describe('status-only authoring through the mutation and durable/session ledgers
     expect(db.rpcs.map((rpc) => rpc.fn)).toEqual(['record_authoring_change'])
   })
 
+  it('treats a matching same-status request as a no-op', async () => {
+    const db = blankCellDatabase()
+    expect(await updateCellStatus(db.client, { cellId: 'blank-cell', status: 'live', expectedStatus: 'live' })).toBeNull()
+    expect(db.updates).toHaveLength(0)
+    expect(db.rpcs).toHaveLength(0)
+    expect(sessionSnapshot()).toHaveLength(0)
+  })
+
   it('restores status from the branded session inverse without another record or text sync', async () => {
     const db = blankCellDatabase()
-    await updateCellStatus(db.client, 'blank-cell', 'built', 'live')
+    await updateCellStatus(db.client, { cellId: 'blank-cell', status: 'built', expectedStatus: 'live' })
     await executeRevert(db.client, sessionSnapshot()[0])
     const read = await db.client.from('cells').select('*').eq('id', 'blank-cell').maybeSingle()
     expect(read.data).toMatchObject({ status: 'live', content: '', summary: 'Keep this' })
@@ -174,8 +210,8 @@ describe('status-only authoring through the mutation and durable/session ledgers
 
   it('refuses stale or missing cells without a write or inverse record', async () => {
     const db = blankCellDatabase()
-    await expect(updateCellStatus(db.client, 'blank-cell', 'deprecated', 'built')).rejects.toThrow(/status changed/)
-    await expect(updateCellStatus(db.client, 'missing', 'deprecated', 'live')).rejects.toThrow(/no longer exists/)
+    await expect(updateCellStatus(db.client, { cellId: 'blank-cell', status: 'deprecated', expectedStatus: 'built' })).rejects.toThrow(/status changed/)
+    await expect(updateCellStatus(db.client, { cellId: 'missing', status: 'deprecated', expectedStatus: 'live' })).rejects.toThrow(/no longer exists/)
     expect(db.updates).toHaveLength(0)
     expect(db.tables.authoring_changes).toHaveLength(0)
     expect(sessionSnapshot()).toHaveLength(0)
@@ -184,8 +220,8 @@ describe('status-only authoring through the mutation and durable/session ledgers
   it('allows only one of two competing expected-status writes', async () => {
     const db = blankCellDatabase()
     const outcomes = await Promise.allSettled([
-      updateCellStatus(db.client, 'blank-cell', 'built', 'live'),
-      updateCellStatus(db.client, 'blank-cell', 'planned', 'live'),
+      updateCellStatus(db.client, { cellId: 'blank-cell', status: 'built', expectedStatus: 'live' }),
+      updateCellStatus(db.client, { cellId: 'blank-cell', status: 'planned', expectedStatus: 'live' }),
     ])
     expect(outcomes.filter((one) => one.status === 'fulfilled')).toHaveLength(1)
     expect(outcomes.filter((one) => one.status === 'rejected')).toHaveLength(1)
@@ -193,9 +229,13 @@ describe('status-only authoring through the mutation and durable/session ledgers
     expect(sessionSnapshot()).toHaveLength(1)
   })
 
-  it.each(['error', 'zero'] as const)('surfaces a partial write after a %s ledger failure and retains its inverse', async (failure) => {
+  it.each(['error', 'zero', 'nil'] as const)('surfaces a partial write after a %s ledger failure and retains its inverse', async (failure) => {
     const db = blankCellDatabase(failure)
-    await expect(updateCellStatus(db.client, 'blank-cell', 'deprecated', 'live')).rejects.toThrow(/status changed.*record failed/)
+    const failureResult = await updateCellStatus(db.client, { cellId: 'blank-cell', status: 'deprecated', expectedStatus: 'live' }).catch((error: unknown) => error)
+    expect(failureResult).toBeInstanceOf(PartialAuthoringWriteError)
+    if (!(failureResult instanceof PartialAuthoringWriteError)) throw new Error('Expected a typed partial write')
+    expect(failureResult.entry).toBe(sessionSnapshot()[0])
+    expect(failureResult.cause).toBeInstanceOf(Error)
     const read = await db.client.from('cells').select('*').eq('id', 'blank-cell').maybeSingle()
     expect(read.data).toMatchObject({ status: 'deprecated', content: '' })
     expect(db.tables.authoring_changes).toHaveLength(0)

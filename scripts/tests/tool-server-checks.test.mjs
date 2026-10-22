@@ -28,7 +28,7 @@ it.each([
 async function inToolServerFixture(code, check, files = {}) {
   const root = mkdtempSync(resolve(tmpdir(), 'tool-server-bundle-'))
   try {
-    files = { 'src/index.ts': 'export {}', 'src/lib/agent/server/mcp.ts': code, ...files }
+    files = { 'src/index.ts': 'export {}', 'src/lib/agent/server/searchIndexer.ts': 'export const indexer = 1', 'src/lib/agent/server/mcp.ts': code, ...files }
     for (const [file, text] of Object.entries(files)) {
       const path = resolve(root, file)
       mkdirSync(dirname(path), { recursive: true })
@@ -80,6 +80,7 @@ it('a self-contained fixture builds and writes successfully', async () => {
   await inToolServerFixture('export const value = 1', (result, root) => {
     expect(result.findings).toBeUndefined()
     expect(result.count).toBeGreaterThan(0)
+    expect(readFileSync(resolve(root, 'supabase/functions/index-cell-search/server.generated.js'), 'utf8')).toContain('indexer')
     expect(readFileSync(resolve(root, 'supabase/functions/uno-tools/server.generated.js'), 'utf8')).toContain('value')
   })
 })

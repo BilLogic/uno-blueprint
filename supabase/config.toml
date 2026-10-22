@@ -415,3 +415,7 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 [functions.uno-tools]
 # The handler verifies user JWTs and serves unauthenticated OAuth discovery.
 verify_jwt = false
+
+[functions.index-cell-search]
+# The handler verifies the person and requires confirmation rights before indexing.
+verify_jwt = false

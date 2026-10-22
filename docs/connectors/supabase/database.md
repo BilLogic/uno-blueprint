@@ -961,8 +961,7 @@ caller's configured project and existing profile guard; no argument chooses
 another business or database. No table grants or RLS policies are widened.
 Creation and approval use the existing caller-attributed authoring log.
 Missing-service write refusals point to `list_services` and `create_service`.
-The native and MCP service proofs use disposable scratch databases only;
-the pilot's second service must be created by its person through Uno.
+The native and MCP service proofs use disposable scratch databases only.
 
 ## Remote read and write tools
 

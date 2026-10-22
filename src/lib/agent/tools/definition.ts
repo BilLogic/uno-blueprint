@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
+import { SERVICE_REQUIRED } from '@/lib/agent/tools/serviceRefusal'
 import type { Database } from '@/types/database'
 import type { ToolSpec } from '@/lib/agent/providers/provider'
 import type { AgentSearchIndex } from '@/deploymentConfig'
@@ -85,6 +86,8 @@ export type ToolSession = {
  */
 export type ToolContext = {
   client: Client | null
+  /** True only when this call carries the person's explicit confirmation. */
+  confirmed?: boolean
   /**
    * The scope the session runs under: the resolved active service — what a
    * read covers unless its `service` argument says otherwise, and what a
@@ -151,6 +154,8 @@ export type ToolDefinition<Args extends z.ZodObject = z.ZodObject> = {
    * zod schema exists to prevent.
    */
   aliases?: Record<string, string>
+  /** The canvas must offer the same confirmation metadata as MCP. */
+  confirmation?: boolean
   run: (args: z.infer<Args>, ctx: ToolContext) => Promise<string>
 }
 
@@ -177,6 +182,8 @@ export function defineWriteTool<Args extends z.ZodObject>(definition: {
   description: string
   args: Args
   aliases?: Record<string, string>
+  /** The canvas must offer the same confirmation metadata as MCP. */
+  confirmation?: boolean
   run: (args: z.infer<Args>, ctx: WriteContext) => Promise<string>
 }): ToolDefinition<Args> {
   return {
@@ -186,6 +193,7 @@ export function defineWriteTool<Args extends z.ZodObject>(definition: {
     args: definition.args,
     availability: { sample: false, mobile: false },
     aliases: definition.aliases,
+    confirmation: definition.confirmation,
     run: (args, ctx) => ctx.serverWrite
       ? ctx.serverWrite(definition.name, args)
       : ctx.session.attributed(() => definition.run(args, { ...ctx, client: requireClient(ctx) })),
@@ -210,7 +218,7 @@ export function requireClient(ctx: ToolContext): Client {
  */
 export function requireActiveService(ctx: ToolContext): string {
   if (ctx.scope?.kind === 'service') return ctx.scope.serviceId
-  throw new Error('No service is active — choose one from list_services, or propose create_service and ask someone who may confirm for a yes.')
+  throw new Error(`No service is active. ${SERVICE_REQUIRED}`)
 }
 
 /**
@@ -234,6 +242,7 @@ export function requireScope(ctx: ToolContext): ServiceScope {
  */
 export const arg = {
   text: (description: string) => z.string().min(1).describe(description),
+  name: (description: string) => z.string().trim().min(1).describe(description),
   optionalText: (description: string) =>
     z
       .string()
@@ -251,7 +260,7 @@ export const arg = {
  * adapters expect the object shape and nothing else, and one of them strips
  * both anyway.
  */
-export function toolSpec(definition: ToolDefinition): ToolSpec {
+export function businessToolSpec(definition: ToolDefinition): ToolSpec {
   const {
     $schema: _schema,
     additionalProperties: _additional,
@@ -265,6 +274,17 @@ export function toolSpec(definition: ToolDefinition): ToolSpec {
         : definition.description,
     parameters,
   }
+}
+
+/** The host's confirmation is call metadata, never a blueprint argument. */
+export function toolSpec(definition: ToolDefinition): ToolSpec {
+  const spec = businessToolSpec(definition)
+  if (definition.confirmation) {
+    spec.parameters.properties = { ...(spec.parameters.properties as object), confirmed: {
+      type: 'boolean', description: 'True only after the person explicitly confirmed this change; otherwise record a proposal.',
+    } }
+  }
+  return spec
 }
 
 /**
@@ -284,7 +304,7 @@ export async function runTool(
       .join('; ')
     throw new Error(`${definition.name}: invalid arguments — ${issues}.`)
   }
-  return definition.run(parsed.data, ctx)
+  return definition.run(parsed.data, { ...ctx, confirmed: rawArgs.confirmed === true })
 }
 
 /** The call as sent, with each accepted alias read as the argument it names. */

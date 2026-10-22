@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { asEntityStatus, type EntityStatus } from '@/lib/entityStatus'
 import { toAuthoringError } from '@/lib/authoringErrors'
 import {
   recordChange,
@@ -41,6 +42,9 @@ type Client = SupabaseClient<Database>
 
 /** What `create_scenario` hands back: the blueprint and its first version. */
 export type CreatedScenario = { scenario_id: string; path_id: string }
+
+/** Receipt from an optional host operation that records itself atomically. */
+export type RecordedAuthoringWrite = { id: string; change_id: string }
 
 /**
  * One slice that would lose frames to a delete.
@@ -316,6 +320,29 @@ async function call<T>(
   return data
 }
 
+/** Not a portable-core promise: the host must implement this operation. */
+async function callRecorded<T extends RecordedAuthoringWrite>(
+  client: Client,
+  fn: 'rename_step' | 'move_cell' | 'insert_cell_at_position',
+  args: Record<string, unknown>,
+  options: { record?: boolean },
+): Promise<T> {
+  const data = await invoke<T>(client, fn, args)
+  const cellKey = (data as (RecordedAuthoringWrite & { cell_key?: unknown }) | null)?.cell_key
+  if (!data || typeof data.id !== 'string' || !data.id.trim()
+      || typeof data.change_id !== 'string' || !data.change_id.trim()
+      || (fn === 'rename_step' && data.id !== args.step_id)
+      || (fn === 'move_cell' && data.id !== args.cell_id)
+      || (fn === 'insert_cell_at_position' && (typeof cellKey !== 'string' || !cellKey.trim()))) {
+    throw new Error('The authoring operation returned no matching row or durable change id; read back before retrying.')
+  }
+  const inverse = deriveRevert(fn, args, data)
+  if (!inverse) throw new Error('The authoring operation has no supported inverse.')
+  invalidateAfterRpc(fn, args)
+  if (options.record !== false) recordChange(fn, args, inverse)
+  return data
+}
+
 /**
  * A **read**: run it and log nothing.
  *
@@ -348,9 +375,9 @@ function read<T>(
  * The inverse of a change, derived at the only moment it is cheap: right
  * after the call, while the returned id is in hand.
  *
- * Only *creations* derive an inverse here — the created thing's id came back
- * from the call, and deleting it restores the world exactly. Renames and
- * reorders need before-state their wrappers must pass explicitly; deletes
+ * Creations use the returned identity. Guarded host operations use their
+ * expected-before arguments, which the host verifies before committing.
+ * Other renames and reorders pass a captured inverse explicitly; deletes
  * have no inverse RPC and stay non-revertible per row.
  */
 function deriveRevert(
@@ -359,6 +386,12 @@ function deriveRevert(
   data: unknown,
 ): RevertSpec | undefined {
   switch (fn) {
+    case 'move_cell':
+      return { fn: 'move_cell', args: { cell_id: args.cell_id, expected_source: args.destination, destination: args.expected_source } }
+    case 'insert_cell_at_position':
+      return { fn: 'delete_cell', args: { cell_id: (data as RecordedAuthoringWrite).id } }
+    case 'rename_step':
+      return { fn: 'rename_step', args: { step_id: args.step_id, expected_name: args.new_name, new_name: args.expected_name } }
     case 'add_step':
       return typeof data === 'string'
         ? { fn: 'remove_step', args: { path_id: args.path_id, step_id: data } }
@@ -654,6 +687,57 @@ export function renamePath(
         }
       : undefined,
   )
+}
+
+/** Rename by identity only when the host offers the guarded optional RPC. */
+export function renameStep(
+  client: Client,
+  input: { stepId: string; expectedName: string; name: string },
+  options: { record?: boolean } = {},
+): Promise<RecordedAuthoringWrite> {
+  if (!input.name.trim() || !input.expectedName.trim()) throw new Error('A step rename requires nonempty names.')
+  return callRecorded(client, 'rename_step', {
+    step_id: input.stepId, expected_name: input.expectedName, new_name: input.name,
+  }, options)
+}
+
+/** A cell's full slot, including the secondary position within its square. */
+export type CellCoordinates = { path_id: string; lane_id: string; step_id: string; position: number }
+
+function capturedCoordinates(value: CellCoordinates): CellCoordinates {
+  if (!value || typeof value.path_id !== 'string' || !value.path_id.trim()
+      || typeof value.lane_id !== 'string' || !value.lane_id.trim()
+      || typeof value.step_id !== 'string' || !value.step_id.trim()
+      || !Number.isSafeInteger(value.position) || value.position < 0) {
+    throw new Error('A cell slot requires parent identities and a nonnegative integer position.')
+  }
+  return { path_id: value.path_id, lane_id: value.lane_id, step_id: value.step_id, position: value.position }
+}
+
+/** Optional host RPC: preserves identity and refuses an occupied destination. */
+export function moveCell(
+  client: Client,
+  input: { cellId: string; expectedSource: CellCoordinates; destination: CellCoordinates },
+  options: { record?: boolean } = {},
+): Promise<RecordedAuthoringWrite> {
+  return callRecorded(client, 'move_cell', {
+    cell_id: input.cellId,
+    expected_source: capturedCoordinates(input.expectedSource),
+    destination: capturedCoordinates(input.destination),
+  }, options)
+}
+
+/** Optional host RPC: creates a new identity at a vacant explicit slot. */
+export function insertCellAtPosition(
+  client: Client,
+  input: { pathId: string; laneId: string; stepId: string; position: number; content: string; status: EntityStatus },
+): Promise<RecordedAuthoringWrite & { cell_key: string }> {
+  const slot = capturedCoordinates({ path_id: input.pathId, lane_id: input.laneId, step_id: input.stepId, position: input.position })
+  if (!input.content.trim() || !asEntityStatus(input.status)) throw new Error('Insertion requires content and an explicit valid status.')
+  return callRecorded(client, 'insert_cell_at_position', {
+    path_id: slot.path_id, lane_id: slot.lane_id, step_id: slot.step_id, at_position: slot.position,
+    content: input.content, status: input.status,
+  }, {})
 }
 
 /** Add a column to a version. `atPosition` inserts; omitted appends. */

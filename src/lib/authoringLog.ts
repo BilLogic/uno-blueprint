@@ -73,6 +73,13 @@ export const ARCHIVED_BY_THE_DATABASE: ReadonlySet<string> = new Set([
   'remove_step',
 ])
 
+/** Optional host RPCs: wrappers require a durable receipt before recording. */
+export const RECORDED_BY_THE_HOST: ReadonlySet<string> = new Set([
+  'rename_step',
+  'move_cell',
+  'insert_cell_at_position',
+])
+
 /**
  * The row one recorded change becomes, or `null` when the database already
  * wrote it.
@@ -84,7 +91,7 @@ export const ARCHIVED_BY_THE_DATABASE: ReadonlySet<string> = new Set([
  * the only thing that makes an agent's writes accountable.
  */
 export function authoringLogRow(entry: ChangeEntry): AuthoringLogRow | null {
-  if (ARCHIVED_BY_THE_DATABASE.has(entry.fn)) return null
+  if (ARCHIVED_BY_THE_DATABASE.has(entry.fn) || RECORDED_BY_THE_HOST.has(entry.fn)) return null
   const isAgent = entry.author === 'agent' && Boolean(entry.agentSessionId)
   return {
     fn: entry.fn,
@@ -102,6 +109,20 @@ export function authoringLogRow(entry: ChangeEntry): AuthoringLogRow | null {
 }
 
 export type AuthoringLogWriter = (row: AuthoringLogRow) => Promise<unknown>
+
+/** A command whose success includes the record must await its actual id. */
+export async function appendRequiredAuthoringLog(
+  entry: ChangeEntry,
+  write: AuthoringLogWriter,
+): Promise<string> {
+  const row = authoringLogRow(entry)
+  if (!row) throw new Error('This operation records itself in the database.')
+  const id = await write(row)
+  if (typeof id !== 'string' || !id.trim()) {
+    throw new Error('The authoring log returned no change id.')
+  }
+  return id
+}
 
 let writer: AuthoringLogWriter | null = null
 
@@ -124,9 +145,9 @@ export function setAuthoringLogWriter(next: AuthoringLogWriter | null): void {
  * the time this runs; making the UI report an error because the AUDIT append
  * failed would tell an author their edit did not save when it did, which is a
  * worse lie than the missing row. The failure is loud in the console and
- * nowhere else, and it is the one thing here that is not enforced — a log that
- * could reject a write it is only observing would be a second gate that no
- * writer asked for.
+ * nowhere else. Commands whose success explicitly requires a durable receipt
+ * use `appendRequiredAuthoringLog` through `recordChange` instead; they surface
+ * a failed append as a partial write and keep the session inverse.
  */
 export function appendToAuthoringLog(entry: ChangeEntry): void {
   if (!writer) return
@@ -150,11 +171,12 @@ export function supabaseAuthoringLogWriter(
     // The function defaults `revert` and `agent_session_id` to null, so an
     // argument left out and one sent as null are the same call; the generated
     // types spell an optional argument as absent, and this is that spelling.
-    const { error } = await client.rpc('record_authoring_change', {
+    const { data, error } = await client.rpc('record_authoring_change', {
       ...row,
       revert: row.revert ?? undefined,
       agent_session_id: row.agent_session_id ?? undefined,
     })
     if (error) throw error
+    return data
   }
 }

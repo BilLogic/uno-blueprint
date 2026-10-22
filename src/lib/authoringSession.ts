@@ -39,7 +39,7 @@
  * path — not because nobody has tried, but because it does not compile.
  * `revertBoundaryContract.test.ts` holds the rest of the argument.
  */
-import { appendToAuthoringLog } from '@/lib/authoringLog'
+import { appendToAuthoringLog, appendRequiredAuthoringLog, type AuthoringLogWriter } from '@/lib/authoringLog'
 
 /**
  * How to take one change back: the operation that undoes it, captured at
@@ -71,6 +71,9 @@ export type WriteFn =
   | 'duplicate_scenario'
   | 'rename_phase'
   | 'rename_scenario'
+  | 'move_cell'
+  | 'insert_cell_at_position'
+  | 'rename_step'
   | 'update_scenario_layout'
   | 'rename_path'
   | 'rename_owner_tag'
@@ -78,6 +81,7 @@ export type WriteFn =
   | 'add_lane'
   | 'upsert_cell'
   | 'update_cell_content'
+  | 'update_cell_status'
   | 'update_cell_resources'
   | 'update_placement_resources'
   | 'set_featured_resource'
@@ -244,7 +248,19 @@ export function recordChange(
   fn: WriteFn,
   args: Record<string, unknown>,
   revert?: RevertSpec,
-): void {
+): void
+export function recordChange(
+  fn: WriteFn,
+  args: Record<string, unknown>,
+  revert: RevertSpec,
+  options: { durableWriter: AuthoringLogWriter },
+): Promise<string>
+export function recordChange(
+  fn: WriteFn,
+  args: Record<string, unknown>,
+  revert?: RevertSpec,
+  options?: { durableWriter: AuthoringLogWriter },
+): void | Promise<string> {
   counter += 1
   const entry: ChangeEntry = {
     id: `c${counter}`,
@@ -265,9 +281,10 @@ export function recordChange(
   emit()
   // The durable half. Here and not at the call sites for the same reason the
   // array is filled here: one funnel, so the record and the list cannot
-  // disagree about what happened. It never throws — the write it describes
-  // has already landed, and failing an author's save because an audit append
-  // did not is a worse lie than the missing row.
+  // disagree about what happened. Ordinary saves retain best-effort append;
+  // commands requiring durable completion await their own client's writer.
+  // The inverse remains in the session if that append fails after the write.
+  if (options) return appendRequiredAuthoringLog(entry, options.durableWriter)
   appendToAuthoringLog(entry)
 }
 
@@ -346,6 +363,9 @@ const DESCRIBERS: Record<WriteFn, (entry: ChangeEntry) => string> = {
     `Duplicated a blueprint as${named(entry) || ' a copy'}`,
   rename_phase: (entry) => `Renamed a phase${renameTo(entry)}`,
   rename_scenario: (entry) => `Renamed a scenario${renameTo(entry)}`,
+  move_cell: () => 'Moved a cell',
+  insert_cell_at_position: () => 'Added a cell',
+  rename_step: (entry) => `Renamed a step${renameTo(entry)}`,
   update_scenario_layout: (entry) =>
     `Showed a scenario ${entry.args.layout === 'merged' ? 'merged' : 'stacked'}`,
   rename_path: (entry) => `Renamed a path${renameTo(entry)}`,
@@ -369,6 +389,7 @@ const DESCRIBERS: Record<WriteFn, (entry: ChangeEntry) => string> = {
   upsert_cell: (entry) =>
     entry.revert?.fn === 'delete_cell' ? 'Added a cell' : 'Edited a cell’s text',
   update_cell_content: () => 'Edited a cell’s text',
+  update_cell_status: () => 'Changed a cell’s status',
   update_cell_resources: () => 'Edited a cell’s resources',
   update_placement_resources: () => 'Edited a touchpoint’s resources at this cell',
   set_featured_resource: (entry) =>

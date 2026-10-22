@@ -120,6 +120,52 @@ and return shapes — as the generated portable core carries them — are **norm
 the generated `Database['public']['Functions']` types are the client's
 compile-time contract.
 
+### Optional host authoring operations
+
+`authoringRpc.ts` also exports `renameStep`, `moveCell` and
+`insertCellAtPosition`. These are opt-in host capabilities, absent from the
+portable core. Installing this client does not install their RPCs. A host
+must supply the matching operations and its existing write-tier guard:
+
+| RPC | Arguments | Success receipt |
+| --- | --- | --- |
+| `rename_step` | `step_id`, `expected_name`, `new_name` | `id`, `change_id` |
+| `move_cell` | `cell_id`, `expected_source`, `destination` | `id`, `change_id` |
+| `insert_cell_at_position` | `path_id`, `lane_id`, `step_id`, `at_position`, `content`, `status` | `id`, `change_id`, `cell_key` |
+
+A move's coordinates contain `path_id`, `lane_id`, `step_id` and `position`.
+The host must reject stale expected values and occupied slots, preserve
+identities on rename/move, and atomically record each write with its inverse
+in `authoring_changes`. Names are exact strings, including surrounding
+spaces. Insertion creates a new identity and never overwrites an existing
+cell. These wrappers require nonempty receipt identities and a matching
+identity for rename/move. Missing RPCs and malformed receipts throw; a failed
+receipt requires read-back before retry because the server may have committed.
+The caller must still verify the row and ledger against the approved edit.
+
+The wrappers construct supported session inverses from their typed operation
+arguments and returned identity; they never hydrate a server-provided inverse.
+They skip a second client append. Undo of rename/move uses the same guarded
+host operation and validates its new receipt, without adding a session entry.
+Insertion's captured delete is for human undo; automation must not execute it.
+No UI affordance or agent tool is added by these exports.
+
+`cellContentMutations.updateCellStatus` supports blank cells: it captures the
+old status, compares it with the caller's expected status, updates only that
+column with the same guard, and requires a returned row. Text and placements
+stay intact. It awaits `recordChange`'s durable writer and returns the change
+ID. The column update and append are separate requests: an append failure is
+a **partial write**, reported as such with the inverse retained in the session.
+Read back before recovery; retrying blindly can lose the pre-write state.
+Status undo uses the branded session inverse and suppresses another client
+append, like existing panel undo. The ordinary best-effort logging mode is
+unchanged.
+
+Client regression tests use the in-memory database boundary to check
+arguments, receipts, read-back and session behavior. They do not prove SQL
+transactions, grants, row policies or a hosted deployment. Hosts must prove
+those properties against their own migrations before enabling these operations.
+
 ### 2. The direct table-write surface
 
 Non-structural edits go straight at tables and must be honored with the

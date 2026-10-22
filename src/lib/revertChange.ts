@@ -4,11 +4,13 @@ import type { SessionEntry } from '@/lib/authoringSession'
 import {
   restoreCellTouchpoints,
   updateCellContent,
+  updateCellStatus,
   writeCellResources,
   type CellContentUpdate,
   type RemovedPlacement,
   type ResourceRowInput,
 } from '@/lib/cellContentMutations'
+import { asEntityStatus } from '@/lib/entityStatus'
 import {
   writePlacementResources,
   type PlacementResourceRowInput,
@@ -47,7 +49,7 @@ import {
 import { removeSlideUploadObjects } from '@/lib/illustrationUpload'
 import { restoreSlideImageSet, sliceWritten, type SlideImageMemberInput } from '@/lib/sliceMutations'
 import { requireRowsWritten } from '@/lib/optimisticConcurrency'
-import { invalidateAfterRpc } from '@/lib/authoringRpc'
+import { renameStep, moveCell, type CellCoordinates, invalidateAfterRpc } from '@/lib/authoringRpc'
 import { updateFinding, type FindingUpdate } from '@/lib/findingMutations'
 import type { Database, Json } from '@/types/database'
 
@@ -122,6 +124,29 @@ export async function executeRevert(
   }
 
   switch (revert.fn) {
+    case 'rename_step': {
+      await renameStep(client, {
+        stepId: stringArg(revert.args, 'step_id'),
+        expectedName: stringArg(revert.args, 'expected_name'),
+        name: stringArg(revert.args, 'new_name'),
+      }, { record: false })
+      return
+    }
+    case 'move_cell': {
+      await moveCell(client, {
+        cellId: stringArg(revert.args, 'cell_id'),
+        expectedSource: revert.args.expected_source as CellCoordinates,
+        destination: revert.args.destination as CellCoordinates,
+      }, { record: false })
+      return
+    }
+    case 'update_cell_status': {
+      const status = asEntityStatus(revert.args.status)
+      const expected = asEntityStatus(revert.args.expected_status)
+      if (!status || !expected) throw new Error('This status inverse is missing valid statuses.')
+      await updateCellStatus(client, stringArg(revert.args, 'cell_id'), status, expected, { record: false })
+      return
+    }
     case 'update_cell_content': {
       const cellId = stringArg(revert.args, 'cell_id')
       const update = revert.args.update as CellContentUpdate

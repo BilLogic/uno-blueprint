@@ -2890,3 +2890,9 @@ end $$;
 
 -- host request roles must not call the trigger helper.
 revoke all on function public.capture_agent_prior_rows() from anon,authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000316000000_structure_writes_refuse_unapplied_changes.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+revoke all on function public.agent_service_required_message() from anon, authenticated;

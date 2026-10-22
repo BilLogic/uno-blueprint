@@ -11,6 +11,9 @@ import { createToolServer } from '@/lib/agent/server/mcp'
 import { POSTGREST_URL, postgrestClientAs, postgrestFetch } from '@/test/postgrestDatabase'
 import { openMcpHttp } from '@/test/mcpHttp'
 import { useCanvasBlueprints } from '@/hooks/useCanvasBlueprints'
+import { runTool } from '@/lib/agent/tools/definition'
+import { findToolDefinition } from '@/lib/agent/tools/definitions'
+import { fakeToolContext } from '@/lib/agent/tools/definitions/testContext'
 import { useServicePhases } from '@/hooks/useServicePhases'
 
 const context = vi.hoisted(() => ({ client: null as SupabaseClient<Database> | null }))
@@ -56,11 +59,24 @@ it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('journey names per
     }
     const oldNames = ['Initial phase', 'Initial scenario', 'Receive answer', 'Initial lane']
     await waitFor(() => expect(shown()).toEqual(oldNames))
+    const otherService = (await call(owner, 'create_service', { name: 'Other test-only service' })).result as string
     const levels = ['phase', 'scenario', 'step', 'lane'] as const
     const ids = [phase, scenario, step, lane]
     const tables = ['phases', 'scenarios', 'steps', 'lanes'] as const
     for (const [i, level] of levels.entries()) {
       const args = { [`${level}_id`]: ids[i], name: `Named ${level}` }
+      if (level === 'step' || level === 'lane') {
+        for (const bad of [
+          { ...args, [`${level}_id`]: crypto.randomUUID() },
+          { ...args, name: '   ' },
+          { ...args, service_id: otherService },
+        ]) {
+          const refused = await owner.callTool({ name: `update_${level}`, arguments: { ...bad, confirmed: true } })
+          expect(refused.isError).toBe(true)
+          expect(JSON.stringify(refused.content)).toMatch(/read|blank|invalid arguments/i)
+          expect((await db.from(tables[i]).select('name').eq('id', ids[i]).single()).data?.name).toBe(oldNames[i])
+        }
+      }
       expect((await call(owner, `update_${level}`, args)).outcome).toBe('applied')
       const log = await db.from('authoring_changes').select('author_id,revert').eq('fn', `update_${level}`).single()
       expect(log.error).toBeNull()
@@ -80,6 +96,27 @@ it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('journey names per
     const invalid = await owner.callTool({ name: 'create_scenario', arguments: { phase_id: phase, name: 'Invalid', step_count: 3, step_names: ['One'], confirmed: true } })
     expect(invalid.isError).toBe(true)
     expect((await db.from('scenarios').select('id').eq('name', 'Invalid')).data).toEqual([])
+    const canvasContext = fakeToolContext({ client: db, session: { id: crypto.randomUUID(), attributed: work => work() }, scope: { kind: 'service', serviceId: service, serviceName: 'Structure test only' } })
+    for (const [name, args] of [
+      ['create_service', { name: 'Canvas test only' }],
+      ['create_scenario', { phase_id: phase, name: 'Canvas initial scenario', step_count: 2 }],
+      ...levels.map((level, i) => [`update_${level}`, { [`${level}_id`]: ids[i], name: `Canvas ${level}` }]),
+    ] as [string, Record<string, unknown>][]) {
+      const tool = findToolDefinition(name)!
+      const before = await db.from('services').select('id,name').order('id')
+      const proposal = JSON.parse(await runTool(tool, args, canvasContext))
+      expect(proposal).toMatchObject({ outcome: 'proposed', message: expect.stringContaining('approve') })
+      expect((await db.from('services').select('id,name').order('id')).data).toEqual(before.data)
+      for (const [i, table] of tables.entries())
+        expect((await db.from(table).select('name').eq('id', ids[i]).single()).data?.name).toBe(`Named ${levels[i]}`)
+      expect(JSON.parse(await runTool(tool, { ...args, confirmed: true }, canvasContext)).outcome).toBe('applied')
+      if (name.startsWith('update_')) {
+        const i = levels.indexOf(name.slice(7) as typeof levels[number])
+        // Later calls compare the canvas's now-confirmed name.
+        await call(owner, name, { ...args, name: `Named ${levels[i]}` })
+      }
+    }
+
   } finally {
     cleanup(); cache.clear(); context.client = null
     await Promise.all(clients.map(client => client.close())); await http.close(); vi.unstubAllGlobals()

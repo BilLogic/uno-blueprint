@@ -1,13 +1,13 @@
 import { BLUEPRINT_INSERT_HIT_HALF } from '@/lib/blueprintLayout'
 import {
   useLayoutEffect,
-  useRef,
   useState,
   type RefObject,
 } from 'react'
 import { Plus } from 'lucide-react'
 import { IconTooltip } from '@/components/editor/IconTooltip'
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent } from '@/components/ui/popover'
 import { useAtScenarioLevel, useEditor } from '@/contexts/EditorContext'
 import { useCanvasModeValue } from '@/contexts/canvasModeContext'
 import { useCellPick } from '@/contexts/cellPickContext'
@@ -15,21 +15,16 @@ import { useSupabase } from '@/contexts/SupabaseProvider'
 import { addLane } from '@/lib/authoringRpc'
 import { errorMessage } from '@/lib/utils'
 
-type Boundary = { at: number; y: number }
+type Boundary = { storedPosition: number; y: number }
 
 /**
  * Insert handles between lanes — the missing "add row".
  *
- * Mirrors `BlueprintColumnHandles` in every convention that matters: Edit
- * mode at scenario level only, measured off the rendered rows rather than
- * recomputed from data, hit bands wider than the hairline they reveal.
- *
- * One difference is forced by the operation itself: `add_lane` requires a
- * name. A blank *column* names itself in place on the grid, but a lane's
- * name is its rail label — a nameless lane is an invisible row. So the
- * click opens a small inline name field at the insert point, and Enter
- * creates. Lanes are also scenario-wide (every path gets the row), which is
- * why this asks the editor for the selected scenario rather than a path.
+ * Available in Design mode at scenario level, with hit bands measured from
+ * rendered rows. Clicking a handle opens the shared portaled popover anchored
+ * to that button, so the name field clears the canvas stacking contexts.
+ * Enter creates the named lane. Lanes are scenario-wide (every path gets the
+ * row), so insertion uses the selected scenario and the row's stored position.
  */
 export function BlueprintLaneHandles({
   bodyRef,
@@ -56,12 +51,12 @@ function BlueprintLaneHandlesActive({
   const { client } = useSupabase()
   const { selectedScenarioId } = useEditor()
   const [boundaries, setBoundaries] = useState<Boundary[]>([])
-  const [bodyWidth, setBodyWidth] = useState(0)
-  const [naming, setNaming] = useState<Boundary | null>(null)
+  const [naming, setNaming] = useState<
+    (Boundary & { anchor: HTMLElement }) | null
+  >(null)
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
 
   const active =
     atScenarioLevel &&
@@ -89,7 +84,16 @@ function BlueprintLaneHandlesActive({
     const rows = Array.from(
       body.querySelectorAll<HTMLElement>('[data-blueprint-row][data-lane-id]'),
     )
-    if (rows.length === 0) return
+    const storedPositions = rows.map((row) => {
+      const value = row.dataset.lanePosition
+      return value?.trim() ? Number(value) : NaN
+    })
+    // Invalid DOM metadata must neither reach the write nor defeat equality
+    // (NaN !== NaN would keep this measuring effect updating forever).
+    if (rows.length === 0 || storedPositions.some((position) => !Number.isFinite(position))) {
+      if (boundaries.length > 0) setBoundaries([])
+      return
+    }
 
     const bodyBox = body.getBoundingClientRect()
     // Client rects are camera-SCALED, but this overlay renders inside the
@@ -97,23 +101,24 @@ function BlueprintLaneHandlesActive({
     // boundary drifts by (scale − 1) · y, worst at the bottom lanes (the
     // same un-projection the annotation layer needed).
     const scale = body.offsetWidth > 0 ? bodyBox.width / body.offsetWidth : 1
-    const next: Boundary[] = rows.map((row, index) => ({
-      at: index,
+    const next: Boundary[] = rows.map((row, rowIndex) => ({
+      storedPosition: storedPositions[rowIndex],
       y: (row.getBoundingClientRect().top - bodyBox.top) / scale,
     }))
     const last = rows[rows.length - 1].getBoundingClientRect()
-    next.push({ at: rows.length, y: (last.bottom - bodyBox.top) / scale })
+    next.push({
+      storedPosition: storedPositions[storedPositions.length - 1] + 1,
+      y: (last.bottom - bodyBox.top) / scale,
+    })
 
-    const width = body.offsetWidth
     const same =
       next.length === boundaries.length &&
       next.every(
         (entry, index) =>
           Math.abs(entry.y - boundaries[index].y) < 0.5 &&
-          entry.at === boundaries[index].at,
+          entry.storedPosition === boundaries[index].storedPosition,
       )
     if (!same) setBoundaries(next)
-    if (Math.abs(width - bodyWidth) > 0.5) setBodyWidth(width)
   })
 
   if (!active || boundaries.length === 0) return null
@@ -128,7 +133,7 @@ function BlueprintLaneHandlesActive({
       await addLane(client, {
         scenarioId: selectedScenarioId,
         name: trimmed,
-        atPosition: naming.at,
+        atPosition: naming.storedPosition,
       })
       setNaming(null)
       setName('')
@@ -143,7 +148,7 @@ function BlueprintLaneHandlesActive({
     <div className="pointer-events-none absolute inset-0 z-30" aria-hidden={false}>
       {boundaries.map((boundary) => (
         <div
-          key={boundary.at}
+          key={boundary.storedPosition}
           className="group/lane-insert pointer-events-auto absolute left-0 flex w-full items-center"
           style={{
             top: boundary.y - BLUEPRINT_INSERT_HIT_HALF,
@@ -154,11 +159,11 @@ function BlueprintLaneHandlesActive({
             <button
               type="button"
               aria-label={`Insert a lane here`}
-              onClick={() => {
-                setNaming(boundary)
+              onClick={(event) => {
+                event.stopPropagation()
+                setNaming({ ...boundary, anchor: event.currentTarget })
                 setName('')
                 setError(null)
-                requestAnimationFrame(() => inputRef.current?.focus())
               }}
               className="flex w-full items-center gap-1 opacity-0 transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none group-hover/lane-insert:opacity-100 focus-visible:opacity-100"
             >
@@ -171,33 +176,33 @@ function BlueprintLaneHandlesActive({
         </div>
       ))}
 
-      {naming ? (
-        <div
-          className="pointer-events-auto absolute left-6 z-40 flex items-center gap-2 rounded-md border border-border bg-popover p-2 shadow-md"
-          style={{ top: naming.y - 16, width: Math.min(260, bodyWidth - 48) }}
-        >
+      <Popover
+        open={naming !== null}
+        onOpenChange={(open) => {
+          if (!open && !busy) setNaming(null)
+        }}
+      >
+        <PopoverContent anchor={naming?.anchor} align="start" side="bottom">
           <Input
-            ref={inputRef}
+            aria-label="Lane name"
             value={name}
+            disabled={busy}
             placeholder="Lane name"
             className="h-6 flex-1 text-xs"
             onChange={(event) => setName(event.target.value)}
             onKeyDown={(event) => {
+              event.stopPropagation()
               if (event.key === 'Enter') void create()
-              if (event.key === 'Escape') setNaming(null)
-            }}
-            onBlur={() => {
-              // A click elsewhere abandons quietly; Enter is the commit.
-              if (!busy) setNaming(null)
+              if (event.key === 'Escape' && !busy) setNaming(null)
             }}
           />
           {error ? (
-            <span className="max-w-40 truncate text-xs text-destructive">
+            <span role="alert" className="text-xs text-destructive">
               {error}
             </span>
           ) : null}
-        </div>
-      ) : null}
+        </PopoverContent>
+      </Popover>
     </div>
   )
 }

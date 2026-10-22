@@ -120,15 +120,13 @@ function LanePanelBody({
   const ownerTags =
     ownerTagsResult.status === 'ready' ? ownerTagsResult.data : []
 
-  // Frozen at mount, for the same reason the cell editor freezes its baseline:
-  // the query keeps tracking the database, and a revert landing mid-edit would
-  // otherwise let Save write the reverted values straight back.
-  const [baseline] = useState<FormState>({
+  const saved: FormState = {
     ownerTeam: lane.ownerTeam,
     kpis: lane.kpis,
     tools: lane.tools,
     stakeholderId: lane.stakeholderId,
-  })
+  }
+  const [baseline, setBaseline] = useState<FormState>(saved)
   const [form, setForm] = useState<FormState>(baseline)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -142,6 +140,13 @@ function LanePanelBody({
     form.ownerTeam !== baseline.ownerTeam ||
     JSON.stringify(form.kpis) !== JSON.stringify(baseline.kpis) ||
     JSON.stringify(form.tools) !== JSON.stringify(baseline.tools)
+
+  // Cache revalidation may finish after this panel opens. Adopt it only before
+  // the author types, preserving both a draft and its original undo baseline.
+  if (!changed && !busy && JSON.stringify(saved) !== JSON.stringify(baseline)) {
+    setBaseline(saved)
+    setForm(saved)
+  }
 
   const handleSave = async () => {
     if (!client || busy || !changed) return

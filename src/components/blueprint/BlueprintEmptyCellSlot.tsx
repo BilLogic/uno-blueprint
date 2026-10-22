@@ -92,6 +92,7 @@ export function BlueprintEmptyCellSlot({
           })
         }}
         data-blueprint-empty-slot=""
+        data-step-index={stepIndex}
         className={cn(
           'group/slot shrink-0 rounded-md border border-dashed border-transparent',
           stretch,

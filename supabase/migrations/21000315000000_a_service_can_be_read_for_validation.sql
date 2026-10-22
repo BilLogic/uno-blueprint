@@ -1,3 +1,4 @@
+-- Authored 2026-10-20.
 -- One statement gives validation a consistent, complete snapshot without
 -- changing rows or inheriting the Data API's row limit on a tree of reads.
 create function public.read_service_blueprint(p_service_id uuid) returns jsonb

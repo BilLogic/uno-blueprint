@@ -172,6 +172,7 @@ const NOT_A_SWEEP = new Set([
  * thirty-first file with the defect.
  */
 const FIXTURE_ONLY = new Map([
+  ['scripts/tests/validation-rules.test.mjs', 'The bundled schema paths belong to the temporary validation-rules fixture tree.'],
   [
     'scripts/tests/tool-server-checks.test.mjs',
     'the minimal tool-server application and browser-session module it builds in temporary fixture roots, then removes after judging each bundle',

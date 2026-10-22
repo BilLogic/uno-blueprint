@@ -53,6 +53,7 @@ jobs:
       - run: npm run check:version
       # The two v1 adapters carry the same fields, and the IR round-trip
       # suite — which until now existed as a script nobody ran.
+      - run: npm run check:validation-rules
       - run: npm run check:parity
       - run: npm run check:portable-core
       # The instance's rename map, read from GitHub, against the schema the

@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { expect, it } from 'vitest'
+import { pythonVerdicts } from '@/test/blueprintValidatorParity'
 import { validateDocument } from './service'
 
 type Example = { name: string; document: unknown }
@@ -35,21 +36,11 @@ change(['service', 'phases', 0, 'scenarios', 0, 'paths', 0, 'cells', 0, 'frame']
 change(['service', 'phases', 0, 'scenarios', 0, 'paths', 0, 'cells', 0, 'picture'], 'https://example.test/frame.png')
 
 it(`stored-blueprint verdicts agree with Python across ${examples.length} field and integrity mutations`, () => {
-  const answers: { valid: boolean; warnings: number }[] = JSON.parse(execFileSync('python3', ['-c', `
-import json,sys
-sys.path.insert(0,'scripts')
-from validate_ir import Report,validate_document
-answers=[]
-for doc in json.load(sys.stdin):
-    report=Report('parity')
-    validate_document(doc,report)
-    answers.append({'valid':not report.errors,'warnings':len(report.warnings)})
-print(json.dumps(answers))
-`], { input: JSON.stringify(examples.map(example => example.document)), encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 }))
+  const answers = pythonVerdicts(examples.map(example => example.document))
   const mismatches = examples.flatMap((example, i) => {
     const result = validateDocument(example.document)
     const actual = result.errors.length === 0
-    return actual === answers[i].valid && (!actual || result.warnings.length === answers[i].warnings) ? [] : [{ case: example.name, python: answers[i], server: { valid: actual, warnings: result.warnings.length } }]
+    return JSON.stringify(result.errors.map(e => e.path).sort()) === JSON.stringify(answers[i].paths) && actual === answers[i].valid && (!actual || result.warnings.length === answers[i].warnings) ? [] : [{ case: example.name, python: answers[i], server: { valid: actual, warnings: result.warnings.length, paths: result.errors.map(e=>e.path).sort() } }]
   })
   expect(mismatches).toEqual([])
   expect(examples.length).toBeGreaterThan(100)

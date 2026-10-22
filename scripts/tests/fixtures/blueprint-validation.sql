@@ -19,5 +19,5 @@ insert into public.path_steps(path_id,step_id,position) values
  ('a0000000-0000-4000-8000-000000000204','a0000000-0000-4000-8000-000000000203',0);
 insert into public.lanes(id,path_id,name,lane_role,position) values
  ('a0000000-0000-4000-8000-000000000105','a0000000-0000-4000-8000-000000000104','Customer','customer_actions',0);
-insert into public.cells(id,path_id,lane_id,step_id,content) values
- ('a0000000-0000-4000-8000-000000000106','a0000000-0000-4000-8000-000000000104','a0000000-0000-4000-8000-000000000105','a0000000-0000-4000-8000-000000000103','Describe the request');
+insert into public.cells(id,path_id,lane_id,step_id,content,frame) values
+ ('a0000000-0000-4000-8000-000000000106','a0000000-0000-4000-8000-000000000104','a0000000-0000-4000-8000-000000000105','a0000000-0000-4000-8000-000000000103','Describe the request','https://example.test/frame.png');

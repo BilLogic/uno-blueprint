@@ -3,6 +3,8 @@ import { expect, it } from 'vitest'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
 import { createToolServer } from '@/lib/agent/server/mcp'
 import { POSTGREST_URL, postgrestClientAs, postgrestFetch } from '@/test/postgrestDatabase'
+import { pythonVerdicts } from '@/test/blueprintValidatorParity'
+import { serviceDocument, validateDocument } from '@/lib/agent/validation/service'
 import { openMcpHttp } from '@/test/mcpHttp'
 
 it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('a clean service passes and an incomplete path is located for both a confirmer and a contributor, without writing', async () => {
@@ -14,6 +16,14 @@ it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('a clean service p
   const clean = 'a0000000-0000-4000-8000-000000000100'
   const incomplete = 'a0000000-0000-4000-8000-000000000200'
   const before = await Promise.all([clean, incomplete].map(p_service_id => db.rpc('read_service_blueprint', { p_service_id })))
+  const documents = before.map(result => serviceDocument(result.data).document)
+  const expected = pythonVerdicts(documents)
+  for (const [index, document] of documents.entries()) {
+    const result = validateDocument(document)
+    expect(result.errors.map(issue => issue.path).sort()).toEqual(expected[index].paths)
+    expect(result.errors.length === 0).toBe(expected[index].valid)
+    expect(result.warnings.length).toBe(expected[index].warnings)
+  }
   const logBefore = await db.from('authoring_changes').select('id')
   try {
     for (const jwt of [process.env.MCP_TEST_OWNER_JWT!, process.env.MCP_TEST_OTHER_JWT!]) {

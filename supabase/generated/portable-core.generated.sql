@@ -15457,6 +15457,7 @@ end $$;
 -- 21000315000000_a_service_can_be_read_for_validation.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
+-- Authored 2026-10-20.
 -- One statement gives validation a consistent, complete snapshot without
 -- changing rows or inheriting the Data API's row limit on a tree of reads.
 create function public.read_service_blueprint(p_service_id uuid) returns jsonb

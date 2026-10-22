@@ -9,6 +9,7 @@ const cases = {
   '--writes': { test: 'src/lib/agent/server/writes.postgrest.test.ts', fixtures: ['tool-writes'] },
   '--reads': { test: 'src/lib/agent/server/reads.postgrest.test.ts', fixtures: ['mcp-sessions','tool-reads'] },
   '--structure': { test: 'src/lib/agent/server/structure.postgrest.test.tsx', fixtures: ['tool-writes'] },
+  '--validation': { test: 'src/lib/agent/server/validation.postgrest.test.ts', fixtures: ['tool-writes','blueprint-validation'] },
   '--services': { test: 'src/lib/agent/server/services.postgrest.test.ts', fixtures: ['tool-writes','services'] },
   '--authoring': { test: 'src/lib/agent/server/authoring.postgrest.test.tsx', fixtures: ['mcp-sessions','authoring'] },
 }

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { validateService } from '@/lib/agent/validation/service'
 import { SERVICE_REQUIRED } from '@/lib/agent/tools/serviceRefusal'
 import { arg, defineTool, defineWriteTool, requireClient, requireScope } from '@/lib/agent/tools/definition'
 import { structureWrite } from '@/lib/agent/tools/structureWrite'
@@ -40,4 +41,19 @@ export const createServiceTool = defineWriteTool({
   args: z.object({ name: arg.text('Service name'), summary: arg.optionalText('What this service offers; omit for none') }),
   confirmation: true,
   run: structureWrite('create_service'),
+})
+
+export const validateBlueprintTool = defineTool({
+  name: 'validate_blueprint',
+  description: 'Check one stored service against the blueprint validator. Returns pass or violations with their database ids and actions to take. Read-only; does not repair the blueprint.',
+  surface: 'read',
+  args: z.object({ service_id: z.uuid().describe('Service id from list_services') }),
+  browserBacked: false,
+  availability: { sample: false, mobile: true },
+  run: async ({ service_id }, ctx) => {
+    const { data, error } = await requireClient(ctx).rpc('read_service_blueprint', { p_service_id: service_id })
+    if (error) throw new Error(error.message)
+    if (!data) throw new Error('No readable service has that id. Choose one from list_services.')
+    return JSON.stringify(validateService(data))
+  },
 })

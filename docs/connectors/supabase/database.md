@@ -399,6 +399,10 @@ credentials.
 | `21000111000000_propositions_are_the_business_model.sql` | `propositions` → `business_models`, with its constraint, index, policy and trigger names swept from the catalogue rather than listed. `evidence.proposition_question_key` is a permanent exemption and is asserted to survive. `schema_version` → `2026.08.27` |
 | `21000112000000_the_word_boundary_left_five_behind.sql` | Repairs what `\m…\M` could not reach. `set_cell_dependency` named `cell_triggers_source_target_kind_unique` in an `on conflict on constraint`, and `21000103`'s catalogue sweep had renamed that constraint — the body rewrite used a word-boundary pattern, and `_` is a word constituent, so it matched the table reference and not the constraint. Plus three stale comments and one inside a function body. No version bump: nothing about the shape moves |
 
+| `21000313000000_a_confirmer_can_start_a_service.sql` | Service structure can be created through the caller-scoped tool gateway |
+| `21000314000000_journey_structure_can_be_named.sql` | Existing services and their initial structure labels can be renamed |
+| `21000315000000_a_service_can_be_read_for_validation.sql` | A caller can read a complete service snapshot for read-only validation |
+
 ## Reserved migration timestamp band
 
 **Upstream migrations are allocated from `21000101000000`–`21991231235959`.

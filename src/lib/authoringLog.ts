@@ -1,3 +1,4 @@
+import { HOST_OPERATIONS, isWrittenIdentity } from '@/lib/hostAuthoringOperations'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ChangeEntry } from '@/lib/authoringSession'
 import type { Database, Json } from '@/types/database'
@@ -11,11 +12,11 @@ import type { Database, Json } from '@/types/database'
  * trace, while a single deleted cell is remembered forever, because deletions
  * were durable and nothing else was.
  *
- * This module is the other end of `recordChange`: the same entry, appended to
- * `public.authoring_changes`. The two are not alternatives. The array stays
+ * This module is the durable end of the session recorders: the same entry,
+ * appended to `public.authoring_changes`. The two are not alternatives. The array stays
  * the undo affordance and this stays the record, and the reason they can
  * coexist is that neither can drift from the other — both are fed by the one
- * `recordChange` call, after the write it describes has already succeeded.
+ * session capture, after the write it describes has already succeeded.
  *
  * AUDIT-ONLY. Nothing here replays an inverse. `revert` travels so a row can
  * SAY what would undo it; replaying it against a database that has moved on is
@@ -27,9 +28,8 @@ import type { Database, Json } from '@/types/database'
  * among however many hold the grant — and the log already carries an
  * `update_cell_content` row in a shape no build of this app has emitted. A
  * replay that consumed it would throw, or half-apply. `executeRevert`
- * therefore accepts only a `SessionEntry`, minted by `recordChange` and by
- * nothing else, and `revertBoundaryContract.test.ts` refuses the casts and the
- * signature changes that would let a row from here reach it. The direction of
+ * therefore accepts only a `SessionEntry`, minted by the session recorders.
+ * `revertBoundaryContract.test.ts` refuses the casts and signature changes that would let a row from here reach it. The direction of
  * travel is one-way by construction: entries leave the session for this table,
  * and the return trip has no route.
  */
@@ -73,6 +73,9 @@ export const ARCHIVED_BY_THE_DATABASE: ReadonlySet<string> = new Set([
   'remove_step',
 ])
 
+/** Optional host RPCs: wrappers require a durable receipt before recording. */
+export const RECORDED_BY_THE_HOST: ReadonlySet<string> = new Set(Object.keys(HOST_OPERATIONS))
+
 /**
  * The row one recorded change becomes, or `null` when the database already
  * wrote it.
@@ -84,7 +87,7 @@ export const ARCHIVED_BY_THE_DATABASE: ReadonlySet<string> = new Set([
  * the only thing that makes an agent's writes accountable.
  */
 export function authoringLogRow(entry: ChangeEntry): AuthoringLogRow | null {
-  if (ARCHIVED_BY_THE_DATABASE.has(entry.fn)) return null
+  if (ARCHIVED_BY_THE_DATABASE.has(entry.fn) || RECORDED_BY_THE_HOST.has(entry.fn)) return null
   const isAgent = entry.author === 'agent' && Boolean(entry.agentSessionId)
   return {
     fn: entry.fn,
@@ -102,6 +105,20 @@ export function authoringLogRow(entry: ChangeEntry): AuthoringLogRow | null {
 }
 
 export type AuthoringLogWriter = (row: AuthoringLogRow) => Promise<unknown>
+
+/** A command whose success includes the record must await its actual id. */
+export async function appendRequiredAuthoringLog(
+  entry: ChangeEntry,
+  write: AuthoringLogWriter,
+): Promise<string> {
+  const row = authoringLogRow(entry)
+  if (!row) throw new Error('This operation records itself in the database.')
+  const id = await write(row)
+  if (!isWrittenIdentity(id)) {
+    throw new Error('The authoring log returned no change id.')
+  }
+  return id
+}
 
 let writer: AuthoringLogWriter | null = null
 
@@ -124,9 +141,9 @@ export function setAuthoringLogWriter(next: AuthoringLogWriter | null): void {
  * the time this runs; making the UI report an error because the AUDIT append
  * failed would tell an author their edit did not save when it did, which is a
  * worse lie than the missing row. The failure is loud in the console and
- * nowhere else, and it is the one thing here that is not enforced — a log that
- * could reject a write it is only observing would be a second gate that no
- * writer asked for.
+ * nowhere else. Commands whose success explicitly requires a durable receipt
+ * use `appendRequiredAuthoringLog` through `recordRequiredChange` instead;
+ * they surface a failed append as a partial write and keep the session inverse.
  */
 export function appendToAuthoringLog(entry: ChangeEntry): void {
   if (!writer) return
@@ -150,11 +167,12 @@ export function supabaseAuthoringLogWriter(
     // The function defaults `revert` and `agent_session_id` to null, so an
     // argument left out and one sent as null are the same call; the generated
     // types spell an optional argument as absent, and this is that spelling.
-    const { error } = await client.rpc('record_authoring_change', {
+    const { data, error } = await client.rpc('record_authoring_change', {
       ...row,
       revert: row.revert ?? undefined,
       agent_session_id: row.agent_session_id ?? undefined,
     })
     if (error) throw error
+    return data
   }
 }

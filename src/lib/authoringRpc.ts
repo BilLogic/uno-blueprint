@@ -1,5 +1,8 @@
+import { HOST_OPERATIONS, isHostOperation, type HostOperation, type HostReceipt, type RecordedAuthoringWrite } from '@/lib/hostAuthoringOperations'
+export type { RecordedAuthoringWrite } from '@/lib/hostAuthoringOperations'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { asEntityStatus, type EntityStatus } from '@/lib/entityStatus'
 import { toAuthoringError } from '@/lib/authoringErrors'
 import {
   recordChange,
@@ -316,6 +319,28 @@ async function call<T>(
   return data
 }
 
+/** Not a portable-core promise: the host must implement this operation. */
+async function callRecorded<Fn extends HostOperation>(
+  client: Client,
+  fn: Fn,
+  args: Record<string, unknown>,
+  options: { record?: boolean },
+): Promise<HostReceipt<Fn>> {
+  const operation = HOST_OPERATIONS[fn]
+  const data = operation.receipt(await invoke<unknown>(client, fn, args), args)
+  const inverse = deriveRevert(fn, args, data)
+  if (!inverse) throw new Error('The authoring operation has no supported inverse.')
+  invalidateAfterRpc(fn, args)
+  if (options.record !== false) recordChange(fn, args, inverse)
+  // The operation selected by Fn owns the validator that produced this shape.
+  return data as HostReceipt<Fn>
+}
+
+/** Re-run a known session inverse through its host receipt validator. */
+export async function revertHostOperation(client: Client, fn: HostOperation, args: Record<string, unknown>): Promise<void> {
+  await callRecorded(client, fn, args, { record: false })
+}
+
 /**
  * A **read**: run it and log nothing.
  *
@@ -348,9 +373,9 @@ function read<T>(
  * The inverse of a change, derived at the only moment it is cheap: right
  * after the call, while the returned id is in hand.
  *
- * Only *creations* derive an inverse here — the created thing's id came back
- * from the call, and deleting it restores the world exactly. Renames and
- * reorders need before-state their wrappers must pass explicitly; deletes
+ * Creations use the returned identity. Guarded host operations use their
+ * expected-before arguments, which the host verifies before committing.
+ * Other renames and reorders pass a captured inverse explicitly; deletes
  * have no inverse RPC and stay non-revertible per row.
  */
 function deriveRevert(
@@ -358,6 +383,7 @@ function deriveRevert(
   args: Record<string, unknown>,
   data: unknown,
 ): RevertSpec | undefined {
+  if (isHostOperation(fn)) return HOST_OPERATIONS[fn].inverse(args, data as RecordedAuthoringWrite)
   switch (fn) {
     case 'add_step':
       return typeof data === 'string'
@@ -654,6 +680,58 @@ export function renamePath(
         }
       : undefined,
   )
+}
+
+/** Rename by identity only when the host offers the guarded optional RPC. */
+export function renameStep(
+  client: Client,
+  input: { stepId: string; expectedName: string; name: string },
+  options: { record?: boolean } = {},
+): Promise<RecordedAuthoringWrite> {
+  if (!input.name.trim() || !input.expectedName.trim()) throw new Error('A step rename requires nonempty names.')
+  return callRecorded(client, 'rename_step', {
+    step_id: input.stepId, expected_name: input.expectedName, new_name: input.name,
+  }, options)
+}
+
+/** A cell's full slot, including the secondary position within its square. */
+export type CellCoordinates = { path_id: string; lane_id: string; step_id: string; position: number }
+
+function capturedCoordinates(value: CellCoordinates): CellCoordinates {
+  if (!value || typeof value.path_id !== 'string' || !value.path_id.trim()
+      || typeof value.lane_id !== 'string' || !value.lane_id.trim()
+      || typeof value.step_id !== 'string' || !value.step_id.trim()
+      || !Number.isSafeInteger(value.position) || value.position < 0) {
+    throw new Error('A cell slot requires parent identities and a nonnegative integer position.')
+  }
+  return { path_id: value.path_id, lane_id: value.lane_id, step_id: value.step_id, position: value.position }
+}
+
+/** Optional host RPC: preserves identity and refuses an occupied destination. */
+export function moveCell(
+  client: Client,
+  input: { cellId: string; expectedSource: CellCoordinates; destination: CellCoordinates },
+  options: { record?: boolean } = {},
+): Promise<RecordedAuthoringWrite> {
+  return callRecorded(client, 'move_cell', {
+    cell_id: input.cellId,
+    expected_source: capturedCoordinates(input.expectedSource),
+    destination: capturedCoordinates(input.destination),
+  }, options)
+}
+
+/** Optional host RPC: creates a new identity at a vacant explicit slot. */
+export function insertCellAtPosition(
+  client: Client,
+  input: CellCoordinates & { content: string; status: EntityStatus },
+  options: { record?: boolean } = {},
+): Promise<RecordedAuthoringWrite & { cell_key: string }> {
+  const slot = capturedCoordinates(input)
+  if (!input.content.trim() || !asEntityStatus(input.status)) throw new Error('Insertion requires content and an explicit valid status.')
+  return callRecorded(client, 'insert_cell_at_position', {
+    path_id: slot.path_id, lane_id: slot.lane_id, step_id: slot.step_id, at_position: slot.position,
+    content: input.content, status: input.status,
+  }, options)
 }
 
 /** Add a column to a version. `atPosition` inserts; omitted appends. */

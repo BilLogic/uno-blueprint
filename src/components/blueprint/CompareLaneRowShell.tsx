@@ -30,6 +30,17 @@ export function CompareLaneRowShell({
   cellTracksOnly?: boolean
   children: ReactNode
 }) {
+  if (row.lane?.seamSize !== undefined)
+    return (
+      <div
+        aria-hidden
+        data-structure-seam-track="lane"
+        style={{
+          gridRow: rowIndex + 1,
+          gridColumn: cellTracksOnly ? '2 / -1' : undefined,
+        }}
+      />
+    )
   const isDivider =
     row.kind === 'interaction' ||
     row.kind === 'visibility' ||
@@ -51,7 +62,8 @@ export function CompareLaneRowShell({
         ? {
             'data-blueprint-swimlane': '',
             'data-blueprint-row': '',
-            'data-structure-placeholder': row.lane.id === STRUCTURE_PLACEHOLDER_ID ? '' : undefined,
+            'data-structure-placeholder':
+              row.lane.id === STRUCTURE_PLACEHOLDER_ID ? '' : undefined,
             'data-lane-id': row.lane.id,
             'data-lane-position': row.lane.position,
             // Lets a picked cell name its lane without the selection
@@ -73,7 +85,10 @@ export function CompareLaneRowShell({
       style={{
         gridRow: rowIndex + 1,
         ...(cellTracksOnly ? { gridColumn: '2 / -1' } : {}),
-        backgroundColor: isDivider || row.lane?.id === STRUCTURE_PLACEHOLDER_ID ? undefined : 'transparent',
+        backgroundColor:
+          isDivider || row.lane?.id === STRUCTURE_PLACEHOLDER_ID
+            ? undefined
+            : 'transparent',
       }}
       {...(isDivider ? { role: 'separator' as const } : {})}
     >

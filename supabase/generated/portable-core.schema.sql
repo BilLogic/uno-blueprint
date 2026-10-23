@@ -86,37 +86,6 @@ end;
 $$;
 
 --
--- Name: add_lane_with_details(uuid, text, text, integer, jsonb); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.add_lane_with_details(scenario_id uuid, name text, lane_role text, at_position integer DEFAULT NULL::integer, details jsonb DEFAULT '{}'::jsonb) RETURNS uuid[]
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
-    AS $$
-declare ids uuid[];
-begin
-  if not public.is_service_account() then
-    raise exception 'This account cannot edit the blueprint' using errcode = '42501';
-  end if;
-  if nullif(trim(name), '') is null or nullif(trim(lane_role), '') is null then
-    raise exception 'A lane needs a name and role';
-  end if;
-  if jsonb_typeof(coalesce(details->'kpis', '[]'::jsonb)) <> 'array'
-    or jsonb_typeof(coalesce(details->'tools', '[]'::jsonb)) <> 'array' then
-    raise exception 'KPIs and tools must be lists';
-  end if;
-  ids := public.add_lane(scenario_id, trim(name), lane_role, at_position);
-  if coalesce(cardinality(ids), 0) = 0 then raise exception 'That scenario has no paths'; end if;
-  update public.lanes set
-    owner_team = nullif(trim(details->>'owner_team'), ''),
-    stakeholder_id = nullif(details->>'stakeholder_id', '')::uuid,
-    kpis = coalesce(details->'kpis', '[]'::jsonb),
-    tools = coalesce(details->'tools', '[]'::jsonb)
-  where id = any(ids);
-  return ids;
-end $$;
-
---
 -- Name: add_lane_with_details(uuid, text, text, jsonb, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -198,40 +167,10 @@ end;
 $$;
 
 --
--- Name: add_step_with_details(uuid, text, integer, text, jsonb); Type: FUNCTION; Schema: public; Owner: -
+-- Name: add_step_with_details(uuid, text, jsonb, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.add_step_with_details(path_id uuid, name text, at_position integer DEFAULT NULL::integer, summary text DEFAULT NULL::text, frames jsonb DEFAULT '[]'::jsonb) RETURNS uuid
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
-    AS $$
-declare step uuid; frame jsonb; lane uuid;
-begin
-  if not public.is_service_account() then
-    raise exception 'This account cannot edit the blueprint' using errcode = '42501';
-  end if;
-  if nullif(trim(name), '') is null then raise exception 'A step needs a name'; end if;
-  if jsonb_typeof(frames) <> 'array' then raise exception 'Storyboard frames must be a list'; end if;
-  step := public.add_step(path_id, trim(name), at_position);
-  update public.steps set summary = nullif(trim(add_step_with_details.summary), '') where id = step;
-  for frame in select * from jsonb_array_elements(frames) loop
-    lane := (frame->>'lane_id')::uuid;
-    if not exists(select 1 from public.lanes l where l.id = lane and l.path_id = add_step_with_details.path_id
-      and coalesce(l.lane_role, '') not in ('storyboard', 'frontstage_touchpoints', 'backstage_touchpoints')) then
-      raise exception 'Choose an actor lane on this path for the storyboard frame';
-    end if;
-    if nullif(trim(frame->>'url'), '') is null or frame->>'url' !~ '^https?://' then raise exception 'A storyboard frame needs an HTTP image URL'; end if;
-    insert into public.cells(path_id, lane_id, step_id, content, frame, origin)
-    values(add_step_with_details.path_id, lane, step, '', frame->>'url', 'app');
-  end loop;
-  return step;
-end $$;
-
---
--- Name: add_step_with_details(uuid, text, jsonb, text, jsonb); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.add_step_with_details(path_id uuid, name text, path_orders jsonb, summary text DEFAULT NULL::text, frames jsonb DEFAULT '[]'::jsonb) RETURNS jsonb
+CREATE FUNCTION public.add_step_with_details(path_id uuid, name text, path_orders jsonb, summary text DEFAULT NULL::text) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
     AS $$
@@ -252,8 +191,8 @@ begin
     perform public.check_structure_draft_order(ids,requested);
     snapshot := snapshot || jsonb_build_object(p,f);
   end loop;
-  -- The established operation also validates and writes storyboard frames.
-  new_id := public.add_step_with_details(path_id,name,null::integer,summary,frames);
+  new_id := public.add_step(path_id,trim(name),null::integer);
+  update public.steps set summary=nullif(trim(add_step_with_details.summary),'') where id=new_id;
   for p,requested in select key::uuid,value from jsonb_each(path_orders) order by key loop
     if not exists(select 1 from public.path_steps where path_steps.path_id=p and step_id=new_id) then
     insert into public.path_steps(path_id,step_id,position)
@@ -2090,6 +2029,26 @@ $$;
 COMMENT ON FUNCTION public.restore_featured_resources(p_rows jsonb) IS 'The inverse of set_featured_resource: each {id, featured} written back as captured, no clearing rule.';
 
 --
+-- Name: restore_lane_details(jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.restore_lane_details(snapshot jsonb) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare row_data jsonb;
+begin
+  perform public.require_structure_author();
+  if jsonb_typeof(snapshot->'rows') is distinct from 'array' then raise exception 'The saved lane properties are missing'; end if;
+  -- The rename uses the same path lock and duplicate-name guard as the forward save.
+  perform public.rename_lane((snapshot->>'lane_id')::uuid,snapshot->>'name');
+  for row_data in select value from jsonb_array_elements(snapshot->'rows') order by value->>'id' loop
+    update public.lanes set owner_team=row_data->>'owner_team',stakeholder_id=nullif(row_data->>'stakeholder_id','')::uuid,kpis=row_data->'kpis',tools=row_data->'tools' where id=(row_data->>'id')::uuid;
+    if not found then raise exception 'A lane no longer exists. Reload before undoing'; end if;
+  end loop;
+end $$;
+
+--
 -- Name: restore_placement(jsonb, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2224,6 +2183,21 @@ $$;
 --
 
 COMMENT ON FUNCTION public.restore_slides(p_slice_id uuid, p_rows jsonb) IS 'Write a slice''s captured slides, and their slide_images, back whole and in one transaction: p_rows is the previous a replace_slides call returned. A refusal anywhere leaves the slice as it stood. Returns dropped: the ids of the slides it removed that the capture does not restore.';
+
+--
+-- Name: restore_step_details(jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.restore_step_details(snapshot jsonb) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+begin
+  perform public.require_structure_author();
+  if nullif(trim(snapshot->>'name'),'') is null then raise exception 'The saved step name is missing'; end if;
+  update public.steps set name=snapshot->>'name',summary=snapshot->>'summary' where id=(snapshot->>'step_id')::uuid;
+  if not found then raise exception 'That step no longer exists'; end if;
+end $$;
 
 --
 -- Name: schema_comments(); Type: FUNCTION; Schema: public; Owner: -
@@ -3125,6 +3099,33 @@ end;
 $$;
 
 --
+-- Name: update_lane_with_details(uuid, uuid[], text, jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_lane_with_details(lane_id uuid, lane_ids uuid[], name text, details jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare original_name text; sc uuid; p uuid; previous jsonb;
+begin
+  perform public.require_structure_author();
+  if nullif(trim(name),'') is null then raise exception 'Enter a name'; end if;
+  if jsonb_typeof(details->'kpis') is distinct from 'array' or jsonb_typeof(details->'tools') is distinct from 'array' then raise exception 'KPIs and tools must be lists'; end if;
+  select l.name,paths.scenario_id,l.path_id into original_name,sc,p from public.lanes l join public.paths on paths.id=l.path_id where l.id=lane_id;
+  if not found then raise exception 'That lane no longer exists'; end if;
+  perform 1 from public.paths where scenario_id=sc order by id for update;
+  perform 1 from public.lanes where id=any(lane_ids) order by id for update;
+  if not lane_id=any(lane_ids) or cardinality(lane_ids) is distinct from
+    (select count(distinct l.id)::integer from public.lanes l join public.paths on paths.id=l.path_id where l.id=any(lane_ids) and paths.scenario_id=sc and l.name=original_name) then
+    raise exception 'Reload the lane before saving its properties';
+  end if;
+  select jsonb_build_object('lane_id',lane_id,'name',original_name,'rows',jsonb_agg(jsonb_build_object('id',id,'owner_team',owner_team,'stakeholder_id',stakeholder_id,'kpis',kpis,'tools',tools) order by id)) into previous from public.lanes where id=any(lane_ids);
+  perform public.rename_lane(lane_id,name);
+  update public.lanes set owner_team=nullif(trim(details->>'owner_team'),''),stakeholder_id=nullif(details->>'stakeholder_id','')::uuid,kpis=details->'kpis',tools=details->'tools' where id=any(lane_ids);
+  return previous;
+end $$;
+
+--
 -- Name: update_scenario_layout(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3154,6 +3155,25 @@ $$;
 --
 
 COMMENT ON FUNCTION public.update_scenario_layout(scenario_id uuid, layout text) IS 'The header toggle''s write: how this scenario''s board is drawn, stacked or merged. Its inverse is itself with the previous value.';
+
+--
+-- Name: update_step_with_details(uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_step_with_details(step_id uuid, name text, summary text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare previous jsonb;
+begin
+  perform public.require_structure_author();
+  if nullif(trim(name),'') is null then raise exception 'Enter a name'; end if;
+  select jsonb_build_object('step_id',s.id,'name',s.name,'summary',s.summary) into previous
+    from public.steps s where s.id=step_id for update;
+  if not found then raise exception 'That step no longer exists'; end if;
+  update public.steps s set name=trim(update_step_with_details.name),summary=nullif(trim(update_step_with_details.summary),'') where s.id=step_id;
+  return previous;
+end $$;
 
 --
 -- Name: update_touchpoint(uuid, text, text, text, text, text); Type: FUNCTION; Schema: public; Owner: -

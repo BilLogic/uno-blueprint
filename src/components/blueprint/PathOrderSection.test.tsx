@@ -80,3 +80,61 @@ it('keeps a duplicate lane path unavailable and gives the reason', () => {
   ).toBe(true)
   expect(screen.getByText('Already has Review')).toBeTruthy()
 })
+
+it('shows only the order rail when a scenario has one path', () => {
+  render(
+    <PathOrderSection
+      paths={[paths[0]]}
+      value={[
+        { pathId: 'online', order: ['start', 'new', 'finish'], moved: [] },
+      ]}
+      onChange={() => {}}
+      item={{ id: 'new', name: 'Review' }}
+      defaultOrder={() => []}
+    />,
+  )
+  expect(screen.queryByRole('checkbox')).toBeNull()
+  expect(screen.queryByText('Add to paths')).toBeNull()
+  expect(screen.getByText('Order')).toBeTruthy()
+  expect(
+    screen.getByRole('button', { name: 'Move Review in Online' }),
+  ).toBeTruthy()
+})
+
+it('opens the clicked path when its membership arrives after loading', () => {
+  const props = {
+    paths,
+    value: [] as PathOrder[],
+    onChange: () => {},
+    item: { id: 'new', name: 'Review' },
+    defaultOrder: () => [],
+  }
+  const view = render(<PathOrderSection {...props} />)
+  view.rerender(
+    <PathOrderSection
+      {...props}
+      value={[
+        { pathId: 'online', order: ['start', 'new', 'finish'], moved: [] },
+      ]}
+    />,
+  )
+  expect(
+    screen.getByRole('button', { name: 'Move Review in Online' }),
+  ).toBeTruthy()
+})
+
+it('clears one item’s moved tag when it returns, while another remains moved', () => {
+  const path={id:'one',name:'One',items:[{id:'a',name:'A'},{id:'b',name:'B'},{id:'c',name:'C'},{id:'d',name:'D'}]}
+  function Order() {
+    const [value,setValue]=useState<PathOrder[]>([{pathId:'one',order:['a','b','c','d','new'],moved:[]}])
+    return <PathOrderSection paths={[path]} value={value} onChange={setValue} item={{id:'new',name:'Review'}} defaultOrder={()=>[]} />
+  }
+  render(<Order />)
+  const move=(name:string,key:string)=>fireEvent.keyDown(screen.getByRole('button',{name:`Move ${name} in One`}),{key})
+  move('A','ArrowDown');move('A','ArrowDown')
+  move('C','ArrowUp')
+  expect(screen.getAllByText('Moved')).toHaveLength(2)
+  move('A','ArrowUp');move('A','ArrowUp')
+  expect(screen.getAllByText('Moved')).toHaveLength(1)
+  expect(screen.getByRole('button',{name:'Move A in One'}).closest('li')?.textContent).not.toContain('Moved')
+})

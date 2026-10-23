@@ -16,26 +16,35 @@ export function CompareStepHeaderRow({
 }) {
   return (
     <>
-      {tracks.map((track, trackIndex) => (
-        <StepHeaderAffordance
-          key={track.key}
-          // A canonical column can carry a different step id per path; they
-          // are the same MOMENT, and the summary is stored once per step, so
-          // the first is the one to open.
-          stepIndex={trackIndex}
-          stepId={Object.values(track.stepIdByPath)[0] ?? ''}
-          name={track.label}
-          // `relative z-1`: when a path frame extends up to wrap this
-          // row (single-path stacked, merged), the frame's opaque fill is
-          // an absolutely-positioned later sibling — without a stacking
-          // order the labels paint UNDER it and the header "vanishes".
-          // `self-stretch`, not `self-end`: the target is the whole header
-          // block. The label still sits at the bottom of it — the button
-          // aligns its own content — so it reads where it always did.
-          className="z-1 self-stretch"
-          style={{ gridColumn: trackIndex + 2, gridRow: 1 }}
-        />
-      ))}
+      {tracks.map((track, trackIndex) =>
+        track.seamSize !== undefined ? (
+          <div
+            key={track.key}
+            aria-hidden
+            data-structure-seam-track="step"
+            style={{ gridColumn: trackIndex + 2, gridRow: 1 }}
+          />
+        ) : (
+          <StepHeaderAffordance
+            key={track.key}
+            // A canonical column can carry a different step id per path; they
+            // are the same MOMENT, and the summary is stored once per step, so
+            // the first is the one to open.
+            stepIndex={trackIndex}
+            stepId={Object.values(track.stepIdByPath)[0] ?? ''}
+            name={track.label}
+            // `relative z-1`: when a path frame extends up to wrap this
+            // row (single-path stacked, merged), the frame's opaque fill is
+            // an absolutely-positioned later sibling — without a stacking
+            // order the labels paint UNDER it and the header "vanishes".
+            // `self-stretch`, not `self-end`: the target is the whole header
+            // block. The label still sits at the bottom of it — the button
+            // aligns its own content — so it reads where it always did.
+            className="z-1 self-stretch"
+            style={{ gridColumn: trackIndex + 2, gridRow: 1 }}
+          />
+        ),
+      )}
     </>
   )
 }

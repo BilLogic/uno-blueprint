@@ -85,6 +85,8 @@ const MUTATION_MODULES = [
  * was not one of them.
  */
 const RPC_BACKED = new Set([
+  'restore_step_details',
+  'restore_lane_details',
   'undo_structure_add',
   'rename_lane',
   'rename_step',

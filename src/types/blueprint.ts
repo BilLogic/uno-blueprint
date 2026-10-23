@@ -13,6 +13,8 @@ export type BlueprintPath = {
 }
 
 export type BlueprintLane = {
+  /** Unwritten layout track for an open insertion seam. */
+  seamSize?: number
   id: string
   /** Display label — free-form, any language. */
   name: string
@@ -28,6 +30,8 @@ export type BlueprintLane = {
 }
 
 export type BlueprintStep = {
+  /** Unwritten layout track for an open insertion seam. */
+  seamSize?: number
   id: string
   name: string
   position: number

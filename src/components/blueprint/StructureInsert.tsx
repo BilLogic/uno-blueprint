@@ -5,11 +5,13 @@ import { cn } from '@/lib/utils'
 /** A focusable gap; the entire opened slot is the action. The plus has no chrome. */
 export function StructureInsert({
   orientation,
+  scale = 1,
   label,
   style,
   onClick,
   onOpenChange,
 }: {
+  scale?: number
   orientation: 'horizontal' | 'vertical'
   label: string
   style?: CSSProperties
@@ -25,7 +27,7 @@ export function StructureInsert({
   useEffect(() => {
     notify.current?.(open)
     return () => notify.current?.(false)
-  }, [open])
+  }, [open, scale])
   useEffect(() => () => clearTimeout(timer.current), [])
   const arm = (next: boolean, delay: number) => {
     clearTimeout(timer.current)
@@ -39,14 +41,9 @@ export function StructureInsert({
       data-open={open ? '' : undefined}
       style={{
         ...style,
-        ...(open
-          ? orientation === 'vertical'
-            ? { left: Number(style?.left ?? 0) + 17 }
-            : { top: Number(style?.top ?? 0) + 17 }
-          : {}),
         ...(orientation === 'vertical'
-          ? { width: open ? 44 : 14 }
-          : { height: open ? 44 : 14 }),
+          ? { width: (open ? 34 : 12) / scale }
+          : { height: (open ? 34 : 12) / scale }),
       }}
       onPointerDown={(event) => {
         event.preventDefault()
@@ -55,7 +52,9 @@ export function StructureInsert({
       onPointerEnter={(event) => {
         if (event.pointerType !== 'touch') arm(true, 90)
       }}
-      onPointerLeave={() => arm(false, 140)}
+      onPointerLeave={(event) => {
+        if (event.currentTarget.ownerDocument.activeElement !== event.currentTarget) arm(false,140)
+      }}
       onFocus={() => {
         clearTimeout(timer.current)
         setOpen(true)
@@ -67,14 +66,15 @@ export function StructureInsert({
         onClick(event.currentTarget)
       }}
       className={cn(
-        'pointer-events-auto absolute flex appearance-none items-center justify-center rounded-md border bg-transparent p-0 text-text-primary outline-none transition-[width,height,background-color,border-color] duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
-        orientation === 'vertical' ? '-translate-x-1/2' : '-translate-y-1/2',
+        'pointer-events-auto absolute flex appearance-none items-center justify-center rounded-md border bg-transparent p-0 outline-none transition-[width,height,background-color,border-color] duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
         open
-          ? 'border-dashed border-primary/50 bg-primary/5 hover:border-primary focus-visible:border-solid'
-          : 'border-transparent [&>svg]:opacity-0 [@media(hover:none)]:border-primary/20 [@media(hover:none)]:bg-primary/5 [@media(hover:none)]:[&>svg]:opacity-40',
+          ? 'border-dashed border-border-primary bg-wash-primary hover:border-primary focus-visible:border-solid'
+          : 'border-transparent [&_svg]:opacity-0 [@media(hover:none)]:border-primary/20 [@media(hover:none)]:bg-primary/5 [@media(hover:none)]:[&_svg]:opacity-40',
       )}
     >
-      <Plus aria-hidden className="pointer-events-none size-4 shrink-0" />
+      <span className="pointer-events-none shrink-0" style={{width:16/scale,height:16/scale}}>
+        <Plus aria-hidden className="size-full text-primary" />
+      </span>
     </button>
   )
 }

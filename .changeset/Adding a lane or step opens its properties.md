@@ -2,4 +2,4 @@
 "uno-blueprint": patch
 ---
 
-Opening an insert seam lets you name a lane or step, choose its paths and arrange their items before saving everything with one undo.
+Insert seams part the board and lane and step panels save their fields and path orders with one undo.

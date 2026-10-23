@@ -1,4 +1,4 @@
-import { partStructureBoard } from './structureSeamLayout'
+import { useCanvasScale } from '@/contexts/CanvasScaleContext'
 import { useLayoutEffect, useState, type RefObject } from 'react'
 import { useAtScenarioLevel, useEditor } from '@/contexts/EditorContext'
 import { useCanvasModeValue } from '@/contexts/canvasModeContext'
@@ -12,7 +12,9 @@ type Boundary = { storedPosition: number; y: number; label: string }
 /** Scenario-wide lane insertion, measured from the rendered row gaps.
  * Activating a target opens an unwritten draft in the existing lane panel. */
 export function BlueprintLaneHandles({
-  bodyRef, pathId, pathIds,
+  bodyRef,
+  pathId,
+  pathIds,
 }: {
   bodyRef: RefObject<HTMLDivElement | null>
   pathId?: string
@@ -24,13 +26,21 @@ export function BlueprintLaneHandles({
 
   if (mode !== 'design' || pick === null || !canWrite || client === null)
     return null
-  return <BlueprintLaneHandlesActive bodyRef={bodyRef} pathId={pathId} pathIds={pathIds} />
+  return (
+    <BlueprintLaneHandlesActive
+      bodyRef={bodyRef}
+      pathId={pathId}
+      pathIds={pathIds}
+    />
+  )
 }
 
 /** Mounted only while authoring, so read-mode boards do not subscribe every
  *  lane overlay to the combined navigation context. */
 function BlueprintLaneHandlesActive({
-  bodyRef, pathId, pathIds,
+  bodyRef,
+  pathId,
+  pathIds,
 }: {
   bodyRef: RefObject<HTMLDivElement | null>
   pathId?: string
@@ -41,7 +51,8 @@ function BlueprintLaneHandlesActive({
   const { selectedScenarioId } = useEditor()
   const [bodyWidth, setBodyWidth] = useState(0)
   const [boundaries, setBoundaries] = useState<Boundary[]>([])
-  const { openCreate, selection } = useEntityDetail()
+  const cameraScale = useCanvasScale()
+  const { openCreate, selection, setSeam } = useEntityDetail()
   const active =
     atScenarioLevel && client !== null && selectedScenarioId !== null
 
@@ -86,6 +97,12 @@ function BlueprintLaneHandlesActive({
     // boundary drifts by (scale − 1) · y, worst at the bottom lanes (the
     // same un-projection the annotation layer needed).
     const scale = body.offsetWidth > 0 ? bodyBox.width / body.offsetWidth : 1
+    const seamRow = body.querySelector<HTMLElement>(
+      '[data-structure-seam-track="lane"]',
+    )
+    const seamY = seamRow
+      ? (seamRow.getBoundingClientRect().top - bodyBox.top) / scale
+      : null
     const next: Boundary[] = rows.map((row, rowIndex) => ({
       storedPosition: storedPositions[rowIndex],
       label:
@@ -95,13 +112,14 @@ function BlueprintLaneHandlesActive({
               rows[rowIndex - 1].dataset.laneName ?? 'the previous lane'
             }`,
       y:
-        ((rowIndex
-          ? (rows[rowIndex - 1].getBoundingClientRect().bottom +
-              row.getBoundingClientRect().top) /
-            2
-          : row.getBoundingClientRect().top) -
-          bodyBox.top) /
-        scale,
+        seamY !== null &&
+        Math.abs(
+          (row.getBoundingClientRect().top - bodyBox.top) / scale -
+            seamY -
+            34 / cameraScale,
+        ) < 1
+          ? seamY
+          : (row.getBoundingClientRect().top - bodyBox.top) / scale,
     }))
     const last = rows[rows.length - 1].getBoundingClientRect()
     next.push({
@@ -128,31 +146,49 @@ function BlueprintLaneHandlesActive({
 
   const draft = selection?.draft
   return (
-    <div className="pointer-events-none absolute inset-0 z-30">
-      {!draft ? boundaries.map((boundary) => (
-        <StructureInsert
-          key={boundary.storedPosition}
-          orientation="horizontal"
-          label={boundary.label}
-          style={{ left: 0, width: bodyWidth, top: boundary.y }}
-          onOpenChange={open=>{
-            const row = bodyRef.current?.querySelector<HTMLElement>(`[data-lane-position="${boundary.storedPosition}"]`)
-            partStructureBoard(bodyRef.current,'horizontal',row ? Number(row.style.gridRow) : Number.MAX_SAFE_INTEGER,open)
-          }}
-          onClick={(opener) =>
-            openCreate(
-              {
-                kind: 'lane',
-                pathId, pathIds,
-                scenarioId: selectedScenarioId!,
-                atPosition: boundary.storedPosition,
-              },
-              opener,
-            )
-          }
-        />
-      )) : null}
-
+    <div className="pointer-events-none absolute inset-0 z-50">
+      {!draft
+        ? boundaries.map((boundary) => (
+            <StructureInsert
+              key={boundary.storedPosition}
+              scale={cameraScale}
+              orientation="horizontal"
+              label={boundary.label}
+              style={{ left: 0, width: bodyWidth, top: boundary.y }}
+              onOpenChange={(open) => {
+                const targetPath = pathId ?? pathIds?.[0]
+                if (!targetPath) return
+                const key = `lane:${targetPath}:${boundary.storedPosition}`
+                setSeam((current) =>
+                  open
+                    ? {
+                        kind: 'lane',
+                        pathId: targetPath,
+                        pathIds,
+                        atPosition: boundary.storedPosition,
+                        size: 34 / cameraScale,
+                        key,
+                      }
+                    : current?.key === key
+                    ? null
+                    : current,
+                )
+              }}
+              onClick={(opener) =>
+                openCreate(
+                  {
+                    kind: 'lane',
+                    pathId,
+                    pathIds,
+                    scenarioId: selectedScenarioId!,
+                    atPosition: boundary.storedPosition,
+                  },
+                  opener,
+                )
+              }
+            />
+          ))
+        : null}
     </div>
   )
 }

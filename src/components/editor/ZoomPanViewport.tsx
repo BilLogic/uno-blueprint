@@ -1,4 +1,5 @@
-import { useStructurePreview } from '@/contexts/EntityDetailContext'
+import { CanvasScaleContext } from '@/contexts/CanvasScaleContext'
+import { useEntityDetailOptional } from '@/contexts/EntityDetailContext'
 import { useStructureDraftCamera } from '@/hooks/useStructureDraftCamera'
 import { useCallback, type ReactNode } from 'react'
 import { useCanvasActive, useCanvasActiveEffect } from '@/contexts/canvasActiveContext'
@@ -95,7 +96,8 @@ function ZoomPanViewportInner({
   onFitReady,
 }: ZoomPanViewportProps) {
   const canvasActive = useCanvasActive()
-  const structureDraft = useStructurePreview()?.selection?.draft
+  const entityDetail = useEntityDetailOptional()
+  const structureDraft = entityDetail?.selection?.draft || entityDetail?.seam
   const { isAnnotating } = useCanvasAnnotationTool()
   // A slice tab registers while its board is still loading, so a focus a
   // presentation badge left pending can only land once a fit has.
@@ -304,7 +306,7 @@ function ZoomPanViewportInner({
           data-zoom-pan-content
         >
           <div className="relative inline-block min-h-0 align-top">
-            {children}
+            <CanvasScaleContext.Provider value={zoom}>{children}</CanvasScaleContext.Provider>
             <CanvasAnnotationLayer zoom={zoom} />
           </div>
         </div>

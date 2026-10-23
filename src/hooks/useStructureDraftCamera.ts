@@ -1,5 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react'
-import { useStructurePreview } from '@/contexts/EntityDetailContext'
+import { useEntityDetailOptional } from '@/contexts/EntityDetailContext'
 
 /** Keep the new row or column beside the floating inspector, then return the camera. */
 export function useStructureDraftCamera(
@@ -7,7 +7,7 @@ export function useStructureDraftCamera(
   panBy: (dx: number, dy: number) => void,
   active: boolean,
 ) {
-  const context = useStructurePreview()
+  const context = useEntityDetailOptional()
   const shifted = useRef({ x: 0, y: 0 })
   const keep = Boolean(
     context?.selection?.draft || context?.selection?.focusNext,

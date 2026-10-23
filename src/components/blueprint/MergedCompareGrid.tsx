@@ -303,7 +303,11 @@ export function MergedCompareGrid({
             marginTop: COMPARE_STACKED_HEADER_GAP,
           }}
         >
-          <BlueprintLaneHandles bodyRef={bandRef} pathId={blueprints[0]?.path.id} pathIds={blueprints.map(blueprint=>blueprint.path.id)} />
+          <BlueprintLaneHandles
+            bodyRef={bandRef}
+            pathId={blueprints[0]?.path.id}
+            pathIds={blueprints.map((blueprint) => blueprint.path.id)}
+          />
           <BlueprintColumnHandles
             bodyRef={bandRef}
             selectionHandles={false}
@@ -314,7 +318,12 @@ export function MergedCompareGrid({
               const step = path.steps.find(
                 (step) => step.id === track.stepIdByPath[path.path.id],
               )!
-              return { ...step, pathId: path.path.id, pathName: path.path.name, pathIds: Object.keys(track.stepIdByPath) }
+              return {
+                ...step,
+                pathId: path.path.id,
+                pathName: path.path.name,
+                pathIds: Object.keys(track.stepIdByPath),
+              }
             })}
           />
           <MergedSectionFrame blueprints={blueprints} />
@@ -550,12 +559,22 @@ function MergedLaneRow({
               <div
                 aria-hidden
                 data-compare-column-spacer=""
-                data-structure-placeholder={lane.id === STRUCTURE_PLACEHOLDER_ID || Object.values(track.stepIdByPath).includes(STRUCTURE_PLACEHOLDER_ID) ? '' : undefined}
+                data-structure-seam-track={
+                  track.seamSize !== undefined ? 'step' : undefined
+                }
+                data-structure-placeholder={
+                  lane.id === STRUCTURE_PLACEHOLDER_ID ||
+                  Object.values(track.stepIdByPath).includes(
+                    STRUCTURE_PLACEHOLDER_ID,
+                  )
+                    ? ''
+                    : undefined
+                }
                 data-step-index={trackIndex}
                 className="shrink-0 self-stretch rounded-md"
                 style={{
-                  width: STEP_COLUMN_WIDTH,
-                  minWidth: STEP_COLUMN_WIDTH,
+                  width: track.seamSize ?? STEP_COLUMN_WIDTH,
+                  minWidth: track.seamSize ?? STEP_COLUMN_WIDTH,
                 }}
               />
             ) : subCells.length === 1 ? (

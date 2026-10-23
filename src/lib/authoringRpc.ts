@@ -257,14 +257,12 @@ const FRESHNESS: Record<string, (args: Record<string, unknown>) => void> = {
     invalidateStructure()
     invalidateQueries(queryKeys.stepSpec.prefix)
   },
-  rename_step: () => {
-    invalidateStructure()
-    invalidateQueries(queryKeys.stepSpec.prefix)
-  },
-  rename_lane: () => {
-    invalidateStructure()
-    invalidateQueries(queryKeys.laneSpec.prefix)
-  },
+  rename_step: stepDetailsWritten,
+  update_step_with_details: stepDetailsWritten,
+  restore_step_details: stepDetailsWritten,
+  rename_lane: laneDetailsWritten,
+  update_lane_with_details: laneDetailsWritten,
+  restore_lane_details: laneDetailsWritten,
   rename_owner_tag: ownerTagWritten,
   rename_owner_tag_scoped: ownerTagWritten,
   // The registry entry is drawn on every placement of it and read by the
@@ -273,6 +271,16 @@ const FRESHNESS: Record<string, (args: Record<string, unknown>) => void> = {
   // the structural default re-reads the boards and leaves the registry stale.
   rename_touchpoint: touchpointRegistryWritten,
   update_touchpoint: touchpointRegistryWritten,
+}
+
+function stepDetailsWritten(): void {
+  invalidateStructure()
+  invalidateQueries(queryKeys.stepSpec.prefix)
+}
+
+function laneDetailsWritten(): void {
+  invalidateStructure()
+  invalidateQueries(queryKeys.laneSpec.prefix)
 }
 
 function dependencyWritten(): void {
@@ -369,6 +377,10 @@ function deriveRevert(
   args: Record<string, unknown>,
   data: unknown,
 ): RevertSpec | undefined {
+  if (fn === 'update_step_with_details')
+    return { fn: 'restore_step_details', args: { snapshot: data } }
+  if (fn === 'update_lane_with_details')
+    return { fn: 'restore_lane_details', args: { snapshot: data } }
   if ((fn === 'add_step_with_details' || fn === 'add_lane_with_details') && data && typeof data === 'object' && 'before' in data) {
     return { fn: 'undo_structure_add', args: { snapshot: data } }
   }
@@ -1057,7 +1069,7 @@ export async function renameOwnerTag(
  * never become members of `WriteFn`.
  */
 
-/** Create the panel's complete draft atomically; the existing delete is its inverse. */
+/** Create a complete draft and capture every replaced order for its session inverse. */
 export async function createStepWithDetails(
   client: Client,
   input: {
@@ -1065,20 +1077,19 @@ export async function createStepWithDetails(
     name: string
     summary: string
     atPosition?: number
-    frames: Array<{ laneId: string; url: string }>
-    pathOrders?: Record<string, string[]>
+    pathOrders: Record<string, string[]>
   },
 ): Promise<string> {
-  const result = await call<string | {ids:string[]}>(client, 'add_step_with_details', {
-    path_id: input.pathId,
-    name: input.name.trim(),
-    summary: input.summary.trim(),
-    ...(input.pathOrders ? {path_orders:input.pathOrders} : {at_position: input.atPosition ?? null}),
-    frames: input.frames.map((frame) => ({
-      lane_id: frame.laneId,
-      url: frame.url.trim(),
-    })),
-  })
+  const result = await call<string | { ids: string[] }>(
+    client,
+    'add_step_with_details',
+    {
+      path_id: input.pathId,
+      name: input.name.trim(),
+      summary: input.summary.trim(),
+      path_orders: input.pathOrders,
+    },
+  )
   return typeof result === 'string' ? result : result.ids[0]
 }
 
@@ -1094,14 +1105,16 @@ export async function createLaneWithDetails(
     stakeholderId: string | null
     kpis: string[]
     tools: string[]
-    pathOrders?: Record<string, string[]>
+    pathOrders: Record<string, string[]>
   },
 ): Promise<string[]> {
-  const result = await call<string[] | {ids:string[];by_path?:Record<string,string>}>(client, 'add_lane_with_details', {
+  const result = await call<
+    string[] | { ids: string[]; by_path?: Record<string, string> }
+  >(client, 'add_lane_with_details', {
     scenario_id: input.scenarioId,
     name: input.name.trim(),
     lane_role: input.laneRole,
-    ...(input.pathOrders ? {path_orders:input.pathOrders} : {at_position: input.atPosition ?? null}),
+    path_orders: input.pathOrders,
     details: {
       owner_team: input.ownerTeam.trim() || null,
       stakeholder_id: input.stakeholderId,
@@ -1111,7 +1124,9 @@ export async function createLaneWithDetails(
   })
   if (Array.isArray(result)) return result
   const clicked = input.pathId && result.by_path?.[input.pathId]
-  return clicked ? [clicked,...result.ids.filter(id=>id!==clicked)] : result.ids
+  return clicked
+    ? [clicked, ...result.ids.filter((id) => id !== clicked)]
+    : result.ids
 }
 
 export function renameStep(
@@ -1142,4 +1157,41 @@ export function renameLane(
       args: { lane_id: input.laneId, new_name: input.previousName },
     },
   )
+}
+
+/** Save the panel's name and properties in one transaction and one session entry. */
+export function updateStepWithDetails(
+  client: Client,
+  input: { stepId: string; name: string; summary: string },
+): Promise<void> {
+  return call<void>(client, 'update_step_with_details', {
+    step_id: input.stepId,
+    name: input.name.trim(),
+    summary: input.summary.trim(),
+  })
+}
+
+export function updateLaneWithDetails(
+  client: Client,
+  input: {
+    laneId: string
+    laneIds: readonly string[]
+    name: string
+    ownerTeam: string
+    stakeholderId: string | null
+    kpis: string[]
+    tools: string[]
+  },
+): Promise<void> {
+  return call<void>(client, 'update_lane_with_details', {
+    lane_id: input.laneId,
+    lane_ids: input.laneIds,
+    name: input.name.trim(),
+    details: {
+      owner_team: input.ownerTeam.trim() || null,
+      stakeholder_id: input.stakeholderId,
+      kpis: input.kpis.map((v) => v.trim()).filter(Boolean),
+      tools: input.tools.map((v) => v.trim()).filter(Boolean),
+    },
+  })
 }

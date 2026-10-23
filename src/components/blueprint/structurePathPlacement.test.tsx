@@ -94,3 +94,44 @@ it('defaults before the same next item when inserting first, and pre-ticks all s
   fireEvent.click(screen.getByRole('checkbox', { name: 'Add to Other' }))
   expect(names()).toEqual(['Move Review in Other', 'Move Different in Other'])
 })
+
+it('keeps selected paths when a duplicate name is typed and restored', () => {
+  function NamedDraft({ name }: { name: string }) {
+    const state = useStructureCreatePaths(
+      {
+        kind: 'lane',
+        scenarioId: 'scenario',
+        pathId: 'clicked',
+        pathIds: ['clicked', 'shared'],
+      },
+      name,
+    )
+    const unavailable = Object.fromEntries(
+      state.paths
+        .filter((path) =>
+          path.items.some(
+            (item) => item.name.toLowerCase() === name.toLowerCase(),
+          ),
+        )
+        .map((path) => [path.id, 'Already has this name']),
+    )
+    return (
+      <PathOrderSection
+        {...state}
+        item={{ id: 'new', name }}
+        unavailable={unavailable}
+      />
+    )
+  }
+  const view = render(<NamedDraft name="Review" />)
+  const selected = screen.getByRole('checkbox', {
+    name: 'Add to Shared',
+  }) as HTMLInputElement
+  expect(selected.checked).toBe(true)
+  view.rerender(<NamedDraft name="Start" />)
+  expect(selected.checked).toBe(true)
+  expect(selected.disabled).toBe(true)
+  view.rerender(<NamedDraft name="Review" />)
+  expect(selected.checked).toBe(true)
+  expect(selected.disabled).toBe(false)
+})

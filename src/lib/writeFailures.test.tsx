@@ -304,3 +304,29 @@ describe('the notice outlives the shell', () => {
     ).toBe(true)
   })
 })
+
+it('dismisses a successful addition when its session entry is undone elsewhere', async () => {
+  const { reportWriteSuccess } = await import('./writeFailures')
+  const { forgetChange } = await import('./authoringSession')
+  clearSession()
+  recordChange('rename_step',{step_id:'step',new_name:'Review'},{fn:'rename_step',args:{step_id:'step',new_name:'Start'}})
+  const entry=sessionSnapshot().at(-1)!
+  render(<WriteFailureNotices />)
+  act(()=>reportWriteSuccess('Added Review', entry.id, async()=>{}))
+  expect(screen.getByText('Added Review')).toBeTruthy()
+  expect(screen.getByRole('button',{name:'Undo'})).toBeTruthy()
+  act(()=>forgetChange(entry.id))
+  expect(screen.queryByText('Added Review')).toBeNull()
+})
+
+it('expires a successful addition without expiring a failed write', async () => {
+  vi.useFakeTimers()
+  try {
+    const {reportWriteSuccess}=await import('./writeFailures')
+    quiet()
+    reportWriteSuccess('Added Review','entry',async()=>{})
+    reportWriteFailure('The edit was not saved',new Error('Try again'))
+    act(()=>vi.advanceTimersByTime(8000))
+    expect(writeFailureSnapshot().map(notice=>notice.message)).toEqual(['The edit was not saved. Try again'])
+  } finally {vi.useRealTimers()}
+})

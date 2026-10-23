@@ -105,7 +105,9 @@ export function CompareCellBlock({
   const ariaDescribedBy = hasMembershipOutline
     ? membershipDescriptionId
     : undefined
-  const shellPadding = compact ? BLUEPRINT_SLOT_INSET_COMPACT : BLUEPRINT_SLOT_INSET
+  const shellPadding = compact
+    ? BLUEPRINT_SLOT_INSET_COMPACT
+    : BLUEPRINT_SLOT_INSET
   // The vertical inset is a layout number the row heights are summed from,
   // so it arrives as a style from where layout numbers live rather than as
   // a padding class that would have to agree with it.
@@ -129,7 +131,10 @@ export function CompareCellBlock({
         }
       : undefined),
     ...(isStoryboard
-      ? { maxHeight: getStoryboardCellButtonMaxHeight(compact) + shellVerticalPad }
+      ? {
+          maxHeight:
+            getStoryboardCellButtonMaxHeight(compact) + shellVerticalPad,
+        }
       : undefined),
   } as CSSProperties
   const shellClassName = cn(
@@ -183,7 +188,9 @@ export function CompareCellBlock({
           // Read from the cell the touchpoint belongs to — its own slot in a
           // merged view, the block's cell otherwise.
           const placement = touchpointNamed(
-            slotCell ? cellTouchpoints(slotCell) : selectionContext?.cellTouchpoints ?? [],
+            slotCell
+              ? cellTouchpoints(slotCell)
+              : selectionContext?.cellTouchpoints ?? [],
             item,
           )
           const nameOnly = placement ? isNameOnlyPlacement(placement) : false
@@ -267,6 +274,8 @@ export function CompareCellBlock({
 
   const shell = (
     <div
+      data-structure-column=""
+      data-step-index={stepIndex}
       className={shellClassName}
       style={shellStyle}
       onFocusCapture={
@@ -284,7 +293,9 @@ export function CompareCellBlock({
     >
       {hasMembershipOutline ? (
         <span id={membershipDescriptionId} className="sr-only">
-          {`Used in paths: ${pathMembership!.map((membership) => membership.pathName).join(', ')}`}
+          {`Used in paths: ${pathMembership!
+            .map((membership) => membership.pathName)
+            .join(', ')}`}
         </span>
       ) : null}
       {innerContent}

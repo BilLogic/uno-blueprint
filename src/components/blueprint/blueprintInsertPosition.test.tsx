@@ -17,7 +17,11 @@ vi.mock('@/lib/authoringRpc', () => ({
   addLane: writes.lane,
 }))
 vi.mock('@/contexts/EntityDetailContext', () => ({
-  useEntityDetail: () => ({ openCreate: writes.openCreate, selection: null }),
+  useEntityDetail: () => ({
+    openCreate: writes.openCreate,
+    selection: null,
+    setSeam: vi.fn(),
+  }),
 }))
 vi.mock('@/contexts/EditorContext', () => ({
   useAtScenarioLevel: () => true,

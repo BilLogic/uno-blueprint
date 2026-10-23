@@ -43,14 +43,15 @@ export function WriteFailureNotices() {
       {failures.map((failure) => (
         <Alert
           key={failure.id}
-          variant="destructive"
+          variant={failure.success ? "default" : "destructive"}
           className="pointer-events-auto shadow-md"
         >
-          <AlertTriangle aria-hidden />
+          {failure.success ? null : <AlertTriangle aria-hidden />}
           <AlertDescription className="text-foreground">
             {failure.message}
           </AlertDescription>
           <AlertAction>
+            {failure.undo ? <Button type="button" variant="ghost" size="sm" disabled={failure.busy} onClick={() => void failure.undo?.()}>Undo</Button> : null}
             <Button
               type="button"
               variant="ghost"

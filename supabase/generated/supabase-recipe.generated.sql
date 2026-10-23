@@ -2717,44 +2717,19 @@ end
 $anon_definer$;
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 21000318000000_a_draft_becomes_one_structural_write.sql
--- ─────────────────────────────────────────────────────────────────────────
-
--- Only signed-in callers can attempt these guarded authoring operations.
-grant execute on function public.add_lane_with_details(uuid,text,text,integer,jsonb) to authenticated;
-grant execute on function public.add_step_with_details(uuid,text,integer,text,jsonb) to authenticated;
-grant execute on function public.rename_lane(uuid,text) to authenticated;
-grant execute on function public.rename_step(uuid,text) to authenticated;
-
--- The recipe's identity guard refuses every new write without a service claim.
-do $draft_refusals$
-declare statement text;
-begin
-  perform set_config('request.jwt.claims', '{}', true);
-  foreach statement in array array[
-    'select public.rename_step(null, ''Forbidden'')',
-    'select public.rename_lane(null, ''Forbidden'')',
-    'select public.add_step_with_details(null, ''Forbidden'')',
-    'select public.add_lane_with_details(null, ''Forbidden'', ''frontstage_actions'')'
-  ] loop
-    begin
-      execute statement;
-      raise exception 'an unauthenticated structural write was accepted' using errcode='P0003';
-    exception when insufficient_privilege then null;
-    end;
-  end loop;
-end $draft_refusals$;
-
--- ─────────────────────────────────────────────────────────────────────────
--- 21000319000000_a_structure_draft_keeps_every_path_order.sql
+-- 21000309000000_a_structure_panel_saves_one_change.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- Signed-in callers may attempt the guarded writes; helpers stay private.
-grant execute on function public.add_step_with_details(uuid,text,jsonb,text,jsonb) to authenticated;
+grant execute on function public.add_step_with_details(uuid,text,jsonb,text) to authenticated;
 grant execute on function public.add_lane_with_details(uuid,text,text,jsonb,jsonb) to authenticated;
-grant execute on function public.add_step_with_details(uuid,text,integer,text,jsonb) to authenticated;
-grant execute on function public.add_lane_with_details(uuid,text,text,integer,jsonb) to authenticated;
 grant execute on function public.undo_structure_add(jsonb) to authenticated;
+grant execute on function public.rename_step(uuid,text) to authenticated;
+grant execute on function public.update_step_with_details(uuid,text,text) to authenticated;
+grant execute on function public.update_lane_with_details(uuid,uuid[],text,jsonb) to authenticated;
+grant execute on function public.restore_step_details(jsonb) to authenticated;
+grant execute on function public.restore_lane_details(jsonb) to authenticated;
+grant execute on function public.rename_lane(uuid,text) to authenticated;
 
 -- The new writes and their inverse refuse a caller without the author tier.
 do $draft_permissions$
@@ -2773,8 +2748,49 @@ begin
     raise exception 'draft undo accepted a reader';
   exception when insufficient_privilege then null; end;
   if has_function_privilege('anon','public.undo_structure_add(jsonb)','EXECUTE')
-    or has_function_privilege('anon','public.add_step_with_details(uuid,text,jsonb,text,jsonb)','EXECUTE')
+    or has_function_privilege('anon','public.add_step_with_details(uuid,text,jsonb,text)','EXECUTE')
     or has_function_privilege('anon','public.add_lane_with_details(uuid,text,text,jsonb,jsonb)','EXECUTE') then
     raise exception 'an anonymous caller can execute a draft write';
   end if;
 end $draft_permissions$;
+
+-- Panel edits commit and restore the name and all properties together.
+do $panel_edit_proof$
+declare svc uuid; ph uuid; sc uuid; p uuid; st uuid; ln uuid; snapshot jsonb;
+begin
+  perform set_config('request.jwt.claims','{"app_metadata":{"role":"service"}}',true);
+  if not public.is_service_account() then return; end if;
+  insert into public.services(name) values('Panel edit fixture') returning id into svc;
+  insert into public.phases(service_id,name,position) values(svc,'Fixture phase',0) returning id into ph;
+  insert into public.scenarios(phase_id,name,position) values(ph,'Fixture scenario',0) returning id into sc;
+  insert into public.paths(scenario_id,name,kind) values(sc,'Default','happy') returning id into p;
+  st := public.add_step(p,'Start',null);
+  snapshot := public.update_step_with_details(st,'Review','Review the request.');
+  if not exists(select 1 from public.steps where id=st and name='Review' and summary='Review the request.') then raise exception 'step panel fields were not saved together'; end if;
+  perform public.restore_step_details(snapshot);
+  if not exists(select 1 from public.steps where id=st and name='Start' and summary is null) then raise exception 'step panel inverse lost a field'; end if;
+  insert into public.lanes(path_id,name,lane_role,position,owner_team) values(p,'Actor','frontstage_actions',0,'Original team') returning id into ln;
+  snapshot := public.update_lane_with_details(ln,array[ln],'Reviewer','{"owner_team":"Operations","stakeholder_id":null,"kpis":["Completion"],"tools":["Queue"]}');
+  if not exists(select 1 from public.lanes where id=ln and name='Reviewer' and owner_team='Operations' and kpis='["Completion"]' and tools='["Queue"]') then raise exception 'lane panel fields were not saved together'; end if;
+  perform public.restore_lane_details(snapshot);
+  if not exists(select 1 from public.lanes where id=ln and name='Actor' and owner_team='Original team' and kpis='[]' and tools='[]') then raise exception 'lane panel inverse lost a field'; end if;
+  perform set_config('request.jwt.claims','{}',true);
+  begin
+    perform public.update_step_with_details(st,'Blocked','Blocked');
+    raise exception 'step panel accepted a reader';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.update_lane_with_details(ln,array[ln],'Blocked','{"kpis":[],"tools":[]}');
+    raise exception 'lane panel accepted a reader';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.restore_step_details('{}');
+    raise exception 'step restore accepted a reader';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.restore_lane_details('{}');
+    raise exception 'lane restore accepted a reader';
+  exception when insufficient_privilege then null; end;
+  raise exception 'panel edit proof complete';
+exception when raise_exception then if sqlerrm <> 'panel edit proof complete' then raise; end if;
+end $panel_edit_proof$;

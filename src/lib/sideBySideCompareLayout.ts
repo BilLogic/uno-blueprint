@@ -288,6 +288,10 @@ export function buildSideBySideLabelRowSpecs(
 
   for (let laneIndex = 0; laneIndex < lanes.length; laneIndex++) {
     const lane = lanes[laneIndex]
+    if (lane.seamSize !== undefined) {
+      specs.push({key:lane.id,kind:'lane',lane,label:'',height:lane.seamSize})
+      continue
+    }
     const collapsed = isBlueprintLaneCollapsed(lane.id, collapsedLaneIds)
 
     specs.push({

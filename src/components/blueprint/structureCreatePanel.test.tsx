@@ -12,7 +12,9 @@ import { StepPanel } from './StepPanel'
 import { LanePanel } from './LanePanel'
 import { StructureRenameEditor } from './StructureRenameEditor'
 
-const reads = vi.hoisted(()=>({items:[] as Array<{id:string;name:string}>}))
+const reads = vi.hoisted(() => ({
+  items: [] as Array<{ id: string; name: string }>,
+}))
 const writes = vi.hoisted(() => ({
   step: vi.fn(async () => 'created-step'),
   lane: vi.fn(async () => ['created-lane']),
@@ -26,8 +28,15 @@ vi.mock('@/lib/authoringRpc', () => ({
   renameLane: writes.renameLane,
 }))
 vi.mock('@/hooks/useStructureCreatePaths', () => ({
-  NEW_STRUCTURE_ITEM:'new',
-  useStructureCreatePaths: () => ({status:'ready',clickedPathId:'path',paths:[{id:'path',name:'Default',items:reads.items}],value:[{pathId:'path',order:['new'],moved:[]}],onChange:vi.fn(),defaultOrder:()=>['new']})
+  NEW_STRUCTURE_ITEM: 'new',
+  useStructureCreatePaths: () => ({
+    status: 'ready',
+    clickedPathId: 'path',
+    paths: [{ id: 'path', name: 'Default', items: reads.items }],
+    value: [{ pathId: 'path', order: ['new'], moved: [] }],
+    onChange: vi.fn(),
+    defaultOrder: () => ['new'],
+  }),
 }))
 vi.mock('@/hooks/useStepSpec', () => ({
   useStepSpec: () => ({ status: 'ready', data: null }),
@@ -44,13 +53,10 @@ vi.mock('@/contexts/canvasModeContext', () => ({
 vi.mock('@/hooks/useOwnerTags', () => ({
   useOwnerTags: () => ({ status: 'ready', data: [] }),
 }))
-vi.mock('./DraftStoryboardFields', () => ({
-  DraftStoryboardFields: () => null,
-}))
 vi.mock('./StakeholderSelect', () => ({ StakeholderSelect: () => null }))
 afterEach(() => {
   cleanup()
-  reads.items=[]
+  reads.items = []
   vi.clearAllMocks()
 })
 
@@ -114,7 +120,10 @@ it('requires both lane Name and Role and submits its properties in one write', a
   }) as HTMLButtonElement
   expect(add.disabled).toBe(false)
   fireEvent.click(add)
-  expect(await screen.findByRole('alert')).toHaveProperty('textContent','Choose a role')
+  expect(await screen.findByRole('alert')).toHaveProperty(
+    'textContent',
+    'Choose a role',
+  )
   fireEvent.change(await screen.findByLabelText('Owner team'), {
     target: { value: 'Operations' },
   })
@@ -215,23 +224,50 @@ it('keeps a rejected step draft editable and reports why it did not save', async
 })
 
 it('translates raw rename failures into the shared write-failure copy', async () => {
-  writes.renameStep.mockRejectedValueOnce(new Error('relation "steps" does not exist'))
-  render(<StructureRenameEditor kind="step" id="saved" name="Review" onDone={() => {}} />)
-  const name = screen.getByRole('textbox',{name:'Rename step'})
-  fireEvent.change(name,{target:{value:'Decision'}})
-  fireEvent.keyDown(name,{key:'Enter'})
-  expect((await screen.findByRole('alert')).textContent).toBe('That change could not be saved. The details are in the console.')
+  writes.renameStep.mockRejectedValueOnce(
+    new Error('relation "steps" does not exist'),
+  )
+  render(
+    <StructureRenameEditor
+      kind="step"
+      id="saved"
+      name="Review"
+      onDone={() => {}}
+    />,
+  )
+  const name = screen.getByRole('textbox', { name: 'Rename step' })
+  fireEvent.change(name, { target: { value: 'Decision' } })
+  fireEvent.keyDown(name, { key: 'Enter' })
+  expect((await screen.findByRole('alert')).textContent).toBe(
+    'That change could not be saved. The details are in the console.',
+  )
 })
 
 it('shows the duplicate lane error on Name without writing', async () => {
-  reads.items=[{id:'existing',name:' reviewer '}]
-  render(<Drawer open><LanePanel laneId="" draft={{kind:'lane',scenarioId:'scenario',pathId:'path'}} onClose={()=>{}} /></Drawer>)
-  fireEvent.change(screen.getByRole('textbox',{name:'Name'}),{target:{value:'Reviewer'}})
-  fireEvent.mouseDown(screen.getByRole('combobox',{name:'Role'}),{button:0})
-  const role=(await screen.findByText('Frontstage',{exact:true})).closest('[role=option]')!
-  fireEvent.pointerDown(role,{pointerType:'mouse',button:0})
+  reads.items = [{ id: 'existing', name: ' reviewer ' }]
+  render(
+    <Drawer open>
+      <LanePanel
+        laneId=""
+        draft={{ kind: 'lane', scenarioId: 'scenario', pathId: 'path' }}
+        onClose={() => {}}
+      />
+    </Drawer>,
+  )
+  fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), {
+    target: { value: 'Reviewer' },
+  })
+  fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Role' }), {
+    button: 0,
+  })
+  const role = (await screen.findByText('Frontstage', { exact: true })).closest(
+    '[role=option]',
+  )!
+  fireEvent.pointerDown(role, { pointerType: 'mouse', button: 0 })
   fireEvent.click(role)
-  fireEvent.click(screen.getByRole('button',{name:'Add lane'}))
-  expect((await screen.findByRole('alert')).textContent).toBe('This path already has a lane with that name')
+  fireEvent.click(screen.getByRole('button', { name: 'Add lane' }))
+  expect((await screen.findByRole('alert')).textContent).toBe(
+    'This path already has a lane with that name',
+  )
   expect(writes.lane).not.toHaveBeenCalled()
 })

@@ -1,3 +1,5 @@
+import { sessionSnapshot, subscribeToSession } from '@/lib/authoringSession'
+
 /**
  * Writes that did not land, on their way to the person who asked for them.
  *
@@ -24,6 +26,9 @@ export type WriteFailure = {
   /** One sentence, already phrased for a person. */
   message: string
   at: number
+  success?: boolean
+  undo?: () => Promise<void>
+  busy?: boolean
 }
 
 /**
@@ -82,6 +87,8 @@ export function reportWriteFailure(subject: string, error: unknown): void {
 }
 
 export function dismissWriteFailure(id: string): void {
+  noticeCleanup.get(id)?.()
+  noticeCleanup.delete(id)
   const next = failures.filter((entry) => entry.id !== id)
   if (next.length === failures.length) return
   failures = next
@@ -90,6 +97,56 @@ export function dismissWriteFailure(id: string): void {
 
 /** Test seam — no product code clears the whole list. */
 export function resetWriteFailures(): void {
+  for (const cleanup of noticeCleanup.values()) cleanup()
+  noticeCleanup.clear()
   failures = []
   emit()
 }
+
+/** Success notices share the shell surface and live only as long as their undo. */
+export function reportWriteSuccess(
+  message: string,
+  entryId: string,
+  undo: () => Promise<void>,
+): void {
+  const id = `w${++counter}`
+  const timer = setTimeout(() => dismissWriteFailure(id), 8000)
+  const unsubscribe = subscribeToSession(() => {
+    if (!sessionSnapshot().some((entry) => entry.id === entryId))
+      dismissWriteFailure(id)
+  })
+  noticeCleanup.set(id, () => {
+    clearTimeout(timer)
+    unsubscribe()
+  })
+  failures = [
+    ...failures.slice(-(MAX_VISIBLE - 1)),
+    {
+      id,
+      message,
+      at: Date.now(),
+      success: true,
+      undo: async () => {
+        const notice = failures.find((entry) => entry.id === id)
+        if (!notice || notice.busy) return
+        failures = failures.map((entry) =>
+          entry.id === id ? { ...entry, busy: true } : entry,
+        )
+        emit()
+        try {
+          await undo()
+          dismissWriteFailure(id)
+        } catch (error) {
+          reportWriteFailure('The addition was not undone', error)
+        } finally {
+          failures = failures.map((entry) =>
+            entry.id === id ? { ...entry, busy: false } : entry,
+          )
+          emit()
+        }
+      },
+    },
+  ]
+  emit()
+}
+const noticeCleanup = new Map<string, () => void>()

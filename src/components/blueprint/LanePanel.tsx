@@ -1,6 +1,9 @@
 import { toAuthoringError } from '@/lib/authoringErrors'
 import { PathOrderSection } from './PathOrderSection'
-import { useStructureCreatePaths, NEW_STRUCTURE_ITEM } from '@/hooks/useStructureCreatePaths'
+import {
+  useStructureCreatePaths,
+  NEW_STRUCTURE_ITEM,
+} from '@/hooks/useStructureCreatePaths'
 import { useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -26,10 +29,12 @@ import { usePanelFooterHost } from '@/hooks/usePanelFooterHost'
 import { useSupabase } from '@/contexts/SupabaseProvider'
 import { useCanvasModeValue } from '@/contexts/canvasModeContext'
 import type { StructureDraft } from '@/contexts/EntityDetailContext'
-import { createLaneWithDetails, renameLane } from '@/lib/authoringRpc'
+import {
+  createLaneWithDetails,
+  updateLaneWithDetails,
+} from '@/lib/authoringRpc'
 import { OptionSelect } from './OptionSelect'
 import { CANONICAL_LANE_ROLES } from '@/lib/laneRoles'
-import { updateLaneSpec } from '@/lib/laneSpecMutations'
 import { describeLaneRole, getLaneRole, labelLaneRole } from '@/lib/laneRoles'
 import { getBlueprintLaneStyle } from '@/lib/blueprintTheme'
 
@@ -67,7 +72,9 @@ function isLaneEmpty(lane: LaneSpec): boolean {
 export function LanePanel({
   laneId,
   draft,
-  onCreated, focusNext,
+  onCreated,
+  focusNext,
+  onSaved,
   onClose,
 }: {
   laneId: string
@@ -75,6 +82,7 @@ export function LanePanel({
   onCreated?: (id: string) => void
   focusNext?: boolean
   onClose: () => void
+  onSaved?: () => void
 }) {
   const { canWrite } = useSupabase()
   const canEdit = useCanvasModeValue() === 'design' && canWrite
@@ -120,7 +128,7 @@ export function LanePanel({
             draft={draft}
             onCreated={onCreated}
             focusNext={focusNext}
-            onDone={onClose}
+            onDone={onSaved ?? onClose}
           />
         ) : result.status === 'error' ? (
           <p className="text-sm text-muted-foreground">
@@ -147,7 +155,8 @@ type FormState = {
 function LanePanelBody({
   lane,
   draft,
-  onCreated, focusNext,
+  onCreated,
+  focusNext,
   onDone,
 }: {
   lane: LaneSpec
@@ -174,7 +183,10 @@ function LanePanelBody({
   const [baseline, setBaseline] = useState<FormState>(saved)
   const [form, setForm] = useState<FormState>(baseline)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{
+    field: 'name' | 'role' | 'form'
+    message: string
+  } | null>(null)
   const paths = useStructureCreatePaths(draft, form.name, form.laneRole)
   const footerHost = usePanelFooterHost(LANE_PANEL_FOOTER_ID)
 
@@ -197,46 +209,62 @@ function LanePanelBody({
   }
 
   const handleSave = async () => {
-    if (
-      !client ||
-      busy ||
-      (!draft && !changed)
-    )
+    if (!client || busy || (!draft && !changed)) return
+    if (!form.name.trim()) {
+      setError({ field: 'name', message: 'Enter a name' })
       return
-    if (!form.name.trim()) { setError('Enter a name'); return }
-    if (draft && !form.laneRole) { setError('Choose a role'); return }
+    }
+    if (draft && !form.laneRole) {
+      setError({ field: 'role', message: 'Choose a role' })
+      return
+    }
     if (draft && paths.status !== 'ready') return
-    if (draft && paths.value.some(entry=>paths.paths.find(path=>path.id===entry.pathId)?.items.some(item=>item.name.trim().toLowerCase() === form.name.trim().toLowerCase()))) { setError('This path already has a lane with that name'); return }
+    if (
+      draft &&
+      paths.value.some((entry) =>
+        paths.paths
+          .find((path) => path.id === entry.pathId)
+          ?.items.some(
+            (item) =>
+              item.name.trim().toLowerCase() === form.name.trim().toLowerCase(),
+          ),
+      )
+    ) {
+      setError({
+        field: 'name',
+        message: 'This path already has a lane with that name',
+      })
+      return
+    }
     setBusy(true)
     setError(null)
     try {
       if (draft) {
         const ids = await createLaneWithDetails(client, {
           ...draft,
-          pathOrders: Object.fromEntries(paths.value.map(entry=>[entry.pathId,entry.order])),
+          pathOrders: Object.fromEntries(
+            paths.value.map((entry) => [entry.pathId, entry.order]),
+          ),
           ...form,
           laneRole: form.laneRole,
         })
         if (!ids[0]) throw new Error('The lane was not created.')
         onCreated?.(ids[0])
       } else {
-        if (form.name.trim() !== baseline.name)
-          await renameLane(client, {
-            laneId: lane.id,
-            name: form.name.trim(),
-            previousName: baseline.name,
-          })
-        if (
-          form.ownerTeam !== baseline.ownerTeam ||
-          form.stakeholderId !== baseline.stakeholderId ||
-          JSON.stringify(form.kpis) !== JSON.stringify(baseline.kpis) ||
-          JSON.stringify(form.tools) !== JSON.stringify(baseline.tools)
-        )
-          await updateLaneSpec(client, lane.siblingLaneIds, form, baseline)
+        await updateLaneWithDetails(client, {
+          laneId: lane.id,
+          laneIds: lane.siblingLaneIds,
+          ...form,
+        })
         onDone()
       }
     } catch (cause) {
-      setError(toAuthoringError(cause instanceof Error ? cause : new Error('Unknown write failure')).message)
+      setError({
+        field: 'form',
+        message: toAuthoringError(
+          cause instanceof Error ? cause : new Error('Unknown write failure'),
+        ).message,
+      })
     } finally {
       setBusy(false)
     }
@@ -301,7 +329,11 @@ function LanePanelBody({
               value={form.name}
               onChange={(event) => set('name', event.target.value)}
             />
-            {error === 'Enter a name' || error?.startsWith('This path already') ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
+            {error?.field === 'name' ? (
+              <p role="alert" className="text-xs text-destructive">
+                {error.message}
+              </p>
+            ) : null}
           </Field>
           {draft ? (
             <Field label="Role" required>
@@ -319,16 +351,57 @@ function LanePanelBody({
                   })),
                 ]}
               />
-              {error === 'Choose a role' ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
+              {error?.field === 'role' ? (
+                <p role="alert" className="text-xs text-destructive">
+                  {error.message}
+                </p>
+              ) : null}
             </Field>
           ) : null}
         </>
       ) : null}
 
-      {draft ? <>
-        {paths.status === 'ready' ? <PathOrderSection paths={paths.paths} value={paths.value} onChange={paths.onChange} defaultOrder={paths.defaultOrder} item={{id:NEW_STRUCTURE_ITEM,name:form.name.trim() || 'New lane'}} unavailable={Object.fromEntries(paths.paths.filter(path=>path.id !== paths.clickedPathId && form.name.trim() && path.items.some(item=>item.name.trim().toLowerCase() === form.name.trim().toLowerCase())).map(path=>[path.id,`Already has ${form.name.trim()}`]))} /> : <p className="text-xs text-muted-foreground">{paths.status === 'error' ? 'Paths could not be loaded. Close this draft and try again.' : 'Loading paths…'}</p>}
-        {paths.value.length > 1 ? <p className="text-xs text-muted-foreground">Each path gets its own lane. Renaming one later leaves the others as they are.</p> : null}
-      </> : null}
+      {draft ? (
+        <>
+          {paths.status === 'ready' ? (
+            <PathOrderSection
+              paths={paths.paths}
+              value={paths.value}
+              onChange={paths.onChange}
+              defaultOrder={paths.defaultOrder}
+              item={{
+                id: NEW_STRUCTURE_ITEM,
+                name: form.name.trim() || 'New lane',
+              }}
+              unavailable={Object.fromEntries(
+                paths.paths
+                  .filter(
+                    (path) =>
+                      form.name.trim() &&
+                      path.items.some(
+                        (item) =>
+                          item.name.trim().toLowerCase() ===
+                          form.name.trim().toLowerCase(),
+                      ),
+                  )
+                  .map((path) => [path.id, `Already has ${form.name.trim()}`]),
+              )}
+            />
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {paths.status === 'error'
+                ? 'Paths could not be loaded. Close this draft and try again.'
+                : 'Loading paths…'}
+            </p>
+          )}
+          {paths.value.length > 1 ? (
+            <p className="text-xs text-muted-foreground">
+              Each path gets its own lane. Renaming one later leaves the others
+              as they are.
+            </p>
+          ) : null}
+        </>
+      ) : null}
       {/*
         An inline Alert, not a hover and not an ⓘ.
 
@@ -428,13 +501,17 @@ function LanePanelBody({
         <PanelFooterControls
           footerHost={footerHost}
           busy={busy}
-          changed={
+          changed={draft ? true : changed && Boolean(form.name.trim())}
+          error={error?.field === 'form' ? error.message : null}
+          saveLabel={
             draft
-              ? true
-              : changed && Boolean(form.name.trim())
+              ? `Add lane${
+                  paths.value.length > 1
+                    ? ` to ${paths.value.length} paths`
+                    : ''
+                }`
+              : undefined
           }
-          error={error === 'Enter a name' || error === 'Choose a role' || error?.startsWith('This path already') ? null : error}
-          saveLabel={draft ? `Add lane${paths.value.length > 1 ? ` to ${paths.value.length} paths` : ''}` : undefined}
           onSave={handleSave}
           onCancel={onDone}
         />

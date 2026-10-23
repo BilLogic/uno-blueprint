@@ -1,5 +1,5 @@
-import { useStructurePreview } from '@/contexts/EntityDetailContext'
-import { previewStructureDraft } from '@/lib/structureDraftPreview'
+import { useEntityDetailOptional } from '@/contexts/EntityDetailContext'
+import { previewStructureDraft, previewStructureSeam } from '@/lib/structureDraftPreview'
 import { memo, useEffect, useMemo, useRef, type RefObject } from 'react'
 import { ResizableComparePanel } from '@/components/blueprint/ResizableComparePanel'
 import { MergedCompareGrid } from '@/components/blueprint/MergedCompareGrid'
@@ -127,7 +127,7 @@ export const ScenarioBlueprintPanelBody = memo(function ScenarioBlueprintPanelBo
   // differently.
   const useSideBySideLayout = selectedPathIds.length > 0
 
-  const draftContext = useStructurePreview()
+  const draftContext = useEntityDetailOptional()
   const loadedBlueprints = useMemo(
     () =>
       useSideBySideLayout
@@ -138,7 +138,13 @@ export const ScenarioBlueprintPanelBody = memo(function ScenarioBlueprintPanelBo
     [blueprintsByPathId, selectedPathIds, useSideBySideLayout],
   )
 
-  const visibleBlueprints = useMemo(() => draftContext?.selection?.draft && draftContext.preview ? previewStructureDraft(loadedBlueprints, draftContext.preview) : loadedBlueprints, [loadedBlueprints,draftContext?.selection?.draft,draftContext?.preview])
+  const visibleBlueprints = useMemo(() => {
+    if (draftContext?.selection?.draft && draftContext.preview)
+      return previewStructureDraft(loadedBlueprints, draftContext.preview)
+    if (draftContext?.seam)
+      return previewStructureSeam(loadedBlueprints, draftContext.seam)
+    return loadedBlueprints
+  }, [loadedBlueprints, draftContext?.selection?.draft, draftContext?.preview, draftContext?.seam])
 
   /*
     THE compare model — computed once here, distributed via props; consumers
@@ -151,10 +157,11 @@ export const ScenarioBlueprintPanelBody = memo(function ScenarioBlueprintPanelBo
     if (visibleBlueprints.length < 2) return null
     if (visibleBlueprints.length !== selectedPathIds.length) return null
     const clickedId=(draftContext?.selection?.draft || draftContext?.selection?.focusNext) ? draftContext.preview?.clickedPathId : undefined
-    const clicked=visibleBlueprints.find(blueprint=>blueprint.path.id===clickedId)
-    const axis=clicked ? [clicked,...visibleBlueprints.filter(blueprint=>blueprint!==clicked)] : visibleBlueprints
+    const comparisonBoards = draftContext?.seam?.kind === 'step' ? loadedBlueprints : visibleBlueprints
+    const clicked=comparisonBoards.find(blueprint=>blueprint.path.id===clickedId)
+    const axis=clicked ? [clicked,...comparisonBoards.filter(blueprint=>blueprint!==clicked)] : comparisonBoards
     return buildCompareModel(axis as CompareBlueprints)
-  }, [selectedPathIds.length, useSideBySideLayout, visibleBlueprints,draftContext?.selection,draftContext?.preview?.clickedPathId])
+  }, [selectedPathIds.length, useSideBySideLayout, visibleBlueprints,loadedBlueprints,draftContext?.seam?.kind,draftContext?.selection,draftContext?.preview?.clickedPathId])
 
   /*
     Merged = ONE COMBINED BLUEPRINT (Phase 4b). `MergedCompareGrid` renders

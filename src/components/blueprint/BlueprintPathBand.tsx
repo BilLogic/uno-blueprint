@@ -25,7 +25,11 @@ import {
 } from '@/lib/blueprintLayout'
 import { cellResources } from '@/lib/cellResources'
 import { cellTouchpoints } from '@/lib/cellTouchpoints'
-import { buildCellLookup, getCellAt, getCellsAt } from '@/lib/normalizeBlueprint'
+import {
+  buildCellLookup,
+  getCellAt,
+  getCellsAt,
+} from '@/lib/normalizeBlueprint'
 import {
   getBlueprintLaneStyle,
   getBlueprintLaneZone,
@@ -133,6 +137,7 @@ export function BlueprintPathBand({
   return (
     <div
       ref={bandRef}
+      data-structure-path={blueprint.path.id}
       className="relative z-0 grid overflow-visible"
       style={placementStyle}
     >
@@ -178,8 +183,8 @@ export function BlueprintPathBand({
                   row.kind === 'interaction'
                     ? 'dashed'
                     : row.kind === 'internalInteraction'
-                      ? 'dotted'
-                      : 'solid'
+                    ? 'dotted'
+                    : 'solid'
                 }
               />
             ) : (
@@ -331,7 +336,9 @@ function CompareLaneRow({
   const flushBottom = lanePrecedesBlueprintDivider(lane, lanes)
   const isStoryboardLane = shouldUseStoryboardContent(lane)
   const renderPlay =
-    showPlay && isStoryboardLane && (playGutter > 0 || stackedTracks !== undefined)
+    showPlay &&
+    isStoryboardLane &&
+    (playGutter > 0 || stackedTracks !== undefined)
 
   const renderStepCell = (step: BlueprintStep, stepIndex: number) => {
     const cell = getCellAt(cellLookup, blueprintLane.id, step.id)
@@ -339,17 +346,21 @@ function CompareLaneRow({
     const slotCells = isTouchpointLane
       ? getCellsAt(cellLookup, blueprintLane.id, step.id)
       : undefined
-    const variant = isStoryboardLane ? 'storyboard' : isTouchpointLane ? 'touchpoints' : 'default'
+    const variant = isStoryboardLane
+      ? 'storyboard'
+      : isTouchpointLane
+      ? 'touchpoints'
+      : 'default'
     const storyboardPictures = isStoryboardLane
       ? resolveStoryboardStripEntries(blueprint, step.id)
       : undefined
     const showCell = isStoryboardLane
       ? (storyboardPictures?.length ?? 0) > 0
       : isTouchpointLane
-        ? (slotCells ?? []).some((entry) =>
-            hasBlueprintCellContent(entry.content, variant),
-          )
-        : hasBlueprintCellContent(cell?.content, variant)
+      ? (slotCells ?? []).some((entry) =>
+          hasBlueprintCellContent(entry.content, variant),
+        )
+      : hasBlueprintCellContent(cell?.content, variant)
 
     if (!showCell) {
       // Empty in Edit mode is not nothing: it is where a cell can go.
@@ -367,7 +378,7 @@ function CompareLaneRow({
           stepIndex={stepIndex}
           scenarioName={scenarioName}
           phaseName={phaseName}
-          width={STEP_COLUMN_WIDTH}
+          width={step.seamSize ?? STEP_COLUMN_WIDTH}
           selfStretch
         />
       )
@@ -375,7 +386,9 @@ function CompareLaneRow({
 
     return (
       <CompareCellBlock
-        cellId={cell?.id ?? (isStoryboardLane ? `storyboard-${step.id}` : undefined)}
+        cellId={
+          cell?.id ?? (isStoryboardLane ? `storyboard-${step.id}` : undefined)
+        }
         stepIndex={stepIndex}
         content={cell?.content}
         status={cell?.status}
@@ -439,9 +452,7 @@ function CompareLaneRow({
 
     return (
       <div
-        className={cn(
-          'relative flex items-stretch rounded-md shrink-0',
-        )}
+        className={cn('relative flex items-stretch rounded-md shrink-0')}
         style={{ backgroundColor: 'transparent' }}
       >
         {playButton}
@@ -466,7 +477,15 @@ function CompareLaneRow({
 
           return (
             <Fragment key={track.key}>
-              {step !== undefined && stepIndex !== undefined ? (
+              {track.seamSize !== undefined ? (
+                <div
+                  aria-hidden
+                  data-structure-seam-track="step"
+                  data-step-index={trackIndex}
+                  className="shrink-0"
+                  style={{ width: track.seamSize, minWidth: track.seamSize }}
+                />
+              ) : step !== undefined && stepIndex !== undefined ? (
                 renderStepCell(step, stepIndex)
               ) : (
                 <div
@@ -489,9 +508,7 @@ function CompareLaneRow({
 
   return (
     <div
-      className={cn(
-        'relative flex items-stretch rounded-md shrink-0',
-      )}
+      className={cn('relative flex items-stretch rounded-md shrink-0')}
       style={{
         backgroundColor: 'transparent',
         paddingLeft: playGutter || undefined,

@@ -58,7 +58,6 @@ export const queryKeys = {
   scenarioSpec: family('scenario-spec'),
   laneSpec: family('lane-spec'),
   structureCreatePaths: family('structure-create-paths'),
-  draftStoryboardLanes: family('draft-storyboard-lanes'),
   stepSpec: family('step-spec'),
   evidence: family('evidence'),
   registryTouchpoints: family('registry-touchpoints'),
@@ -106,7 +105,6 @@ export const STRUCTURE_KEYS: readonly string[] = [
   queryKeys.canvasBlueprints.prefix,
   queryKeys.scenarioPaths.prefix,
   queryKeys.laneSources,
-  queryKeys.draftStoryboardLanes.prefix,
   queryKeys.structureCreatePaths.prefix,
   queryKeys.slices.prefix,
   // A slice's own detail is keyed separately, and a cascade can empty it.

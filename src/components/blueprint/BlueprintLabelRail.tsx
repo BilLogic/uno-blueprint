@@ -1,3 +1,4 @@
+import { useEntityDetailOptional } from '@/contexts/EntityDetailContext'
 import { highlightStructure } from './structureHighlight'
 import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
 import { useStructureRename } from './useStructureRename'
@@ -7,7 +8,6 @@ import {
   BlueprintDividerRule,
 } from '@/components/blueprint/BlueprintDividerBadge'
 import { LaneCollapseToggle } from '@/components/blueprint/LaneCollapseToggle'
-import { IconTooltip } from '@/components/editor/IconTooltip'
 import {
   BLUEPRINT_DIVIDER_ROW_HEIGHT,
   BLUEPRINT_OVERHEAD_RAIL_CORRIDOR_MARGIN,
@@ -31,6 +31,7 @@ import {
   BLUEPRINT_SLOT_INSET,
   BLUEPRINT_SLOT_INSET_COMPACT,
   CANVAS_HEADER_TEXT,
+  CANVAS_HEADER_STATE,
 } from '@/lib/canvasHeaderStyle'
 import { cn } from '@/lib/utils'
 import type { BlueprintLane } from '@/types/blueprint'
@@ -235,11 +236,15 @@ export function BlueprintLabelRow({
   // In Design mode the lane label becomes a selection handle — clicking takes
   // the whole lane, shift-clicking adds it to what is already picked. Inert in
   // View, so reading the blueprint is untouched.
+  const selection = useEntityDetailOptional()?.selection
   const canvasMode = useCanvasModeValue()
   const pick = useCellPick()
   const laneId = row.kind === 'lane' ? row.lane?.id ?? null : null
   const laneSelectable =
-    canvasMode === 'design' && pick !== null && laneId !== null && laneId !== STRUCTURE_PLACEHOLDER_ID
+    canvasMode === 'design' &&
+    pick !== null &&
+    laneId !== null &&
+    laneId !== STRUCTURE_PLACEHOLDER_ID
   const selectLane = (event: ReactMouseEvent<HTMLElement>) => {
     if (!laneSelectable || laneId === null) return
     const cells = cellsInLane(laneId)
@@ -255,6 +260,7 @@ export function BlueprintLabelRow({
     row.kind === 'visibility' ||
     row.kind === 'internalInteraction'
   if (isDivider) return null
+  if (row.lane?.seamSize !== undefined) return <div aria-hidden style={style} />
 
   const corridorAbove = row.wrapCorridorAbove
     ? BLUEPRINT_OVERHEAD_RAIL_CORRIDOR_MARGIN
@@ -274,8 +280,12 @@ export function BlueprintLabelRow({
   return (
     <div
       role={laneId === STRUCTURE_PLACEHOLDER_ID ? 'status' : undefined}
-      aria-label={laneId === STRUCTURE_PLACEHOLDER_ID ? 'New lane position' : undefined}
-      data-structure-placeholder={laneId === STRUCTURE_PLACEHOLDER_ID ? '' : undefined}
+      aria-label={
+        laneId === STRUCTURE_PLACEHOLDER_ID ? 'New lane position' : undefined
+      }
+      data-structure-placeholder={
+        laneId === STRUCTURE_PLACEHOLDER_ID ? '' : undefined
+      }
       className={cn(
         'sticky left-0 isolate flex h-full min-h-0 flex-col overflow-hidden',
         // No right border. The rail already reads as its own column through
@@ -316,6 +326,26 @@ export function BlueprintLabelRow({
         />
       )}
       <div
+        data-open={selection?.kind === 'lane' && selection.id === laneId ? '' : undefined}
+        onPointerEnter={(event) => {
+          if (laneSelectable)
+            highlightStructure(event.currentTarget, 'lane', row.label, true)
+        }}
+        onPointerLeave={(event) => {
+          if (laneSelectable)
+            highlightStructure(event.currentTarget, 'lane', row.label, false)
+        }}
+        onFocusCapture={(event) => {
+          if (laneSelectable)
+            highlightStructure(event.currentTarget, 'lane', row.label, true)
+        }}
+        onBlurCapture={(event) => {
+          if (
+            laneSelectable &&
+            !event.currentTarget.contains(event.relatedTarget as Node)
+          )
+            highlightStructure(event.currentTarget, 'lane', row.label, false)
+        }}
         className={cn(
           // The label's inset is the cell slot's inset — same token, both
           // edges. Asymmetric padding here (`pl-5 pr-3`) put the lane's name
@@ -323,6 +353,7 @@ export function BlueprintLabelRow({
           // numbers lived in different files with nothing holding them
           // together.
           'group/lane-header relative flex min-h-0 flex-1 items-start gap-2',
+          CANVAS_HEADER_STATE,
           compact ? BLUEPRINT_SLOT_INSET_COMPACT : BLUEPRINT_SLOT_INSET,
           // Bottom padding to match the top: the block stretches to fill this
           // container, so without it the selected wash ran flush into the
@@ -331,22 +362,21 @@ export function BlueprintLabelRow({
         )}
       >
         {laneSelectable ? (
-          <IconTooltip label={`Select the ${row.label} lane`}>
-            <LaneSelectionName
-              id={row.lane!.id}
-              name={row.label}
-              type="button"
-              onClick={selectLane}
-              data-blueprint-row-header=""
-              className={cn(
-                CANVAS_HEADER_TEXT,
-                'group/lane relative min-w-0 flex-1 cursor-pointer rounded-md text-left whitespace-normal break-words underline-offset-4 hover:underline',
-              )}
-              style={{ color: labelColor }}
-            >
-              {row.label}
-            </LaneSelectionName>
-          </IconTooltip>
+          <LaneSelectionName
+            id={row.lane!.id}
+            name={row.label}
+            type="button"
+            onClick={selectLane}
+            data-blueprint-row-header=""
+            className={cn(
+              CANVAS_HEADER_TEXT,
+  CANVAS_HEADER_STATE,
+              'group/lane relative min-w-0 flex-1 cursor-pointer rounded-md text-left whitespace-normal break-words underline-offset-4 hover:underline',
+            )}
+            style={{ color: labelColor }}
+          >
+            {row.label}
+          </LaneSelectionName>
         ) : row.kind === 'lane' && row.lane ? (
           // View mode: the label is inert prose, so the whole block becomes
           // the way into the lane's properties.
@@ -360,6 +390,7 @@ export function BlueprintLabelRow({
             data-blueprint-row-header=""
             className={cn(
               CANVAS_HEADER_TEXT,
+  CANVAS_HEADER_STATE,
               'relative min-w-0 flex-1 text-left whitespace-normal break-words',
             )}
             style={{ color: labelColor }}
@@ -412,7 +443,12 @@ function LaneSelectionName({
   return rename.editing ? (
     rename.editor
   ) : (
-    <button {...props} onPointerEnter={event=>highlightStructure(event.currentTarget,'lane',name,true)} onPointerLeave={event=>highlightStructure(event.currentTarget,'lane',name,false)} onFocus={event=>highlightStructure(event.currentTarget,'lane',name,true)} onBlur={event=>highlightStructure(event.currentTarget,'lane',name,false)} onClick={event=>rename.click(event,()=>props.onClick?.(event))} onDoubleClick={rename.begin}>
+    <button
+      draggable={false}
+      {...props}
+      onClick={(event) => rename.click(event, () => props.onClick?.(event))}
+      onDoubleClick={rename.begin}
+    >
       {children}
     </button>
   )

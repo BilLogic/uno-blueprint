@@ -1150,52 +1150,29 @@ export type Database = {
         }
         Returns: string[]
       }
-      add_lane_with_details:
-        | {
-            Args: {
-              at_position?: number
-              details?: Json
-              lane_role: string
-              name: string
-              scenario_id: string
-            }
-            Returns: string[]
-          }
-        | {
-            Args: {
-              details?: Json
-              lane_role: string
-              name: string
-              path_orders: Json
-              scenario_id: string
-            }
-            Returns: Json
-          }
+      add_lane_with_details: {
+        Args: {
+          details?: Json
+          lane_role: string
+          name: string
+          path_orders: Json
+          scenario_id: string
+        }
+        Returns: Json
+      }
       add_step: {
         Args: { at_position?: number; name: string; path_id: string }
         Returns: string
       }
-      add_step_with_details:
-        | {
-            Args: {
-              at_position?: number
-              frames?: Json
-              name: string
-              path_id: string
-              summary?: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              frames?: Json
-              name: string
-              path_id: string
-              path_orders: Json
-              summary?: string
-            }
-            Returns: Json
-          }
+      add_step_with_details: {
+        Args: {
+          name: string
+          path_id: string
+          path_orders: Json
+          summary?: string
+        }
+        Returns: Json
+      }
       cell_natural_key: { Args: { cell_id: string }; Returns: string }
       check_structure_draft_order: {
         Args: { current_ids: string[]; requested: Json }
@@ -1349,6 +1326,7 @@ export type Database = {
         Returns: undefined
       }
       restore_featured_resources: { Args: { p_rows: Json }; Returns: undefined }
+      restore_lane_details: { Args: { snapshot: Json }; Returns: undefined }
       restore_placement: {
         Args: { p_resources?: Json; p_row: Json }
         Returns: Json
@@ -1357,6 +1335,7 @@ export type Database = {
         Args: { p_rows: Json; p_slice_id: string }
         Returns: Json
       }
+      restore_step_details: { Args: { snapshot: Json }; Returns: undefined }
       schema_comments: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -1418,9 +1397,22 @@ export type Database = {
         }
         Returns: Json
       }
+      update_lane_with_details: {
+        Args: {
+          details: Json
+          lane_id: string
+          lane_ids: string[]
+          name: string
+        }
+        Returns: Json
+      }
       update_scenario_layout: {
         Args: { layout: string; scenario_id: string }
         Returns: undefined
+      }
+      update_step_with_details: {
+        Args: { name: string; step_id: string; summary: string }
+        Returns: Json
       }
       update_touchpoint: {
         Args: {

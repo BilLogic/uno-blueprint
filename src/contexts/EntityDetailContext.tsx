@@ -8,6 +8,8 @@ import {
   useRef,
   useSyncExternalStore,
   type ReactNode,
+  type Dispatch,
+  type SetStateAction,
   type RefObject,
 } from 'react'
 import {
@@ -17,10 +19,32 @@ import {
   subscribePanelOwner,
 } from '@/lib/openPanelStore'
 
-export type StructurePreview = { name: string; clickedPathId?: string; role?: string; kind?: 'lane' | 'step'; orders: Array<{pathId:string;order:string[]}>; paths: Array<{id:string;items:Array<{id:string;name:string}>}> }
+export type StructurePreview = {
+  name: string
+  clickedPathId?: string
+  role?: string
+  kind?: 'lane' | 'step'
+  orders: Array<{ pathId: string; order: string[] }>
+  paths: Array<{ id: string; items: Array<{ id: string; name: string }> }>
+}
+
+export type StructureSeam = {
+  kind: 'lane' | 'step'
+  pathId: string
+  pathIds?: string[]
+  atPosition?: number
+  size: number
+  key: string
+}
 
 export type StructureDraft =
-  | { kind: 'lane'; scenarioId: string; pathId?: string; pathIds?: string[]; atPosition?: number }
+  | {
+      kind: 'lane'
+      scenarioId: string
+      pathId?: string
+      pathIds?: string[]
+      atPosition?: number
+    }
   | { kind: 'step'; pathId: string; pathIds?: string[]; atPosition?: number }
 
 /**
@@ -49,6 +73,8 @@ export type EntityDetailSelection = {
 type EntityDetailContextValue = {
   selection: EntityDetailSelection | null
   preview: StructurePreview | null
+  seam: StructureSeam | null
+  setSeam: Dispatch<SetStateAction<StructureSeam | null>>
   draftBoard: RefObject<Element | null>
   setPreview: (preview: StructurePreview | null) => void
   openEntity: (selection: EntityDetailSelection) => void
@@ -75,7 +101,8 @@ export function EntityDetailProvider({
   children: ReactNode
   resetKey?: string
 }) {
-  const [preview,setPreview] = useState<StructurePreview | null>(null)
+  const [seam, setSeam] = useState<StructureSeam | null>(null)
+  const [preview, setPreview] = useState<StructurePreview | null>(null)
   const draftSequence = useRef(0)
   const openerBoard = useRef<Element | null>(null)
   const openerIndex = useRef(0)
@@ -86,11 +113,14 @@ export function EntityDetailProvider({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate reset-on-key: the entity a panel is describing may not exist in the new workspace
     setSelection(null)
+    setSeam(null)
+    setPreview(null)
     openerRef.current = null
   }, [resetKey])
 
   const openEntity = useCallback((next: EntityDetailSelection) => {
     openerRef.current = null
+    setSeam(null)
     claimPanel('entity')
     setSelection(next)
   }, [])
@@ -98,12 +128,24 @@ export function EntityDetailProvider({
   const openCreate = useCallback(
     (draft: StructureDraft, opener: HTMLButtonElement) => {
       setPreview(null)
+      setSeam(null)
       openerRef.current = opener
       openerBoard.current = opener.closest('[data-structure-board]')
       openerLabel.current = opener.getAttribute('aria-label')
-      openerIndex.current = [...(openerBoard.current?.querySelectorAll('button') ?? [])].filter(button=>button.getAttribute('aria-label')===openerLabel.current).indexOf(opener)
+      openerIndex.current = [
+        ...(openerBoard.current?.querySelectorAll('button') ?? []),
+      ]
+        .filter(
+          (button) => button.getAttribute('aria-label') === openerLabel.current,
+        )
+        .indexOf(opener)
       claimPanel('entity')
-      setSelection({ kind: draft.kind, id: 'draft', draft, draftKey: ++draftSequence.current })
+      setSelection({
+        kind: draft.kind,
+        id: 'draft',
+        draft,
+        draftKey: ++draftSequence.current,
+      })
     },
     [],
   )
@@ -126,7 +168,12 @@ export function EntityDetailProvider({
     const opener = openerRef.current
     openerRef.current = null
     requestAnimationFrame(() => {
-      const replacement = openerBoard.current?.isConnected && openerLabel.current ? openerBoard.current.querySelectorAll<HTMLButtonElement>(`button[aria-label="${CSS.escape(openerLabel.current)}"]`)[openerIndex.current] : null
+      const replacement =
+        openerBoard.current?.isConnected && openerLabel.current
+          ? openerBoard.current.querySelectorAll<HTMLButtonElement>(
+              `button[aria-label="${CSS.escape(openerLabel.current)}"]`,
+            )[openerIndex.current]
+          : null
       if (opener?.isConnected) opener.focus()
       else replacement?.focus()
     })
@@ -144,6 +191,8 @@ export function EntityDetailProvider({
     () => ({
       selection,
       preview,
+      seam,
+      setSeam,
       draftBoard: openerBoard,
       setPreview,
       openEntity,
@@ -152,7 +201,15 @@ export function EntityDetailProvider({
       closeEntity,
       isOpen: selection !== null,
     }),
-    [selection, preview, openEntity, openCreate, toggleEntity, closeEntity],
+    [
+      selection,
+      preview,
+      seam,
+      openEntity,
+      openCreate,
+      toggleEntity,
+      closeEntity,
+    ],
   )
 
   return (
@@ -189,4 +246,6 @@ export function useEntityDetail(): EntityDetailContextValue {
 }
 
 /** Draft preview is optional for standalone panel bodies. */
-export function useStructurePreview() { return useContext(EntityDetailContext) }
+export function useEntityDetailOptional() {
+  return useContext(EntityDetailContext)
+}

@@ -1,6 +1,9 @@
 import { toAuthoringError } from '@/lib/authoringErrors'
 import { PathOrderSection } from './PathOrderSection'
-import { useStructureCreatePaths, NEW_STRUCTURE_ITEM } from '@/hooks/useStructureCreatePaths'
+import {
+  useStructureCreatePaths,
+  NEW_STRUCTURE_ITEM,
+} from '@/hooks/useStructureCreatePaths'
 import { useState } from 'react'
 import {
   STEP_PANEL_FOOTER_ID,
@@ -23,9 +26,10 @@ import { useSupabase } from '@/contexts/SupabaseProvider'
 import { useCanvasModeValue } from '@/contexts/canvasModeContext'
 import { Input } from '@/components/ui/input'
 import type { StructureDraft } from '@/contexts/EntityDetailContext'
-import { createStepWithDetails, renameStep } from '@/lib/authoringRpc'
-import { DraftStoryboardFields } from './DraftStoryboardFields'
-import { updateStepSummary } from '@/lib/stepSpecMutations'
+import {
+  createStepWithDetails,
+  updateStepWithDetails,
+} from '@/lib/authoringRpc'
 
 /**
  * The step: one moment, read across every lane.
@@ -40,7 +44,9 @@ import { updateStepSummary } from '@/lib/stepSpecMutations'
 export function StepPanel({
   stepId,
   draft,
-  onCreated, focusNext,
+  onCreated,
+  focusNext,
+  onSaved,
   onClose,
 }: {
   stepId: string
@@ -48,6 +54,7 @@ export function StepPanel({
   onCreated?: (id: string) => void
   focusNext?: boolean
   onClose: () => void
+  onSaved?: () => void
 }) {
   const result = useStepSpec(draft ? null : stepId)
   const step: StepSpec | null = draft
@@ -83,7 +90,7 @@ export function StepPanel({
             draft={draft}
             onCreated={onCreated}
             focusNext={focusNext}
-            onDone={onClose}
+            onDone={onSaved ?? onClose}
           />
         ) : result.status === 'error' ? (
           <p className="text-sm text-muted-foreground">
@@ -101,7 +108,8 @@ export function StepPanel({
 function StepPanelBody({
   step,
   draft,
-  onCreated, focusNext,
+  onCreated,
+  focusNext,
   onDone,
 }: {
   step: StepSpec
@@ -115,13 +123,13 @@ function StepPanelBody({
 
   const [name, setName] = useState(step.name)
   const [originalName, setOriginalName] = useState(step.name)
-  const [frames, setFrames] = useState<Array<{ laneId: string; url: string }>>(
-    [],
-  )
   const [baseline, setBaseline] = useState(step.summary)
   const [summary, setSummary] = useState(baseline)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{
+    field: 'name' | 'role' | 'form'
+    message: string
+  } | null>(null)
   const paths = useStructureCreatePaths(draft, name)
   const footerHost = usePanelFooterHost(STEP_PANEL_FOOTER_ID)
 
@@ -142,7 +150,10 @@ function StepPanelBody({
 
   const handleSave = async () => {
     if (!client || busy || (!draft && !changed)) return
-    if (!name.trim()) { setError('Enter a name'); return }
+    if (!name.trim()) {
+      setError({ field: 'name', message: 'Enter a name' })
+      return
+    }
     if (draft && paths.status !== 'ready') return
     setBusy(true)
     setError(null)
@@ -150,25 +161,24 @@ function StepPanelBody({
       if (draft) {
         const id = await createStepWithDetails(client, {
           ...draft,
-          pathOrders: Object.fromEntries(paths.value.map(entry=>[entry.pathId,entry.order])),
+          pathOrders: Object.fromEntries(
+            paths.value.map((entry) => [entry.pathId, entry.order]),
+          ),
           name,
           summary,
-          frames,
         })
         onCreated?.(id)
       } else {
-        if (name.trim() !== originalName)
-          await renameStep(client, {
-            stepId: step.id,
-            name: name.trim(),
-            previousName: originalName,
-          })
-        if (summary !== baseline)
-          await updateStepSummary(client, step.id, summary, baseline)
+        await updateStepWithDetails(client, { stepId: step.id, name, summary })
         onDone()
       }
     } catch (cause) {
-      setError(toAuthoringError(cause instanceof Error ? cause : new Error('Unknown write failure')).message)
+      setError({
+        field: 'form',
+        message: toAuthoringError(
+          cause instanceof Error ? cause : new Error('Unknown write failure'),
+        ).message,
+      })
     } finally {
       setBusy(false)
     }
@@ -239,13 +249,33 @@ function StepPanelBody({
             value={name}
             onChange={(event) => setName(event.target.value)}
           />
-          {error === 'Enter a name' ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
+          {error?.field === 'name' ? (
+            <p role="alert" className="text-xs text-destructive">
+              {error.message}
+            </p>
+          ) : null}
         </Field>
       ) : null}
 
-      {draft ? <>
-        {paths.status === 'ready' ? <PathOrderSection paths={paths.paths} value={paths.value} onChange={paths.onChange} defaultOrder={paths.defaultOrder} item={{id:NEW_STRUCTURE_ITEM,name:name.trim() || 'New step'}} /> : <p className="text-xs text-muted-foreground">{paths.status === 'error' ? 'Paths could not be loaded. Close this draft and try again.' : 'Loading paths…'}</p>}
-      </> : null}
+      {draft ? (
+        <>
+          {paths.status === 'ready' ? (
+            <PathOrderSection
+              paths={paths.paths}
+              value={paths.value}
+              onChange={paths.onChange}
+              defaultOrder={paths.defaultOrder}
+              item={{ id: NEW_STRUCTURE_ITEM, name: name.trim() || 'New step' }}
+            />
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {paths.status === 'error'
+                ? 'Paths could not be loaded. Close this draft and try again.'
+                : 'Loading paths…'}
+            </p>
+          )}
+        </>
+      ) : null}
       <PanelTextareaField
         label="Summary"
         autoFocus={focusNext}
@@ -256,14 +286,6 @@ function StepPanelBody({
         disabled={!canEdit}
         onChange={setSummary}
       />
-
-      {draft ? (
-        <DraftStoryboardFields
-          pathId={draft.pathId}
-          frames={frames}
-          onChange={setFrames}
-        />
-      ) : null}
 
       {step.frames.length > 0 ? (
         // A LABELLED field: "Storyboard" reads as plain text beside Summary,
@@ -336,8 +358,16 @@ function StepPanelBody({
           footerHost={footerHost}
           busy={busy}
           changed={draft ? true : Boolean(name.trim()) && changed}
-          error={error === 'Enter a name' ? null : error}
-          saveLabel={draft ? `Add step${paths.value.length > 1 ? ` to ${paths.value.length} paths` : ''}` : undefined}
+          error={error?.field === 'form' ? error.message : null}
+          saveLabel={
+            draft
+              ? `Add step${
+                  paths.value.length > 1
+                    ? ` to ${paths.value.length} paths`
+                    : ''
+                }`
+              : undefined
+          }
           onSave={handleSave}
           onCancel={onDone}
         />

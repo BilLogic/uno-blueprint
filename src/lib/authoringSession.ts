@@ -74,6 +74,8 @@ export type WriteFn =
   | 'update_scenario_layout'
   | 'rename_path'
   | 'rename_owner_tag'
+  | 'update_step_with_details'
+  | 'update_lane_with_details'
   | 'add_step_with_details'
   | 'add_lane_with_details'
   | 'rename_step'
@@ -352,6 +354,8 @@ const DESCRIBERS: Record<WriteFn, (entry: ChangeEntry) => string> = {
     `Duplicated a blueprint as${named(entry) || ' a copy'}`,
   rename_step: (entry) => `Renamed a step${renameTo(entry)}`,
   rename_lane: (entry) => `Renamed a lane${renameTo(entry)}`,
+  update_step_with_details: () => 'Edited a step’s name and summary',
+  update_lane_with_details: () => 'Edited a lane’s name and properties',
   add_step_with_details: (entry) => `Added step${named(entry)}`,
   add_lane_with_details: (entry) => `Added lane${named(entry)}`,
   rename_phase: (entry) => `Renamed a phase${renameTo(entry)}`,

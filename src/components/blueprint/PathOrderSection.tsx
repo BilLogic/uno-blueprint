@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react'
 import { Reorder, useDragControls, useReducedMotion } from 'framer-motion'
-import { ChevronDown, GripVertical } from 'lucide-react'
+import { Check, ChevronDown, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 import { EASE_POINTS, MOTION_MICRO_MS } from '@/lib/motion'
 
@@ -30,7 +31,7 @@ export function PathOrderSection({
   const unticked = useRef(new Map<string, PathOrder>())
   const dragging = useRef<string | undefined>(undefined)
   const [dropAt, setDropAt] = useState<string | null>(null)
-  const [open, setOpen] = useState<string | null>(value[0]?.pathId ?? null)
+  const [open, setOpen] = useState<string | null | undefined>(undefined)
   const changeOrder = (pathId: string, order: string[], moved?: string) =>
     onChange(
       value.map((entry) => {
@@ -39,18 +40,15 @@ export function PathOrderSection({
           .find((path) => path.id === pathId)!
           .items.map((row) => row.id)
         const current = order.filter((id) => id !== item.id)
-        const restored = current.every((id, index) => id === base[index])
         return {
           ...entry,
           order,
-          moved: restored
-            ? []
-            : [
-                ...new Set([
-                  ...entry.moved,
-                  ...(moved && moved !== item.id ? [moved] : []),
-                ]),
-              ],
+          moved: [
+            ...new Set([
+              ...entry.moved,
+              ...(moved && moved !== item.id ? [moved] : []),
+            ]),
+          ].filter((id) => current.indexOf(id) !== base.indexOf(id)),
         }
       }),
     )
@@ -77,134 +75,163 @@ export function PathOrderSection({
     setOpen(selected ? null : path.id)
   }
   return (
-    <section className="space-y-2" aria-label={label}>
-      <div className="flex justify-between text-xs text-muted-foreground">
-        <span>{label}</span>
-        <span>
-          {value.length} of {paths.length}
-        </span>
+    <section
+      className="space-y-2"
+      aria-label={paths.length === 1 ? 'Order' : label}
+    >
+      <div className="flex justify-between text-sm font-medium text-muted-foreground">
+        <span>{paths.length === 1 ? 'Order' : label}</span>
+        {paths.length > 1 ? (
+          <span>
+            {value.length} of {paths.length}
+          </span>
+        ) : null}
       </div>
       {paths.map((path) => {
         const entry = value.find((entry) => entry.pathId === path.id)
         const expanded = Boolean(
           entry &&
-            (open === path.id ||
-              (open !== null &&
-                !value.some((selected) => selected.pathId === open) &&
-                value[0]?.pathId === path.id)),
+            (paths.length === 1 ||
+              (open === undefined
+                ? value[0]?.pathId === path.id
+                : open === path.id)),
         )
         const reason = unavailable[path.id]
         return (
-          <div key={path.id} className="border-b border-muted">
-            <div className="flex items-center gap-2 py-2 text-xs">
-              <input
-                type="checkbox"
-                className="accent-primary"
-                aria-label={`Add to ${path.name}`}
-                aria-checked={Boolean(entry)}
-                checked={Boolean(entry)}
-                disabled={Boolean(reason)}
-                onChange={() => toggle(path)}
-              />
-              <button
-                type="button"
-                className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                aria-expanded={expanded}
-                aria-controls={`path-order-${path.id}`}
-                disabled={Boolean(reason)}
-                onClick={() => {
-                  if (!entry) toggle(path)
-                  else setOpen(expanded ? null : path.id)
-                }}
-              >
-                <span className="truncate">{path.name}</span>
-                <span className="ml-auto text-muted-foreground">
-                  {reason ||
-                    (!expanded && entry?.moved.length
-                      ? `${entry.moved.length} moved`
-                      : '')}
-                </span>
-                {entry ? (
-                  <ChevronDown
+          <Collapsible
+            key={path.id}
+            open={expanded}
+            className="border-b border-muted"
+          >
+            {paths.length > 1 ? (
+              <div className="flex items-center gap-2 py-2 text-sm">
+                <label className="group/check relative grid size-4 shrink-0 place-items-center">
+                  <input
+                    type="checkbox"
+                    className="peer absolute inset-0 z-1 size-4 cursor-pointer opacity-0 disabled:cursor-default"
+                    aria-label={`Add to ${path.name}`}
+                    aria-checked={Boolean(entry)}
+                    checked={Boolean(entry)}
+                    disabled={Boolean(reason)}
+                    onChange={() => toggle(path)}
+                  />
+                  <span
                     aria-hidden
                     className={cn(
-                      'size-3 transition-transform ease-arrive duration-(--motion-micro) motion-reduce:transition-none',
-                      expanded && 'rotate-180',
+                      'pointer-events-none grid size-4 place-items-center rounded-sm border border-input group-hover/check:border-control-hover peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-disabled:opacity-50',
+                      entry &&
+                        'border-primary bg-primary text-primary-foreground',
                     )}
-                  />
-                ) : null}
-              </button>
-            </div>
-            {expanded && entry ? (
-              <div id={`path-order-${path.id}`} className="pb-3">
-                <Reorder.Group
-                  axis="y"
-                  values={entry.order}
-                  onReorder={(order) => {
-                    setDropAt(
-                      dragging.current
-                        ? `${path.id}:${order.indexOf(dragging.current)}`
-                        : null,
-                    )
-                    changeOrder(path.id, order, dragging.current)
+                  >
+                    {entry ? <Check className="size-3" /> : null}
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  aria-expanded={expanded}
+                  aria-controls={`path-order-${path.id}`}
+                  disabled={Boolean(reason)}
+                  onClick={() => {
+                    if (!entry) toggle(path)
+                    else setOpen(expanded ? null : path.id)
                   }}
-                  className="relative ml-1 space-y-1 before:absolute before:bottom-3 before:left-2 before:top-3 before:w-px before:bg-border"
                 >
-                  {entry.order.map((id, index) => (
-                    <RailRow
-                      key={id}
-                      id={id}
-                      name={
-                        id === item.id
-                          ? item.name
-                          : path.items.find((row) => row.id === id)?.name ?? ''
-                      }
-                      pathName={path.name}
-                      current={id === item.id}
-                      moved={entry.moved.includes(id)}
-                      onDrag={() => {
-                        dragging.current = id
-                      }}
-                      dropBefore={dropAt === `${path.id}:${index}`}
-                      onDragEnd={() => {
-                        dragging.current = undefined
-                        setDropAt(null)
-                      }}
-                      onMove={(direction) => {
-                        const target = index + direction
-                        if (target < 0 || target >= entry.order.length) return
-                        const next = [...entry.order]
-                        next.splice(index, 1)
-                        next.splice(target, 0, id)
-                        changeOrder(path.id, next, id)
-                      }}
+                  <span className="truncate">{path.name}</span>
+                  <span className="ml-auto text-muted-foreground">
+                    {reason ||
+                      (!expanded && entry?.moved.length
+                        ? `${entry.moved.length} moved`
+                        : '')}
+                  </span>
+                  {entry ? (
+                    <ChevronDown
+                      aria-hidden
+                      className={cn(
+                        'size-3 transition-transform ease-arrive duration-(--motion-micro) motion-reduce:transition-none',
+                        expanded && 'rotate-180',
+                      )}
                     />
-                  ))}
-                </Reorder.Group>
-                {entry.moved.length ? (
-                  <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{entry.moved.length} moved</span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      type="button"
-                      onClick={() => {
-                        const order = path.items.map((row) => row.id)
-                        order.splice(
-                          Math.min(entry.order.indexOf(item.id), order.length),
-                          0,
-                          item.id,
-                        )
-                        changeOrder(path.id, order)
-                      }}
-                    >
-                      Reset order
-                    </Button>
-                  </div>
-                ) : null}
+                  ) : null}
+                </button>
               </div>
             ) : null}
-          </div>
+            <CollapsibleContent className="duration-(--motion-fade) ease-arrive">
+              {entry ? (
+                <div id={`path-order-${path.id}`} className="pb-3">
+                  <Reorder.Group
+                    axis="y"
+                    values={entry.order}
+                    onReorder={(order) => {
+                      setDropAt(
+                        dragging.current
+                          ? `${path.id}:${order.indexOf(dragging.current)}`
+                          : null,
+                      )
+                      changeOrder(path.id, order, dragging.current)
+                    }}
+                    className="relative ml-1 space-y-1 before:absolute before:bottom-3 before:left-2 before:top-3 before:w-px before:bg-border"
+                  >
+                    {entry.order.map((id, index) => (
+                      <RailRow
+                        key={id}
+                        id={id}
+                        name={
+                          id === item.id
+                            ? item.name
+                            : path.items.find((row) => row.id === id)?.name ??
+                              ''
+                        }
+                        pathName={path.name}
+                        current={id === item.id}
+                        moved={entry.moved.includes(id)}
+                        onDrag={() => {
+                          dragging.current = id
+                        }}
+                        dropBefore={dropAt === `${path.id}:${index}`}
+                        onDragEnd={() => {
+                          dragging.current = undefined
+                          setDropAt(null)
+                        }}
+                        onMove={(direction) => {
+                          const target = index + direction
+                          if (target < 0 || target >= entry.order.length) return
+                          const next = [...entry.order]
+                          next.splice(index, 1)
+                          next.splice(target, 0, id)
+                          changeOrder(path.id, next, id)
+                        }}
+                      />
+                    ))}
+                  </Reorder.Group>
+                  {entry.moved.length ? (
+                    <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{entry.moved.length} moved</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        type="button"
+                        onClick={() => {
+                          const order = path.items.map((row) => row.id)
+                          order.splice(
+                            Math.min(
+                              entry.order.indexOf(item.id),
+                              order.length,
+                            ),
+                            0,
+                            item.id,
+                          )
+                          changeOrder(path.id, order)
+                        }}
+                      >
+                        Reset order
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </CollapsibleContent>
+          </Collapsible>
         )
       })}
     </section>
@@ -236,6 +263,7 @@ function RailRow({
   return (
     <Reorder.Item
       value={id}
+      draggable={false}
       dragListener={false}
       dragControls={controls}
       onDragStart={onDrag}
@@ -259,7 +287,7 @@ function RailRow({
         aria-label={`Move ${name} in ${pathName}`}
         className={cn(
           'relative grid size-4 shrink-0 place-items-center outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          current ? 'text-text-primary' : 'text-muted-foreground',
+          'text-muted-foreground',
         )}
         onKeyDown={(event) => {
           if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
@@ -270,18 +298,19 @@ function RailRow({
         <span
           className={cn(
             'size-2.5 rounded-full border border-current bg-background group-hover/order:hidden group-focus-within/order:hidden [@media(hover:none)]:hidden',
-            current && 'bg-primary',
+            current && 'border-primary bg-primary',
           )}
         />
-        <GripVertical
-          aria-hidden
-          className="hidden size-3.5 group-hover/order:block group-focus-within/order:block [@media(hover:none)]:block"
-        />
+        <span className="hidden group-hover/order:block group-focus-within/order:block [@media(hover:none)]:block">
+          <span className={current ? 'text-primary' : undefined}>
+            <GripVertical className="size-3.5" aria-hidden />
+          </span>
+        </span>
       </button>
       <span
         className={cn(
-          'min-w-0 flex-1 rounded-md px-2 py-2 text-xs',
-          current && 'border border-primary/20 bg-primary/10',
+          'min-w-0 flex-1 rounded-md px-2 py-2 text-sm',
+          current && 'border border-border-primary bg-wash-primary',
           !current && !moved && 'text-muted-foreground',
         )}
       >

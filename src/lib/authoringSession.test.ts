@@ -46,6 +46,8 @@ test('no read RPC can be recorded as a change', () => {
  * argument `DESCRIBERS` itself makes.
  */
 const EVERY_WRITE = Object.keys({
+  update_step_with_details: true,
+  update_lane_with_details: true,
   add_step_with_details: true,
   add_lane_with_details: true,
   rename_step: true,

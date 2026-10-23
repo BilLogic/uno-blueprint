@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { StepPanel } from './StepPanel'
 import { LanePanel } from './LanePanel'
@@ -48,6 +48,10 @@ vi.mock('@/contexts/canvasModeContext', () => ({
 }))
 vi.mock('@/hooks/useOwnerTags', () => ({ useOwnerTags: () => [] }))
 vi.mock('./StakeholderSelect', () => ({ StakeholderSelect: () => null }))
+vi.mock('@/lib/authoringRpc',()=>({
+  updateStepWithDetails:vi.fn(async()=>{}),updateLaneWithDetails:vi.fn(async()=>{}),
+  createStepWithDetails:vi.fn(),createLaneWithDetails:vi.fn(),
+}))
 afterEach(cleanup)
 
 for (const kind of ['step', 'lane'] as const) {
@@ -100,3 +104,14 @@ it('opening an existing step preserves focus, while a just-added step focuses Su
   expect(document.activeElement?.getAttribute('aria-label')).toBe('Summary')
   opener.remove()
 })
+
+for (const kind of ['step','lane'] as const) {
+  it(`finishes a successful ${kind} save separately from guarded dismissal`,async()=>{
+    const saved=vi.fn(),cancel=vi.fn()
+    render(<Drawer open>{kind==='step' ? <StepPanel stepId="step" onClose={cancel} onSaved={saved} /> : <LanePanel laneId="lane" onClose={cancel} onSaved={saved} />}</Drawer>)
+    fireEvent.change(screen.getByRole('textbox',{name:/^Name$/}),{target:{value:'Saved label'}})
+    fireEvent.click(screen.getByRole('button',{name:/^Save$/}))
+    await waitFor(()=>expect(saved).toHaveBeenCalledOnce())
+    expect(cancel).not.toHaveBeenCalled()
+  })
+}

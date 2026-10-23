@@ -2,7 +2,7 @@ import { useCallback, useState, useEffect } from 'react'
 import { queryKeys } from '@/lib/queryKeys'
 import { useSupabaseQuery } from './useSupabaseQuery'
 import {
-  useStructurePreview,
+  useEntityDetailOptional,
   type StructureDraft,
 } from '@/contexts/EntityDetailContext'
 import type {
@@ -113,27 +113,9 @@ export function useStructureCreatePaths(
     )
     .sort((a, b) => (a.id === clicked?.id ? -1 : b.id === clicked?.id ? 1 : 0))
     .map((path) => ({ pathId: path.id, order: defaultOrder(path), moved: [] }))
-  let selected = value ?? initial
-  if (draft?.kind === 'lane' && name.trim()) {
-    selected = selected.filter(
-      (entry) =>
-        entry.pathId === clicked?.id ||
-        !paths
-          .find((path) => path.id === entry.pathId)
-          ?.items.some(
-            (item) =>
-              item.name.trim().toLowerCase() === name.trim().toLowerCase(),
-          ),
-    )
-    if (!selected.length && clicked)
-      selected = initial.filter((entry) => entry.pathId === clicked.id)
-  }
-  if (
-    paths.length &&
-    (value === null || JSON.stringify(value) !== JSON.stringify(selected))
-  )
-    setValue(selected)
-  const preview = useStructurePreview()
+  const selected = value ?? initial
+  if (paths.length && value === null) setValue(selected)
+  const preview = useEntityDetailOptional()
   const serialized = JSON.stringify({
     name,
     clickedPathId: clicked?.id,

@@ -1,3 +1,4 @@
+import { StructureLaneDraftZone } from './StructureDraftZones'
 import { Fragment, useMemo, useRef, type RefObject } from 'react'
 import { BlueprintColumnHandles } from '@/components/blueprint/BlueprintColumnHandles'
 import { BlueprintLaneHandles } from '@/components/blueprint/BlueprintLaneHandles'
@@ -141,6 +142,7 @@ export function BlueprintPathBand({
       className="relative z-0 grid overflow-visible"
       style={placementStyle}
     >
+      <StructureLaneDraftZone rows={rows} />
       <BlueprintColumnHandles
         steps={blueprint.steps}
         bodyRef={bandRef}

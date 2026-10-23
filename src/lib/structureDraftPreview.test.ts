@@ -1,6 +1,8 @@
 import { expect, it } from 'vitest'
 import {
   previewStructureSeam,
+  previewStructureDraft,
+  previewPendingStructureDraft,
   STRUCTURE_SEAM_ID,
 } from './structureDraftPreview'
 import { buildCompareGridTracks } from './compareGridTracks'
@@ -86,3 +88,57 @@ it('keeps the comparison axis stable while inserting a hover track into it', asy
   expect(during.filter((track) => track.seamSize === undefined)).toEqual(before)
   expect(during[1].seamSize).toBe(34)
 })
+
+it('keeps semantic divider anchors on saved lanes while a draft is being placed', () => {
+  const source = {
+    ...board,
+    lanes: [
+      { id: 'person', name: 'Person', role: 'customer_actions', position: 0 },
+      { id: 'desk', name: 'Desk', role: 'frontstage_touchpoints', position: 1 },
+      { id: 'staff', name: 'Staff', role: 'frontstage_actions', position: 2 },
+      { id: 'back', name: 'Support', role: 'backstage_actions', position: 3 },
+    ],
+  }
+  const anchors = (data: BlueprintData) =>
+    buildSideBySideLabelRowSpecs([data])
+      .filter((row) => row.kind !== 'lane')
+      .map((row) => row.key)
+  const [hover] = previewStructureSeam([source], {
+    kind: 'lane',
+    pathId: 'path',
+    atPosition: 2,
+    size: 34,
+    key: 'between',
+  })
+  expect(anchors(hover)).toEqual(anchors(source))
+  const [draft] = previewStructureDraft([source], {
+    kind: 'lane',
+    name: 'Reviewer',
+    role: 'customer_actions',
+    clickedPathId: 'path',
+    paths: [],
+    orders: [
+      { pathId: 'path', order: ['person', 'desk', 'new', 'staff', 'back'] },
+    ],
+  })
+  expect(anchors(draft)).toEqual(anchors(source))
+})
+
+it.each(['lane', 'step'] as const)(
+  'shows the %s destination before path metadata is available',
+  (kind) => {
+    const draft =
+      kind === 'lane'
+        ? { kind, scenarioId: 'scenario', pathId: 'path', atPosition: 8 }
+        : { kind, pathId: 'path', atPosition: 9 }
+    const [pending] = previewPendingStructureDraft([board], draft)
+    const items = kind === 'lane' ? pending.lanes : pending.steps
+    expect(items.map((item) => item.name)).toEqual(
+      kind === 'lane'
+        ? ['Actor', 'New lane', 'Support']
+        : ['Start', 'New step', 'Finish'],
+    )
+    expect(items[1].id).toBe('structure-placeholder')
+    expect(items[1].seamSize).toBeUndefined()
+  },
+)

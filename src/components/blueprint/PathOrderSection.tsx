@@ -158,7 +158,7 @@ export function PathOrderSection({
             ) : null}
             <CollapsibleContent className="duration-(--motion-fade) ease-arrive">
               {entry ? (
-                <div id={`path-order-${path.id}`} className="pb-3">
+                <div id={`path-order-${path.id}`} className="px-1 pb-3">
                   <Reorder.Group
                     axis="y"
                     values={entry.order}
@@ -262,6 +262,8 @@ function RailRow({
   const reduced = useReducedMotion()
   return (
     <Reorder.Item
+      data-order-row=""
+      style={{ outline: 'none' }}
       value={id}
       draggable={false}
       dragListener={false}
@@ -272,7 +274,6 @@ function RailRow({
         duration: reduced ? 0 : MOTION_MICRO_MS / 1000,
         ease: EASE_POINTS.move,
       }}
-      whileDrag={{ outline: '1px solid var(--primary)' }}
       className="group/order relative flex cursor-grab touch-none items-center gap-2 rounded-md active:cursor-grabbing"
       onPointerDown={(event) => controls.start(event)}
     >
@@ -286,7 +287,7 @@ function RailRow({
         type="button"
         aria-label={`Move ${name} in ${pathName}`}
         className={cn(
-          'relative grid size-4 shrink-0 place-items-center outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          'relative grid size-4 shrink-0 place-items-center outline-none',
           'text-muted-foreground',
         )}
         onKeyDown={(event) => {
@@ -308,6 +309,7 @@ function RailRow({
         </span>
       </button>
       <span
+        data-order-card=""
         className={cn(
           'min-w-0 flex-1 rounded-md px-2 py-2 text-sm',
           current && 'border border-border-primary bg-wash-primary',

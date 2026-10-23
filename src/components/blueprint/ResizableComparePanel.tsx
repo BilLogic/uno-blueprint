@@ -25,6 +25,7 @@ import { FOCUS_DIM_LIFT_CLASS, FOCUS_DIM_REST_CLASS, FOCUS_DIM_STYLE } from '@/l
 import { cn } from '@/lib/utils'
 
 type ResizableComparePanelProps = {
+  insertionOffset?: { left: number; top: number }
   children: ReactNode
   minWidth?: number
   minHeight?: number
@@ -74,6 +75,7 @@ type ResizableComparePanelProps = {
  */
 export function ResizableComparePanel({
   children,
+  insertionOffset,
   minWidth,
   minHeight,
   defaultWidth,
@@ -358,7 +360,7 @@ export function ResizableComparePanel({
         dimmed && navigable && FOCUS_DIM_LIFT_CLASS,
         className,
       )}
-      style={dimmed ? FOCUS_DIM_STYLE : undefined}
+      style={{ ...(dimmed ? FOCUS_DIM_STYLE : {}), ...insertionOffset }}
       data-focus-slide-id={focusSlideId}
       data-canvas-focus-dimmed={dimmed ? '' : undefined}
     >

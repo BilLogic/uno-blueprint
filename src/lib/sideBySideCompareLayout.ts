@@ -285,6 +285,8 @@ export function buildSideBySideLabelRowSpecs(
 ): BlueprintLabelRowSpec[] {
   const lanes = getCanonicalLanes(blueprints)
   const specs: BlueprintLabelRowSpec[] = []
+  // Preview rows reserve geometry; they do not introduce semantic boundaries.
+  const savedLanes = lanes.filter(lane => !['structure-seam', 'structure-placeholder'].includes(lane.id))
 
   for (let laneIndex = 0; laneIndex < lanes.length; laneIndex++) {
     const lane = lanes[laneIndex]
@@ -311,10 +313,10 @@ export function buildSideBySideLabelRowSpecs(
       wrapCorridorBelow: !collapsed && laneHasWrapCorridorBelow(lane, lanes),
       inLaneLoopCorridorAbove:
         !collapsed && laneHasInLaneLoopCorridor(lane, blueprints),
-      showDividerBelow: shouldShowLaneDividerAfter(lane, laneIndex, lanes),
+      showDividerBelow: shouldShowLaneDividerAfter(lane, savedLanes.indexOf(lane), savedLanes),
     })
 
-    if (!collapsed && laneHasInteractionLine(lane, lanes)) {
+    if (!collapsed && savedLanes.includes(lane) && laneHasInteractionLine(lane, savedLanes)) {
       specs.push({
         key: `${lane.id}-interaction`,
         kind: 'interaction',
@@ -323,7 +325,7 @@ export function buildSideBySideLabelRowSpecs(
       })
     }
 
-    if (!collapsed && laneHasVisibilityLine(lane, lanes)) {
+    if (!collapsed && savedLanes.includes(lane) && laneHasVisibilityLine(lane, savedLanes)) {
       specs.push({
         key: `${lane.id}-visibility`,
         kind: 'visibility',
@@ -332,7 +334,7 @@ export function buildSideBySideLabelRowSpecs(
       })
     }
 
-    if (!collapsed && laneHasInternalInteractionLine(lane, lanes)) {
+    if (!collapsed && savedLanes.includes(lane) && laneHasInternalInteractionLine(lane, savedLanes)) {
       specs.push({
         key: `${lane.id}-internal-interaction`,
         kind: 'internalInteraction',

@@ -30,6 +30,7 @@ type Boundary = {
   stepIndex: number
   storedPosition: number | undefined
   x: number
+  centered: boolean
 }
 
 /**
@@ -157,12 +158,13 @@ export function BlueprintColumnHandles({
     )
     const seamTrack = renderedSteps[renderedIndex - 1]?.id === STRUCTURE_SEAM_ID
     const x = seamTrack
-      ? column.left - 34 / scale - STEP_COLUMN_GAP
-      : column.left
+      ? column.left - (column.stepIndex > 0 ? 17 : 34) / scale - STEP_COLUMN_GAP
+      : column.left - (column.stepIndex > 0 ? STEP_COLUMN_GAP / 2 : 0)
     return {
       stepIndex: column.stepIndex,
       storedPosition: column.storedPosition,
       x,
+      centered: column.stepIndex > 0,
     }
   })
   const last = visibleColumns[visibleColumns.length - 1]
@@ -171,6 +173,7 @@ export function BlueprintColumnHandles({
       stepIndex: steps.length,
       storedPosition: undefined,
       x: last.left + last.width + STEP_COLUMN_GAP,
+      centered: false,
     })
   }
 
@@ -202,6 +205,7 @@ export function BlueprintColumnHandles({
               <StructureInsert
                 key={`insert-${target.id}-${boundary.storedPosition ?? 'end'}`}
                 scale={scale}
+                edge={!boundary.centered}
                 orientation="vertical"
                 label={
                   target.pathName ? `${label} in ${target.pathName}` : label
@@ -219,6 +223,7 @@ export function BlueprintColumnHandles({
                     open
                       ? {
                           kind: 'step',
+                          centered: boundary.centered,
                           pathId: targetPath,
                           pathIds: target.pathIds,
                           atPosition: boundary.storedPosition,
@@ -234,6 +239,7 @@ export function BlueprintColumnHandles({
                   openCreate(
                     {
                       kind: 'step',
+                      centered: boundary.centered,
                       pathId: targetPath,
                       pathIds: target.pathIds,
                       atPosition: boundary.storedPosition,

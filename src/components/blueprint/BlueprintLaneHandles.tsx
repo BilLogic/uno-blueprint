@@ -7,7 +7,12 @@ import { useSupabase } from '@/contexts/SupabaseProvider'
 import { useEntityDetail } from '@/contexts/EntityDetailContext'
 import { StructureInsert } from './StructureInsert'
 
-type Boundary = { storedPosition: number; y: number; label: string }
+type Boundary = {
+  storedPosition: number
+  y: number
+  label: string
+  centered: boolean
+}
 
 /** Scenario-wide lane insertion, measured from the rendered row gaps.
  * Activating a target opens an unwritten draft in the existing lane panel. */
@@ -103,31 +108,51 @@ function BlueprintLaneHandlesActive({
     const seamY = seamRow
       ? (seamRow.getBoundingClientRect().top - bodyBox.top) / scale
       : null
-    const next: Boundary[] = rows.map((row, rowIndex) => ({
-      storedPosition: storedPositions[rowIndex],
-      label:
-        rowIndex === 0
-          ? `Add a lane above ${row.dataset.laneName ?? 'the first lane'}`
-          : `Add a lane below ${
-              rows[rowIndex - 1].dataset.laneName ?? 'the previous lane'
-            }`,
-      y:
-        seamY !== null &&
-        Math.abs(
-          (row.getBoundingClientRect().top - bodyBox.top) / scale -
-            seamY -
-            34 / cameraScale,
-        ) < 1
-          ? seamY
-          : (row.getBoundingClientRect().top - bodyBox.top) / scale,
-    }))
+    const next: Boundary[] = rows.map((row, rowIndex) => {
+      const centered =
+        rowIndex > 0 &&
+        !Array.from(
+          body.querySelectorAll<HTMLElement>('[data-blueprint-divider]'),
+        ).some((divider) => {
+          const box = divider.getBoundingClientRect()
+          const previous = rows[rowIndex - 1].getBoundingClientRect()
+          return (
+            box.top >= previous.bottom - 1 &&
+            box.bottom <= row.getBoundingClientRect().top + 1
+          )
+        })
+      return {
+        centered,
+        storedPosition: storedPositions[rowIndex],
+        label:
+          rowIndex === 0
+            ? `Add a lane above ${row.dataset.laneName ?? 'the first lane'}`
+            : `Add a lane below ${
+                rows[rowIndex - 1].dataset.laneName ?? 'the previous lane'
+              }`,
+        y:
+          seamY !== null &&
+          Math.abs(
+            (row.getBoundingClientRect().top - bodyBox.top) / scale -
+              seamY -
+              34 / cameraScale,
+          ) < 1
+            ? seamY + (centered ? 17 / cameraScale : 0)
+            : (row.getBoundingClientRect().top - bodyBox.top) / scale,
+      }
+    })
     const last = rows[rows.length - 1].getBoundingClientRect()
     next.push({
+      centered: false,
       storedPosition: storedPositions[storedPositions.length - 1] + 1,
       label: `Add a lane below ${
         rows[rows.length - 1].dataset.laneName ?? 'the last lane'
       }`,
-      y: (last.bottom - bodyBox.top) / scale,
+      y:
+        seamY !== null &&
+        Math.abs(seamY - (last.bottom - bodyBox.top) / scale) < 1
+          ? seamY
+          : (last.bottom - bodyBox.top) / scale,
     })
 
     const same =
@@ -136,7 +161,8 @@ function BlueprintLaneHandlesActive({
         (entry, index) =>
           Math.abs(entry.y - boundaries[index].y) < 0.5 &&
           entry.storedPosition === boundaries[index].storedPosition &&
-          entry.label === boundaries[index].label,
+          entry.label === boundaries[index].label &&
+          entry.centered === boundaries[index].centered,
       )
     if (!same) setBoundaries(next)
     if (bodyWidth !== body.offsetWidth) setBodyWidth(body.offsetWidth)
@@ -146,12 +172,13 @@ function BlueprintLaneHandlesActive({
 
   const draft = selection?.draft
   return (
-    <div className="pointer-events-none absolute inset-0 z-50">
+    <div className="pointer-events-none absolute inset-0 z-30">
       {!draft
         ? boundaries.map((boundary) => (
             <StructureInsert
               key={boundary.storedPosition}
               scale={cameraScale}
+              edge={!boundary.centered}
               orientation="horizontal"
               label={boundary.label}
               style={{ left: 0, width: bodyWidth, top: boundary.y }}
@@ -163,6 +190,7 @@ function BlueprintLaneHandlesActive({
                   open
                     ? {
                         kind: 'lane',
+                        centered: boundary.centered,
                         pathId: targetPath,
                         pathIds,
                         atPosition: boundary.storedPosition,
@@ -178,6 +206,7 @@ function BlueprintLaneHandlesActive({
                 openCreate(
                   {
                     kind: 'lane',
+                    centered: boundary.centered,
                     pathId,
                     pathIds,
                     scenarioId: selectedScenarioId!,

@@ -1,5 +1,6 @@
+import { useStructureInsertionOffset } from '@/hooks/useStructureInsertionOffset'
 import { useEntityDetailOptional } from '@/contexts/EntityDetailContext'
-import { previewStructureDraft, previewStructureSeam } from '@/lib/structureDraftPreview'
+import { previewStructureDraft, previewPendingStructureDraft, previewStructureSeam } from '@/lib/structureDraftPreview'
 import { memo, useEffect, useMemo, useRef, type RefObject } from 'react'
 import { ResizableComparePanel } from '@/components/blueprint/ResizableComparePanel'
 import { MergedCompareGrid } from '@/components/blueprint/MergedCompareGrid'
@@ -139,8 +140,10 @@ export const ScenarioBlueprintPanelBody = memo(function ScenarioBlueprintPanelBo
   )
 
   const visibleBlueprints = useMemo(() => {
-    if (draftContext?.selection?.draft && draftContext.preview)
-      return previewStructureDraft(loadedBlueprints, draftContext.preview)
+    if (draftContext?.selection?.draft)
+      return draftContext.preview?.orders.length
+        ? previewStructureDraft(loadedBlueprints, draftContext.preview)
+        : previewPendingStructureDraft(loadedBlueprints, draftContext.selection.draft)
     if (draftContext?.seam)
       return previewStructureSeam(loadedBlueprints, draftContext.seam)
     return loadedBlueprints
@@ -409,7 +412,10 @@ export const ScenarioBlueprintPanelBody = memo(function ScenarioBlueprintPanelBo
         ? getStackedComparePanelHeight(visibleBlueprints, false, scrollChrome)
         : getComparePanelHeight(visibleBlueprints, false, scrollChrome))
 
+  const insertionOffset = useStructureInsertionOffset(visibleBlueprints)
+
   const comparePanelProps = {
+    insertionOffset,
     // Compare-grid estimates run hot (the height one predates
     // classification collapsing stacked slots). A floor set from a hot
     // estimate is dead gray space — the measured content rules instead.

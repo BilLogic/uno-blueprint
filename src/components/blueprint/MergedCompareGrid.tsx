@@ -1,3 +1,4 @@
+import { StructureLaneDraftZone } from './StructureDraftZones'
 import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
 import { BlueprintLaneHandles } from './BlueprintLaneHandles'
 import { BlueprintColumnHandles } from './BlueprintColumnHandles'
@@ -303,6 +304,7 @@ export function MergedCompareGrid({
             marginTop: COMPARE_STACKED_HEADER_GAP,
           }}
         >
+          <StructureLaneDraftZone rows={rows} />
           <BlueprintLaneHandles
             bodyRef={bandRef}
             pathId={blueprints[0]?.path.id}

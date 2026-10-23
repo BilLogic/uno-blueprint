@@ -287,7 +287,7 @@ export function BlueprintLabelRow({
         laneId === STRUCTURE_PLACEHOLDER_ID ? '' : undefined
       }
       className={cn(
-        'sticky left-0 isolate flex h-full min-h-0 flex-col overflow-hidden',
+        'pointer-events-none [&_button]:pointer-events-auto sticky left-0 isolate flex h-full min-h-0 flex-col overflow-hidden',
         // No right border. The rail already reads as its own column through
         // its fill, and the hairline landed a few pixels from the path
         // section's own outline — two vertical lines describing one edge.

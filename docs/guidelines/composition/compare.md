@@ -6,6 +6,7 @@ claims:
   - src/components/blueprint/CompareLaneRowShell.tsx
   - src/components/blueprint/ComparePathSectionFrame.tsx
   - src/components/blueprint/CompareTrackDecorations.tsx
+  - src/components/blueprint/StructureDraftZones.tsx
   - src/components/blueprint/MergedCompareGrid.tsx
   - src/components/blueprint/ResizableComparePanel.tsx
   - src/components/blueprint/StackedCompareGrid.tsx
@@ -175,3 +176,5 @@ flies. Nothing else is involved.
 > the full canonical column set. The `kind: 'column'` discriminant on a grid
 > track is a deliberate vestige so track consumers keep the same shape — not an
 > invitation to add a second track kind back.
+
+`StructureDraftZones` keeps a draft lane destination visible across its whole row. The step-header axis carries the matching column zone. Both use the real projected grid, so frames, labels, dividers and arrows keep their coordinates. Semantic divider anchors come from saved lanes until the draft is committed.

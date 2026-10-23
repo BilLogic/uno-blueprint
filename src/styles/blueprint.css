@@ -1255,8 +1255,43 @@
 }
 
 /* Structural previews move at the same cadence as canvas micro interactions. */
-[data-structure-placeholder] { border: 1px dashed var(--primary); background: color-mix(in oklch, var(--primary) 5%, transparent); pointer-events: none; }
+[data-structure-placeholder] {
+  pointer-events: none;
+}
 
-[data-structure-highlight="label"] { outline: 1px solid var(--primary); outline-offset: -1px; }
-[data-structure-highlight="cells"] { position: relative; }
-[data-structure-highlight="cells"]::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: color-mix(in oklch, var(--primary) 9%, transparent); }
+[data-structure-board] {
+  position: relative;
+  isolation: isolate;
+}
+[data-structure-highlight='label'] {
+  outline: 1px solid var(--primary);
+  outline-offset: -1px;
+  border-radius: var(--radius-md);
+}
+[data-axis-highlight]:has([data-structure-highlight='label'])::after {
+  content: '';
+  position: absolute;
+  left: var(--structure-highlight-x, 0px);
+  top: var(--structure-highlight-y, 0px);
+  width: var(--structure-highlight-width, 0px);
+  height: var(--structure-highlight-height, 0px);
+  background: color-mix(in oklch, var(--primary) 5%, transparent);
+  border-radius: var(--radius-md);
+  pointer-events: none;
+  z-index: 1;
+}
+[data-order-row]:has(button:focus-visible) [data-order-card] {
+  outline: 1px solid var(--ring);
+  outline-offset: -1px;
+}
+[data-structure-insert-zone] {
+  position: relative;
+  background: var(--wash-primary);
+  border: 1px dashed var(--border-primary);
+  border-radius: var(--radius-md);
+}
+
+[data-order-row] button:focus-visible {
+  outline: none;
+  box-shadow: none;
+}

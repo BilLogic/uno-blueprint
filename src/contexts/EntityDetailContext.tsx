@@ -29,6 +29,7 @@ export type StructurePreview = {
 }
 
 export type StructureSeam = {
+  centered?: boolean
   kind: 'lane' | 'step'
   pathId: string
   pathIds?: string[]
@@ -37,7 +38,7 @@ export type StructureSeam = {
   key: string
 }
 
-export type StructureDraft =
+export type StructureDraft = { centered?: boolean } & (
   | {
       kind: 'lane'
       scenarioId: string
@@ -46,6 +47,7 @@ export type StructureDraft =
       atPosition?: number
     }
   | { kind: 'step'; pathId: string; pathIds?: string[]; atPosition?: number }
+)
 
 /**
  * The levels of the tree that own spec fields and are not a cell.

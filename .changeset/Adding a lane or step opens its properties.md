@@ -2,4 +2,4 @@
 "uno-blueprint": patch
 ---
 
-Insert seams part the board and lane and step panels save their fields and path orders with one undo.
+Insert seams share detection at crossings, expand around boundaries and keep draft destinations visible through one save and undo.

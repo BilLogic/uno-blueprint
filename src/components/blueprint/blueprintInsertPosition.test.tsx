@@ -77,7 +77,7 @@ it('inserts at the next step’s stored position, including gaps, and appends af
   fireEvent.click(view.getByLabelText('Add a step after First'))
   await waitFor(() =>
     expect(writes.openCreate).toHaveBeenCalledWith(
-      { kind: 'step', pathId: 'path', atPosition: 4 },
+      { kind: 'step', pathId: 'path', atPosition: 4, centered: true },
       expect.any(HTMLButtonElement),
     ),
   )
@@ -90,7 +90,7 @@ it('inserts at the next step’s stored position, including gaps, and appends af
   fireEvent.click(view.getByLabelText('Add a step after Next'))
   await waitFor(() =>
     expect(writes.openCreate).toHaveBeenLastCalledWith(
-      { kind: 'step', pathId: 'path', atPosition: undefined },
+      { kind: 'step', pathId: 'path', atPosition: undefined, centered: false },
       expect.any(HTMLButtonElement),
     ),
   )
@@ -122,7 +122,7 @@ it('inserts before the visible lane’s stored position rather than its visible 
   fireEvent.click(view.getAllByLabelText(/^Add a lane/)[1])
   expect(writes.lane).not.toHaveBeenCalled()
   expect(writes.openCreate).toHaveBeenCalledWith(
-    { kind: 'lane', scenarioId: 'scenario', atPosition: 4 },
+    { kind: 'lane', scenarioId: 'scenario', atPosition: 4, centered: true },
     expect.any(HTMLButtonElement),
   )
 })
@@ -194,7 +194,7 @@ it('preserves later step selection and insertion when a middle step cannot be me
   fireEvent.click(view.getByLabelText('Add a step after Unmeasured'))
   await waitFor(() =>
     expect(writes.openCreate).toHaveBeenCalledWith(
-      { kind: 'step', pathId: 'path', atPosition: 4 },
+      { kind: 'step', pathId: 'path', atPosition: 4, centered: true },
       expect.any(HTMLButtonElement),
     ),
   )
@@ -207,7 +207,7 @@ it('preserves later step selection and insertion when a middle step cannot be me
   fireEvent.click(view.getByLabelText('Add a step after Last'))
   await waitFor(() =>
     expect(writes.openCreate).toHaveBeenLastCalledWith(
-      { kind: 'step', pathId: 'path', atPosition: undefined },
+      { kind: 'step', pathId: 'path', atPosition: undefined, centered: false },
       expect.any(HTMLButtonElement),
     ),
   )

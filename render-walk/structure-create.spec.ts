@@ -101,11 +101,131 @@ for (const camera of ['overview', '100%'] as const) {
         await page.waitForLoadState('networkidle')
         const scenarioId = new URL(page.url()).searchParams.get('scenario')
         const board = page.locator(`[data-focus-slide-id="${scenarioId}"]`)
+        const laneHeader = board
+          .getByRole('button', { name: 'Journey figures', exact: true })
+          .first()
+        expect(
+          await laneHeader.evaluate((el) => {
+            const box = el.getBoundingClientRect()
+            return (
+              el.ownerDocument
+                .elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+                ?.closest('button') === el
+            )
+          }),
+          'insertion detection must not steal the lane name',
+        ).toBe(true)
+        for (const axis of ['lane', 'step'] as const) {
+          const label =
+            axis === 'lane'
+              ? laneHeader
+              : board
+                  .getByRole('button', {
+                    name: 'View details: Invoke ub:map',
+                    exact: true,
+                  })
+                  .first()
+          const box = await label.boundingBox()
+          await page.mouse.move(
+            box!.x + box!.width / 2,
+            box!.y + box!.height / 2,
+          )
+          const highlighted = board.locator('[data-axis-highlight]')
+          await expect(highlighted).toHaveAttribute('data-axis-highlight', axis)
+          expect(
+            await highlighted
+              .locator('[data-structure-highlight="cells"]')
+              .count(),
+          ).toBe(0)
+          expect(
+            await highlighted
+              .locator('[data-structure-highlight="label"]')
+              .evaluate((el) =>
+                parseFloat(
+                  el.ownerDocument.defaultView!.getComputedStyle(el)
+                    .borderRadius,
+                ),
+              ),
+          ).toBeGreaterThan(0)
+          await page.screenshot({
+            path: join(
+              VIEW_SCREENSHOT_DIR,
+              `highlight-${axis}-${layout}-${theme}-${camera}.png`,
+            ),
+          })
+          await page.mouse.move(24, 24)
+        }
+        const semanticEdge = board
+          .getByRole('button', {
+            name: 'Add a lane below Blueprint owner',
+            exact: true,
+          })
+          .first()
+        const boundaryBefore = await semanticEdge.evaluate((el) => {
+          const box = el.getBoundingClientRect()
+          const scope =
+            el.closest('[data-structure-path]') ??
+            el.closest('[data-structure-board]')!
+          const line = (
+            Array.from(
+              scope.querySelectorAll('[data-blueprint-divider]'),
+            ) as (typeof el)[]
+          )
+            .filter(
+              (node) => node.getBoundingClientRect().bottom <= box.top + 1,
+            )
+            .at(-1)!
+          const bounds = line.getBoundingClientRect()
+          return {
+            top: bounds.top,
+            height: bounds.height,
+            kind: line.getAttribute('data-blueprint-divider'),
+          }
+        })
+        const edgeBox = await semanticEdge.boundingBox()
+        await page.mouse.move(edgeBox!.x + 6, edgeBox!.y + 22)
+        await expect(semanticEdge).toHaveAttribute('data-open', '')
+        expect(
+          await semanticEdge.evaluate((el) => {
+            const scope =
+              el.closest('[data-structure-path]') ??
+              el.closest('[data-structure-board]')!
+            const gap = scope
+              .querySelector('[data-structure-seam-track="lane"]')!
+              .getBoundingClientRect()
+            const line = (
+              Array.from(
+                scope.querySelectorAll('[data-blueprint-divider]'),
+              ) as (typeof el)[]
+            )
+              .filter(
+                (node) => node.getBoundingClientRect().bottom <= gap.top + 1,
+              )
+              .at(-1)!
+            const bounds = line.getBoundingClientRect()
+            return {
+              top: Math.round(bounds.top),
+              height: Math.round(bounds.height),
+              kind: line.getAttribute('data-blueprint-divider'),
+              beside: Math.abs(gap.top - bounds.bottom) < 1,
+            }
+          }),
+        ).toEqual({
+          top: Math.round(boundaryBefore.top),
+          height: Math.round(boundaryBefore.height),
+          kind: boundaryBefore.kind,
+          beside: true,
+        })
+        await page.mouse.move(24, 24)
+        await expect(semanticEdge).not.toHaveAttribute('data-open', '')
+        // Merged path badges overlap the top of columns. In Stacked, that
+        // space is clear; farther down meets the first lane's crossing seam.
+        const stepProbeInset = layout === 'merged' ? 44 : 6
         for (const kind of ['lane', 'step'] as const) {
           const seams = board.getByRole('button', {
             name: new RegExp(`^Add a ${kind}`),
           })
-          const opener = kind === 'step' ? seams.last() : seams.first()
+          const opener = seams.nth(1)
           await page.keyboard.press('Tab')
           if (camera === '100%') {
             const viewport = page.locator('[data-zoom-pan-viewport]').first()
@@ -145,18 +265,54 @@ for (const camera of ['overview', '100%'] as const) {
           await opener.focus()
           await page.getByRole('button', { name: 'Edit', exact: true }).focus()
           await expect(opener).not.toHaveAttribute('data-open', '')
+          // Camera reveal can outlast the seam's close delay. Aim only once
+          // the closed target is stationary in screen coordinates.
+          let targetPosition = ''
+          let targetSettledAt = 0
+          await expect
+            .poll(async () => {
+              const bounds = await opener.boundingBox()
+              const position = JSON.stringify(bounds)
+              if (position !== targetPosition) {
+                targetPosition = position
+                targetSettledAt = Date.now()
+              }
+              return Boolean(bounds) && Date.now() - targetSettledAt >= 200
+            })
+            .toBe(true)
           const closed = await opener.boundingBox()
 
           const axis = kind === 'step' ? 'width' : 'height'
-          expect(closed?.[axis]).toBeGreaterThanOrEqual(11.9)
+          expect(closed?.[axis]).toBeGreaterThanOrEqual(43.9)
           // Aim in the label rail for lane seams, where the sticky label used to intercept it.
-          await page.mouse.move(closed!.x + 6, closed!.y + 6)
+          await page.mouse.move(
+            closed!.x + (kind === 'step' ? closed!.width / 2 : 6),
+            closed!.y + (kind === 'lane' ? closed!.height / 2 : stepProbeInset),
+          )
+          expect(
+            await opener.evaluate(
+              (el, { itemKind, inset }) => {
+                const bounds = el.getBoundingClientRect()
+                const hit = el.ownerDocument.elementFromPoint(
+                  bounds.left + (itemKind === 'step' ? bounds.width / 2 : 6),
+                  bounds.top +
+                    (itemKind === 'lane' ? bounds.height / 2 : inset),
+                )
+                return hit
+                  ?.closest('[data-structure-seam]')
+                  ?.getAttribute('aria-label')
+              },
+              { itemKind: kind, inset: stepProbeInset },
+            ),
+          ).toBe(await opener.getAttribute('aria-label'))
           await expect(opener).toHaveAttribute('data-open', '')
           await expect(opener.locator('svg')).toHaveCount(1)
           await expect(opener).toHaveAttribute('data-open', '')
           await expect
             .poll(async () => {
-              const slot = await opener.boundingBox()
+              const slot = await opener
+                .locator('[data-structure-slot]')
+                .boundingBox()
               const axis = kind === 'step' ? 'width' : 'height'
               return slot?.[axis] ?? 0
             })
@@ -167,22 +323,100 @@ for (const camera of ['overview', '100%'] as const) {
           await expect(phantom).toBeAttached()
           await expect
             .poll(async () => {
-              const slot = await opener.boundingBox()
+              const slot = await opener
+                .locator('[data-structure-slot]')
+                .boundingBox()
               const gap = await phantom.boundingBox()
               if (!slot || !gap) return false
               const start = kind === 'step' ? 'x' : 'y'
               const size = kind === 'step' ? 'width' : 'height'
               return {
                 kind,
-                offset: Math.round(slot[start] - gap[start]),
-                size: Math.round(slot[size] - gap[size]),
+                offset: Math.round(Math.abs(slot[start] - gap[start])),
+                size: Math.round(Math.abs(slot[size] - gap[size])),
               }
             })
             .toEqual({ kind, offset: 0, size: 0 })
+          const centeredSlot = await opener
+            .locator('[data-structure-slot]')
+            .boundingBox()
+          const centerAxis = kind === 'step' ? 'x' : 'y'
+          const centerSize = kind === 'step' ? 'width' : 'height'
+          expect(
+            Math.abs(
+              centeredSlot![centerAxis] +
+                centeredSlot![centerSize] / 2 -
+                closed![centerAxis] -
+                closed![centerSize] / 2,
+            ),
+          ).toBeLessThan(1)
+          const crossings = await opener.evaluate((el, itemKind) => {
+            const bounds = el.getBoundingClientRect()
+            const board = el.closest('[data-structure-board]')!
+            const others = Array.from(
+              board.querySelectorAll('[data-structure-seam]'),
+            ) as (typeof el)[]
+            return others
+              .filter((other) =>
+                other
+                  .getAttribute('aria-label')
+                  ?.startsWith(
+                    `Add a ${itemKind === 'step' ? 'lane' : 'step'}`,
+                  ),
+              )
+              .map((other) => {
+                const box = other.getBoundingClientRect()
+                return {
+                  x:
+                    (Math.max(bounds.left, box.left) +
+                      Math.min(bounds.right, box.right)) /
+                    2,
+                  y:
+                    (Math.max(bounds.top, box.top) +
+                      Math.min(bounds.bottom, box.bottom)) /
+                    2,
+                  intersects:
+                    box.right > bounds.left &&
+                    box.left < bounds.right &&
+                    box.bottom > bounds.top &&
+                    box.top < bounds.bottom,
+                }
+              })
+              .filter(
+                (point) =>
+                  point.intersects &&
+                  point.x > 300 &&
+                  point.x < el.ownerDocument.documentElement.clientWidth - 40 &&
+                  point.y > 150 &&
+                  point.y < el.ownerDocument.documentElement.clientHeight - 80,
+              )
+              .filter((point) =>
+                el.ownerDocument
+                  .elementFromPoint(point.x, point.y)
+                  ?.closest('[data-structure-seam]'),
+              )
+              .slice(0, 3)
+          }, kind)
+          expect(crossings.length).toBeGreaterThan(0)
+          for (const point of crossings) {
+            for (const offset of [-5, 0, 5, 0]) {
+              await page.mouse.move(point.x + offset, point.y + offset)
+              await page.waitForTimeout(180)
+              await expect(opener).toHaveAttribute('data-open', '')
+              await expect(
+                board.locator('[data-structure-seam][data-open]'),
+              ).toHaveCount(1)
+            }
+          }
           await page.mouse.move(24, 24)
           await opener.focus()
           await expect(opener).toBeFocused()
           await expect(opener).toHaveAttribute('data-open', '')
+          const semanticDividers = await board
+            .locator('[data-blueprint-divider]')
+            .evaluateAll((items) =>
+              items.map((el) => el.getAttribute('data-blueprint-divider')),
+            )
           const requests: string[] = []
           const track = (request: import('@playwright/test').Request) => {
             if (
@@ -198,10 +432,33 @@ for (const camera of ['overview', '100%'] as const) {
               `seam-${kind}-${layout}-${theme}-${camera}.png`,
             ),
           })
-          await page.keyboard.press('Enter')
+          let releaseMetadata!: () => void
+          const metadataGate = new Promise<void>((resolve) => {
+            releaseMetadata = resolve
+          })
+          const metadataRequest = (url: URL) =>
+            url.pathname.endsWith('/rest/v1/paths') &&
+            Boolean(url.searchParams.get('select')?.includes('lanes('))
+          await page.route(metadataRequest, async (route) => {
+            await metadataGate
+            try {
+              await route.fallback()
+            } catch (error) {
+              if (!route.request().failure()) throw error
+            }
+          })
+          const crossing = crossings.at(-1)!
+          await page.mouse.click(crossing.x, crossing.y)
+          await expect(
+            page.getByRole('heading', { name: `Add ${kind}`, exact: true }),
+          ).toBeVisible()
           const name = page.getByRole('textbox', { name: 'Name', exact: true })
+          await expect(
+            board.locator(`[data-structure-insert-zone="${kind}"]`).first(),
+          ).toBeVisible()
           await expect(name).toBeFocused()
           await expect(name).toHaveAttribute('required', '')
+          releaseMetadata()
           if (kind === 'step')
             await expect
               .poll(async () => {
@@ -239,6 +496,13 @@ for (const camera of ['overview', '100%'] as const) {
               .filter({ hasText: /^Frontstage\s*Staff actions/ })
               .click()
           }
+          expect(
+            await board
+              .locator('[data-blueprint-divider]')
+              .evaluateAll((items) =>
+                items.map((el) => el.getAttribute('data-blueprint-divider')),
+              ),
+          ).toEqual(semanticDividers)
           await expect(add).toBeEnabled()
           const rail = page
             .getByRole('region', { name: 'Add to paths' })
@@ -267,13 +531,40 @@ for (const camera of ['overview', '100%'] as const) {
               `rail-moved-${kind}-${layout}-${theme}-${camera}.png`,
             ),
           })
-          const current = rail.getByRole('button', { name: /^Move Review in / })
+          const current = rail.getByRole('button', {
+            name: /^Move Review in /,
+          })
           await current.press(kind === 'step' ? 'ArrowUp' : 'ArrowDown')
+          expect(
+            await current.evaluate((el) => {
+              const row = el.closest('li')!
+              const card = row.querySelector('[data-order-card]')!
+              const view = el.ownerDocument.defaultView!
+              return {
+                node: view.getComputedStyle(el).outlineStyle,
+                nodeShadow: view.getComputedStyle(el).boxShadow,
+                row: view.getComputedStyle(row).outlineStyle,
+                card: view.getComputedStyle(card).outlineStyle,
+              }
+            }),
+          ).toEqual({
+            node: 'none',
+            nodeShadow: 'none',
+            row: 'none',
+            card: 'solid',
+          })
           await expect(rows).toHaveCount(rowCount)
           await page
             .getByRole('button', { name: 'Reset order', exact: true })
             .click()
           await expect(page.getByText('Moved', { exact: true })).toHaveCount(0)
+          expect(
+            await rail
+              .locator('li')
+              .evaluateAll((items) =>
+                items.every((item) => !item.style.outline.includes('solid')),
+              ),
+          ).toBe(true)
           await expect(rail.locator('li')).toHaveCount(rowCount)
           // A reset starts a new layout animation after the DOM order changes.
           // Require settled geometry across successive frames before capturing it.
@@ -284,7 +575,8 @@ for (const camera of ['overview', '100%'] as const) {
                 items.every((item, index) => {
                   const bounds = item.getBoundingClientRect()
                   return (
-                    (!item.style.transform || item.style.transform === 'none') &&
+                    (!item.style.transform ||
+                      item.style.transform === 'none') &&
                     bounds.height > 0 &&
                     (index === 0 ||
                       items[index - 1].getBoundingClientRect().bottom <=
@@ -316,10 +608,18 @@ for (const camera of ['overview', '100%'] as const) {
             'opening and cancelling a draft never writes',
           ).toEqual([])
           const returned = await opener.boundingBox()
-          await page.mouse.move(returned!.x + 6, returned!.y + 6)
+          await page.mouse.move(
+            returned!.x + 6,
+            returned!.y + (kind === 'step' ? stepProbeInset : 6),
+          )
           await expect(opener).toHaveAttribute('data-open', '')
-          const opened = await opener.boundingBox()
-          await page.mouse.click(opened!.x + 6, opened!.y + 6)
+          const opened = await opener
+            .locator('[data-structure-slot]')
+            .boundingBox()
+          await page.mouse.click(
+            opened!.x + 6,
+            opened!.y + (kind === 'step' ? stepProbeInset : 6),
+          )
           await expect(name).toBeFocused()
           await page
             .getByRole('button', { name: 'Cancel', exact: true })
@@ -327,6 +627,15 @@ for (const camera of ['overview', '100%'] as const) {
           await expect(
             page.getByRole('status', { name: `New ${kind} position` }),
           ).toHaveCount(0)
+          expect(requests).toEqual([])
+          await opener.press('Enter')
+          await expect(name).toBeFocused()
+          await expect(
+            page.getByRole('heading', { name: `Add ${kind}`, exact: true }),
+          ).toBeVisible()
+          await page
+            .getByRole('button', { name: 'Cancel', exact: true })
+            .click()
           expect(requests).toEqual([])
           page.off('request', track)
         }

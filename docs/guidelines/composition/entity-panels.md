@@ -4,6 +4,7 @@ claims:
   - src/components/blueprint/PathOrderSection.tsx
   - src/components/blueprint/structureHighlight.ts
   - src/components/blueprint/StructureInsert.tsx
+  - src/components/blueprint/structureInsertIntent.ts
   - src/components/blueprint/StructureRenameEditor.tsx
   - src/components/blueprint/useStructureRename.tsx
   - src/components/blueprint/BlueprintCellDetailPanel.tsx
@@ -483,3 +484,5 @@ Creation notices use the shell's shared write notice surface. A successful
 addition offers Undo, can be closed, expires, and disappears when its session
 entry is removed elsewhere. A panel edit saves its name and properties with
 one RPC, whose result captures the exact fields its one inverse restores.
+
+`structureInsertIntent` gives each board one hover owner. A fresh crossing chooses the nearest boundary; an open seam keeps ownership while the pointer remains inside its detection band. Leaving the band allows the other axis to open after the normal delay. Crossing clicks follow that owner rather than whichever overlapping element painted last. Keyboard focus retains ownership until blur.

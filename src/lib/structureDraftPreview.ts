@@ -1,6 +1,7 @@
 import type { BlueprintData } from '@/types/blueprint'
 import type {
   StructurePreview,
+  StructureDraft,
   StructureSeam,
 } from '@/contexts/EntityDetailContext'
 
@@ -63,11 +64,7 @@ export function previewStructureSeam(
       : items.findIndex((item) => item.position >= seam.atPosition!)
   const anchor = items[index < 0 ? items.length : index]
   return blueprints.map((board) => {
-    if (
-      seam.kind === 'step' &&
-      board.path.id !== seam.pathId &&
-      !seam.pathIds?.includes(board.path.id)
-    )
+    if (board.path.id !== seam.pathId && !seam.pathIds?.includes(board.path.id))
       return board
     const rows = seam.kind === 'step' ? board.steps : board.lanes
     const at = anchor
@@ -89,5 +86,36 @@ export function previewStructureSeam(
     return seam.kind === 'step'
       ? { ...board, steps: next }
       : { ...board, lanes: next }
+  })
+}
+
+/** Project a destination immediately, before the path picker finishes reading. */
+export function previewPendingStructureDraft(
+  blueprints: BlueprintData[],
+  draft: StructureDraft,
+): BlueprintData[] {
+  const pathId = draft.pathId ?? blueprints[0]?.path.id
+  if (!pathId) return blueprints
+  const pending = previewStructureSeam(blueprints, {
+    ...draft,
+    pathId,
+    size: 0,
+    key: 'pending',
+  })
+  return pending.map((board) => {
+    const rows = draft.kind === 'step' ? board.steps : board.lanes
+    const items = rows.map((item) =>
+      item.id === STRUCTURE_SEAM_ID
+        ? {
+            ...item,
+            id: STRUCTURE_PLACEHOLDER_ID,
+            name: `New ${draft.kind}`,
+            seamSize: undefined,
+          }
+        : item,
+    )
+    return draft.kind === 'step'
+      ? { ...board, steps: items }
+      : { ...board, lanes: items }
   })
 }

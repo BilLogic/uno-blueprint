@@ -2724,7 +2724,7 @@ $anon_definer$;
 grant execute on function public.add_step_with_details(uuid,text,jsonb,text) to authenticated;
 grant execute on function public.add_lane_with_details(uuid,text,text,jsonb,jsonb) to authenticated;
 grant execute on function public.undo_structure_add(jsonb) to authenticated;
-grant execute on function public.rename_step(uuid,text) to authenticated;
+grant execute on function public.rename_step_name(uuid,text) to authenticated;
 grant execute on function public.update_step_with_details(uuid,text,text) to authenticated;
 grant execute on function public.update_lane_with_details(uuid,uuid[],text,jsonb) to authenticated;
 grant execute on function public.restore_step_details(jsonb) to authenticated;

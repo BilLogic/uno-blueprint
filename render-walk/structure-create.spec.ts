@@ -205,14 +205,16 @@ for (const camera of ['overview', '100%'] as const) {
           if (kind === 'step')
             await expect
               .poll(async () => {
-                const marker = await page
-                  .getByRole('status', { name: 'New step position' })
+                return page
+                  .locator('[role="status"][aria-label="New step position"]')
                   .first()
-                  .boundingBox()
-                const panel = await page.getByRole('dialog').boundingBox()
-                return Boolean(
-                  marker && panel && marker.x + marker.width <= panel.x - 8,
-                )
+                  .evaluate((marker) => {
+                    const panel = marker.ownerDocument
+                      .querySelector('[role="dialog"]')
+                      ?.getBoundingClientRect()
+                    const bounds = marker.getBoundingClientRect()
+                    return Boolean(panel && bounds.right <= panel.x - 8)
+                  })
               })
               .toBe(true)
           await expect(

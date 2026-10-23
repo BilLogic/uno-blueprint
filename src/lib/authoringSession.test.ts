@@ -1,3 +1,4 @@
+import { HOST_OPERATIONS } from '@/lib/hostAuthoringOperations'
 import { test, expect } from 'vitest'
 import {
   clearSession,
@@ -50,7 +51,7 @@ const EVERY_WRITE = Object.keys({
   update_lane_with_details: true,
   add_step_with_details: true,
   add_lane_with_details: true,
-  rename_step: true,
+  rename_step_name: true,
   rename_lane: true,
   create_phase: true,
   create_scenario: true,
@@ -59,6 +60,7 @@ const EVERY_WRITE = Object.keys({
   duplicate_scenario: true,
   rename_phase: true,
   rename_scenario: true,
+  ...Object.fromEntries(Object.keys(HOST_OPERATIONS).map((fn) => [fn, true])) as Record<keyof typeof HOST_OPERATIONS, true>,
   update_scenario_layout: true,
   rename_path: true,
   rename_owner_tag: true,
@@ -66,6 +68,7 @@ const EVERY_WRITE = Object.keys({
   add_lane: true,
   upsert_cell: true,
   update_cell_content: true,
+  update_cell_status: true,
   update_cell_resources: true,
   update_placement_resources: true,
   set_featured_resource: true,

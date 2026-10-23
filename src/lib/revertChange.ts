@@ -1,14 +1,17 @@
+import { HOST_OPERATIONS, isHostOperation } from '@/lib/hostAuthoringOperations'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { toAuthoringError } from '@/lib/authoringErrors'
-import type { SessionEntry } from '@/lib/authoringSession'
+import { currentAgentSessionId, type SessionEntry } from '@/lib/authoringSession'
 import {
   restoreCellTouchpoints,
   updateCellContent,
+  updateCellStatus,
   writeCellResources,
   type CellContentUpdate,
   type RemovedPlacement,
   type ResourceRowInput,
 } from '@/lib/cellContentMutations'
+import { asEntityStatus } from '@/lib/entityStatus'
 import {
   writePlacementResources,
   type PlacementResourceRowInput,
@@ -47,7 +50,7 @@ import {
 import { removeSlideUploadObjects } from '@/lib/illustrationUpload'
 import { restoreSlideImageSet, sliceWritten, type SlideImageMemberInput } from '@/lib/sliceMutations'
 import { requireRowsWritten } from '@/lib/optimisticConcurrency'
-import { invalidateAfterRpc } from '@/lib/authoringRpc'
+import { revertHostOperation, invalidateAfterRpc } from '@/lib/authoringRpc'
 import { updateFinding, type FindingUpdate } from '@/lib/findingMutations'
 import type { Database, Json } from '@/types/database'
 
@@ -103,8 +106,8 @@ function optionalStringArg(args: Record<string, unknown>, key: string): string {
  * ── WHERE THE INPUT MAY COME FROM ─────────────────────────────────────────
  *
  * A `SessionEntry`, and nothing else. That type is minted only by
- * `recordChange`, so the entry handed in here was assembled by the build that
- * is now reading it — never fetched, never deserialised, never older than the
+ * the session recorders, so the entry handed in here was assembled by the
+ * build now reading it — never fetched, never deserialised, never older than the
  * code applying it. `public.authoring_changes` keeps the same information
  * durably and is not a source for this function: a row out of it is a
  * `ChangeEntry`-shaped object at best and will not type-check as a
@@ -121,7 +124,21 @@ export async function executeRevert(
     throw new Error('This change has nothing recorded to revert it with.')
   }
 
+  if (isHostOperation(entry.fn) && HOST_OPERATIONS[entry.fn].humanOnlyInverse && currentAgentSessionId()) {
+    throw new Error('This creation inverse deletes a cell and is human-only.')
+  }
+  if (isHostOperation(revert.fn)) {
+    await revertHostOperation(client, revert.fn, revert.args)
+    return
+  }
   switch (revert.fn) {
+    case 'update_cell_status': {
+      const status = asEntityStatus(revert.args.status)
+      const expected = asEntityStatus(revert.args.expected_status)
+      if (!status || !expected) throw new Error('This status inverse is missing valid statuses.')
+      await updateCellStatus(client, { cellId: stringArg(revert.args, 'cell_id'), status, expectedStatus: expected, record: false })
+      return
+    }
     case 'update_cell_content': {
       const cellId = stringArg(revert.args, 'cell_id')
       const update = revert.args.update as CellContentUpdate

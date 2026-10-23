@@ -18,13 +18,13 @@ const reads = vi.hoisted(() => ({
 const writes = vi.hoisted(() => ({
   step: vi.fn(async () => 'created-step'),
   lane: vi.fn(async () => ['created-lane']),
-  renameStep: vi.fn(async () => {}),
+  renameStepName: vi.fn(async () => {}),
   renameLane: vi.fn(async () => {}),
 }))
 vi.mock('@/lib/authoringRpc', () => ({
   createStepWithDetails: writes.step,
   createLaneWithDetails: writes.lane,
-  renameStep: writes.renameStep,
+  renameStepName: writes.renameStepName,
   renameLane: writes.renameLane,
 }))
 vi.mock('@/hooks/useStructureCreatePaths', () => ({
@@ -168,7 +168,7 @@ for (const kind of ['lane', 'step'] as const) {
     fireEvent.keyDown(input, { key: 'Enter' })
     await waitFor(() =>
       expect(
-        kind === 'step' ? writes.renameStep : writes.renameLane,
+        kind === 'step' ? writes.renameStepName : writes.renameLane,
       ).toHaveBeenCalledWith(expect.anything(), {
         [kind === 'step' ? 'stepId' : 'laneId']: 'saved',
         name: 'Decision',
@@ -191,7 +191,7 @@ for (const kind of ['lane', 'step'] as const) {
     fireEvent.keyDown(screen.getByRole('textbox', { name: `Rename ${kind}` }), {
       key: 'Escape',
     })
-    expect(writes.renameStep).not.toHaveBeenCalled()
+    expect(writes.renameStepName).not.toHaveBeenCalled()
     expect(writes.renameLane).not.toHaveBeenCalled()
     expect(done).toHaveBeenCalledOnce()
   })
@@ -224,7 +224,7 @@ it('keeps a rejected step draft editable and reports why it did not save', async
 })
 
 it('translates raw rename failures into the shared write-failure copy', async () => {
-  writes.renameStep.mockRejectedValueOnce(
+  writes.renameStepName.mockRejectedValueOnce(
     new Error('relation "steps" does not exist'),
   )
   render(

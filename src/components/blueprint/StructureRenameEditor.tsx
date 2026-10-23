@@ -2,7 +2,7 @@ import { toAuthoringError } from '@/lib/authoringErrors'
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { useSupabase } from '@/contexts/SupabaseProvider'
-import { renameLane, renameStep } from '@/lib/authoringRpc'
+import { renameLane, renameStepName } from '@/lib/authoringRpc'
 
 export function StructureRenameEditor({
   kind,
@@ -28,7 +28,7 @@ export function StructureRenameEditor({
     setBusy(true)
     try {
       if (kind === 'step')
-        await renameStep(client, {
+        await renameStepName(client, {
           stepId: id,
           name: draft.trim(),
           previousName: name,

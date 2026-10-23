@@ -1289,7 +1289,7 @@ export type Database = {
         Args: { new_name: string; scenario_id: string }
         Returns: undefined
       }
-      rename_step: {
+      rename_step_name: {
         Args: { new_name: string; step_id: string }
         Returns: undefined
       }

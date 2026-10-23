@@ -1,3 +1,4 @@
+import { isHostOperation } from '@/lib/hostAuthoringOperations'
 /**
  * Every revert a mutation can record must be one executeRevert can perform.
  *
@@ -55,6 +56,7 @@ const readLib = (file: string) => sourceOf(`lib/${file}`)
  */
 const MUTATION_MODULES = [
   'authoringRpc.ts',
+  'hostAuthoringOperations.ts',
   'cellContentMutations.ts',
   'cellSpecMutations.ts',
   'evidenceMutations.ts',
@@ -89,7 +91,7 @@ const RPC_BACKED = new Set([
   'restore_lane_details',
   'undo_structure_add',
   'rename_lane',
-  'rename_step',
+  'rename_step_name',
   'clear_cell_dependency',
   'delete_cell',
   'delete_path',
@@ -175,7 +177,7 @@ describe('revert coverage', () => {
   it('handles every recorded revert that is not a real RPC', () => {
     const handled = new Set(matchAll(readLib('revertChange.ts'), HANDLED_FN))
     const stranded = recordedFns().filter(
-      (fn) => !handled.has(fn) && !RPC_BACKED.has(fn),
+      (fn) => !handled.has(fn) && !RPC_BACKED.has(fn) && !isHostOperation(fn),
     )
 
     // An unhandled name does not crash at the switch — it reaches the default

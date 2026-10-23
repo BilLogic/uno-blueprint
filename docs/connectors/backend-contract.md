@@ -120,6 +120,37 @@ and return shapes — as the generated portable core carries them — are **norm
 the generated `Database['public']['Functions']` types are the client's
 compile-time contract.
 
+### Optional host authoring operations
+
+A deployment may supply additional named RPCs under
+[ADR 0033](../adr/0033-a-deployment-may-supply-optional-host-operations.md).
+The portable core remains the minimum; installing the template client does
+not install these operations. Hosts supply their existing write-tier guard
+and the exact contracts used by `authoringRpc.ts`:
+
+| RPC | Arguments | Success receipt |
+| --- | --- | --- |
+| `rename_step` | `step_id`, `expected_name`, `new_name` | `id`, `change_id` |
+| `move_cell` | `cell_id`, `expected_source`, `destination` | `id`, `change_id` |
+| `insert_cell_at_position` | `path_id`, `lane_id`, `step_id`, `at_position`, `content`, `status` | `id`, `change_id`, `cell_key` |
+
+Coordinates contain `path_id`, `lane_id`, `step_id` and `position`. Hosts
+reject stale expected values and occupied slots, preserve identities on
+rename/move, and atomically record each write with its inverse. Names are
+exact strings, including surrounding spaces. Insertion creates a new
+identity, never overwrites an existing cell, and requires content and an
+explicit status. Receipts require nonempty, nonzero row/change identities;
+rename/move must return the requested identity, insertion a nonempty key.
+Missing operations and malformed receipts fail. A failed receipt requires
+read-back before retry because the server may have committed. Callers still
+verify the row and durable record against the approved edit.
+
+The status-only column mutation captures and guards the old status, updates
+only that column and requires a returned row. Blank text and placements stay
+intact. Its column update and durable append are separate requests: a failed
+append is a partial write, not an atomic rollback. A matching same-status
+request does nothing; a stale expectation still fails.
+
 ### 2. The direct table-write surface
 
 Non-structural edits go straight at tables and must be honored with the

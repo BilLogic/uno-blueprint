@@ -1580,10 +1580,10 @@ end;
 $$;
 
 --
--- Name: rename_step(uuid, text); Type: FUNCTION; Schema: public; Owner: -
+-- Name: rename_step_name(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.rename_step(step_id uuid, new_name text) RETURNS void
+CREATE FUNCTION public.rename_step_name(step_id uuid, new_name text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
     AS $$

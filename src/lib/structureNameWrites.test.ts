@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
-import { renameLane, renameStep } from './authoringRpc'
+import { renameLane, renameStepName } from './authoringRpc'
 import {
   clearSession,
   describeChange,
@@ -22,7 +22,7 @@ for (const kind of ['lane', 'step'] as const) {
       }),
     } as unknown as SupabaseClient<Database>
     if (kind === 'step')
-      await renameStep(client, {
+      await renameStepName(client, {
         stepId: 'step',
         name: 'Decision',
         previousName: saved,
@@ -37,7 +37,7 @@ for (const kind of ['lane', 'step'] as const) {
     const [entry] = sessionSnapshot()
     expect(describeChange(entry)).toContain(`Renamed a ${kind}`)
     expect(entry.revert).toEqual({
-      fn: `rename_${kind}`,
+      fn: kind === 'step' ? 'rename_step_name' : 'rename_lane',
       args: { [`${kind}_id`]: kind, new_name: 'Review' },
     })
     await executeRevert(client, entry)

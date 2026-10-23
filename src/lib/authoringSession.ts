@@ -1,3 +1,4 @@
+import { HOST_DESCRIBERS, type HostOperation } from '@/lib/hostAuthoringOperations'
 /**
  * What has been changed since Edit was turned on.
  *
@@ -34,12 +35,12 @@
  * for the payload as well.
  *
  * Which is why the claim is now a wall instead of a habit. `executeRevert`
- * takes a `SessionEntry`, a type only `recordChange` below can mint, so a row
- * selected out of `public.authoring_changes` cannot be handed to the undo
+ * takes a `SessionEntry`, a type only the recording functions below can mint,
+ * so a row selected out of `public.authoring_changes` cannot be handed to the undo
  * path — not because nobody has tried, but because it does not compile.
  * `revertBoundaryContract.test.ts` holds the rest of the argument.
  */
-import { appendToAuthoringLog } from '@/lib/authoringLog'
+import { appendToAuthoringLog, appendRequiredAuthoringLog, type AuthoringLogWriter } from '@/lib/authoringLog'
 
 /**
  * How to take one change back: the operation that undoes it, captured at
@@ -71,6 +72,7 @@ export type WriteFn =
   | 'duplicate_scenario'
   | 'rename_phase'
   | 'rename_scenario'
+  | HostOperation
   | 'update_scenario_layout'
   | 'rename_path'
   | 'rename_owner_tag'
@@ -78,12 +80,13 @@ export type WriteFn =
   | 'update_lane_with_details'
   | 'add_step_with_details'
   | 'add_lane_with_details'
-  | 'rename_step'
+  | 'rename_step_name'
   | 'rename_lane'
   | 'add_step'
   | 'add_lane'
   | 'upsert_cell'
   | 'update_cell_content'
+  | 'update_cell_status'
   | 'update_cell_resources'
   | 'update_placement_resources'
   | 'set_featured_resource'
@@ -173,8 +176,8 @@ declare const SESSION_ORIGIN: unique symbol
  * had wired a read of the log into the undo path; it would have compiled, and
  * then thrown on the row above.
  *
- * `recordChange` is the only mint, and `revertBoundaryContract.test.ts` holds
- * it to that — a cast to `SessionEntry` anywhere else in `src/` fails there.
+ * The session recorders share one mint. `revertBoundaryContract.test.ts` holds
+ * that boundary — a cast to `SessionEntry` anywhere else in `src/` fails there.
  */
 export type SessionEntry = ChangeEntry & { readonly [SESSION_ORIGIN]: true }
 
@@ -249,11 +252,7 @@ export function sessionSnapshot(): SessionEntry[] {
   return entries
 }
 
-export function recordChange(
-  fn: WriteFn,
-  args: Record<string, unknown>,
-  revert?: RevertSpec,
-): void {
+function captureChange(fn: WriteFn, args: Record<string, unknown>, revert?: RevertSpec): SessionEntry {
   counter += 1
   const entry: ChangeEntry = {
     id: `c${counter}`,
@@ -266,18 +265,45 @@ export function recordChange(
       : {}),
   }
   // The one mint of a `SessionEntry`, and the reason the type is worth
-  // having: an entry is branded here, after `recordChange` has assembled it
+  // having: an entry is branded here, after this session recorder assembled it
   // from arguments this build's own mutation modules passed in. Nothing that
   // arrived over the wire can acquire the brand, so nothing that arrived over
   // the wire can reach `executeRevert`.
-  entries = [...entries, entry as SessionEntry]
+  const captured = entry as SessionEntry
+  entries = [...entries, captured]
   emit()
-  // The durable half. Here and not at the call sites for the same reason the
-  // array is filled here: one funnel, so the record and the list cannot
-  // disagree about what happened. It never throws — the write it describes
-  // has already landed, and failing an author's save because an audit append
-  // did not is a worse lie than the missing row.
-  appendToAuthoringLog(entry)
+  return captured
+}
+
+/** Ordinary saves retain their existing best-effort durable append. */
+export function recordChange(fn: WriteFn, args: Record<string, unknown>, revert?: RevertSpec): void {
+  appendToAuthoringLog(captureChange(fn, args, revert))
+}
+
+/** The content write landed; callers must recover using this captured entry. */
+export class PartialAuthoringWriteError extends Error {
+  readonly entry: SessionEntry
+
+  constructor(entry: SessionEntry, cause: unknown) {
+    super('The write landed, but its durable authoring record failed. Read back before recovery; the session retains the inverse.', { cause })
+    this.name = 'PartialAuthoringWriteError'
+    this.entry = entry
+  }
+}
+
+/** Required recording is a separate command, never an overload of a UI save. */
+export async function recordRequiredChange(
+  fn: WriteFn,
+  args: Record<string, unknown>,
+  revert: RevertSpec,
+  writer: AuthoringLogWriter,
+): Promise<string> {
+  const entry = captureChange(fn, args, revert)
+  try {
+    return await appendRequiredAuthoringLog(entry, writer)
+  } catch (cause) {
+    throw new PartialAuthoringWriteError(entry, cause)
+  }
 }
 
 /** Save: the changes are wanted, so stop tracking them. Writes nothing. */
@@ -352,7 +378,7 @@ const DESCRIBERS: Record<WriteFn, (entry: ChangeEntry) => string> = {
   duplicate_path: (entry) => `Duplicated a path as${named(entry) || ' a copy'}`,
   duplicate_scenario: (entry) =>
     `Duplicated a blueprint as${named(entry) || ' a copy'}`,
-  rename_step: (entry) => `Renamed a step${renameTo(entry)}`,
+  rename_step_name: (entry) => `Renamed a step${renameTo(entry)}`,
   rename_lane: (entry) => `Renamed a lane${renameTo(entry)}`,
   update_step_with_details: () => 'Edited a step’s name and summary',
   update_lane_with_details: () => 'Edited a lane’s name and properties',
@@ -360,6 +386,7 @@ const DESCRIBERS: Record<WriteFn, (entry: ChangeEntry) => string> = {
   add_lane_with_details: (entry) => `Added lane${named(entry)}`,
   rename_phase: (entry) => `Renamed a phase${renameTo(entry)}`,
   rename_scenario: (entry) => `Renamed a scenario${renameTo(entry)}`,
+  ...HOST_DESCRIBERS,
   update_scenario_layout: (entry) =>
     `Showed a scenario ${
       entry.args.layout === 'merged' ? 'merged' : 'stacked'
@@ -389,6 +416,7 @@ const DESCRIBERS: Record<WriteFn, (entry: ChangeEntry) => string> = {
       ? 'Added a cell'
       : 'Edited a cell’s text',
   update_cell_content: () => 'Edited a cell’s text',
+  update_cell_status: () => 'Changed a cell’s status',
   update_cell_resources: () => 'Edited a cell’s resources',
   update_placement_resources: () =>
     'Edited a touchpoint’s resources at this cell',

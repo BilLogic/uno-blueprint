@@ -1,6 +1,6 @@
 -- Authored 2026-10-22. A structure panel saves its fields and path orders together.
 
-create or replace function public.rename_step(step_id uuid, new_name text)
+create or replace function public.rename_step_name(step_id uuid, new_name text)
 returns void language plpgsql security definer
 set search_path to 'public', 'pg_catalog', 'pg_temp' as $$
 begin
@@ -213,7 +213,7 @@ end $$;
 do $acl$
 declare fn regprocedure; role_name text;
 begin
-  for fn in select p.oid::regprocedure from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('require_structure_author','check_structure_draft_order','add_step_with_details','add_lane_with_details','undo_structure_add','rename_step','rename_lane','update_step_with_details','update_lane_with_details','restore_step_details','restore_lane_details') loop
+  for fn in select p.oid::regprocedure from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('require_structure_author','check_structure_draft_order','add_step_with_details','add_lane_with_details','undo_structure_add','rename_step_name','rename_lane','update_step_with_details','update_lane_with_details','restore_step_details','restore_lane_details') loop
     execute format('revoke all on function %s from public',fn);
     for role_name in select r.rolname from pg_proc p,lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a join pg_roles r on r.oid=a.grantee where p.oid=fn::oid and a.grantee<>p.proowner loop execute format('revoke all on function %s from %I',fn,role_name); end loop;
   end loop;
@@ -223,7 +223,7 @@ end $acl$;
 grant execute on function public.add_step_with_details(uuid,text,jsonb,text) to authenticated;
 grant execute on function public.add_lane_with_details(uuid,text,text,jsonb,jsonb) to authenticated;
 grant execute on function public.undo_structure_add(jsonb) to authenticated;
-grant execute on function public.rename_step(uuid,text) to authenticated;
+grant execute on function public.rename_step_name(uuid,text) to authenticated;
 grant execute on function public.update_step_with_details(uuid,text,text) to authenticated;
 grant execute on function public.update_lane_with_details(uuid,uuid[],text,jsonb) to authenticated;
 grant execute on function public.restore_step_details(jsonb) to authenticated;

@@ -17,7 +17,7 @@ const writes = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/authoringRpc', () => ({
   renameLane: writes.lane,
-  renameStep: writes.step,
+  renameStepName: writes.step,
 }))
 vi.mock('@/contexts/SupabaseProvider', () => ({
   useSupabase: () => ({ client: {}, canWrite: true }),

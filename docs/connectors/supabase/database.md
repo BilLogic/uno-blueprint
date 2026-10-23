@@ -301,13 +301,15 @@ Writes are layered on top for signed-in sessions (`authenticated`):
   `paths.name/summary/note/kind`,
   `scenarios.name/summary/layout`, plus the spec columns — writable directly by `authenticated` under permissive
   update policies.
-- **Optional service-account tier** (`20260818002000`, a recipe you can
-  skip or delete): RESTRICTIVE policies AND an in-function
-  `is_service_account()` guard split `authenticated` into service accounts
-  (edit everything) and regular accounts (view + agent surfaces, no
-  blueprint writes). `anon` is untouched either way. Note that
-  `supabase db reset` applies every file in `supabase/migrations/`, this one
-  included: the split is what you get unless you delete the file.
+- **The service-account tier recipe is required by the migration chain**
+  (`20260818002000`). Keep it: later migrations depend on its configuration
+  table and storage policies. RESTRICTIVE policies and the in-function
+  `is_service_account()` guard separate editors from viewers; `anon` remains
+  read-only. A deployment that wants no configured service accounts leaves
+  `public.service_account_emails` empty. With no service-account emails listed,
+  nobody is enrolled through that list: the founding account becomes an editor
+  and later accounts are viewers. Empty configuration does not disable the
+  guard or give every signed-in person editing rights.
 - **A write policy is a PAIR, and this is the one shape.** Per table and per
   verb, a surface table carries a permissive `<table>_<verb>_auth` with
   `using (true)` — *the panels reach this table directly rather than through
@@ -316,7 +318,7 @@ Writes are layered on top for signed-in sessions (`authenticated`):
   may*. **Write both when you put a table on the write surface.** A single
   permissive policy whose whole predicate is `is_service_account()` admits
   exactly the same people, and is deliberately not used **on the surface**: it fuses the
-  optional recipe's decision into a base-template policy — correct only
+  recipe's tier decision into a base-template policy — correct only
   because the core seam's default body is `select true`, which nothing at the
   call site shows — and it makes a table whose restriction is *missing*
   (`services`, until `21000212000000`) unreadable from one that never had a
@@ -347,14 +349,13 @@ Writes are layered on top for signed-in sessions (`authenticated`):
   level security was consulted, before the change and after it. The rule has
   two halves and both are worth saying — write BOTH policies when you put a
   table on the write surface, and write NEITHER when you do not.
-- **The first account a project ever has is a service account**
-  (`21000206000000`, part of the same recipe). `service_account_emails`
-  ships empty, so without this a fresh deployment of the tier would have no
-  editor at all and would need a hand-written `update auth.users` to gain
-  one. Every account after the first is governed by the allowlist as
-  before. The client reads the tier by CALLING `is_service_account()`, so
-  deleting the recipe needs no matching client change — see
-  `docs/connectors/backend-contract.md` § Auth contract.
+- **The founding account becomes an editor** (`21000206000000`, part of
+  the same required recipe). It receives the `app_metadata.role = 'service'`
+  claim even when `service_account_emails` is empty; this is the bootstrap
+  editor, independent of list enrollment. Later accounts receive that claim
+  only if their email is listed or an operator assigns it. The client asks
+  `is_service_account()` for editing rights rather than interpreting the
+  claim itself — see `docs/connectors/backend-contract.md` § Auth contract.
 - **Agent-surface tables** (`agent_sessions`, `agent_messages`) are
   reachable only by `authenticated`; the same migration restores the
   findings insert/update grants for in-app agent runs (still ANDed with
@@ -373,7 +374,7 @@ credentials.
 | `20260803001000_slices_origin_allows_human.sql` | Adds `human` to the `slices.origin` vocabulary (in-app authored slices) |
 | `20260818000000_authoring_foundation.sql` | Authoring foundation: `origin` provenance columns, `cells.cell_key` identity, `cells.position` (+ widened uniqueness), deferrable `path_steps` ordering, the deletion archive, direct-column grants for panel edits |
 | `20260818001000_authoring_operations.sql` | Authoring operations: the `SECURITY DEFINER` RPCs (create/duplicate/rename/reorder/delete structure, `upsert_cell`, dependencies) that are the only sanctioned write path for structural shape |
-| `20260818002000_service_account_tier.sql` | OPTIONAL recipe: splits `authenticated` into service accounts (edit everything) and regular accounts (view + agent surfaces) via RESTRICTIVE policies + `is_service_account()` |
+| `20260818002000_service_account_tier.sql` | Required recipe: splits `authenticated` into service accounts (edit everything) and regular accounts (view + agent surfaces) via RESTRICTIVE policies + `is_service_account()` |
 | `20260819000000_agent_surface.sql` | Agent surface: `agent_sessions`/`agent_messages` chat persistence (authenticated-only) and the findings insert/update grants for in-app agent runs |
 | `21000101000000_schema_version_is_a_table.sql` | `schema_version`: one row naming the shape this database carries, so the adapter contract's compatibility check can interrogate a live target |
 | `21000102000000_a_rewriter_for_function_bodies.sql` | Scaffolding for the vocabulary series: rewrites plpgsql bodies a rename left naming the old identifier (restoring ACLs when a signature change forces a drop), renames dependent objects from the catalog, and asserts the old word is gone. Dropped by `21000109000000` |

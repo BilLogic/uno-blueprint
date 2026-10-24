@@ -30,6 +30,7 @@ export type StructurePreview = {
 }
 
 export type StructureSeam = {
+  beforeDivider?: boolean
   centered?: boolean
   kind: 'lane' | 'step'
   pathId: string
@@ -39,7 +40,7 @@ export type StructureSeam = {
   key: string
 }
 
-export type StructureDraft = { centered?: boolean } & (
+export type StructureDraft = { centered?: boolean; beforeDivider?: boolean } & (
   | {
       kind: 'lane'
       scenarioId: string

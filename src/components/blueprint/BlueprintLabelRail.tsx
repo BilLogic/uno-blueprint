@@ -283,6 +283,30 @@ export function BlueprintLabelRow({
 
   return (
     <div
+        data-structure-header-cell=""
+        data-open={selection?.kind === 'lane' && selection.id === laneId ? '' : undefined}
+        onPointerEnter={(event) => {
+          if (laneSelectable)
+            highlightStructure(event.currentTarget, 'lane', row.label, true)
+        }}
+        onPointerLeave={(event) => {
+          if (
+            laneSelectable &&
+            !event.currentTarget.querySelector('[data-structure-header-title]:focus-visible')
+          )
+            highlightStructure(event.currentTarget, 'lane', row.label, false)
+        }}
+        onFocusCapture={(event) => {
+          if (laneSelectable)
+            highlightStructure(event.currentTarget, 'lane', row.label, true)
+        }}
+        onBlurCapture={(event) => {
+          if (
+            laneSelectable &&
+            !event.currentTarget.contains(event.relatedTarget as Node)
+          )
+            highlightStructure(event.currentTarget, 'lane', row.label, false)
+        }}
       data-structure-lane-label={laneId ?? undefined}
       role={laneId === STRUCTURE_PLACEHOLDER_ID ? 'status' : undefined}
       aria-label={
@@ -296,7 +320,8 @@ export function BlueprintLabelRow({
         // No right border. The rail already reads as its own column through
         // its fill, and the hairline landed a few pixels from the path
         // section's own outline — two vertical lines describing one edge.
-        'z-40',
+        'z-40 rounded-md',
+        CANVAS_HEADER_STATE,
       )}
       /*
         NO BACKGROUND HERE.
@@ -331,30 +356,6 @@ export function BlueprintLabelRow({
         />
       )}
       <div
-        data-structure-header-cell=""
-        data-open={selection?.kind === 'lane' && selection.id === laneId ? '' : undefined}
-        onPointerEnter={(event) => {
-          if (laneSelectable)
-            highlightStructure(event.currentTarget, 'lane', row.label, true)
-        }}
-        onPointerLeave={(event) => {
-          if (
-            laneSelectable &&
-            !event.currentTarget.querySelector('[data-structure-header-title]:focus-visible')
-          )
-            highlightStructure(event.currentTarget, 'lane', row.label, false)
-        }}
-        onFocusCapture={(event) => {
-          if (laneSelectable)
-            highlightStructure(event.currentTarget, 'lane', row.label, true)
-        }}
-        onBlurCapture={(event) => {
-          if (
-            laneSelectable &&
-            !event.currentTarget.contains(event.relatedTarget as Node)
-          )
-            highlightStructure(event.currentTarget, 'lane', row.label, false)
-        }}
         className={cn(
           // The label's inset is the cell slot's inset — same token, both
           // edges. Asymmetric padding here (`pl-5 pr-3`) put the lane's name
@@ -362,7 +363,6 @@ export function BlueprintLabelRow({
           // numbers lived in different files with nothing holding them
           // together.
           'group/lane-header relative flex min-h-0 flex-1 items-start gap-2 rounded-md',
-          CANVAS_HEADER_STATE,
           compact ? BLUEPRINT_SLOT_INSET_COMPACT : BLUEPRINT_SLOT_INSET,
           // Bottom padding to match the top: the block stretches to fill this
           // container, so without it the selected wash ran flush into the

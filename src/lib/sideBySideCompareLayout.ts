@@ -292,7 +292,13 @@ export function buildSideBySideLabelRowSpecs(
   for (let laneIndex = 0; laneIndex < lanes.length; laneIndex++) {
     const lane = lanes[laneIndex]
     if (lane.seamSize !== undefined) {
-      specs.push({key:lane.id,kind:'lane',lane,label:'',height:lane.seamSize})
+      const seamRow: BlueprintLabelRowSpec = {key:lane.id,kind:'lane',lane,label:'',height:lane.seamSize}
+      // Semantic lines keep their own track. An upper-side seam opens before
+      // the line, rather than silently using its lower-side destination.
+      let at = specs.length
+      if (lane.seamBeforeDivider)
+        while (at > 0 && specs[at-1].kind !== 'lane') at--
+      specs.splice(at, 0, seamRow)
       continue
     }
     const collapsed = isBlueprintLaneCollapsed(lane.id, collapsedLaneIds)
@@ -316,6 +322,13 @@ export function buildSideBySideLabelRowSpecs(
         !collapsed && laneHasInLaneLoopCorridor(lane, blueprints),
       showDividerBelow: shouldShowLaneDividerAfter(lane, savedLanes.indexOf(lane), savedLanes),
     })
+
+    if (lane.seamBeforeDivider) {
+      const row = specs.pop()!
+      let at = specs.length
+      while (at > 0 && specs[at-1].kind !== 'lane') at--
+      specs.splice(at, 0, row)
+    }
 
     if (!collapsed && savedLanes.includes(lane) && laneHasInteractionLine(lane, savedLanes)) {
       specs.push({

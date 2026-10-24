@@ -9,6 +9,7 @@ import { StructureInsert } from './StructureInsert'
 import { COMPARE_LABEL_WIDTH } from '@/lib/sideBySideCompareLayout'
 
 type Boundary = {
+  beforeDivider?: boolean
   storedPosition: number
   y: number
   label: string
@@ -161,6 +162,22 @@ function BlueprintLaneHandlesActive({
             : (row.getBoundingClientRect().top - bodyBox.top) / scale,
       }
     })
+    // The divider is a boundary with two independently reachable sides.
+    // Each hit band stays on its own side, leaving the caption usable.
+    for (const divider of body.querySelectorAll<HTMLElement>('[data-blueprint-divider][role="separator"][aria-label]')) {
+      const box = divider.getBoundingClientRect()
+      const following = rows.find(row => row.getBoundingClientRect().top >= box.bottom - 1)
+      const preceding = [...rows].reverse().find(row => row.getBoundingClientRect().bottom <= box.top + 1)
+      if (!following || !preceding) continue
+      const y = (box.top - bodyBox.top) / scale
+      next.push({
+        beforeDivider:true, centered:false,
+        hitSize:Math.min(44, preceding.getBoundingClientRect().height / 3),
+        storedPosition:Number(following.dataset.lanePosition),
+        label:`Add a lane above ${divider.getAttribute('aria-label')}`,
+        y: seamY !== null && Math.abs(seamY + seamHeight-y)<1 ? seamY : y,
+      })
+    }
     const last = rows[rows.length - 1].getBoundingClientRect()
     next.push({
       hitSize: Math.min(44, last.height / 2),
@@ -184,6 +201,7 @@ function BlueprintLaneHandlesActive({
           entry.storedPosition === boundaries[index].storedPosition &&
           entry.label === boundaries[index].label &&
           entry.centered === boundaries[index].centered &&
+          entry.beforeDivider === boundaries[index].beforeDivider &&
           entry.hitSize === boundaries[index].hitSize,
       )
     if (!same) setBoundaries(next)
@@ -201,34 +219,36 @@ function BlueprintLaneHandlesActive({
       {!draft
         ? boundaries.map((boundary) => (
             <StructureInsert
-              key={boundary.storedPosition}
+              key={`${boundary.storedPosition}:${boundary.beforeDivider ? "above" : "below"}`}
               hitSize={boundary.hitSize}
               scale={cameraScale}
-              extent={seam?.key === `lane:${pathId ?? pathIds?.[0]}:${boundary.storedPosition}` ? seam.size * cameraScale : 0}
+              extent={seam?.key === `lane:${pathId ?? pathIds?.[0]}:${boundary.storedPosition}${boundary.beforeDivider ? ":above" : ""}` ? seam.size * cameraScale : 0}
               edge={!boundary.centered}
+              beforeEdge={boundary.beforeDivider}
               orientation="horizontal"
               label={boundary.label}
               style={{
                 left: 0,
                 width: COMPARE_LABEL_WIDTH,
-                top: seam?.key === `lane:${pathId ?? pathIds?.[0]}:${boundary.storedPosition}` && boundary.centered
-                  ? `calc(${boundary.y}px + var(--structure-seam-progress, 1) * ${seam.size / 2}px)`
+                top: seam?.key === `lane:${pathId ?? pathIds?.[0]}:${boundary.storedPosition}${boundary.beforeDivider ? ":above" : ""}` && (boundary.centered || boundary.beforeDivider)
+                  ? `calc(${boundary.y}px + var(--structure-seam-progress, 1) * ${boundary.beforeDivider ? seam.size : seam.size / 2}px)`
                   : boundary.y,
               }}
               slotStyle={{left: content.left, width: content.width}}
               onOpenChange={(open) => {
                 const targetPath = pathId ?? pathIds?.[0]
                 if (!targetPath) return
-                const key = `lane:${targetPath}:${boundary.storedPosition}`
+                const key = `lane:${targetPath}:${boundary.storedPosition}${boundary.beforeDivider ? ":above" : ""}`
                 setSeam((current) =>
                   open
                     ? {
                         kind: 'lane',
+                        ...(boundary.beforeDivider ? {beforeDivider:true} : {}),
                         centered: boundary.centered,
                         pathId: targetPath,
                         pathIds,
                         atPosition: boundary.storedPosition,
-                        size: 34 / cameraScale,
+                        size: 28 / cameraScale,
                         key,
                       }
                     : current?.key === key
@@ -240,6 +260,7 @@ function BlueprintLaneHandlesActive({
                 openCreate(
                   {
                     kind: 'lane',
+                    ...(boundary.beforeDivider ? {beforeDivider:true} : {}),
                     centered: boundary.centered,
                     pathId,
                     pathIds,

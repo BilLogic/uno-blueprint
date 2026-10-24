@@ -21,7 +21,6 @@ import {
   STORYBOARD_PLAY_GUTTER,
   STEP_COLUMN_WIDTH,
   hasBlueprintCellContent,
-  lanePrecedesBlueprintDivider,
   shouldUseTouchpointCellContent,
   shouldUseStoryboardContent,
 } from '@/lib/blueprintLayout'
@@ -339,7 +338,6 @@ function CompareLaneRow({
     getBlueprintLaneZone(lane, lanes),
     lane.role,
   )
-  const flushBottom = lanePrecedesBlueprintDivider(lane, lanes)
   const isStoryboardLane = shouldUseStoryboardContent(lane)
   const renderPlay =
     showPlay &&
@@ -386,6 +384,7 @@ function CompareLaneRow({
           phaseName={phaseName}
           width={step.seamSize ?? STEP_COLUMN_WIDTH}
           selfStretch
+          compact={compact}
         />
       )
     }
@@ -401,7 +400,6 @@ function CompareLaneRow({
         laneStyle={laneStyle}
         variant={variant}
         compact={compact}
-        flushBottom={flushBottom}
         storyboardPictures={storyboardPictures}
         slotCells={slotCells}
         selectionContext={

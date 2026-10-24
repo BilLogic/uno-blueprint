@@ -142,3 +142,22 @@ it.each(['lane', 'step'] as const)(
     expect(items[1].seamSize).toBeUndefined()
   },
 )
+
+it('opens a seam above a semantic divider without moving the divider into the slot', () => {
+  const source = {...board, lanes:[{...board.lanes[0],role:'customer_actions'},{...board.lanes[1],role:'frontstage_actions'}]}
+  const [projected] = previewStructureSeam([source], {
+    key:'lane:path:8:above', kind:'lane', pathId:'path', atPosition:8, size:28,
+    beforeDivider:true,
+  })
+  const rows = buildSideBySideLabelRowSpecs([projected])
+  expect(rows.findIndex(row=>row.lane?.id===STRUCTURE_SEAM_ID)).toBeLessThan(rows.findIndex(row=>row.kind==='interaction'))
+})
+
+it.each(['loading', 'ready'])('keeps the upper destination in the %s roleless draft', (state) => {
+  const source = {...board, lanes:[{...board.lanes[0],role:'customer_actions'},{...board.lanes[1],role:'frontstage_actions'}]}
+  const projected = state === 'loading'
+    ? previewPendingStructureDraft([source], {kind:'lane',pathId:'path',scenarioId:'scenario',atPosition:8,beforeDivider:true})
+    : previewStructureDraft([source], {kind:'lane',name:'',orders:[{pathId:'path',order:['actor','new','support']}],paths:[]}, true)
+  const rows = buildSideBySideLabelRowSpecs(projected)
+  expect(rows.findIndex(row=>row.lane?.id==='structure-placeholder')).toBeLessThan(rows.findIndex(row=>row.kind==='interaction'))
+})

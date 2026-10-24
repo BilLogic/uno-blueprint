@@ -142,7 +142,7 @@ export const ScenarioBlueprintPanelBody = memo(function ScenarioBlueprintPanelBo
   const visibleBlueprints = useMemo(() => {
     if (draftContext?.selection?.draft)
       return draftContext.preview?.orders.length
-        ? previewStructureDraft(loadedBlueprints, draftContext.preview)
+        ? previewStructureDraft(loadedBlueprints, draftContext.preview, draftContext.selection.draft.beforeDivider)
         : previewPendingStructureDraft(loadedBlueprints, draftContext.selection.draft)
     if (draftContext?.seam)
       return previewStructureSeam(loadedBlueprints, draftContext.seam)

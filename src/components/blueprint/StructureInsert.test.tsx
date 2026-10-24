@@ -41,7 +41,7 @@ it('opens the whole seam after its hover delay and closes after the leave delay'
   fireEvent.click(seam)
   expect(create).toHaveBeenCalledWith(seam)
   fireEvent.pointerLeave(seam)
-  act(() => vi.advanceTimersByTime(139))
+  act(() => vi.advanceTimersByTime(74))
   expect(seam.hasAttribute('data-open')).toBe(true)
   act(() => vi.advanceTimersByTime(1))
   expect(seam.getAttribute('data-open')).toBeNull()
@@ -64,7 +64,7 @@ it('keeps the opened slot at the boundary and its target usable when zoomed out'
   expect(seam.style.width).toBe('176px')
   expect(
     seam.querySelector<HTMLElement>('[data-structure-slot]')?.style.width,
-  ).toBe('136px')
+  ).toBe('112px')
   expect(seam.className).not.toContain('-translate-x-1/2')
 })
 

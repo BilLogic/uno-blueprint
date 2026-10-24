@@ -7,6 +7,7 @@ export function StructureInsert({
   orientation,
   scale = 1,
   edge = false,
+  beforeEdge = false,
   extent,
   hitSize = 44,
   label,
@@ -19,6 +20,7 @@ export function StructureInsert({
   hitSize?: number
   extent?: number
   edge?: boolean
+  beforeEdge?: boolean
   orientation: 'horizontal' | 'vertical'
   label: string
   style?: CSSProperties
@@ -59,7 +61,7 @@ export function StructureInsert({
   const progress = extent === undefined
     ? (open ? '1' : '0')
     : extent > 0 ? 'var(--structure-seam-progress, 0)' : '0'
-  const paintedSize = `calc(${progress} * ${34 / scale}px)`
+  const paintedSize = `calc(${progress} * ${28 / scale}px)`
   return (
     <button
       ref={button}
@@ -72,8 +74,10 @@ export function StructureInsert({
         ...(orientation === 'vertical'
           ? { width: hitSize / scale, marginLeft: -hitSize / 2 / scale }
           : {
-              height: hitSize / scale,
-              marginTop: edge ? 0 : -hitSize / 2 / scale,
+              height: beforeEdge ? `calc(${hitSize / scale}px + ${paintedSize})` : hitSize / scale,
+              // Keep the original upper entry fixed as its painted slot moves
+              // the divider down. The growing hit area also contains the block.
+              marginTop: beforeEdge ? `calc(-${hitSize / scale}px - ${paintedSize})` : edge ? 0 : -hitSize / 2 / scale,
             }),
       }}
       onPointerDown={(event) => {
@@ -100,7 +104,7 @@ export function StructureInsert({
             ? {
                 width:
                   extent === undefined
-                    ? (open ? 34 : 0) / scale
+                    ? (open ? 28 : 0) / scale
                     : `calc(var(--structure-seam-progress, 1) * ${
                         extent / scale
                       }px)`,
@@ -110,12 +114,12 @@ export function StructureInsert({
             : {
                 height:
                   extent === undefined
-                    ? (open ? 34 : 0) / scale
+                    ? (open ? 28 : 0) / scale
                     : `calc(var(--structure-seam-progress, 1) * ${
                         extent / scale
                       }px)`,
                 width: '100%',
-                ...(edge ? { top: 0 } : {}),
+                ...(beforeEdge ? {bottom:0} : edge ? { top: 0 } : {}),
               }),
           ...slotStyle,
           borderWidth: `calc(${progress} * 1px)`,
@@ -135,7 +139,7 @@ export function StructureInsert({
           ...(edge
             ? orientation === 'vertical'
               ? { left: hitSize / 2 / scale }
-              : { top: 0 }
+              : beforeEdge ? {bottom:0} : { top: 0 }
             : {}),
         }}
       >

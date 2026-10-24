@@ -262,7 +262,7 @@ export function BlueprintColumnHandles({
                           pathId: targetPath,
                           pathIds: target.pathIds,
                           atPosition: boundary.storedPosition,
-                          size: 34 / scale,
+                          size: 28 / scale,
                           key,
                         }
                       : current?.key === key

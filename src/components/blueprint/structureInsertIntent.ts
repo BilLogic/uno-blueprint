@@ -58,7 +58,7 @@ function createIntent(board: Element) {
     cancel()
     pending = next
     if (next) board.setAttribute('data-structure-insert-hover', '')
-    timer = setTimeout(() => activate(next), next ? 90 : 140)
+    timer = setTimeout(() => activate(next), next ? 90 : 75)
   }
   const move = (point: Point) => {
     lastPoint = point

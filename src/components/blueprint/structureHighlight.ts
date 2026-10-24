@@ -1,3 +1,4 @@
+import { getCellShellInsetY } from '@/lib/blueprintLayout'
 /** One continuous axis wash, with a rounded outline on its header. */
 const owners = new WeakMap<Element, HTMLElement>()
 
@@ -33,6 +34,8 @@ export function highlightStructure(
   if (!boxes.length) return
   const origin = board.getBoundingClientRect()
   const scale = board.offsetWidth ? origin.width / board.offsetWidth : 1
+  const inset = getCellShellInsetY(board.dataset.structureDensity === 'compact')
+  board.style.setProperty('--structure-highlight-inset', `${inset}px`)
   board.style.setProperty('--structure-highlight-stroke', `${1 / scale}px`)
   source.style.setProperty('--structure-highlight-stroke', `${1 / scale}px`)
   const left = Math.min(...boxes.map((box) => box.left))
@@ -40,10 +43,10 @@ export function highlightStructure(
   const right = Math.max(...boxes.map((box) => box.right))
   const bottom = Math.max(...boxes.map((box) => box.bottom))
   for (const [name, value] of Object.entries({
-    x: (left - origin.left) / scale,
-    y: (top - origin.top) / scale,
-    width: (right - left) / scale,
-    height: (bottom - top) / scale,
+    x: (left - origin.left) / scale + inset,
+    y: (top - origin.top) / scale + inset,
+    width: Math.max(0, (right - left) / scale - 2 * inset),
+    height: Math.max(0, (bottom - top) / scale - 2 * inset),
   }))
     board.style.setProperty(`--structure-highlight-${name}`, `${value}px`)
   board.dataset.axisHighlight = kind

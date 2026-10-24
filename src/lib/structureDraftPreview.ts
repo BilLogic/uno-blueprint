@@ -11,6 +11,7 @@ export const STRUCTURE_PLACEHOLDER_ID = 'structure-placeholder'
 export function previewStructureDraft(
   blueprints: BlueprintData[],
   preview: StructurePreview,
+  beforeDivider = false,
 ): BlueprintData[] {
   return blueprints.map((blueprint) => {
     const order = preview.orders.find(
@@ -37,6 +38,7 @@ export function previewStructureDraft(
               id: STRUCTURE_PLACEHOLDER_ID,
               name,
               role: preview.role || null,
+              ...(beforeDivider && !preview.role ? {seamBeforeDivider:true} : {}),
               position,
             },
           ]
@@ -82,6 +84,7 @@ export function previewStructureSeam(
       position:
         (rows[insertAt]?.position ?? (rows.at(-1)?.position ?? 0) + 1) - 0.5,
       seamSize: seam.size,
+      ...(seam.beforeDivider ? {seamBeforeDivider:true} : {}),
     })
     return seam.kind === 'step'
       ? { ...board, steps: next }

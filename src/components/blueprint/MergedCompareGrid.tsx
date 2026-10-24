@@ -23,7 +23,6 @@ import {
   STEP_COLUMN_GAP,
   STEP_COLUMN_WIDTH,
   hasBlueprintCellContent,
-  lanePrecedesBlueprintDivider,
   shouldUseTouchpointCellContent,
   shouldUseStoryboardContent,
   type BlueprintCellVariant,
@@ -278,6 +277,7 @@ export function MergedCompareGrid({
   return (
     <div
       data-structure-board=""
+      data-structure-density={compact ? "compact" : undefined}
       className={cn('w-max shrink-0', className)}
       style={getCompareBoardWrapperPadding()}
     >
@@ -512,7 +512,6 @@ function MergedLaneRow({
     lane.role,
   )
   const variant = resolveMergedCellVariant(lane)
-  const flushBottom = lanePrecedesBlueprintDivider(lane, lanes)
 
   return (
     <div className="relative flex items-stretch rounded-md">
@@ -589,7 +588,6 @@ function MergedLaneRow({
                 laneStyle={laneStyle}
                 variant={variant}
                 compact={compact}
-                flushBottom={flushBottom}
                 pathMembership={membershipFor(subCells[0])}
                 scenarioName={scenarioName}
                 phaseName={phaseName}
@@ -606,7 +604,6 @@ function MergedLaneRow({
                     laneStyle={laneStyle}
                     variant={variant}
                     compact={compact}
-                    flushBottom={flushBottom}
                     pathMembership={membershipFor(subCell)}
                     scenarioName={scenarioName}
                     phaseName={phaseName}
@@ -631,7 +628,6 @@ function MergedSubCellBlock({
   laneStyle,
   variant,
   compact,
-  flushBottom,
   pathMembership,
   scenarioName,
   phaseName,
@@ -644,7 +640,6 @@ function MergedSubCellBlock({
   laneStyle: BlueprintLaneStyle
   variant: BlueprintCellVariant
   compact?: boolean
-  flushBottom?: boolean
   /** One entry per member path of this rendered sub-cell. */
   pathMembership?: readonly CompareCellPathMembership[]
   scenarioName?: string
@@ -688,7 +683,6 @@ function MergedSubCellBlock({
       laneStyle={laneStyle}
       variant={variant}
       compact={compact}
-      flushBottom={flushBottom}
       storyboardPictures={storyboardPictures}
       slotCells={variant === 'touchpoints' ? cells : undefined}
       pathMembership={pathMembership}

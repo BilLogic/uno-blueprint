@@ -1,3 +1,4 @@
+import { getCellShellInsetY } from '@/lib/blueprintLayout'
 import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
 import { Plus } from 'lucide-react'
 import { IconTooltip } from '@/components/editor/IconTooltip'
@@ -34,6 +35,7 @@ export function BlueprintEmptyCellSlot({
   width,
   minHeight,
   selfStretch = false,
+  compact = false,
 }: {
   pathId: string
   laneId: string
@@ -49,6 +51,7 @@ export function BlueprintEmptyCellSlot({
   /** Single-path grid sizes rows explicitly; the compare grid stretches. */
   minHeight?: number
   selfStretch?: boolean
+  compact?: boolean
 }) {
   const mode = useCanvasModeValue()
   const { client, canWrite } = useSupabase()
@@ -97,19 +100,20 @@ export function BlueprintEmptyCellSlot({
         data-blueprint-empty-slot=""
         data-step-index={stepIndex}
         className={cn(
-          'group/slot shrink-0 rounded-md border border-dashed border-transparent',
+          'group/slot relative shrink-0 appearance-none rounded-md border-0 bg-transparent p-0',
           stretch,
           'grid place-items-center transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
-          'hover:border-primary/50 hover:bg-primary/5',
-          'focus-visible:border-primary/50 focus-visible:outline-none',
+          'focus-visible:outline-none',
         )}
         style={style}
       >
         <span
           aria-hidden
-          className="grid size-4 place-items-center rounded-full bg-primary/80 text-primary-foreground opacity-0 transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none group-hover/slot:opacity-100 group-focus-visible/slot:opacity-100"
+          data-blueprint-empty-preview=""
+          style={{inset:getCellShellInsetY(compact)}}
+          className="pointer-events-none absolute grid place-items-center rounded-md bg-wash-primary opacity-0 transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none group-hover/slot:opacity-100 group-focus-visible/slot:opacity-100"
         >
-          <Plus className="size-2.5" />
+          <Plus className="size-4 text-text-primary" />
         </span>
       </button>
     </IconTooltip>

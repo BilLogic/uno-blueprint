@@ -311,3 +311,22 @@ it('offers one insertion trigger per canonical step header across stacked paths'
     expect(screen.getAllByLabelText(/^Add a step/)).toHaveLength(2)
   } finally {board.remove()}
 })
+
+it('derives one upper-side target from the canonical separator rather than its content copy', () => {
+  const bodyRef = createRef<HTMLDivElement>()
+  const body = document.createElement('div')
+  document.body.append(body)
+  bodyRef.current = body
+  const view = render(<>
+    <div data-blueprint-row="" data-lane-id="first" data-lane-position="1" data-test-y="0" />
+    <div role="separator" aria-label="Line of interaction" data-blueprint-divider="interaction" data-test-y="100" />
+    <div role="separator" data-blueprint-divider="interaction" data-test-y="100" />
+    <div data-blueprint-row="" data-lane-id="next" data-lane-position="4" data-test-y="200" />
+    <BlueprintLaneHandles bodyRef={bodyRef} pathId="path" />
+  </>,{container:body})
+  const upper = view.getAllByRole('button',{name:'Add a lane above Line of interaction'})
+  expect(upper).toHaveLength(1)
+  expect(view.queryByRole('button',{name:'Add a lane above null'})).toBeNull()
+  fireEvent.click(upper[0])
+  expect(writes.openCreate).toHaveBeenCalledWith(expect.objectContaining({kind:'lane',pathId:'path',atPosition:4,beforeDivider:true}),expect.any(HTMLButtonElement))
+})

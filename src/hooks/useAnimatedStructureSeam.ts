@@ -55,7 +55,8 @@ export function useAnimatedStructureSeam(
     let request = requestAnimationFrame(() => {
       request = requestAnimationFrame(() => {
         playback = animate(from, opening ? 1 : 0, {
-          duration: MOTION_STRUCTURAL_MS / 1000,
+          // A short insertion gap uses three quarters of the structural duration.
+          duration: (MOTION_STRUCTURAL_MS * 0.75) / 1000,
           ease: EASE_POINTS.move,
           onUpdate: frame,
           onComplete: () => {

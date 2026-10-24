@@ -62,7 +62,9 @@ for (const camera of ['overview', '100%'] as const) {
         await expect(scenarios.first()).toBeVisible()
         let found = false
         for (const scenario of await scenarios.all()) {
-          await scenario.locator('button:not([aria-expanded])').first().click()
+          const scenarioButton = scenario.locator('button:not([aria-expanded])').first()
+          await scenarioButton.click()
+          await expect(scenarioButton).toHaveAttribute('aria-current','true')
           await page.waitForLoadState('networkidle')
           const picker = page.locator('[aria-label^="Paths shown:"]')
           if (!(await picker.count())) continue
@@ -139,7 +141,7 @@ for (const camera of ['overview', '100%'] as const) {
         for (const axis of ['lane', 'step'] as const) {
           const label =
             axis === 'lane'
-              ? laneHeader.locator('..')
+              ? laneHeader.locator('xpath=ancestor::*[@data-structure-header-cell][1]')
               : board
                   .getByRole('button', {
                     name: 'View details: Invoke ub:map',
@@ -173,6 +175,10 @@ for (const camera of ['overview', '100%'] as const) {
                 ),
               ),
           ).toBeGreaterThan(0)
+          expect(await highlighted.locator('[data-structure-highlight="label"]').evaluate(el => {
+            const view=el.ownerDocument.defaultView!
+            return {outline:view.getComputedStyle(el).outlineStyle,stroke:view.getComputedStyle(el.closest('[data-structure-board]')!,'::after').boxShadow}
+          }), 'pointer hover uses fill without an outline').toEqual({outline:'none',stroke:'none'})
           if (axis === 'lane') {
             expect(
               await highlighted
@@ -188,6 +194,31 @@ for (const camera of ['overview', '100%'] as const) {
             ),
           })
           await page.mouse.move(24, 24)
+        }
+        // Arrow-routing corridors belong to the row and its header alike.
+        const ownerHeader = board.locator('[data-structure-lane-label]').filter({has:page.getByRole('button',{name:'Blueprint owner',exact:true})}).first()
+        const aligned = await ownerHeader.evaluate(el => {
+          const header = el.querySelector('[data-structure-header-cell]') ?? el
+          const scope = el.closest('[data-structure-path]') ?? el.closest('[data-structure-board]')!
+          const row = scope.querySelector('[data-blueprint-row][data-lane-name="Blueprint owner"]')!
+          const a=header.getBoundingClientRect(), b=row.getBoundingClientRect()
+          return {top:Math.abs(a.top-b.top),bottom:Math.abs(a.bottom-b.bottom)}
+        })
+        for (const name of ['Blueprint owner','App & skill surface']) {
+          const shell=board.locator(`[data-blueprint-row][data-lane-name="${name}"] [data-blueprint-cell-shell]`).first()
+          const pad=await shell.evaluate(el=>{
+            const s=el.ownerDocument.defaultView!.getComputedStyle(el)
+            return [parseFloat(s.paddingTop),parseFloat(s.paddingBottom)]
+          })
+          expect(pad[0]).toBeGreaterThan(0)
+          expect(pad[1], 'cells reserve the same padding before a semantic line').toBe(pad[0])
+        }
+        expect(aligned.top, 'row header and content start together').toBeLessThan(1)
+        expect(aligned.bottom, 'row header includes the bottom arrow corridor').toBeLessThan(1)
+        if (camera === 'overview') {
+          await ownerHeader.getByRole('button',{name:'Blueprint owner',exact:true}).hover()
+          await page.screenshot({path:join(VIEW_SCREENSHOT_DIR,`header-divider-alignment-${layout}-${theme}.png`)})
+          await page.mouse.move(24,24)
         }
         if (layout === 'stacked') {
           await expect(board.locator('[data-canvas-reorder]')).toHaveCount(0)
@@ -229,7 +260,7 @@ for (const camera of ['overview', '100%'] as const) {
                   .boundingBox()
                 return box?.[kind === 'step' ? 'width' : 'height'] ?? 0
               })
-              .toBeGreaterThan(33)
+              .toBeGreaterThan(27)
             const headers =
               kind === 'step'
                 ? board.locator('[data-step-header-affordance]')
@@ -407,7 +438,7 @@ for (const camera of ['overview', '100%'] as const) {
         expect(
           new Set(
             sizes
-              .filter((size) => size > 1 && size < 33)
+              .filter((size) => size > 1 && size < 27)
               .map((size) => Math.round(size)),
           ).size,
           'the board must grow through intermediate sizes',
@@ -525,6 +556,30 @@ for (const camera of ['overview', '100%'] as const) {
         })
         await page.mouse.move(24, 24)
         await expect(semanticEdge).not.toHaveAttribute('data-open', '')
+        if (camera === 'overview') {
+          for (const line of ['Line of interaction', 'Line of visibility']) {
+            const upper = board.getByRole('button',{name:`Add a lane above ${line}`,exact:true}).first()
+            const rect = await upper.boundingBox()
+            expect(rect, `an upper-side target exists for ${line}`).toBeTruthy()
+            await page.mouse.move(rect!.x + rect!.width / 2, rect!.y + rect!.height - 2)
+            await expect(upper).toHaveAttribute('data-open','')
+            await page.waitForTimeout(200)
+            await page.mouse.move(rect!.x + rect!.width / 2 + 1, rect!.y + rect!.height - 2)
+            await page.waitForTimeout(200)
+            await expect(upper, 'the upper entry remains reachable while the gap grows').toHaveAttribute('data-open','')
+            await expect(async () => {
+              expect(await upper.evaluate((el, name) => {
+                const scope=el.closest('[data-structure-path]') ?? el.closest('[data-structure-board]')!
+                const rule=scope.querySelector(`[data-blueprint-divider][aria-label="${name}"]`)!.getBoundingClientRect()
+                const slot=el.querySelector('[data-structure-slot]')!.getBoundingClientRect()
+                return Math.abs(slot.bottom-rule.top)
+              },line), 'the upper slot meets the line without covering it').toBeLessThan(1)
+            }).toPass()
+            await page.mouse.move(24,24)
+            await expect(upper).not.toHaveAttribute('data-open','')
+            await expect(board.locator('[data-structure-seam-track="lane"]')).toHaveCount(0)
+          }
+        }
         // Merged path badges overlap the top of columns. In Stacked, that
         // space is clear; farther down meets the first lane's crossing seam.
         const stepProbeInset = 6
@@ -659,7 +714,7 @@ for (const camera of ['overview', '100%'] as const) {
               const axis = kind === 'step' ? 'width' : 'height'
               return slot?.[axis] ?? 0
             })
-            .toBeGreaterThanOrEqual(33)
+            .toBeGreaterThanOrEqual(27)
           const phantom = board
             .locator(`[data-structure-seam-track="${kind}"]`)
             .first()
@@ -814,6 +869,7 @@ for (const camera of ['overview', '100%'] as const) {
             .getByRole('region', { name: 'Add to paths' })
             .getByRole('list')
           const rows = rail.getByRole('button')
+          await expect(rows.first()).toBeVisible()
           const rowCount = await rows.count()
           const firstName = await rows.first().getAttribute('aria-label')
           const from = await rows
@@ -949,6 +1005,24 @@ for (const camera of ['overview', '100%'] as const) {
         const emptyCell = board.locator('[data-lane-name="Stakeholders"] [data-blueprint-empty-slot]').first()
         await expect(emptyCell).toHaveCount(1)
         await page.getByRole('button', {name:'Jump to…', exact:true}).focus()
+        await emptyCell.hover()
+        expect(await emptyCell.evaluate(el => {
+          const view=el.ownerDocument.defaultView!, preview=el.querySelector('[data-blueprint-empty-preview]')!
+          const b=el.getBoundingClientRect(), p=preview.getBoundingClientRect()
+          return {border:view.getComputedStyle(el).borderTopWidth,outline:view.getComputedStyle(preview).outlineStyle,insets:[p.left-b.left,p.top-b.top,b.right-p.right,b.bottom-p.bottom]}
+        }), 'an empty cell paints one borderless fill with equal breathing room').toEqual({border:'0px',outline:'none',insets:expect.arrayContaining([expect.any(Number)])})
+        const gaps=await emptyCell.evaluate(el=>{
+          const b=el.getBoundingClientRect(), p=el.querySelector('[data-blueprint-empty-preview]')!.getBoundingClientRect()
+          return [p.left-b.left,p.top-b.top,b.right-p.right,b.bottom-p.bottom]
+        })
+        expect(Math.min(...gaps)).toBeGreaterThan(1)
+        expect(Math.max(...gaps)-Math.min(...gaps)).toBeLessThan(1)
+        const emptyPreview=emptyCell.locator('[data-blueprint-empty-preview]')
+        await expect(emptyPreview).toHaveCSS('opacity','1')
+        await page.screenshot({path:join(VIEW_SCREENSHOT_DIR,`empty-cell-hover-${theme}-${camera}.png`)})
+        await emptyCell.press('Shift')
+        await expect(emptyPreview).toHaveCSS('outline-style','solid')
+        await page.getByRole('button',{name:'Jump to…',exact:true}).focus()
         await emptyCell.hover()
         const emptyBox = await emptyCell.boundingBox()
         expect(emptyBox!.height, 'an empty lane still has a usable cell target').toBeGreaterThan(8)

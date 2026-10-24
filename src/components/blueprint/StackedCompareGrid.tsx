@@ -69,6 +69,7 @@ export function StackedCompareGrid({
   return (
     <div
       data-structure-board=""
+      data-structure-density={compact ? "compact" : undefined}
       className={cn('w-max shrink-0', className)}
       style={getCompareBoardWrapperPadding()}
     >

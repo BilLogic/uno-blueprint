@@ -74,7 +74,6 @@ export function CompareCellBlock({
   laneStyle,
   variant,
   compact,
-  flushBottom,
   selectionContext,
   storyboardPictures,
   slotCells,
@@ -87,7 +86,6 @@ export function CompareCellBlock({
   laneStyle: BlueprintLaneStyle
   variant: BlueprintCellVariant
   compact?: boolean
-  flushBottom?: boolean
   selectionContext?: BlueprintCellSelectionContext
   storyboardPictures?: Array<{ frame: string; label: string }>
   /** Every cell in a tech slot — one per touchpoint since the split. */
@@ -123,7 +121,7 @@ export function CompareCellBlock({
     minWidth: width,
     maxWidth: width,
     paddingTop: insetY,
-    paddingBottom: flushBottom ? 0 : insetY,
+    paddingBottom: insetY,
     ...(hasMembershipOutline
       ? {
           '--background-compare-membership-outline':
@@ -276,6 +274,7 @@ export function CompareCellBlock({
     <div
       data-structure-column=""
       data-step-index={stepIndex}
+      data-blueprint-cell-shell=""
       className={shellClassName}
       style={shellStyle}
       onFocusCapture={

@@ -312,7 +312,6 @@ export function MergedCompareGrid({
           />
           <BlueprintColumnHandles
             bodyRef={bandRef}
-            selectionHandles={false}
             steps={tracks.map((track) => {
               const path = blueprints.find(
                 (blueprint) => track.stepIdByPath[blueprint.path.id],
@@ -575,8 +574,8 @@ function MergedLaneRow({
                 data-step-index={trackIndex}
                 className="shrink-0 self-stretch rounded-md"
                 style={{
-                  width: track.seamSize ?? STEP_COLUMN_WIDTH,
-                  minWidth: track.seamSize ?? STEP_COLUMN_WIDTH,
+                  width: track.seamSize === undefined ? STEP_COLUMN_WIDTH : `calc(var(--structure-seam-progress, 1) * ${track.seamSize}px)`,
+                  minWidth: track.seamSize === undefined ? STEP_COLUMN_WIDTH : 0,
                 }}
               />
             ) : subCells.length === 1 ? (

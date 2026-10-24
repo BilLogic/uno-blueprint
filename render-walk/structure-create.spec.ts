@@ -115,16 +115,24 @@ for (const camera of ['overview', '100%'] as const) {
           }),
           'insertion detection must not steal the lane name',
         ).toBe(true)
+        await expect(
+          board.getByRole('button', { name: /^Select the .* step$/ }),
+        ).toHaveCount(0)
         for (const axis of ['lane', 'step'] as const) {
           const label =
             axis === 'lane'
-              ? laneHeader
+              ? laneHeader.locator('..')
               : board
                   .getByRole('button', {
                     name: 'View details: Invoke ub:map',
                     exact: true,
                   })
                   .first()
+          await expect(async () => {
+            const a = await label.boundingBox()
+            await page.waitForTimeout(100)
+            expect(await label.boundingBox()).toEqual(a)
+          }).toPass()
           const box = await label.boundingBox()
           await page.mouse.move(
             box!.x + box!.width / 2,
@@ -155,6 +163,220 @@ for (const camera of ['overview', '100%'] as const) {
           })
           await page.mouse.move(24, 24)
         }
+        if (layout === 'stacked') {
+          await expect(board.locator('[data-canvas-reorder]')).toHaveCount(0)
+          const picker = page.locator('[aria-label^="Paths shown:"]')
+          await picker.click()
+          let popup = await picker.getAttribute('aria-controls')
+          let choices = page.locator(`[id="${popup}"] li button[aria-pressed]`)
+          for (let index = 1; index < (await choices.count()); index++)
+            if (
+              (await choices.nth(index).getAttribute('aria-pressed')) === 'true'
+            )
+              await choices.nth(index).click()
+          await page.keyboard.press('Escape')
+          await page.waitForLoadState('networkidle')
+          await expect(
+            board.locator('[data-canvas-reorder-global]'),
+          ).toHaveCount(1)
+          const path = board.locator('[data-canvas-reorder]').first()
+          for (const kind of ['step', 'lane'] as const) {
+            // A drag can begin while the preceding hover gap is still closing.
+            const hover = path
+              .getByRole('button', { name: new RegExp(`^Add a ${kind}`) })
+              .nth(1)
+            await expect(async () => {
+              const a = await hover.boundingBox()
+              await page.waitForTimeout(100)
+              expect(await hover.boundingBox()).toEqual(a)
+            }).toPass()
+            const hoverBox = await hover.boundingBox()
+            await page.mouse.move(
+              hoverBox!.x + (kind === 'step' ? hoverBox!.width / 2 : 6),
+              hoverBox!.y + (kind === 'lane' ? hoverBox!.height / 2 : 60),
+            )
+            await expect(hover).toHaveAttribute('data-open', '')
+            await expect
+              .poll(async () => {
+                const box = await hover
+                  .locator('[data-structure-slot]')
+                  .boundingBox()
+                return box?.[kind === 'step' ? 'width' : 'height'] ?? 0
+              })
+              .toBeGreaterThan(33)
+            const headers =
+              kind === 'step'
+                ? board.locator('[data-step-header-affordance]')
+                : path.locator('[data-structure-reorder="lane"]')
+            const firstId = await headers
+              .nth(0)
+              .getAttribute('data-structure-id')
+            const nextId = await headers
+              .nth(1)
+              .getAttribute('data-structure-id')
+            const source =
+              kind === 'step'
+                ? board.locator(
+                    `[data-step-header-affordance][data-structure-id="${firstId}"]`,
+                  )
+                : headers.nth(0)
+            const target =
+              kind === 'step'
+                ? board.locator(
+                    `[data-step-header-affordance][data-structure-id="${nextId}"]`,
+                  )
+                : headers.nth(1)
+            await expect(async () => {
+              const a = await source.boundingBox()
+              await page.waitForTimeout(100)
+              const b = await source.boundingBox()
+              expect(b).toEqual(a)
+            }).toPass()
+            const before = await source.boundingBox()
+            const writes: string[] = []
+            const requestedOrders: string[][] = []
+            const collect = (request: import('@playwright/test').Request) => {
+              if (
+                request.url().endsWith(`/rpc/reorder_${kind}s`) ||
+                request.url().endsWith('/rpc/undo_structure_order')
+              ) {
+                writes.push(request.url())
+                const body = request.postDataJSON() as Record<string, unknown>
+                if (Array.isArray(body[`${kind}_ids`]))
+                  requestedOrders.push(body[`${kind}_ids`] as string[])
+              }
+            }
+            page.on('request', collect)
+            await page.mouse.move(
+              before!.x + before!.width / 2,
+              before!.y + before!.height / 2,
+            )
+            await page.mouse.down()
+            const settledDestination = await target.boundingBox()
+            await page.mouse.move(
+              settledDestination!.x + settledDestination!.width / 2,
+              settledDestination!.y + settledDestination!.height / 2,
+              { steps: 12 },
+            )
+            await expect(
+              path.locator('[data-structure-landing]'),
+              `the ${kind} drag keeps its landing slot`,
+            ).toBeVisible()
+            expect(
+              await path.locator('[data-structure-lift]').count(),
+            ).toBeGreaterThan(1)
+            expect(writes).toHaveLength(0)
+            await page.screenshot({
+              path: join(
+                VIEW_SCREENSHOT_DIR,
+                `drag-${kind}-${theme}-${camera}.png`,
+              ),
+            })
+            await page.mouse.up()
+            await expect(
+              page
+                .locator('[data-write-failures]')
+                .getByText(new RegExp(`Moved the .+ ${kind}$`)),
+            ).toBeVisible()
+            expect(writes).toHaveLength(1)
+            expect(requestedOrders[0][0]).toBe(nextId)
+            await page.waitForLoadState('networkidle')
+            await expect(headers.nth(0)).toHaveAttribute(
+              'data-structure-id',
+              nextId!,
+            )
+            await page
+              .locator('[data-write-failures]')
+              .getByRole('button', { name: 'Undo', exact: true })
+              .click()
+            await expect(page.locator('[data-write-failures]')).toHaveCount(0)
+            await page.waitForLoadState('networkidle')
+            expect(writes).toHaveLength(2)
+            await expect(headers.nth(0)).toHaveAttribute(
+              'data-structure-id',
+              firstId!,
+            )
+            await expect(
+              board.locator(
+                '[data-blueprint-column-header][style*="translateX"]',
+              ),
+            ).toHaveCount(0)
+            expect(writes).toHaveLength(2)
+            page.off('request', collect)
+            await page.mouse.move(24, 24)
+          }
+          await picker.click()
+          popup = await picker.getAttribute('aria-controls')
+          choices = page.locator(`[id="${popup}"] li button[aria-pressed]`)
+          for (const choice of await choices.all())
+            if ((await choice.getAttribute('aria-pressed')) !== 'true')
+              await choice.click()
+          await page.keyboard.press('Escape')
+          await page.waitForLoadState('networkidle')
+        } else {
+          await expect(board.locator('[data-canvas-reorder]')).toHaveCount(0)
+        }
+        // Sample the real lane track, not the slot's painted opacity.
+        const motionSeam = board
+          .getByRole('button', {
+            name: 'Add a lane below Journey figures',
+            exact: true,
+          })
+          .first()
+        await expect(async () => {
+          const a = await motionSeam.boundingBox()
+          await page.waitForTimeout(100)
+          expect(await motionSeam.boundingBox()).toEqual(a)
+        }).toPass()
+        const motionBox = await motionSeam.boundingBox()
+        const frames = motionSeam.evaluate(
+          (element, center) =>
+            new Promise<{ sizes: number[]; drift: number[] }>((resolve) => {
+              const samples: number[] = []
+              const drift: number[] = []
+              const start = performance.now()
+              const sample = () => {
+                const slot = element
+                  .querySelector('[data-structure-slot]')
+                  ?.getBoundingClientRect()
+                if (slot && slot.height > 1)
+                  drift.push(Math.abs(slot.y + slot.height / 2 - center))
+                samples.push(
+                  element.ownerDocument
+                    .querySelector('[data-structure-seam-track="lane"]')
+                    ?.getBoundingClientRect().height ?? 0,
+                )
+                if (performance.now() - start < 1200)
+                  element.ownerDocument.defaultView!.requestAnimationFrame(
+                    sample,
+                  )
+                else resolve({ sizes: samples, drift })
+              }
+              element.ownerDocument.defaultView!.requestAnimationFrame(sample)
+            }),
+          motionBox!.y + motionBox!.height / 2,
+        )
+        await page.mouse.move(
+          motionBox!.x + motionBox!.width / 2,
+          motionBox!.y + motionBox!.height / 2,
+        )
+        const { sizes, drift } = await frames
+        expect(
+          Math.max(...drift),
+          'the slot stays centered while the board grows',
+        ).toBeLessThan(1)
+        expect(
+          new Set(
+            sizes
+              .filter((size) => size > 1 && size < 33)
+              .map((size) => Math.round(size)),
+          ).size,
+          'the board must grow through intermediate sizes',
+        ).toBeGreaterThan(3)
+        await page.mouse.move(24, 24)
+        await expect(
+          board.locator('[data-structure-seam-track="lane"]'),
+        ).toHaveCount(0)
         const semanticEdge = board
           .getByRole('button', {
             name: 'Add a lane below Blueprint owner',
@@ -228,14 +450,32 @@ for (const camera of ['overview', '100%'] as const) {
           const opener = seams.nth(1)
           await page.keyboard.press('Tab')
           if (camera === '100%') {
-            const viewport = page.locator('[data-zoom-pan-viewport]').first()
-            const box = await viewport.boundingBox()
-            await page.mouse.move(
-              box!.x + box!.width / 2,
-              box!.y + box!.height / 2,
-            )
+            const viewport = page
+              .locator('[data-zoom-pan-viewport]:visible')
+              .first()
+            const wheelPoint = await viewport.evaluate((el) => {
+              const b = el.getBoundingClientRect()
+              for (const [x, y] of [
+                [b.left + 8, b.top + 8],
+                [b.right - 8, b.top + 8],
+                [b.left + 24, b.top + 32],
+                [b.right - 24, b.bottom - 32],
+              ]) {
+                const hit = el.ownerDocument.elementFromPoint(x, y)
+                if (
+                  hit &&
+                  el.contains(hit) &&
+                  !hit.closest(
+                    'button, a, input, [role=button], [data-blueprint-cell-anchor]',
+                  )
+                )
+                  return { x, y }
+              }
+              throw new Error('No clear canvas ground for the zoom probe')
+            })
+            await page.mouse.move(wheelPoint.x, wheelPoint.y)
             const scale = () =>
-              page
+              viewport
                 .locator('[data-zoom-pan-content]')
                 .first()
                 .evaluate((el) =>
@@ -280,10 +520,32 @@ for (const camera of ['overview', '100%'] as const) {
               return Boolean(bounds) && Date.now() - targetSettledAt >= 200
             })
             .toBe(true)
+          if (camera === '100%') {
+            // Put the crossing clear of the toolbar before aiming at it.
+            const viewport = page
+              .locator('[data-zoom-pan-viewport]:visible')
+              .first()
+            const view = await viewport.boundingBox()
+            const target = await opener.boundingBox()
+            await page.mouse.move(view!.x + 8, view!.y + 8)
+            await page.mouse.wheel(
+              kind === 'step'
+                ? target!.x + target!.width / 2 - view!.x - view!.width / 2
+                : 0,
+              kind === 'lane'
+                ? target!.y + target!.height / 2 - view!.y - view!.height / 2
+                : 0,
+            )
+            await expect(async () => {
+              const a = await opener.boundingBox()
+              await page.waitForTimeout(100)
+              expect(await opener.boundingBox()).toEqual(a)
+            }).toPass()
+          }
           const closed = await opener.boundingBox()
 
           const axis = kind === 'step' ? 'width' : 'height'
-          expect(closed?.[axis]).toBeGreaterThanOrEqual(43.9)
+          expect(closed?.[axis]).toBeGreaterThan(8)
           // Aim in the label rail for lane seams, where the sticky label used to intercept it.
           await page.mouse.move(
             closed!.x + (kind === 'step' ? closed!.width / 2 : 6),

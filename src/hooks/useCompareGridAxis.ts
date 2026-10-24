@@ -60,7 +60,7 @@ export function useCompareGridAxis(
       return `${COMPARE_LABEL_TRACK_WIDTH}px ${STEP_COLUMN_WIDTH}px`
     }
     return `${COMPARE_LABEL_TRACK_WIDTH}px ${tracks
-      .map(track => `${track.seamSize ?? STEP_COLUMN_WIDTH}px`)
+      .map(track => track.seamSize === undefined ? `${STEP_COLUMN_WIDTH}px` : `calc(var(--structure-seam-progress, 1) * ${track.seamSize}px)`)
       .join(' ')}`
   }, [tracks])
 

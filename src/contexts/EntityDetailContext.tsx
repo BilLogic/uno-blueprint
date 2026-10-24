@@ -1,3 +1,4 @@
+import { useAnimatedStructureSeam } from '@/hooks/useAnimatedStructureSeam'
 import {
   createContext,
   useCallback,
@@ -103,7 +104,7 @@ export function EntityDetailProvider({
   children: ReactNode
   resetKey?: string
 }) {
-  const [seam, setSeam] = useState<StructureSeam | null>(null)
+  const [targetSeam, setSeam] = useState<StructureSeam | null>(null)
   const [preview, setPreview] = useState<StructurePreview | null>(null)
   const draftSequence = useRef(0)
   const openerBoard = useRef<Element | null>(null)
@@ -111,6 +112,8 @@ export function EntityDetailProvider({
   const openerLabel = useRef<string | null>(null)
   const openerRef = useRef<HTMLButtonElement | null>(null)
   const [selection, setSelection] = useState<EntityDetailSelection | null>(null)
+
+  const seam = useAnimatedStructureSeam(targetSeam, Boolean(selection?.draft))
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate reset-on-key: the entity a panel is describing may not exist in the new workspace

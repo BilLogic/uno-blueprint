@@ -90,6 +90,7 @@ const RPC_BACKED = new Set([
   'restore_step_details',
   'restore_lane_details',
   'undo_structure_add',
+  'undo_structure_order',
   'rename_lane',
   'rename_step_name',
   'clear_cell_dependency',

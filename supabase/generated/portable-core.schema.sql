@@ -208,6 +208,41 @@ begin
 end $$;
 
 --
+-- Name: apply_structure_order(uuid, text, uuid[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.apply_structure_order(path_id uuid, kind text, ids uuid[]) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare current_ids uuid[]; before_rows jsonb; after_rows jsonb;
+begin
+  perform public.require_structure_author();
+  if kind not in ('lane','step') or kind is null then raise exception 'Choose lanes or steps to reorder'; end if;
+  perform 1 from public.paths p where p.id=path_id for update;
+  if not found then raise exception 'This path no longer exists. Reload the canvas'; end if;
+  if kind='step' then
+    perform 1 from public.path_steps ps where ps.path_id=apply_structure_order.path_id order by step_id for update;
+    select array_agg(step_id order by position),coalesce(jsonb_agg(jsonb_build_object('id',step_id,'position',position) order by position),'[]') into current_ids,before_rows from public.path_steps ps where ps.path_id=apply_structure_order.path_id;
+  else
+    perform 1 from public.lanes l where l.path_id=apply_structure_order.path_id order by id for update;
+    select array_agg(id order by position),coalesce(jsonb_agg(jsonb_build_object('id',id,'position',position) order by position),'[]') into current_ids,before_rows from public.lanes l where l.path_id=apply_structure_order.path_id;
+  end if;
+  if ids is null or cardinality(ids)<>coalesce(cardinality(current_ids),0)
+    or (select count(distinct id) from unnest(ids) id)<>cardinality(ids)
+    or exists(select 1 from unnest(ids) id where id is null or not id=any(coalesce(current_ids,'{}'))) then
+    raise exception 'Reload this path and include every item exactly once';
+  end if;
+  if kind='step' then
+    update public.path_steps ps set position=q.ordinality-1 from unnest(ids) with ordinality q(id,ordinality) where ps.path_id=apply_structure_order.path_id and ps.step_id=q.id;
+  else
+    update public.lanes l set position=q.ordinality-1 from unnest(ids) with ordinality q(id,ordinality) where l.path_id=apply_structure_order.path_id and l.id=q.id;
+  end if;
+  select coalesce(jsonb_agg(jsonb_build_object('id',id,'position',ordinality-1) order by ordinality),'[]') into after_rows from unnest(ids) with ordinality q(id,ordinality);
+  return jsonb_build_object('kind',kind,'path_id',path_id,'before',before_rows,'after',after_rows);
+end $$;
+
+--
 -- Name: authoring_changes_are_append_only(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1708,49 +1743,28 @@ CREATE FUNCTION public.reorder_lanes(scenario_id uuid, lane_names text[]) RETURN
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
     AS $$
-declare
-  i int;
 begin
-  if not public.is_service_account() then
-    raise exception 'This account cannot edit the blueprint'
-      using errcode = '42501';
-  end if;
+  perform public.require_structure_author();
+  raise exception 'Reload the canvas and reorder one path using its lane identities';
+end $$;
 
-  for i in 1 .. array_length(lane_names, 1) loop
-    update public.lanes l
-      set position = i - 1
-      from public.paths p
-      where p.id = l.path_id
-        and p.scenario_id = reorder_lanes.scenario_id
-        and l.name = lane_names[i];
-  end loop;
-end;
-$$;
+--
+-- Name: reorder_lanes(uuid, uuid[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.reorder_lanes(path_id uuid, lane_ids uuid[]) RETURNS jsonb
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$ select public.apply_structure_order(path_id,'lane',lane_ids) $$;
 
 --
 -- Name: reorder_steps(uuid, uuid[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.reorder_steps(path_id uuid, step_ids uuid[]) RETURNS void
-    LANGUAGE plpgsql SECURITY DEFINER
+CREATE FUNCTION public.reorder_steps(path_id uuid, step_ids uuid[]) RETURNS jsonb
+    LANGUAGE sql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
-    AS $$
-declare
-  i int;
-begin
-  if not public.is_service_account() then
-    raise exception 'This account cannot edit the blueprint'
-      using errcode = '42501';
-  end if;
-
-  for i in 1 .. array_length(step_ids, 1) loop
-    update public.path_steps
-      set position = i - 1
-      where path_steps.path_id = reorder_steps.path_id
-        and path_steps.step_id = step_ids[i];
-  end loop;
-end;
-$$;
+    AS $$ select public.apply_structure_order(path_id,'step',step_ids) $$;
 
 --
 -- Name: replace_slides(uuid, jsonb); Type: FUNCTION; Schema: public; Owner: -
@@ -3016,6 +3030,34 @@ begin
       update public.lanes l set position=(q->>'position')::int from jsonb_array_elements(rows) q where l.path_id=p and l.id=(q->>'id')::uuid;
     end if;
   end loop;
+end $$;
+
+--
+-- Name: undo_structure_order(jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.undo_structure_order(snapshot jsonb) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare p uuid := (snapshot->>'path_id')::uuid; kind text := snapshot->>'kind'; actual jsonb; ids uuid[];
+begin
+  perform public.require_structure_author();
+  if kind not in ('step','lane') or kind is null or jsonb_typeof(snapshot->'before') is distinct from 'array' or jsonb_typeof(snapshot->'after') is distinct from 'array' then raise exception 'This order cannot be undone. Reload the canvas'; end if;
+  perform 1 from public.paths where id=p for update;
+  if kind='step' then
+    select coalesce(jsonb_agg(jsonb_build_object('id',step_id,'position',position) order by position),'[]') into actual from public.path_steps where path_id=p;
+  else
+    select coalesce(jsonb_agg(jsonb_build_object('id',id,'position',position) order by position),'[]') into actual from public.lanes where path_id=p;
+  end if;
+  if actual is distinct from snapshot->'after' then raise exception 'This path changed since Move. Reload before undoing this change'; end if;
+  select coalesce(array_agg((q->>'id')::uuid),'{}') into ids from jsonb_array_elements(snapshot->'before') q;
+  perform public.apply_structure_order(p,kind,ids);
+  if kind='step' then
+    update public.path_steps ps set position=(q->>'position')::int from jsonb_array_elements(snapshot->'before') q where ps.path_id=p and ps.step_id=(q->>'id')::uuid;
+  else
+    update public.lanes l set position=(q->>'position')::int from jsonb_array_elements(snapshot->'before') q where l.path_id=p and l.id=(q->>'id')::uuid;
+  end if;
 end $$;
 
 --

@@ -2,4 +2,4 @@
 "uno-blueprint": patch
 ---
 
-Insert seams share detection at crossings, expand around boundaries and keep draft destinations visible through one save and undo.
+Lane and step insertion opens a centered seam and an editor for fields and paths, and stacked headers reorder one path with undo.

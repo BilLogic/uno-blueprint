@@ -2794,3 +2794,32 @@ begin
   raise exception 'panel edit proof complete';
 exception when raise_exception then if sqlerrm <> 'panel edit proof complete' then raise; end if;
 end $panel_edit_proof$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000310000000_path_orders_are_guarded_permutations.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- The guarded entry points accept authenticated authors only.
+grant execute on function public.reorder_steps(uuid,uuid[]) to authenticated;
+grant execute on function public.reorder_lanes(uuid,uuid[]) to authenticated;
+grant execute on function public.undo_structure_order(jsonb) to authenticated;
+
+-- Anonymous callers cannot enter a reorder or its inverse.
+do $permissions$ begin
+  if has_function_privilege('anon','public.reorder_steps(uuid,uuid[])','execute') or has_function_privilege('anon','public.reorder_lanes(uuid,uuid[])','execute') or has_function_privilege('anon','public.undo_structure_order(jsonb)','execute') then raise exception 'anonymous reorder exposed'; end if;
+end $permissions$;
+
+-- The host's reader identity cannot enter a write or undo.
+do $reader$
+begin
+  perform set_config('request.jwt.claims','{}',true);
+  begin
+    perform public.reorder_steps(gen_random_uuid(),'{}'::uuid[]); raise exception 'reader reordered steps';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.reorder_lanes(gen_random_uuid(),'{}'::uuid[]); raise exception 'reader reordered lanes';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.undo_structure_order('{}'); raise exception 'reader undid order';
+  exception when insufficient_privilege then null; end;
+end $reader$;

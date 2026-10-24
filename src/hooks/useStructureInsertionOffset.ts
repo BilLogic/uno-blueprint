@@ -25,7 +25,17 @@ export function useStructureInsertionOffset(blueprints: BlueprintData[]) {
         )?.height ?? 0
     : context?.seam?.size ?? 0
   return {
-    left: insertion.kind === 'step' ? -(size + STEP_COLUMN_GAP) / 2 : 0,
-    top: insertion.kind === 'lane' ? -size / 2 : 0,
+    left:
+      insertion.kind === 'step'
+        ? draft
+          ? -(size + STEP_COLUMN_GAP) / 2
+          : `calc(-1 * (var(--structure-seam-progress, 1) * ${size}px + ${STEP_COLUMN_GAP}px) / 2)`
+        : 0,
+    top:
+      insertion.kind === 'lane'
+        ? draft
+          ? -size / 2
+          : `calc(var(--structure-seam-progress, 1) * ${-size / 2}px)`
+        : 0,
   }
 }

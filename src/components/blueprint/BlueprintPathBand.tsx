@@ -1,3 +1,4 @@
+import { useCanvasStructureReorder } from './useCanvasStructureReorder'
 import { StructureLaneDraftZone } from './StructureDraftZones'
 import { Fragment, useMemo, useRef, type RefObject } from 'react'
 import { BlueprintColumnHandles } from '@/components/blueprint/BlueprintColumnHandles'
@@ -62,6 +63,7 @@ export type PathBandArrangement =
   | { kind: 'column'; columnIndex: number; withLaneHandles: boolean }
   | {
       kind: 'row'
+      singlePath?: boolean
       gridRow: number
       tracks: readonly CompareGridTrack[]
       rowTrackCss: string
@@ -99,6 +101,7 @@ export function BlueprintPathBand({
   showPathKindBadge = false,
 }: BlueprintPathBandProps) {
   const bandRef = useRef<HTMLDivElement>(null)
+  useCanvasStructureReorder(bandRef, blueprint, arrangement.kind === 'row', arrangement.kind === 'row' && Boolean(arrangement.singlePath))
   const fallbackScrollRef = useRef<HTMLDivElement>(null)
   const resolvedScrollRef = scrollContainerRef ?? fallbackScrollRef
   const arrowData = useMemo(
@@ -485,7 +488,7 @@ function CompareLaneRow({
                   data-structure-seam-track="step"
                   data-step-index={trackIndex}
                   className="shrink-0"
-                  style={{ width: track.seamSize, minWidth: track.seamSize }}
+                  style={{ width: `calc(var(--structure-seam-progress, 1) * ${track.seamSize}px)`, minWidth: 0 }}
                 />
               ) : step !== undefined && stepIndex !== undefined ? (
                 renderStepCell(step, stepIndex)

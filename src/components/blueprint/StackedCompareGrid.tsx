@@ -98,6 +98,7 @@ export function StackedCompareGrid({
                 rows={bandRows}
                 arrangement={{
                   kind: 'row',
+                  singlePath: blueprints.length === 1,
                   gridRow: bandIndex + 2,
                   tracks,
                   rowTrackCss: bandRows

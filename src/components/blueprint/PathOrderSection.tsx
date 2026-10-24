@@ -30,7 +30,6 @@ export function PathOrderSection({
 }) {
   const unticked = useRef(new Map<string, PathOrder>())
   const dragging = useRef<string | undefined>(undefined)
-  const [dropAt, setDropAt] = useState<string | null>(null)
   const [open, setOpen] = useState<string | null | undefined>(undefined)
   const changeOrder = (pathId: string, order: string[], moved?: string) =>
     onChange(
@@ -163,11 +162,6 @@ export function PathOrderSection({
                     axis="y"
                     values={entry.order}
                     onReorder={(order) => {
-                      setDropAt(
-                        dragging.current
-                          ? `${path.id}:${order.indexOf(dragging.current)}`
-                          : null,
-                      )
                       changeOrder(path.id, order, dragging.current)
                     }}
                     className="relative ml-1 space-y-1 before:absolute before:bottom-3 before:left-2 before:top-3 before:w-px before:bg-border"
@@ -188,10 +182,8 @@ export function PathOrderSection({
                         onDrag={() => {
                           dragging.current = id
                         }}
-                        dropBefore={dropAt === `${path.id}:${index}`}
                         onDragEnd={() => {
                           dragging.current = undefined
-                          setDropAt(null)
                         }}
                         onMove={(direction) => {
                           const target = index + direction
@@ -245,7 +237,6 @@ function RailRow({
   moved,
   onMove,
   onDrag,
-  dropBefore,
   onDragEnd,
 }: {
   id: string
@@ -255,7 +246,6 @@ function RailRow({
   moved: boolean
   onMove: (direction: number) => void
   onDrag: () => void
-  dropBefore?: boolean
   onDragEnd?: () => void
 }) {
   const controls = useDragControls()
@@ -277,12 +267,6 @@ function RailRow({
       className="group/order relative flex cursor-grab touch-none items-center gap-2 rounded-md active:cursor-grabbing"
       onPointerDown={(event) => controls.start(event)}
     >
-      {dropBefore ? (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-primary"
-        />
-      ) : null}
       <button
         type="button"
         aria-label={`Move ${name} in ${pathName}`}

@@ -174,7 +174,9 @@ it('leaves a header button usable inside the larger detection band', () => {
         label="Add a step"
         onClick={() => {}}
       />
-      <button type="button">Review</button>
+      <button type="button" data-canvas-header-opener="">
+        Review
+      </button>
     </div>,
   )
   fireEvent.pointerEnter(screen.getByRole('button', { name: 'Add a step' }), {
@@ -252,3 +254,35 @@ it('keeps the entry axis while its opening delay is still running', () => {
       .hasAttribute('data-open'),
   ).toBe(false)
 })
+
+it.each([0, 90])(
+  'keeps insertion intent over a cell control after %ims and routes the click to that seam',
+  (delay) => {
+    vi.useFakeTimers()
+    const create = vi.fn(),
+      cell = vi.fn()
+    render(
+      <div data-structure-board="">
+        <StructureInsert
+          orientation="vertical"
+          label="Add a step"
+          onClick={create}
+        />
+        <button type="button" onClick={cell}>
+          Add a cell
+        </button>
+      </div>,
+    )
+    const control = screen.getByRole('button', { name: 'Add a cell' })
+    fireEvent.pointerMove(control, { clientX: 100, clientY: 100 })
+    expect(
+      control.parentElement!.hasAttribute('data-structure-insert-hover'),
+    ).toBe(true)
+    act(() => vi.advanceTimersByTime(delay))
+    const seam = screen.getByRole('button', { name: 'Add a step' })
+    expect(seam.hasAttribute('data-open')).toBe(delay === 90)
+    fireEvent.click(control, { clientX: 100, clientY: 100 })
+    expect(create).toHaveBeenCalledExactlyOnceWith(seam)
+    expect(cell).not.toHaveBeenCalled()
+  },
+)

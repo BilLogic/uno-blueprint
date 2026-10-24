@@ -199,6 +199,7 @@ export function getComparePanelScrollPaddingY(
 }
 
 export type CompareRowHeightSpec = {
+  lane?: BlueprintLane
   height: number
   wrapCorridorAbove?: boolean
   wrapCorridorBelow?: boolean
@@ -504,6 +505,7 @@ export function getSharedLaneRowHeight(
  * when content genuinely swells past it.
  */
 export function getCompareRowTrackCss(row: CompareRowHeightSpec): string {
+  if (row.lane?.seamSize !== undefined) return `calc(var(--structure-seam-progress, 1) * ${row.height}px)`
   return `minmax(${getCompareRowTrackHeight(row)}px, auto)`
 }
 
@@ -696,6 +698,7 @@ export function getStackedComparePanelHeight(
  * with no divergence measures exactly as it does in Stacked.
  */
 export function getMergedCompareRowTrackCss(row: CompareRowHeightSpec): string {
+  if (row.lane?.seamSize !== undefined) return `calc(var(--structure-seam-progress, 1) * ${row.height}px)`
   return `minmax(${getCompareRowTrackHeight(row)}px, auto)`
 }
 

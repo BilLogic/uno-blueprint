@@ -1,3 +1,5 @@
+import { StructureDragGrip } from './StructureDragGrip'
+import { useCanvasScale } from '@/contexts/CanvasScaleContext'
 import { useEntityDetailOptional } from '@/contexts/EntityDetailContext'
 import { highlightStructure } from './structureHighlight'
 import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
@@ -240,6 +242,7 @@ export function BlueprintLabelRow({
   const canvasMode = useCanvasModeValue()
   const pick = useCellPick()
   const laneId = row.kind === 'lane' ? row.lane?.id ?? null : null
+  const cameraScale = useCanvasScale()
   const laneSelectable =
     canvasMode === 'design' &&
     pick !== null &&
@@ -279,6 +282,7 @@ export function BlueprintLabelRow({
 
   return (
     <div
+      data-structure-lane-label={laneId ?? undefined}
       role={laneId === STRUCTURE_PLACEHOLDER_ID ? 'status' : undefined}
       aria-label={
         laneId === STRUCTURE_PLACEHOLDER_ID ? 'New lane position' : undefined
@@ -353,7 +357,6 @@ export function BlueprintLabelRow({
           // numbers lived in different files with nothing holding them
           // together.
           'group/lane-header relative flex min-h-0 flex-1 items-start gap-2',
-          CANVAS_HEADER_STATE,
           compact ? BLUEPRINT_SLOT_INSET_COMPACT : BLUEPRINT_SLOT_INSET,
           // Bottom padding to match the top: the block stretches to fill this
           // container, so without it the selected wash ran flush into the
@@ -361,17 +364,22 @@ export function BlueprintLabelRow({
           compact ? 'pt-3 pb-3' : 'pt-4 pb-4',
         )}
       >
+        {laneSelectable ? <span aria-hidden className="pointer-events-auto absolute inset-x-0" style={{top:`min(${22 / cameraScale}px, 25%)`,bottom:`min(${22 / cameraScale}px, 25%)`}} /> : null}
         {laneSelectable ? (
           <LaneSelectionName
             id={row.lane!.id}
             name={row.label}
             type="button"
             onClick={selectLane}
+            data-structure-header-title=""
+            data-open={selection?.kind === 'lane' && selection.id === laneId ? '' : undefined}
+            data-structure-reorder="lane"
+            data-structure-id={row.lane!.id}
             data-blueprint-row-header=""
             className={cn(
               CANVAS_HEADER_TEXT,
   CANVAS_HEADER_STATE,
-              'group/lane relative min-w-0 flex-1 cursor-pointer rounded-md text-left whitespace-normal break-words underline-offset-4 hover:underline',
+              'group/lane relative min-w-0 flex-1 cursor-pointer rounded-md text-left whitespace-normal break-words',
             )}
             style={{ color: labelColor }}
           >
@@ -449,6 +457,7 @@ function LaneSelectionName({
       onClick={(event) => rename.click(event, () => props.onClick?.(event))}
       onDoubleClick={rename.begin}
     >
+      <StructureDragGrip />
       {children}
     </button>
   )

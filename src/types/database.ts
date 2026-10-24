@@ -1173,6 +1173,10 @@ export type Database = {
         }
         Returns: Json
       }
+      apply_structure_order: {
+        Args: { ids: string[]; kind: string; path_id: string }
+        Returns: Json
+      }
       cell_natural_key: { Args: { cell_id: string }; Returns: string }
       check_structure_draft_order: {
         Args: { current_ids: string[]; requested: Json }
@@ -1297,13 +1301,15 @@ export type Database = {
         Args: { p_name: string; p_touchpoint_id: string }
         Returns: Json
       }
-      reorder_lanes: {
-        Args: { lane_names: string[]; scenario_id: string }
-        Returns: undefined
-      }
+      reorder_lanes:
+        | { Args: { lane_ids: string[]; path_id: string }; Returns: Json }
+        | {
+            Args: { lane_names: string[]; scenario_id: string }
+            Returns: undefined
+          }
       reorder_steps: {
         Args: { path_id: string; step_ids: string[] }
-        Returns: undefined
+        Returns: Json
       }
       replace_slides: {
         Args: { p_slice_id: string; p_slides: Json }
@@ -1388,6 +1394,7 @@ export type Database = {
         Returns: undefined
       }
       undo_structure_add: { Args: { snapshot: Json }; Returns: undefined }
+      undo_structure_order: { Args: { snapshot: Json }; Returns: undefined }
       update_cell_dependency: {
         Args: {
           dependency_id: string

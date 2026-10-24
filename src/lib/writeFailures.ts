@@ -137,7 +137,7 @@ export function reportWriteSuccess(
           await undo()
           dismissWriteFailure(id)
         } catch (error) {
-          reportWriteFailure('The addition was not undone', error)
+          reportWriteFailure('The change was not undone', error)
         } finally {
           failures = failures.map((entry) =>
             entry.id === id ? { ...entry, busy: false } : entry,

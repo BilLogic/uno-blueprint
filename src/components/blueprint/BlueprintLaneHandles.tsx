@@ -1,5 +1,5 @@
 import { useCanvasScale } from '@/contexts/CanvasScaleContext'
-import { useLayoutEffect, useState, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useState, type RefObject } from 'react'
 import { useAtScenarioLevel, useEditor } from '@/contexts/EditorContext'
 import { useCanvasModeValue } from '@/contexts/canvasModeContext'
 import { useCellPick } from '@/contexts/cellPickContext'
@@ -12,9 +12,10 @@ type Boundary = {
   y: number
   label: string
   centered: boolean
+  hitSize: number
 }
 
-/** Scenario-wide lane insertion, measured from the rendered row gaps.
+/** Lane insertion for the rendered paths, measured from their row gaps.
  * Activating a target opens an unwritten draft in the existing lane panel. */
 export function BlueprintLaneHandles({
   bodyRef,
@@ -54,10 +55,26 @@ function BlueprintLaneHandlesActive({
   const atScenarioLevel = useAtScenarioLevel()
   const { client } = useSupabase()
   const { selectedScenarioId } = useEditor()
+  const [, refreshMeasurements] = useState(0)
+  useEffect(() => {
+    const body = bodyRef.current
+    if (!body || typeof ResizeObserver === 'undefined') return
+    const refresh = () => {
+      if (!document.documentElement.hasAttribute('data-structure-motion'))
+        refreshMeasurements(value => value + 1)
+    }
+    const observer = new ResizeObserver(refresh)
+    observer.observe(body)
+    document.addEventListener('structure-motion-end', refresh)
+    return () => {
+      observer.disconnect()
+      document.removeEventListener('structure-motion-end', refresh)
+    }
+  }, [bodyRef])
   const [bodyWidth, setBodyWidth] = useState(0)
   const [boundaries, setBoundaries] = useState<Boundary[]>([])
   const cameraScale = useCanvasScale()
-  const { openCreate, selection, setSeam } = useEntityDetail()
+  const { openCreate, selection, seam, setSeam } = useEntityDetail()
   const active =
     atScenarioLevel && client !== null && selectedScenarioId !== null
 
@@ -105,6 +122,7 @@ function BlueprintLaneHandlesActive({
     const seamRow = body.querySelector<HTMLElement>(
       '[data-structure-seam-track="lane"]',
     )
+    const seamHeight = seamRow ? seamRow.getBoundingClientRect().height / scale : 0
     const seamY = seamRow
       ? (seamRow.getBoundingClientRect().top - bodyBox.top) / scale
       : null
@@ -122,6 +140,7 @@ function BlueprintLaneHandlesActive({
           )
         })
       return {
+        hitSize: Math.min(44, row.getBoundingClientRect().height / 2),
         centered,
         storedPosition: storedPositions[rowIndex],
         label:
@@ -135,14 +154,15 @@ function BlueprintLaneHandlesActive({
           Math.abs(
             (row.getBoundingClientRect().top - bodyBox.top) / scale -
               seamY -
-              34 / cameraScale,
+              seamHeight,
           ) < 1
-            ? seamY + (centered ? 17 / cameraScale : 0)
+            ? seamY
             : (row.getBoundingClientRect().top - bodyBox.top) / scale,
       }
     })
     const last = rows[rows.length - 1].getBoundingClientRect()
     next.push({
+      hitSize: Math.min(44, last.height / 2),
       centered: false,
       storedPosition: storedPositions[storedPositions.length - 1] + 1,
       label: `Add a lane below ${
@@ -162,7 +182,8 @@ function BlueprintLaneHandlesActive({
           Math.abs(entry.y - boundaries[index].y) < 0.5 &&
           entry.storedPosition === boundaries[index].storedPosition &&
           entry.label === boundaries[index].label &&
-          entry.centered === boundaries[index].centered,
+          entry.centered === boundaries[index].centered &&
+          entry.hitSize === boundaries[index].hitSize,
       )
     if (!same) setBoundaries(next)
     if (bodyWidth !== body.offsetWidth) setBodyWidth(body.offsetWidth)
@@ -177,11 +198,19 @@ function BlueprintLaneHandlesActive({
         ? boundaries.map((boundary) => (
             <StructureInsert
               key={boundary.storedPosition}
+              hitSize={boundary.hitSize}
               scale={cameraScale}
+              extent={seam?.key === `lane:${pathId ?? pathIds?.[0]}:${boundary.storedPosition}` ? seam.size * cameraScale : 0}
               edge={!boundary.centered}
               orientation="horizontal"
               label={boundary.label}
-              style={{ left: 0, width: bodyWidth, top: boundary.y }}
+              style={{
+                left: 0,
+                width: bodyWidth,
+                top: seam?.key === `lane:${pathId ?? pathIds?.[0]}:${boundary.storedPosition}` && boundary.centered
+                  ? `calc(${boundary.y}px + var(--structure-seam-progress, 1) * ${seam.size / 2}px)`
+                  : boundary.y,
+              }}
               onOpenChange={(open) => {
                 const targetPath = pathId ?? pathIds?.[0]
                 if (!targetPath) return

@@ -2,9 +2,8 @@ import { useCanvasScale } from '@/contexts/CanvasScaleContext'
 import { COMPARE_STEP_HEADER_HEIGHT } from '@/lib/sideBySideCompareLayout'
 import { STEP_COLUMN_GAP } from '@/lib/blueprintLayout'
 import { STRUCTURE_SEAM_ID } from '@/lib/structureDraftPreview'
-import { useStructureRename } from './useStructureRename'
 
-import { useLayoutEffect, useState, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useState, type RefObject } from 'react'
 import { useEntityDetail } from '@/contexts/EntityDetailContext'
 import { StructureInsert } from './StructureInsert'
 import { useAtScenarioLevel } from '@/contexts/EditorContext'
@@ -16,6 +15,7 @@ type Step = {
   id: string
   name: string
   position: number
+  seamSize?: number
   pathId?: string
   pathName?: string
   pathIds?: string[]
@@ -31,15 +31,11 @@ type Boundary = {
   storedPosition: number | undefined
   x: number
   centered: boolean
+  hitSize: number
 }
 
 /**
- * Column handles above the grid, in Design mode only.
- *
- * The blueprint has never rendered step names as a header row — steps exist
- * only as column positions for cells — so there was nothing to click to select
- * a column the way a lane label selects a lane. This renders only while Design
- * mode is on, so a reader's view is untouched.
+ * Insertion targets between columns, in Edit mode only.
  *
  * **Positions are measured, not computed**, because the compare grid lays out
  * on CSS subgrid with each path in its own column: there is no single constant
@@ -56,13 +52,11 @@ export function BlueprintColumnHandles({
   steps: renderedSteps,
   bodyRef,
   pathId,
-  selectionHandles = true,
 }: {
   steps: Step[]
   bodyRef: RefObject<HTMLDivElement | null>
   /** The path these columns belong to. Absent disables inserting. */
   pathId?: string
-  selectionHandles?: boolean
 }) {
   const steps = renderedSteps.filter((step) => step.id !== STRUCTURE_SEAM_ID)
   const scale = useCanvasScale()
@@ -70,9 +64,26 @@ export function BlueprintColumnHandles({
   const atScenarioLevel = useAtScenarioLevel()
   const pick = useCellPick()
   const { client, canWrite } = useSupabase()
+  const [, refreshMeasurements] = useState(0)
+  useEffect(() => {
+    const body = bodyRef.current
+    if (!body || typeof ResizeObserver === 'undefined') return
+    const refresh = () => {
+      if (!document.documentElement.hasAttribute('data-structure-motion'))
+        refreshMeasurements(value => value + 1)
+    }
+    const observer = new ResizeObserver(refresh)
+    observer.observe(body)
+    document.addEventListener('structure-motion-end', refresh)
+    return () => {
+      observer.disconnect()
+      document.removeEventListener('structure-motion-end', refresh)
+    }
+  }, [bodyRef])
   const [columns, setColumns] = useState<Column[]>([])
   const [bodyHeight, setBodyHeight] = useState(0)
-  const { openCreate, selection, setSeam } = useEntityDetail()
+  const [seamWidth, setSeamWidth] = useState(0)
+  const { openCreate, selection, seam, setSeam } = useEntityDetail()
   // Scenario level only: at the overview twenty blueprints render at 6%
   // zoom, and an insert handle there is an unaimed weapon.
   const active = mode === 'design' && pick !== null && atScenarioLevel
@@ -100,6 +111,9 @@ export function BlueprintColumnHandles({
     }
     const body = bodyRef.current
     if (!body) return
+
+    const currentSeamWidth = (body.querySelector<HTMLElement>('[data-structure-seam-track="step"]')?.getBoundingClientRect().width ?? 0) / scale
+    if (Math.abs(currentSeamWidth-seamWidth)>0.1) setSeamWidth(currentSeamWidth)
 
     const measured = steps.flatMap<Column>((step, stepIndex) => {
       const cell = body.querySelector(
@@ -156,11 +170,13 @@ export function BlueprintColumnHandles({
     const renderedIndex = renderedSteps.findIndex(
       (step) => step.id === steps[column.stepIndex]?.id,
     )
-    const seamTrack = renderedSteps[renderedIndex - 1]?.id === STRUCTURE_SEAM_ID
+    const previousTrack = renderedSteps[renderedIndex - 1]
+    const seamTrack = previousTrack?.id === STRUCTURE_SEAM_ID
     const x = seamTrack
-      ? column.left - (column.stepIndex > 0 ? 17 : 34) / scale - STEP_COLUMN_GAP
+      ? column.left - seamWidth / (column.stepIndex > 0 ? 2 : 1) - STEP_COLUMN_GAP
       : column.left - (column.stepIndex > 0 ? STEP_COLUMN_GAP / 2 : 0)
     return {
+      hitSize: Math.min(44,(column.width + STEP_COLUMN_GAP)*scale/2),
       stepIndex: column.stepIndex,
       storedPosition: column.storedPosition,
       x,
@@ -170,6 +186,7 @@ export function BlueprintColumnHandles({
   const last = visibleColumns[visibleColumns.length - 1]
   if (last?.stepIndex === steps.length - 1) {
     boundaries.push({
+      hitSize: Math.min(44,(last.width + STEP_COLUMN_GAP)*scale/2),
       stepIndex: steps.length,
       storedPosition: undefined,
       x: last.left + last.width + STEP_COLUMN_GAP,
@@ -204,14 +221,18 @@ export function BlueprintColumnHandles({
             return (
               <StructureInsert
                 key={`insert-${target.id}-${boundary.storedPosition ?? 'end'}`}
+                hitSize={boundary.hitSize}
                 scale={scale}
+                extent={seam?.key === `step:${targetPath}:${boundary.storedPosition ?? 'end'}` ? seam.size * scale : 0}
                 edge={!boundary.centered}
                 orientation="vertical"
                 label={
                   target.pathName ? `${label} in ${target.pathName}` : label
                 }
                 style={{
-                  left: boundary.x,
+                  left: seam?.key === `step:${targetPath}:${boundary.storedPosition ?? 'end'}` && boundary.centered
+                    ? `calc(${boundary.x - seamWidth / 2}px + var(--structure-seam-progress, 1) * ${seam.size / 2}px)`
+                    : boundary.x,
                   top: -COMPARE_STEP_HEADER_HEIGHT,
                   height: bodyHeight + COMPARE_STEP_HEADER_HEIGHT,
                 }}
@@ -252,64 +273,6 @@ export function BlueprintColumnHandles({
           })
         : null}
 
-      {selectionHandles && !draft
-        ? visibleColumns.map((column) => (
-            <StepSelectionName
-              key={steps[column.stepIndex].id}
-              id={steps[column.stepIndex].id}
-              name={steps[column.stepIndex].name}
-              type="button"
-              aria-label={`Select the ${
-                steps[column.stepIndex]?.name ?? 'step'
-              } step`}
-              onClick={(event) => {
-                // Scoped to *this* column's blueprint, not the whole canvas: the
-                // overview shows every scenario at once, and a handle that
-                // selected step 1 across all of them would be selecting cells the
-                // user cannot even see.
-                const body = bodyRef.current
-                if (!body) return
-                const cells = Array.from(
-                  body.querySelectorAll(
-                    `[data-blueprint-cell][data-blueprint-cell-interactive][data-step-index="${column.stepIndex}"]`,
-                  ),
-                )
-                  .map((cell) => cell.getAttribute('data-blueprint-cell'))
-                  .filter((id): id is string => id !== null)
-                if (cells.length === 0) return
-                event.stopPropagation()
-                pick.pickMany(cells, event.shiftKey ? 'toggle' : 'add')
-              }}
-              className="pointer-events-auto absolute truncate rounded-md border border-dashed border-muted bg-card/90 px-2 py-1 text-xs font-medium text-muted-foreground shadow-sm transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:border-primary hover:text-foreground"
-              style={{ left: column.left, width: column.width, top: -32 }}
-            >
-              {steps[column.stepIndex]?.name ?? `Step ${column.stepIndex + 1}`}
-            </StepSelectionName>
-          ))
-        : null}
     </div>
-  )
-}
-
-function StepSelectionName({
-  id,
-  name,
-  children,
-  ...props
-}: React.ComponentProps<'button'> & { id: string; name: string }) {
-  const rename = useStructureRename('step', id, name)
-  return rename.editing ? (
-    <div style={props.style} className="pointer-events-auto absolute">
-      {rename.editor}
-    </div>
-  ) : (
-    <button
-      draggable={false}
-      {...props}
-      onClick={(event) => rename.click(event, () => props.onClick?.(event))}
-      onDoubleClick={rename.begin}
-    >
-      {children}
-    </button>
   )
 }

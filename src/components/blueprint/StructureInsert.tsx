@@ -8,12 +8,16 @@ export function StructureInsert({
   orientation,
   scale = 1,
   edge = false,
+  extent,
+  hitSize = 44,
   label,
   style,
   onClick,
   onOpenChange,
 }: {
   scale?: number
+  hitSize?: number
+  extent?: number
   edge?: boolean
   orientation: 'horizontal' | 'vertical'
   label: string
@@ -58,8 +62,11 @@ export function StructureInsert({
       style={{
         ...style,
         ...(orientation === 'vertical'
-          ? { width: 44 / scale, marginLeft: -22 / scale }
-          : { height: 44 / scale, marginTop: edge ? 0 : -22 / scale }),
+          ? { width: hitSize / scale, marginLeft: -hitSize / 2 / scale }
+          : {
+              height: hitSize / scale,
+              marginTop: edge ? 0 : -hitSize / 2 / scale,
+            }),
       }}
       onPointerDown={(event) => {
         event.preventDefault()
@@ -83,19 +90,29 @@ export function StructureInsert({
         style={
           orientation === 'vertical'
             ? {
-                width: (open ? 34 : 0) / scale,
+                width:
+                  extent === undefined
+                    ? (open ? 34 : 0) / scale
+                    : `calc(var(--structure-seam-progress, 1) * ${
+                        extent / scale
+                      }px)`,
                 height: '100%',
-                ...(edge ? { left: 22 / scale } : {}),
+                ...(edge ? { left: hitSize / 2 / scale } : {}),
               }
             : {
-                height: (open ? 34 : 0) / scale,
+                height:
+                  extent === undefined
+                    ? (open ? 34 : 0) / scale
+                    : `calc(var(--structure-seam-progress, 1) * ${
+                        extent / scale
+                      }px)`,
                 width: '100%',
                 ...(edge ? { top: 0 } : {}),
               }
         }
         className={cn(
-          'pointer-events-auto absolute rounded-md border border-dashed border-border-primary bg-wash-primary transition-[width,height,opacity] duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
-          open ? 'opacity-100' : 'opacity-0',
+          'pointer-events-auto absolute rounded-md border border-dashed border-border-primary bg-wash-primary transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
+          open || extent ? 'opacity-100' : 'opacity-0',
         )}
       />
       <span
@@ -109,7 +126,7 @@ export function StructureInsert({
           ...(edge
             ? orientation === 'vertical'
               ? { left: 17 / scale }
-              : { top: -5 / scale }
+              : { top: (17 - hitSize / 2) / scale }
             : {}),
         }}
       >

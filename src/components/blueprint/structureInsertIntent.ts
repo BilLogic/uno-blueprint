@@ -28,6 +28,7 @@ function contains(target: Target, point: Point) {
 function createIntent(board: Element) {
   const targets = new Set<Target>()
   let active: Target | null = null
+  let lastPoint: Point | null = null
   let pending: Target | null | undefined
   let timer: ReturnType<typeof setTimeout> | undefined
   const cancel = () => {
@@ -39,6 +40,16 @@ function createIntent(board: Element) {
     if (next === active) return
     active?.change(false)
     active = next
+    board.toggleAttribute(
+      'data-structure-insert-hover',
+      Boolean(active && lastPoint && contains(active, lastPoint)),
+    )
+    if (active) {
+      board.removeAttribute('data-axis-highlight')
+      board
+        .querySelectorAll('[data-structure-highlight]')
+        .forEach((node) => node.removeAttribute('data-structure-highlight'))
+    }
     active?.change(true)
   }
   const schedule = (next: Target | null) => {
@@ -46,9 +57,18 @@ function createIntent(board: Element) {
     if (pending === next) return
     cancel()
     pending = next
+    if (next) board.setAttribute('data-structure-insert-hover', '')
     timer = setTimeout(() => activate(next), next ? 90 : 140)
   }
   const move = (point: Point) => {
+    lastPoint = point
+    board.toggleAttribute(
+      'data-structure-insert-hover',
+      Boolean(
+        (active && contains(active, point)) ||
+          (pending && contains(pending, point)),
+      ),
+    )
     if (
       active &&
       (active.element === active.element.ownerDocument.activeElement ||
@@ -70,18 +90,21 @@ function createIntent(board: Element) {
     })
     schedule(candidates[0] ?? null)
   }
+  const headerAction = (target: EventTarget | null) =>
+    (target as Element | null)?.closest(
+      '[data-canvas-header-opener], [data-blueprint-row-header], [data-structure-reorder], [data-canvas-header-info]',
+    )
   const pointerMove = (event: Event) => {
     const pointer = event as PointerEvent
     if (pointer.pointerType === 'touch') return
-    if (
-      (event.target as Element).closest('button:not([data-structure-seam])')
-    ) {
+    if (headerAction(event.target)) {
       leave()
       return
     }
     move(pointer)
   }
   const leave = () => {
+    board.removeAttribute('data-structure-insert-hover')
     if (
       !active ||
       active.element !== active.element.ownerDocument.activeElement
@@ -91,15 +114,16 @@ function createIntent(board: Element) {
   const click = (event: Event) => {
     const pointer = event as MouseEvent
     const clicked = (event.target as Element).closest('[data-structure-seam]')
-    if (
-      active &&
-      clicked &&
-      clicked !== active.element &&
-      contains(active, pointer)
-    ) {
+    const owner =
+      active && contains(active, pointer)
+        ? active
+        : pending && contains(pending, pointer)
+        ? pending
+        : null
+    if (owner && !headerAction(event.target) && clicked !== owner.element) {
       event.preventDefault()
       event.stopPropagation()
-      active.create()
+      owner.create()
     }
   }
   board.addEventListener('pointermove', pointerMove, true)
@@ -126,6 +150,7 @@ function createIntent(board: Element) {
             board.removeEventListener('pointermove', pointerMove, true)
             board.removeEventListener('pointerleave', leave)
             board.removeEventListener('click', click, true)
+            board.removeAttribute('data-structure-insert-hover')
             intents.delete(board)
           }
         },

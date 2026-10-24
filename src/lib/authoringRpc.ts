@@ -410,6 +410,7 @@ function deriveRevert(
   if ((fn === 'add_step_with_details' || fn === 'add_lane_with_details') && data && typeof data === 'object' && 'before' in data) {
     return { fn: 'undo_structure_add', args: { snapshot: data } }
   }
+  if ((fn === 'reorder_steps' || fn === 'reorder_lanes') && data && typeof data === 'object' && 'before' in data) return {fn:'undo_structure_order',args:{snapshot:data}}
   if (isHostOperation(fn)) return HOST_OPERATIONS[fn].inverse(args, data as RecordedAuthoringWrite)
   switch (fn) {
     case 'add_step':
@@ -867,22 +868,9 @@ export function setPathSteps(
   })
 }
 
-/**
- * Reorder lanes across a whole blueprint, by name.
- *
- * By name, not by id, because every version of a blueprint has its own copy of
- * each lane and they must stay row-aligned — reordering one version's lane ids
- * would misalign it against its siblings in the side-by-side view.
- */
-export function reorderLanes(
-  client: Client,
-  scenarioId: string,
-  laneNames: string[],
-): Promise<void> {
-  return call<void>(client, 'reorder_lanes', {
-    scenario_id: scenarioId,
-    lane_names: laneNames,
-  })
+/** Reorder one path's own lanes, naming every lane exactly once. */
+export function reorderLanes(client: Client, pathId: string, laneIds: string[]): Promise<unknown> {
+  return call(client,'reorder_lanes',{path_id:pathId,lane_ids:laneIds})
 }
 
 // ---------------------------------------------------------------------------

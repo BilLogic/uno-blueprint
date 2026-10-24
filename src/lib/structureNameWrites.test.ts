@@ -74,3 +74,18 @@ for (const kind of ['step','lane'] as const) {
     expect(rpc).toHaveBeenLastCalledWith(`restore_${kind}_details`,{snapshot:previous})
   })
 }
+
+for (const kind of ['step', 'lane'] as const) {
+  it(`captures the ${kind} order returned by one write and undoes that exact snapshot`, async () => {
+    const api = await import('./authoringRpc')
+    const snapshot = {kind,path_id:'path',before:[{id:'first',position:4},{id:'last',position:9}],after:[{id:'last',position:0},{id:'first',position:1}]}
+    const rpc = vi.fn(async () => ({data:snapshot,error:null}))
+    const client = {rpc} as unknown as SupabaseClient<Database>
+    await (kind === 'step' ? api.reorderSteps : api.reorderLanes)(client,'path',['last','first'])
+    expect(rpc).toHaveBeenCalledExactlyOnceWith(`reorder_${kind}s`,{path_id:'path',[`${kind}_ids`]:['last','first']})
+    const [entry] = sessionSnapshot()
+    expect(entry.revert).toEqual({fn:'undo_structure_order',args:{snapshot}})
+    await executeRevert(client,entry)
+    expect(rpc).toHaveBeenLastCalledWith('undo_structure_order',{snapshot})
+  })
+}

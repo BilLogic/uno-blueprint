@@ -1,3 +1,4 @@
+import { StructureDragGrip } from './StructureDragGrip'
 import { highlightStructure } from './structureHighlight'
 import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
 import { useStructureRename } from './useStructureRename'
@@ -202,12 +203,14 @@ export function StepHeaderAffordance({
         <>
           <button
             type="button"
+            data-structure-reorder="step"
+            data-structure-id={stepId}
             data-step-header-affordance=""
             data-canvas-header-opener=""
             aria-label={`View details: ${name}`}
             aria-pressed={open}
             className={CANVAS_HEADER_OPENER}
-          />
+          ><StructureDragGrip /></button>
           {label}
         </>
       )}

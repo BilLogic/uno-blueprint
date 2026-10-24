@@ -158,11 +158,11 @@ it('keeps every column handle when an added step has only empty slots', () => {
     </>,
     { container: body },
   )
-  expect(view.getAllByLabelText(/^Select the .* step$/)).toHaveLength(3)
-  expect(view.getByLabelText('Select the Last step')).toBeTruthy()
+  expect(view.getAllByLabelText(/^Add a step/)).toHaveLength(4)
+  expect(view.getByLabelText('Add a step after Last')).toBeTruthy()
 })
 
-it('preserves later step selection and insertion when a middle step cannot be measured', async () => {
+it('preserves later step insertion when a middle step cannot be measured', async () => {
   const bodyRef = createRef<HTMLDivElement>()
   const body = document.createElement('div')
   document.body.append(body)
@@ -188,9 +188,6 @@ it('preserves later step selection and insertion when a middle step cannot be me
     </>,
     { container: body },
   )
-  expect(view.queryByLabelText('Select the Unmeasured step')).toBeNull()
-  fireEvent.click(view.getByLabelText('Select the Last step'))
-  expect(writes.pickMany).toHaveBeenCalledWith(['last-cell'], 'add')
   fireEvent.click(view.getByLabelText('Add a step after Unmeasured'))
   await waitFor(() =>
     expect(writes.openCreate).toHaveBeenCalledWith(
@@ -259,7 +256,7 @@ it('does not place an end handle on an earlier column when the final step is unm
     </>,
     { container: body },
   )
-  expect(view.getByLabelText('Select the First step')).toBeTruthy()
+  expect(view.getByLabelText('Add a step before First')).toBeTruthy()
   expect(view.getAllByRole('button', { name: /^Add a step/ })).toHaveLength(1)
   expect(view.queryByLabelText('Add a step after Unmeasured')).toBeNull()
 })
@@ -281,9 +278,9 @@ it('keeps the canvas rendered while undo removes a measured step', () => {
     </>
   )
   const view = render(content(steps), { container: body })
-  expect(view.getAllByLabelText(/^Select the .* step$/)).toHaveLength(2)
+  expect(view.getAllByLabelText(/^Add a step/)).toHaveLength(3)
   view.rerender(content(steps.slice(0, 1)))
-  expect(view.getAllByLabelText(/^Select the .* step$/)).toHaveLength(1)
+  expect(view.getAllByLabelText(/^Add a step/)).toHaveLength(2)
   view.rerender(content([]))
   expect(view.queryAllByLabelText(/^Add a step/)).toHaveLength(0)
 })

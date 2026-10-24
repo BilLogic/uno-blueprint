@@ -1263,6 +1263,12 @@
   position: relative;
   isolation: isolate;
 }
+/* The row header owns focus; its name is one target inside that cell. */
+[data-structure-header-cell] [data-structure-header-title]:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+[data-structure-header-cell]:has([data-structure-header-title]:focus-visible),
 [data-structure-highlight='label'] {
   outline: var(--structure-highlight-stroke, 1px) solid var(--primary);
   outline-offset: calc(-1 * var(--structure-highlight-stroke, 1px));

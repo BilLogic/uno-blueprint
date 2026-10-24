@@ -155,6 +155,14 @@ for (const camera of ['overview', '100%'] as const) {
                 ),
               ),
           ).toBeGreaterThan(0)
+          if (axis === 'lane') {
+            expect(
+              await highlighted
+                .locator('[data-structure-highlight="label"]')
+                .evaluate((el) => el.matches('[data-structure-header-cell]')),
+              'hover outlines the whole row-header cell',
+            ).toBe(true)
+          }
           await page.screenshot({
             path: join(
               VIEW_SCREENSHOT_DIR,
@@ -901,6 +909,25 @@ for (const camera of ['overview', '100%'] as const) {
           expect(requests).toEqual([])
           page.off('request', track)
         }
+        await laneHeader.press('Shift')
+        await page.mouse.move(24, 24)
+        expect(
+          await laneHeader.evaluate((el) => {
+            const view = el.ownerDocument.defaultView!
+            const cell = el.closest('[data-structure-header-cell]')!
+            const style = view.getComputedStyle(cell)
+            return (
+              el.matches(':focus-visible') &&
+              style.outlineStyle === 'solid' &&
+              parseFloat(style.outlineWidth) > 0 &&
+              view.getComputedStyle(el).boxShadow === 'none'
+            )
+          }),
+          'keyboard focus stays on the whole cell without a second name ring',
+        ).toBe(true)
+        await page.screenshot({
+          path: join(VIEW_SCREENSHOT_DIR, `row-focus-${layout}-${theme}-${camera}.png`),
+        })
         expect(errors).toEqual([])
       })
     }

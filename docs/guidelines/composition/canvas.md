@@ -571,3 +571,5 @@ Reordering is available in Edit mode when exactly one stacked path is shown. Its
 A drop writes one path's complete identity permutation and records one session inverse. Undo restores the captured positions and refuses a path that has changed since that drop. Merged, read mode, several visible paths and an open create draft withhold the grips. Both kinds reorder the displayed path's own identities.
 
 An insertion animates the real grid track and the panel's offset from the same extent on the structural duration and move curve. Dependency arrows fade while their endpoints move and reroute at rest; obstacle routing must not block each animation frame. Reduced motion commits the geometry immediately.
+
+Lane hover and keyboard focus outline the whole row-header cell, including its blank area, with one inset rounded outline. The name button has no separate focus ring or hover fill. The corresponding row keeps its continuous wash.

@@ -330,13 +330,17 @@ export function BlueprintLabelRow({
         />
       )}
       <div
+        data-structure-header-cell=""
         data-open={selection?.kind === 'lane' && selection.id === laneId ? '' : undefined}
         onPointerEnter={(event) => {
           if (laneSelectable)
             highlightStructure(event.currentTarget, 'lane', row.label, true)
         }}
         onPointerLeave={(event) => {
-          if (laneSelectable)
+          if (
+            laneSelectable &&
+            !event.currentTarget.contains(event.currentTarget.ownerDocument.activeElement)
+          )
             highlightStructure(event.currentTarget, 'lane', row.label, false)
         }}
         onFocusCapture={(event) => {
@@ -356,7 +360,8 @@ export function BlueprintLabelRow({
           // on a different rhythm from the cells it names, and the two
           // numbers lived in different files with nothing holding them
           // together.
-          'group/lane-header relative flex min-h-0 flex-1 items-start gap-2',
+          'group/lane-header relative flex min-h-0 flex-1 items-start gap-2 rounded-md',
+          CANVAS_HEADER_STATE,
           compact ? BLUEPRINT_SLOT_INSET_COMPACT : BLUEPRINT_SLOT_INSET,
           // Bottom padding to match the top: the block stretches to fill this
           // container, so without it the selected wash ran flush into the
@@ -378,7 +383,6 @@ export function BlueprintLabelRow({
             data-blueprint-row-header=""
             className={cn(
               CANVAS_HEADER_TEXT,
-  CANVAS_HEADER_STATE,
               'group/lane relative min-w-0 flex-1 cursor-pointer rounded-md text-left whitespace-normal break-words',
             )}
             style={{ color: labelColor }}
@@ -398,7 +402,6 @@ export function BlueprintLabelRow({
             data-blueprint-row-header=""
             className={cn(
               CANVAS_HEADER_TEXT,
-  CANVAS_HEADER_STATE,
               'relative min-w-0 flex-1 text-left whitespace-normal break-words',
             )}
             style={{ color: labelColor }}

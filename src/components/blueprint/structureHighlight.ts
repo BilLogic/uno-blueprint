@@ -18,7 +18,7 @@ export function highlightStructure(
     return
   }
   owners.set(board, source)
-  const label = source.querySelector('[data-structure-header-title]') ?? source
+  const label = source.closest('[data-structure-header-cell]') ?? source
   label.setAttribute('data-structure-highlight', 'label')
   const scope = source.closest('[data-structure-path]') ?? board
   const nodes = scope.querySelectorAll<HTMLElement>(

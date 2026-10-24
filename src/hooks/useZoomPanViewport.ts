@@ -2116,9 +2116,14 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
       const temporaryPan =
         e.button === 1 ||
         (e.button === 0 && e.pointerType !== 'touch' && getCanvasSpaceHeld())
+      const target = e.target as HTMLElement
+      if (!temporaryPan && e.pointerType !== 'touch' && target.closest('[data-structure-reorder]') && target.closest('[data-canvas-reorder], [data-canvas-reorder-global]')) {
+        cancelCameraNavigation()
+        userAdjustedViewRef.current = true
+        return
+      }
       if (!panEnabled && !temporaryPan) return
       if (e.button !== 0 && e.button !== 1) return
-      const target = e.target as HTMLElement
       // The mouse on an interactive child is a tap on it, never a pan. A
       // single FINGER there goes pending instead — pan if it travels past
       // the slop, tap if it lifts inside it.

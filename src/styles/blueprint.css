@@ -1253,3 +1253,83 @@
     }
   }
 }
+
+/* Structural previews move at the same cadence as canvas micro interactions. */
+[data-structure-placeholder] {
+  pointer-events: none;
+}
+
+[data-structure-board] {
+  position: relative;
+  isolation: isolate;
+}
+/* The row header owns focus; its name is one target inside that cell. */
+[data-structure-header-cell] [data-structure-header-title]:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+[data-structure-header-cell]:has([data-structure-header-title]:focus-visible),
+[data-structure-highlight='label'] {
+  outline: var(--structure-highlight-stroke, 1px) solid var(--primary);
+  outline-offset: calc(-1 * var(--structure-highlight-stroke, 1px));
+  @apply rounded-md;
+}
+[data-axis-highlight]:has([data-structure-highlight='label'])::after {
+  content: '';
+  position: absolute;
+  left: var(--structure-highlight-x, 0px);
+  top: var(--structure-highlight-y, 0px);
+  width: var(--structure-highlight-width, 0px);
+  height: var(--structure-highlight-height, 0px);
+  background: color-mix(in oklch, var(--primary) 10%, transparent);
+  box-shadow: inset 0 0 0 var(--structure-highlight-stroke, 1px) color-mix(in oklch, var(--primary) 45%, transparent);
+  @apply rounded-md;
+  pointer-events: none;
+  z-index: 1;
+}
+[data-order-row]:has(button:focus-visible) [data-order-card] {
+  outline: 1px solid var(--ring);
+  outline-offset: -1px;
+}
+[data-structure-insert-zone] {
+  position: relative;
+  background: var(--wash-primary);
+  border: 1px dashed var(--border-primary);
+  @apply rounded-md;
+}
+
+[data-order-row] button:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Headers in a stacked path own one-axis reordering. Merged and drafts have no grips. */
+[data-structure-grip] { display: none; }
+[data-canvas-reorder] [data-structure-reorder] { cursor: grab; touch-action: none; }
+[data-canvas-reorder] [data-structure-reorder]:is(:hover, :focus-visible) [data-structure-grip] { display: block; }
+[data-canvas-reorder] [data-structure-reorder]:has([data-structure-grip]) { padding-left: 1.25rem; }
+[data-structure-lift] { position: relative; z-index: 50; cursor: grabbing; }
+[data-structure-lift-frame], [data-structure-landing] { position: absolute; pointer-events: none; @apply rounded-md; }
+[data-structure-lift-frame] { z-index: 50; border: var(--structure-highlight-stroke, 1px) solid var(--primary); @apply shadow-md; }
+[data-structure-landing] { z-index: 1; border: var(--structure-highlight-stroke, 1px) dashed var(--primary); background: var(--wash-primary); }
+
+/* Route once after structural motion rather than blocking every frame with obstacle routing. */
+[data-blueprint-arrows] { transition: opacity var(--motion-micro) var(--ease-move); }
+[data-structure-motion] [data-blueprint-arrows] { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { [data-blueprint-arrows] { transition: none; } }
+
+[data-canvas-reorder-global] [data-step-header-affordance] { cursor: grab; touch-action: none; }
+[data-canvas-reorder-global] [data-blueprint-column-header]:is(:hover, :focus-within) [data-structure-grip],
+[data-canvas-reorder] [data-structure-highlight='label'] [data-structure-grip] { display: block; }
+[data-structure-reordering] [data-blueprint-arrows] { opacity: 0; }
+
+/* Header triggers and their canvas previews share one interaction state. */
+[data-structure-seam]:is(:hover, :focus-visible) > :is([data-structure-slot], [data-structure-trigger]) {
+  border-color: var(--primary);
+}
+[data-structure-seam]:focus-visible > :is([data-structure-slot], [data-structure-trigger]) {
+  border-style: solid;
+}
+[data-structure-seam]:focus-visible {
+  box-shadow: none;
+}

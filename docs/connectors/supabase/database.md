@@ -387,6 +387,15 @@ credentials.
 | `21000110000000_the_ir_can_author_a_needs_edge.sql` | `schema_version` → `2026.08.26`. No DDL: `cell_dependencies.kind` has existed since `20260729120000`; the IR gained the field that can author it |
 | `21000111000000_propositions_are_the_business_model.sql` | `propositions` → `business_models`, with its constraint, index, policy and trigger names swept from the catalogue rather than listed. `evidence.proposition_question_key` is a permanent exemption and is asserted to survive. `schema_version` → `2026.08.27` |
 | `21000112000000_the_word_boundary_left_five_behind.sql` | Repairs what `\m…\M` could not reach. `set_cell_dependency` named `cell_triggers_source_target_kind_unique` in an `on conflict on constraint`, and `21000103`'s catalogue sweep had renamed that constraint — the body rewrite used a word-boundary pattern, and `_` is a word constituent, so it matched the table reference and not the constraint. Plus three stale comments and one inside a function body. No version bump: nothing about the shape moves |
+| `21000309000000_a_structure_panel_saves_one_change.sql` | Atomic structure panel creation and edits, validated full path orders, exact session inverses and path-local lane renames |
+
+The draft authoring operations save complete drafts in one call:
+`21000309000000_a_structure_panel_saves_one_change.sql` (authored
+2026-10-22) adds multi-path creation with validated full orders and a captured
+session inverse. `undo_structure_add` removes the created items and restores
+exact stored positions, refusing if a path's order has since changed. Lane
+renames now affect their own path only.
+
 
 ## Reserved migration timestamp band
 

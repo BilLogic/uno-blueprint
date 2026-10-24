@@ -1,3 +1,4 @@
+import { normalizeCompareName } from '@/lib/compareSlots'
 import { ARROW_VIEWPORT_PAD } from '@/lib/blueprintArrowGeometry'
 import {
   BLUEPRINT_ARTBOARD_HEIGHT_BUFFER,
@@ -198,6 +199,7 @@ export function getComparePanelScrollPaddingY(
 }
 
 export type CompareRowHeightSpec = {
+  lane?: BlueprintLane
   height: number
   wrapCorridorAbove?: boolean
   wrapCorridorBelow?: boolean
@@ -284,9 +286,15 @@ export function buildSideBySideLabelRowSpecs(
 ): BlueprintLabelRowSpec[] {
   const lanes = getCanonicalLanes(blueprints)
   const specs: BlueprintLabelRowSpec[] = []
+  // Preview rows reserve geometry; they do not introduce semantic boundaries.
+  const savedLanes = lanes.filter(lane => !['structure-seam', 'structure-placeholder'].includes(lane.id))
 
   for (let laneIndex = 0; laneIndex < lanes.length; laneIndex++) {
     const lane = lanes[laneIndex]
+    if (lane.seamSize !== undefined) {
+      specs.push({key:lane.id,kind:'lane',lane,label:'',height:lane.seamSize})
+      continue
+    }
     const collapsed = isBlueprintLaneCollapsed(lane.id, collapsedLaneIds)
 
     specs.push({
@@ -306,10 +314,10 @@ export function buildSideBySideLabelRowSpecs(
       wrapCorridorBelow: !collapsed && laneHasWrapCorridorBelow(lane, lanes),
       inLaneLoopCorridorAbove:
         !collapsed && laneHasInLaneLoopCorridor(lane, blueprints),
-      showDividerBelow: shouldShowLaneDividerAfter(lane, laneIndex, lanes),
+      showDividerBelow: shouldShowLaneDividerAfter(lane, savedLanes.indexOf(lane), savedLanes),
     })
 
-    if (!collapsed && laneHasInteractionLine(lane, lanes)) {
+    if (!collapsed && savedLanes.includes(lane) && laneHasInteractionLine(lane, savedLanes)) {
       specs.push({
         key: `${lane.id}-interaction`,
         kind: 'interaction',
@@ -318,7 +326,7 @@ export function buildSideBySideLabelRowSpecs(
       })
     }
 
-    if (!collapsed && laneHasVisibilityLine(lane, lanes)) {
+    if (!collapsed && savedLanes.includes(lane) && laneHasVisibilityLine(lane, savedLanes)) {
       specs.push({
         key: `${lane.id}-visibility`,
         kind: 'visibility',
@@ -327,7 +335,7 @@ export function buildSideBySideLabelRowSpecs(
       })
     }
 
-    if (!collapsed && laneHasInternalInteractionLine(lane, lanes)) {
+    if (!collapsed && savedLanes.includes(lane) && laneHasInternalInteractionLine(lane, savedLanes)) {
       specs.push({
         key: `${lane.id}-internal-interaction`,
         kind: 'internalInteraction',
@@ -424,9 +432,19 @@ export function getScenarioBlueprintPanelHeight(
 }
 
 export function getCanonicalLanes(blueprints: BlueprintData[]): BlueprintLane[] {
-  const source = blueprints[0]
-  if (!source) return []
-  return [...source.lanes].sort((a, b) => a.position - b.position)
+  const lanes: BlueprintLane[] = []
+  for (const blueprint of blueprints) {
+    const ordered = [...blueprint.lanes].sort((a,b)=>a.position-b.position)
+    for (let index=0;index<ordered.length;index++) {
+      const lane=ordered[index]
+      if (lanes.some(existing=>normalizeCompareName(existing.name) === normalizeCompareName(lane.name))) continue
+      const previous=ordered[index-1]
+      const next=ordered.slice(index+1).find(candidate=>lanes.some(existing=>normalizeCompareName(existing.name) === normalizeCompareName(candidate.name)))
+      const anchor=previous ? lanes.findIndex(existing=>normalizeCompareName(existing.name) === normalizeCompareName(previous.name))+1 : next ? lanes.findIndex(existing=>normalizeCompareName(existing.name) === normalizeCompareName(next.name)) : lanes.length
+      lanes.splice(anchor,0,lane)
+    }
+  }
+  return lanes
 }
 
 export function getCompareCellShellMinHeight(
@@ -487,6 +505,7 @@ export function getSharedLaneRowHeight(
  * when content genuinely swells past it.
  */
 export function getCompareRowTrackCss(row: CompareRowHeightSpec): string {
+  if (row.lane?.seamSize !== undefined) return `calc(var(--structure-seam-progress, 1) * ${row.height}px)`
   return `minmax(${getCompareRowTrackHeight(row)}px, auto)`
 }
 
@@ -679,6 +698,7 @@ export function getStackedComparePanelHeight(
  * with no divergence measures exactly as it does in Stacked.
  */
 export function getMergedCompareRowTrackCss(row: CompareRowHeightSpec): string {
+  if (row.lane?.seamSize !== undefined) return `calc(var(--structure-seam-progress, 1) * ${row.height}px)`
   return `minmax(${getCompareRowTrackHeight(row)}px, auto)`
 }
 

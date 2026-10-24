@@ -718,6 +718,24 @@ describe('viewport camera flights', () => {
     expect(cameraState().pan.x).toBeCloseTo(-400)
   })
 
+  it('holds the current camera when a canvas header begins a reorder', () => {
+    const target={left:0,top:0,width:1000,height:600}
+    const view=render(<Harness resetKey="initial" target={target} />)
+    act(()=>{flushFrame(0);flushFrame(16)})
+    target.left=800
+    view.rerender(<Harness resetKey="far" target={target} />)
+    act(()=>{flushFrame(32);flushFrame(48);flushFrame(64);flushFrame(164)})
+    const before=cameraState();expect(before.moving).toBe(true)
+    const content=view.container.querySelector('[data-zoom-pan-content]')!
+    content.setAttribute('data-canvas-reorder','')
+    const header=document.createElement('button');header.dataset.structureReorder='step';content.append(header)
+    act(()=>{const event=new MouseEvent('pointerdown',{bubbles:true,button:0});Object.defineProperty(event,'pointerType',{value:'mouse'});header.dispatchEvent(event)})
+    expect(cameraState().moving).toBe(false)
+    expect(cameraState().pan).toEqual(before.pan)
+    act(()=>flushFrame(500))
+    expect(cameraState().pan).toEqual(before.pan)
+  })
+
   it('yields to a wheel mid-flight from the interpolated position, with no snap', () => {
     const target = { left: 0, top: 0, width: 1000, height: 600 }
     const view = render(<Harness resetKey="initial" target={target} />)

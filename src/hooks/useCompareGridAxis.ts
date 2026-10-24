@@ -1,3 +1,4 @@
+import { useEntityDetailOptional } from '@/contexts/EntityDetailContext'
 import { useMemo } from 'react'
 import { useCollapsedBlueprintLanes } from '@/hooks/useCollapsedBlueprintLanes'
 import { STEP_COLUMN_WIDTH } from '@/lib/blueprintLayout'
@@ -35,13 +36,16 @@ export function useCompareGridAxis(
   blueprints: BlueprintData[],
   compact = false,
 ): CompareGridAxis {
+  const context=useEntityDetailOptional()
+  const clickedId=(context?.selection?.draft || context?.selection?.focusNext) ? context.preview?.clickedPathId : undefined
+  const axisBlueprints=useMemo(()=>{const clicked=blueprints.find(blueprint=>blueprint.path.id === clickedId);return clicked ? [clicked,...blueprints.filter(blueprint=>blueprint!==clicked)] : blueprints},[blueprints,clickedId])
   const { collapsedLaneIds, toggleLane } = useCollapsedBlueprintLanes()
 
-  const lanes = useMemo(() => getCanonicalLanes(blueprints), [blueprints])
+  const lanes = useMemo(() => getCanonicalLanes(axisBlueprints), [axisBlueprints])
 
   const rows = useMemo(
-    () => buildSideBySideLabelRowSpecs(blueprints, compact, collapsedLaneIds),
-    [blueprints, collapsedLaneIds, compact],
+    () => buildSideBySideLabelRowSpecs(axisBlueprints, compact, collapsedLaneIds),
+    [axisBlueprints, collapsedLaneIds, compact],
   )
 
   const tracks = useMemo(
@@ -56,7 +60,7 @@ export function useCompareGridAxis(
       return `${COMPARE_LABEL_TRACK_WIDTH}px ${STEP_COLUMN_WIDTH}px`
     }
     return `${COMPARE_LABEL_TRACK_WIDTH}px ${tracks
-      .map(() => `${STEP_COLUMN_WIDTH}px`)
+      .map(track => track.seamSize === undefined ? `${STEP_COLUMN_WIDTH}px` : `calc(var(--structure-seam-progress, 1) * ${track.seamSize}px)`)
       .join(' ')}`
   }, [tracks])
 

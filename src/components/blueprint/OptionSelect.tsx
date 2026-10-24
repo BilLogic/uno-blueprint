@@ -58,6 +58,7 @@ export function OptionSelect<V extends string>({
   onChange,
   options,
   disabled,
+  required,
   className,
   id,
   'aria-label': ariaLabel,
@@ -66,6 +67,7 @@ export function OptionSelect<V extends string>({
   onChange: (next: V) => void
   options: ReadonlyArray<SelectOption<V>>
   disabled?: boolean
+  required?: boolean
   className?: string
   id?: string
   'aria-label'?: string
@@ -79,12 +81,17 @@ export function OptionSelect<V extends string>({
       // Labels by value, so the trigger can name its value before the list
       // has ever been opened (Base UI otherwise learns labels from mounted
       // items).
-      items={options.map((option) => ({ value: option.value, label: option.label }))}
+      items={options.map((option) => ({
+        value: option.value,
+        label: option.label,
+      }))}
       disabled={disabled}
+      required={required}
     >
       <SelectTrigger
         id={id}
         aria-label={ariaLabel}
+        aria-required={required || undefined}
         className={cn(PANEL_SELECT_TRIGGER_CLASS, className)}
       >
         <SelectValue />

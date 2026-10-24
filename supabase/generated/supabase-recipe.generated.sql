@@ -2715,3 +2715,111 @@ begin
   end if;
 end
 $anon_definer$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000309000000_a_structure_panel_saves_one_change.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- Signed-in callers may attempt the guarded writes; helpers stay private.
+grant execute on function public.add_step_with_details(uuid,text,jsonb,text) to authenticated;
+grant execute on function public.add_lane_with_details(uuid,text,text,jsonb,jsonb) to authenticated;
+grant execute on function public.undo_structure_add(jsonb) to authenticated;
+grant execute on function public.rename_step_name(uuid,text) to authenticated;
+grant execute on function public.update_step_with_details(uuid,text,text) to authenticated;
+grant execute on function public.update_lane_with_details(uuid,uuid[],text,jsonb) to authenticated;
+grant execute on function public.restore_step_details(jsonb) to authenticated;
+grant execute on function public.restore_lane_details(jsonb) to authenticated;
+grant execute on function public.rename_lane(uuid,text) to authenticated;
+
+-- The new writes and their inverse refuse a caller without the author tier.
+do $draft_permissions$
+begin
+  perform set_config('request.jwt.claims','{}',true);
+  begin
+    perform public.add_step_with_details(null::uuid,'Blocked','{}'::jsonb);
+    raise exception 'step draft accepted a reader';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.add_lane_with_details(null::uuid,'Blocked','frontstage_actions','{}'::jsonb);
+    raise exception 'lane draft accepted a reader';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.undo_structure_add('{}'::jsonb);
+    raise exception 'draft undo accepted a reader';
+  exception when insufficient_privilege then null; end;
+  if has_function_privilege('anon','public.undo_structure_add(jsonb)','EXECUTE')
+    or has_function_privilege('anon','public.add_step_with_details(uuid,text,jsonb,text)','EXECUTE')
+    or has_function_privilege('anon','public.add_lane_with_details(uuid,text,text,jsonb,jsonb)','EXECUTE') then
+    raise exception 'an anonymous caller can execute a draft write';
+  end if;
+end $draft_permissions$;
+
+-- Panel edits commit and restore the name and all properties together.
+do $panel_edit_proof$
+declare svc uuid; ph uuid; sc uuid; p uuid; st uuid; ln uuid; snapshot jsonb;
+begin
+  perform set_config('request.jwt.claims','{"app_metadata":{"role":"service"}}',true);
+  if not public.is_service_account() then return; end if;
+  insert into public.services(name) values('Panel edit fixture') returning id into svc;
+  insert into public.phases(service_id,name,position) values(svc,'Fixture phase',0) returning id into ph;
+  insert into public.scenarios(phase_id,name,position) values(ph,'Fixture scenario',0) returning id into sc;
+  insert into public.paths(scenario_id,name,kind) values(sc,'Default','happy') returning id into p;
+  st := public.add_step(p,'Start',null);
+  snapshot := public.update_step_with_details(st,'Review','Review the request.');
+  if not exists(select 1 from public.steps where id=st and name='Review' and summary='Review the request.') then raise exception 'step panel fields were not saved together'; end if;
+  perform public.restore_step_details(snapshot);
+  if not exists(select 1 from public.steps where id=st and name='Start' and summary is null) then raise exception 'step panel inverse lost a field'; end if;
+  insert into public.lanes(path_id,name,lane_role,position,owner_team) values(p,'Actor','frontstage_actions',0,'Original team') returning id into ln;
+  snapshot := public.update_lane_with_details(ln,array[ln],'Reviewer','{"owner_team":"Operations","stakeholder_id":null,"kpis":["Completion"],"tools":["Queue"]}');
+  if not exists(select 1 from public.lanes where id=ln and name='Reviewer' and owner_team='Operations' and kpis='["Completion"]' and tools='["Queue"]') then raise exception 'lane panel fields were not saved together'; end if;
+  perform public.restore_lane_details(snapshot);
+  if not exists(select 1 from public.lanes where id=ln and name='Actor' and owner_team='Original team' and kpis='[]' and tools='[]') then raise exception 'lane panel inverse lost a field'; end if;
+  perform set_config('request.jwt.claims','{}',true);
+  begin
+    perform public.update_step_with_details(st,'Blocked','Blocked');
+    raise exception 'step panel accepted a reader';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.update_lane_with_details(ln,array[ln],'Blocked','{"kpis":[],"tools":[]}');
+    raise exception 'lane panel accepted a reader';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.restore_step_details('{}');
+    raise exception 'step restore accepted a reader';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.restore_lane_details('{}');
+    raise exception 'lane restore accepted a reader';
+  exception when insufficient_privilege then null; end;
+  raise exception 'panel edit proof complete';
+exception when raise_exception then if sqlerrm <> 'panel edit proof complete' then raise; end if;
+end $panel_edit_proof$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000310000000_path_orders_are_guarded_permutations.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- The guarded entry points accept authenticated authors only.
+grant execute on function public.reorder_steps(uuid,uuid[]) to authenticated;
+grant execute on function public.reorder_lanes(uuid,uuid[]) to authenticated;
+grant execute on function public.undo_structure_order(jsonb) to authenticated;
+
+-- Anonymous callers cannot enter a reorder or its inverse.
+do $permissions$ begin
+  if has_function_privilege('anon','public.reorder_steps(uuid,uuid[])','execute') or has_function_privilege('anon','public.reorder_lanes(uuid,uuid[])','execute') or has_function_privilege('anon','public.undo_structure_order(jsonb)','execute') then raise exception 'anonymous reorder exposed'; end if;
+end $permissions$;
+
+-- The host's reader identity cannot enter a write or undo.
+do $reader$
+begin
+  perform set_config('request.jwt.claims','{}',true);
+  begin
+    perform public.reorder_steps(gen_random_uuid(),'{}'::uuid[]); raise exception 'reader reordered steps';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.reorder_lanes(gen_random_uuid(),'{}'::uuid[]); raise exception 'reader reordered lanes';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.undo_structure_order('{}'); raise exception 'reader undid order';
+  exception when insufficient_privilege then null; end;
+end $reader$;

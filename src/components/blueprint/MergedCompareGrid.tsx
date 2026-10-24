@@ -1,3 +1,7 @@
+import { StructureLaneDraftZone } from './StructureDraftZones'
+import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
+import { BlueprintLaneHandles } from './BlueprintLaneHandles'
+import { BlueprintColumnHandles } from './BlueprintColumnHandles'
 import { Fragment, useMemo, useRef, type RefObject } from 'react'
 import {
   BlueprintDividerRow,
@@ -106,9 +110,9 @@ type MergedPathRuntime = {
  * keeps its own real `cellId`, so selection, focus/pulse and the agent's
  * cell tools work with no disambiguation.
  *
- * Merged is a READING view: no edit-mode drop targets (an N-path empty slot
- * has no single sensible target) and no column/lane resize handles (a merged
- * column stands for N paths' steps). Authoring stays in Stacked.
+ * Merged has no cell drop targets or resize handles. Structural gap targets
+ * open the same create panels as Stacked; a step target names the backing
+ * path it inserts into, rather than silently writing every compared path.
  */
 export function MergedCompareGrid({
   blueprints,
@@ -247,7 +251,9 @@ export function MergedCompareGrid({
       // edge with the same meaning collapse — two distinct semantics between
       // one remapped pair both survive. They live on the RAW blueprint
       // dependencies, so look them up by id.
-      const rawById = new Map(blueprint.dependencies.map((raw) => [raw.id, raw]))
+      const rawById = new Map(
+        blueprint.dependencies.map((raw) => [raw.id, raw]),
+      )
       const remapped = remapMergedPathDependencies(
         data.dependencies,
         remap,
@@ -271,6 +277,7 @@ export function MergedCompareGrid({
 
   return (
     <div
+      data-structure-board=""
       className={cn('w-max shrink-0', className)}
       style={getCompareBoardWrapperPadding()}
     >
@@ -285,6 +292,7 @@ export function MergedCompareGrid({
         <CompareStepHeaderRow tracks={tracks} />
         <div
           ref={bandRef}
+          data-structure-paths={blueprints.map(blueprint => blueprint.path.id).join(' ')}
           className="relative z-0 grid overflow-visible"
           style={{
             gridRow: 2,
@@ -297,6 +305,29 @@ export function MergedCompareGrid({
             marginTop: COMPARE_STACKED_HEADER_GAP,
           }}
         >
+          <StructureLaneDraftZone rows={rows} />
+          <BlueprintLaneHandles
+            bodyRef={bandRef}
+            pathId={blueprints[0]?.path.id}
+            pathIds={blueprints.map((blueprint) => blueprint.path.id)}
+          />
+          <BlueprintColumnHandles
+            bodyRef={bandRef}
+            steps={tracks.map((track) => {
+              const path = blueprints.find(
+                (blueprint) => track.stepIdByPath[blueprint.path.id],
+              )!
+              const step = path.steps.find(
+                (step) => step.id === track.stepIdByPath[path.path.id],
+              )!
+              return {
+                ...step,
+                pathId: path.path.id,
+                pathName: path.path.name,
+                pathIds: Object.keys(track.stepIdByPath),
+              }
+            })}
+          />
           <MergedSectionFrame blueprints={blueprints} />
           {tracks.map(() => null)}
           {/* One lane rail for the whole comparison — the point of merging. */}
@@ -318,8 +349,8 @@ export function MergedCompareGrid({
                   row.kind === 'interaction'
                     ? 'dashed'
                     : row.kind === 'internalInteraction'
-                      ? 'dotted'
-                      : 'solid'
+                    ? 'dotted'
+                    : 'solid'
                 }
               />
             ) : (
@@ -402,8 +433,8 @@ function resolveMergedCellVariant(lane: BlueprintLane): BlueprintCellVariant {
   return shouldUseStoryboardContent(lane)
     ? 'storyboard'
     : shouldUseTouchpointCellContent(lane)
-      ? 'touchpoints'
-      : 'default'
+    ? 'touchpoints'
+    : 'default'
 }
 
 /**
@@ -411,16 +442,13 @@ function resolveMergedCellVariant(lane: BlueprintLane): BlueprintCellVariant {
  * The compared paths are named on its top edge in selection order, each
  * badge carrying the short label its cell rails use.
  */
-function MergedSectionFrame({
-  blueprints,
-}: {
-  blueprints: BlueprintData[]
-}) {
+function MergedSectionFrame({ blueprints }: { blueprints: BlueprintData[] }) {
   return (
     <>
       {/* Axis labels stay outside the data boundary in every arrangement. */}
       <div
         aria-hidden
+        data-structure-content-frame=""
         className="pointer-events-none absolute rounded-xl border-2 border-border"
         style={{
           top: -COMPARE_PATH_SECTION_TOP_INSET,
@@ -511,8 +539,8 @@ function MergedLaneRow({
           assembly === undefined || assembly.kind === 'empty'
             ? []
             : assembly.kind === 'shared'
-              ? [assembly.representative]
-              : assembly.subCells
+            ? [assembly.representative]
+            : assembly.subCells
         // Every drawn cell states its membership positively — a
         // fully-shared cell wears every path's segment, which is the plain
         // "used in both" statement, and a subset cell wears only its own.
@@ -534,10 +562,22 @@ function MergedLaneRow({
               <div
                 aria-hidden
                 data-compare-column-spacer=""
-                className="shrink-0"
+                data-structure-seam-track={
+                  track.seamSize !== undefined ? 'step' : undefined
+                }
+                data-structure-placeholder={
+                  lane.id === STRUCTURE_PLACEHOLDER_ID ||
+                  Object.values(track.stepIdByPath).includes(
+                    STRUCTURE_PLACEHOLDER_ID,
+                  )
+                    ? ''
+                    : undefined
+                }
+                data-step-index={trackIndex}
+                className="shrink-0 self-stretch rounded-md"
                 style={{
-                  width: STEP_COLUMN_WIDTH,
-                  minWidth: STEP_COLUMN_WIDTH,
+                  width: track.seamSize === undefined ? STEP_COLUMN_WIDTH : `calc(var(--structure-seam-progress, 1) * ${track.seamSize}px)`,
+                  minWidth: track.seamSize === undefined ? STEP_COLUMN_WIDTH : 0,
                 }}
               />
             ) : subCells.length === 1 ? (
@@ -634,7 +674,8 @@ function MergedSubCellBlock({
     .filter((cell): cell is BlueprintCell => cell !== undefined)
   const isStoryboard = variant === 'storyboard'
   const cell = cells[0]
-  const cellId = cell?.id ?? (isStoryboard ? `storyboard-${subCell.stepId}` : undefined)
+  const cellId =
+    cell?.id ?? (isStoryboard ? `storyboard-${subCell.stepId}` : undefined)
   const storyboardPictures = isStoryboard
     ? resolveStoryboardStripEntries(blueprint, subCell.stepId)
     : undefined

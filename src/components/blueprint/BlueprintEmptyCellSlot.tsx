@@ -1,3 +1,4 @@
+import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
 import { Plus } from 'lucide-react'
 import { IconTooltip } from '@/components/editor/IconTooltip'
 import { useBlueprintCellDetailOptional } from '@/contexts/BlueprintCellDetailContext'
@@ -61,6 +62,8 @@ export function BlueprintEmptyCellSlot({
     ...(minHeight === undefined ? {} : { minHeight }),
   }
   const stretch = selfStretch ? 'self-stretch' : ''
+
+  if (stepId === STRUCTURE_PLACEHOLDER_ID || laneId === STRUCTURE_PLACEHOLDER_ID) return <div data-structure-placeholder="" data-step-index={stepIndex} className={cn('shrink-0 rounded-md',stretch)} style={style} />
 
   if (
     mode !== 'design' ||

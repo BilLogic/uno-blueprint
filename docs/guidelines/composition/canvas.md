@@ -1,6 +1,9 @@
 ---
 summary: The board and the chrome around it — click grammar, canvas modes, panel-as-selection, the motion vocabulary, camera behaviour, the phase-row height contract and the touch contract.
 claims:
+  - src/components/blueprint/StructureDragGrip.tsx
+  - src/components/blueprint/canvasStructureReorder.ts
+  - src/components/blueprint/useCanvasStructureReorder.ts
   - src/components/blueprint/BlueprintArrowMarkerDefs.tsx
   - src/components/blueprint/BlueprintCellButton.tsx
   - src/components/blueprint/BlueprintColumnHandles.tsx
@@ -560,3 +563,15 @@ that iOS, where the pointer map already pinches, never applies scale twice.
 What exists on a phone at all is a question for
 [mobile-shell.md](mobile-shell.md), not for this surface: below the gate this
 canvas is not what renders.
+
+### Reorder an axis
+
+Reordering is available in Edit mode when exactly one stacked path is shown. Its step headers and lane labels carry a grip on hover or keyboard focus. A header press holds the current camera. Moving more than five screen pixels lifts its whole column or row along one axis; a dashed landing slot names the destination while the other items slide. Escape cancels the move. A press without movement keeps selection and double-click rename available. Alt with Left or Right moves a step; Alt with Up or Down moves a lane.
+
+A drop writes one path's complete identity permutation and records one session inverse. Undo restores the captured positions and refuses a path that has changed since that drop. Merged, read mode, several visible paths and an open create draft withhold the grips. Both kinds reorder the displayed path's own identities.
+
+An insertion animates the real grid track and the panel's offset from the same extent on the structural duration and move curve. Dependency arrows fade while their endpoints move and reroute at rest; obstacle routing must not block each animation frame. Reduced motion commits the geometry immediately.
+
+Lane hover and keyboard focus outline the whole row-header cell, including its blank area, with one inset rounded outline. The name button has no separate focus ring or hover fill. The corresponding row keeps its continuous wash.
+
+Insertion detection belongs to the gaps between axis headers, not the cell area. A hovered gap shows a primary-tinted header block with a plain plus and opens a separate preview strip inside the path's content frame. The header block and preview grow with the actual empty track on one motion clock; the plus fades in only once the gap has room for it, and fades out before the gap closes. The preview shows where the new row or column will go and stays clickable while open. Ordinary canvas hover keeps cell creation available, including on entirely empty rows.

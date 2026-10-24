@@ -1,3 +1,6 @@
+import { useStructureInsertionOffset } from '@/hooks/useStructureInsertionOffset'
+import { useEntityDetailOptional } from '@/contexts/EntityDetailContext'
+import { previewStructureDraft, previewPendingStructureDraft, previewStructureSeam } from '@/lib/structureDraftPreview'
 import { memo, useEffect, useMemo, useRef, type RefObject } from 'react'
 import { ResizableComparePanel } from '@/components/blueprint/ResizableComparePanel'
 import { MergedCompareGrid } from '@/components/blueprint/MergedCompareGrid'
@@ -125,7 +128,8 @@ export const ScenarioBlueprintPanelBody = memo(function ScenarioBlueprintPanelBo
   // differently.
   const useSideBySideLayout = selectedPathIds.length > 0
 
-  const visibleBlueprints = useMemo(
+  const draftContext = useEntityDetailOptional()
+  const loadedBlueprints = useMemo(
     () =>
       useSideBySideLayout
         ? itemsInSelectionOrder(selectedPathIds, (id) =>
@@ -134,6 +138,16 @@ export const ScenarioBlueprintPanelBody = memo(function ScenarioBlueprintPanelBo
         : [],
     [blueprintsByPathId, selectedPathIds, useSideBySideLayout],
   )
+
+  const visibleBlueprints = useMemo(() => {
+    if (draftContext?.selection?.draft)
+      return draftContext.preview?.orders.length
+        ? previewStructureDraft(loadedBlueprints, draftContext.preview)
+        : previewPendingStructureDraft(loadedBlueprints, draftContext.selection.draft)
+    if (draftContext?.seam)
+      return previewStructureSeam(loadedBlueprints, draftContext.seam)
+    return loadedBlueprints
+  }, [loadedBlueprints, draftContext?.selection?.draft, draftContext?.preview, draftContext?.seam])
 
   /*
     THE compare model — computed once here, distributed via props; consumers
@@ -145,8 +159,12 @@ export const ScenarioBlueprintPanelBody = memo(function ScenarioBlueprintPanelBo
     if (!useSideBySideLayout) return null
     if (visibleBlueprints.length < 2) return null
     if (visibleBlueprints.length !== selectedPathIds.length) return null
-    return buildCompareModel(visibleBlueprints as CompareBlueprints)
-  }, [selectedPathIds.length, useSideBySideLayout, visibleBlueprints])
+    const clickedId=(draftContext?.selection?.draft || draftContext?.selection?.focusNext) ? draftContext.preview?.clickedPathId : undefined
+    const comparisonBoards = draftContext?.seam?.kind === 'step' ? loadedBlueprints : visibleBlueprints
+    const clicked=comparisonBoards.find(blueprint=>blueprint.path.id===clickedId)
+    const axis=clicked ? [clicked,...comparisonBoards.filter(blueprint=>blueprint!==clicked)] : comparisonBoards
+    return buildCompareModel(axis as CompareBlueprints)
+  }, [selectedPathIds.length, useSideBySideLayout, visibleBlueprints,loadedBlueprints,draftContext?.seam?.kind,draftContext?.selection,draftContext?.preview?.clickedPathId])
 
   /*
     Merged = ONE COMBINED BLUEPRINT (Phase 4b). `MergedCompareGrid` renders
@@ -394,7 +412,10 @@ export const ScenarioBlueprintPanelBody = memo(function ScenarioBlueprintPanelBo
         ? getStackedComparePanelHeight(visibleBlueprints, false, scrollChrome)
         : getComparePanelHeight(visibleBlueprints, false, scrollChrome))
 
+  const insertionOffset = useStructureInsertionOffset(visibleBlueprints)
+
   const comparePanelProps = {
+    insertionOffset,
     // Compare-grid estimates run hot (the height one predates
     // classification collapsing stacked slots). A floor set from a hot
     // estimate is dead gray space — the measured content rules instead.

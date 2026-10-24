@@ -60,7 +60,6 @@ export function resolveBlueprintLane(
   return (
     blueprint.lanes.find((lane) => lane.id === canonicalLane.id) ??
     blueprint.lanes.find((lane) => lane.name === canonicalLane.name) ??
-    blueprint.lanes.find((lane) => lane.position === canonicalLane.position) ??
     canonicalLane
   )
 }

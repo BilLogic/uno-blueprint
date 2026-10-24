@@ -416,6 +416,52 @@ for (const camera of ['overview', '100%'] as const) {
         await expect(
           board.locator('[data-structure-seam-track="lane"]'),
         ).toHaveCount(0)
+        // The header block must grow with its actual empty track, rather than
+        // painting its final width over neighbouring content during the move.
+        for (const kind of ['step', 'lane'] as const) {
+          const animated = board.getByRole('button', {
+            name: kind === 'step' ? /^Add a step after Invoke ub:map/ : 'Add a lane below Journey figures',
+            exact: kind === 'lane',
+          }).first()
+          const probe = await animated.boundingBox()
+          const observe = () => animated.evaluate((element, axis) => new Promise<{overlap:number[]; mismatch:number[]; earlyIcon:number[]}>((resolve) => {
+            const overlap:number[] = [], mismatch:number[] = [], earlyIcon:number[] = []
+            const start = performance.now()
+            const frame = () => {
+              const scope = element.closest('[data-structure-board]')!
+              const track = scope.querySelector(`[data-structure-seam-track="${axis}"]`)?.getBoundingClientRect()
+              const trigger = element.querySelector('[data-structure-trigger]')!.getBoundingClientRect()
+              const slot = element.querySelector('[data-structure-slot]')!.getBoundingClientRect()
+              const icon = element.querySelector('[data-structure-trigger] svg')!
+              const style = element.ownerDocument.defaultView!.getComputedStyle(icon)
+              if (track) {
+                const size = axis === 'step' ? track.width : track.height
+                const painted = axis === 'step' ? trigger.width : trigger.height
+                overlap.push(Math.max(0, painted - size))
+                mismatch.push(axis === 'step' ? Math.abs(slot.left-track.left) : Math.abs(slot.top-track.top))
+                if (size < 16) earlyIcon.push(Number(style.opacity))
+              }
+              if (performance.now()-start < 1100) element.ownerDocument.defaultView!.requestAnimationFrame(frame)
+              else resolve({overlap,mismatch,earlyIcon})
+            }
+            element.ownerDocument.defaultView!.requestAnimationFrame(frame)
+          }), kind)
+          const opening = observe()
+          await page.mouse.move(probe!.x+probe!.width/2, probe!.y+probe!.height/2)
+          const sequence = await opening
+          expect(sequence.overlap.length, `${kind} opening was sampled`).toBeGreaterThan(4)
+          expect(Math.max(...sequence.overlap), `${kind} header block fits the space on every frame`).toBeLessThan(1)
+          expect(Math.max(...sequence.mismatch), `${kind} preview follows the actual track on every frame`).toBeLessThan(1)
+          expect(Math.max(0,...sequence.earlyIcon), `${kind} plus waits for room`).toBe(0)
+          const closing = observe()
+          await page.mouse.move(24,24)
+          const reverse = await closing
+          expect(reverse.overlap.length, `${kind} closing was sampled`).toBeGreaterThan(4)
+          expect(Math.max(...reverse.overlap), `${kind} header shrinks with the closing track`).toBeLessThan(1)
+          expect(Math.max(...reverse.mismatch), `${kind} closing preview follows the track`).toBeLessThan(1)
+          expect(Math.max(0,...reverse.earlyIcon), `${kind} plus disappears before the gap closes`).toBe(0)
+          await expect(board.locator(`[data-structure-seam-track="${kind}"]`)).toHaveCount(0)
+        }
         const semanticEdge = board
           .getByRole('button', {
             name: 'Add a lane below Blueprint owner',

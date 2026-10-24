@@ -1,6 +1,5 @@
 import { Plus } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { cn } from '@/lib/utils'
 import { registerStructureInsert } from './structureInsertIntent'
 
 /** A focusable gap; the entire opened slot is the action. The plus has no chrome. */
@@ -55,6 +54,12 @@ export function StructureInsert({
       intent.current = null
     }
   }, [orientation])
+  // The empty track is the clock for both painted surfaces. A boolean hover
+  // must not reveal a full block while the layout is still making room.
+  const progress = extent === undefined
+    ? (open ? '1' : '0')
+    : extent > 0 ? 'var(--structure-seam-progress, 0)' : '0'
+  const paintedSize = `calc(${progress} * ${34 / scale}px)`
   return (
     <button
       ref={button}
@@ -113,22 +118,20 @@ export function StructureInsert({
                 ...(edge ? { top: 0 } : {}),
               }),
           ...slotStyle,
+          borderWidth: `calc(${progress} * 1px)`,
+          opacity: progress,
         }}
-        className={cn(
-          'pointer-events-auto absolute rounded-md border border-dashed border-border-primary bg-wash-primary transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
-          open || extent ? 'opacity-100' : 'opacity-0',
-        )}
+        className="pointer-events-auto absolute rounded-md border border-dashed border-border-primary bg-wash-primary"
       />
       <span
         data-structure-trigger=""
         aria-hidden
-        className={cn(
-          'pointer-events-none absolute flex items-center justify-center rounded-md border border-border-primary bg-wash-primary transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
-          !open && 'opacity-0 [@media(hover:none)]:opacity-40',
-        )}
+        className="pointer-events-none absolute flex items-center justify-center overflow-hidden rounded-md border border-border-primary bg-wash-primary"
         style={{
-          width: orientation === 'vertical' ? 34 / scale : 'calc(100% - 8px)',
-          height: orientation === 'horizontal' ? 34 / scale : 'calc(100% - 4px)',
+          width: orientation === 'vertical' ? paintedSize : 'calc(100% - 8px)',
+          height: orientation === 'horizontal' ? paintedSize : 'calc(100% - 4px)',
+          borderWidth: `calc(${progress} * 1px)`,
+          opacity: progress,
           ...(edge
             ? orientation === 'vertical'
               ? { left: hitSize / 2 / scale }
@@ -136,7 +139,11 @@ export function StructureInsert({
             : {}),
         }}
       >
-        <Plus aria-hidden className="max-h-full max-w-full text-primary" style={{width:16 / scale, height:16 / scale}} />
+        <Plus aria-hidden className="shrink-0 text-primary" style={{
+          width: 16 / scale,
+          height: 16 / scale,
+          opacity: `clamp(0, calc((${progress} - 0.65) / 0.35), 1)`,
+        }} />
       </span>
     </button>
   )

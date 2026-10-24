@@ -21,7 +21,7 @@
  * those files reports through `reportWriteFailure`, with whitespace collapsed
  * first so that only the channel is being read, never the layout.
  */
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { sourceOf } from '@/lib/sourceTree'
 import { EditorErrorBoundary } from '@/components/EditorErrorBoundary'
@@ -329,4 +329,25 @@ it('expires a successful addition without expiring a failed write', async () => 
     act(()=>vi.advanceTimersByTime(8000))
     expect(writeFailureSnapshot().map(notice=>notice.message)).toEqual(['The edit was not saved. Try again'])
   } finally {vi.useRealTimers()}
+})
+
+
+it('keeps only the latest success notice and its undo without removing errors or history', async () => {
+  const { reportWriteSuccess } = await import('./writeFailures')
+  quiet()
+  clearSession()
+  const first = vi.fn(async () => {}), latest = vi.fn(async () => {})
+  reportWriteFailure('The edit was not saved', new Error('Try again'))
+  recordChange('rename_step', {step_id:'step',new_name:'Start'}, {fn:'rename_step',args:{step_id:'step',new_name:'Review'}})
+  reportWriteSuccess('Moved Start', sessionSnapshot().at(-1)!.id, first)
+  recordChange('rename_step', {step_id:'step',new_name:'Finish'}, {fn:'rename_step',args:{step_id:'step',new_name:'Start'}})
+  reportWriteSuccess('Moved Start', sessionSnapshot().at(-1)!.id, latest)
+  render(<WriteFailureNotices />)
+  expect(writeFailureSnapshot().filter(notice => notice.success)).toHaveLength(1)
+  expect(sessionSnapshot()).toHaveLength(2)
+  expect(screen.getByRole('alert').textContent).toContain('The edit was not saved')
+  expect(screen.getByRole('status').textContent).toContain('Moved Start')
+  fireEvent.click(screen.getByRole('button', {name:'Undo'}))
+  await waitFor(() => expect(latest).toHaveBeenCalledOnce())
+  expect(first).not.toHaveBeenCalled()
 })

@@ -35,7 +35,7 @@ export function useAnimatedStructureSeam(
     const scope =
       document
         .querySelector<HTMLElement>(
-          `[data-structure-path="${CSS.escape(visible.pathId)}"]`,
+          `[data-structure-path="${CSS.escape(visible.pathId)}"], [data-structure-paths~="${CSS.escape(visible.pathId)}"]`,
         )
         ?.closest<HTMLElement>('[data-focus-slide-id]') ??
       document.documentElement

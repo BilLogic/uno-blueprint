@@ -99,6 +99,7 @@ export function ComparePathSectionFrame({
     <>
       <div
         aria-hidden
+        data-structure-content-frame=""
         className="pointer-events-none absolute rounded-xl"
         style={{
           ...inset,

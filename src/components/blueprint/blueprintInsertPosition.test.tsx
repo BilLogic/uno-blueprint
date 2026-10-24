@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { createRef } from 'react'
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { BlueprintColumnHandles } from './BlueprintColumnHandles'
 import { BlueprintLaneHandles } from './BlueprintLaneHandles'
 import { BlueprintEmptyCellSlot } from './BlueprintEmptyCellSlot'
+import { COMPARE_LABEL_WIDTH, COMPARE_STEP_HEADER_HEIGHT } from '@/lib/sideBySideCompareLayout'
 
 const writes = vi.hoisted(() => ({
   step: vi.fn(async () => 'new-step'),
@@ -74,6 +75,7 @@ it('inserts at the next step’s stored position, including gaps, and appends af
     </>,
     { container: body },
   )
+  expect(view.getByLabelText('Add a step after First').style.height).toBe(`${COMPARE_STEP_HEADER_HEIGHT}px`)
   fireEvent.click(view.getByLabelText('Add a step after First'))
   await waitFor(() =>
     expect(writes.openCreate).toHaveBeenCalledWith(
@@ -119,6 +121,7 @@ it('inserts before the visible lane’s stored position rather than its visible 
     </>,
     { container: body },
   )
+  expect(view.getAllByLabelText(/^Add a lane/)[1].style.width).toBe(`${COMPARE_LABEL_WIDTH}px`)
   fireEvent.click(view.getAllByLabelText(/^Add a lane/)[1])
   expect(writes.lane).not.toHaveBeenCalled()
   expect(writes.openCreate).toHaveBeenCalledWith(
@@ -283,4 +286,28 @@ it('keeps the canvas rendered while undo removes a measured step', () => {
   expect(view.getAllByLabelText(/^Add a step/)).toHaveLength(2)
   view.rerender(content([]))
   expect(view.queryAllByLabelText(/^Add a step/)).toHaveLength(0)
+})
+
+
+it('offers one insertion trigger per canonical step header across stacked paths', () => {
+  const board = document.createElement('div')
+  board.dataset.structureBoard = ''
+  board.innerHTML = '<div data-blueprint-column-header><button data-structure-id="first">Start</button></div>'
+  document.body.append(board)
+  const first = createRef<HTMLDivElement>(), second = createRef<HTMLDivElement>()
+  first.current = document.createElement('div')
+  second.current = document.createElement('div')
+  first.current.dataset.structurePath = 'one'
+  second.current.dataset.structurePath = 'two'
+  first.current.dataset.structureStepIds = second.current.dataset.structureStepIds = 'first'
+  board.append(first.current, second.current)
+  try {
+    render(<><div data-blueprint-cell-anchor="" data-step-index="0" />
+      <BlueprintColumnHandles bodyRef={first} pathId="one" steps={[{id:'first',name:'Start',position:0}]} />
+    </>, {container:first.current})
+    render(<><div data-blueprint-cell-anchor="" data-step-index="0" />
+      <BlueprintColumnHandles bodyRef={second} pathId="two" steps={[{id:'first',name:'Start',position:0}]} />
+    </>, {container:second.current})
+    expect(screen.getAllByLabelText(/^Add a step/)).toHaveLength(2)
+  } finally {board.remove()}
 })

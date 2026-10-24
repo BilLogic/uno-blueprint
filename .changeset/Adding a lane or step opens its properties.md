@@ -2,4 +2,4 @@
 "uno-blueprint": patch
 ---
 
-Lane and step insertion opens a centered seam and an editor for fields and paths, and stacked headers reorder one path with undo and focus on the whole row-header cell.
+Lane and step headers offer insertion previews and path editors, empty rows keep cell creation available, and changes have one Undo notice.

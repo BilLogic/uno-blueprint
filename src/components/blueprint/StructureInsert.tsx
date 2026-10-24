@@ -12,6 +12,7 @@ export function StructureInsert({
   hitSize = 44,
   label,
   style,
+  slotStyle,
   onClick,
   onOpenChange,
 }: {
@@ -22,6 +23,8 @@ export function StructureInsert({
   orientation: 'horizontal' | 'vertical'
   label: string
   style?: CSSProperties
+  /** The opened preview may extend into the board; detection stays on the header. */
+  slotStyle?: CSSProperties
   onClick: (opener: HTMLButtonElement) => void
   onOpenChange?: (open: boolean) => void
 }) {
@@ -87,8 +90,8 @@ export function StructureInsert({
       <span
         data-structure-slot=""
         aria-hidden
-        style={
-          orientation === 'vertical'
+        style={{
+          ...(orientation === 'vertical'
             ? {
                 width:
                   extent === undefined
@@ -108,29 +111,32 @@ export function StructureInsert({
                       }px)`,
                 width: '100%',
                 ...(edge ? { top: 0 } : {}),
-              }
-        }
+              }),
+          ...slotStyle,
+        }}
         className={cn(
           'pointer-events-auto absolute rounded-md border border-dashed border-border-primary bg-wash-primary transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
           open || extent ? 'opacity-100' : 'opacity-0',
         )}
       />
       <span
+        data-structure-trigger=""
+        aria-hidden
         className={cn(
-          'pointer-events-none relative shrink-0',
+          'pointer-events-none absolute flex items-center justify-center rounded-md border border-border-primary bg-wash-primary transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none',
           !open && 'opacity-0 [@media(hover:none)]:opacity-40',
         )}
         style={{
-          width: 16 / scale,
-          height: 16 / scale,
+          width: orientation === 'vertical' ? 34 / scale : 'calc(100% - 8px)',
+          height: orientation === 'horizontal' ? 34 / scale : 'calc(100% - 4px)',
           ...(edge
             ? orientation === 'vertical'
-              ? { left: 17 / scale }
-              : { top: (17 - hitSize / 2) / scale }
+              ? { left: hitSize / 2 / scale }
+              : { top: 0 }
             : {}),
         }}
       >
-        <Plus aria-hidden className="size-full text-primary" />
+        <Plus aria-hidden className="max-h-full max-w-full text-primary" style={{width:16 / scale, height:16 / scale}} />
       </span>
     </button>
   )

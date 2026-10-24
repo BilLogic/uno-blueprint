@@ -82,6 +82,7 @@ export function BlueprintColumnHandles({
   }, [bodyRef])
   const [columns, setColumns] = useState<Column[]>([])
   const [bodyHeight, setBodyHeight] = useState(0)
+  const [header, setHeader] = useState<{top:number; lastId?:string}>({top: -COMPARE_STEP_HEADER_HEIGHT})
   const [seamWidth, setSeamWidth] = useState(0)
   const { openCreate, selection, seam, setSeam } = useEntityDetail()
   // Scenario level only: at the overview twenty blueprints render at 6%
@@ -115,7 +116,19 @@ export function BlueprintColumnHandles({
     const currentSeamWidth = (body.querySelector<HTMLElement>('[data-structure-seam-track="step"]')?.getBoundingClientRect().width ?? 0) / scale
     if (Math.abs(currentSeamWidth-seamWidth)>0.1) setSeamWidth(currentSeamWidth)
 
+    const headers = Array.from(body.closest('[data-structure-board]')?.querySelectorAll<HTMLElement>('[data-blueprint-column-header]') ?? [])
+    const owners = headers.map(node => node.querySelector<HTMLElement>('[data-structure-id]')?.dataset.structureId)
+    const firstHeader = headers[0]
+    const top = firstHeader ? (firstHeader.getBoundingClientRect().top - body.getBoundingClientRect().top) / scale : -COMPARE_STEP_HEADER_HEIGHT
+    const lastId = owners.at(-1)
+    if (Math.abs(top - header.top) > 0.5 || lastId !== header.lastId) setHeader({top, lastId})
+
+    const paths = Array.from(body.closest('[data-structure-board]')?.querySelectorAll<HTMLElement>('[data-structure-path][data-structure-step-ids]') ?? [])
     const measured = steps.flatMap<Column>((step, stepIndex) => {
+      // A shared column has one header and one insertion trigger, owned by its first displayed path.
+      if (owners.some(Boolean) && !owners.includes(step.id)) return []
+      const owner = paths.find(path => path.dataset.structureStepIds?.split(' ').includes(step.id))
+      if (owner && owner !== body) return []
       const cell = body.querySelector(
         `:is([data-structure-column], [data-blueprint-cell-anchor], [data-blueprint-empty-slot])[data-step-index="${renderedSteps.findIndex(
           (item) => item.id === step.id,
@@ -184,7 +197,7 @@ export function BlueprintColumnHandles({
     }
   })
   const last = visibleColumns[visibleColumns.length - 1]
-  if (last?.stepIndex === steps.length - 1) {
+  if (last?.stepIndex === steps.length - 1 && (!header.lastId || steps[last.stepIndex]?.id === header.lastId)) {
     boundaries.push({
       hitSize: Math.min(44,(last.width + STEP_COLUMN_GAP)*scale/2),
       stepIndex: steps.length,
@@ -233,9 +246,10 @@ export function BlueprintColumnHandles({
                   left: seam?.key === `step:${targetPath}:${boundary.storedPosition ?? 'end'}` && boundary.centered
                     ? `calc(${boundary.x - seamWidth / 2}px + var(--structure-seam-progress, 1) * ${seam.size / 2}px)`
                     : boundary.x,
-                  top: -COMPARE_STEP_HEADER_HEIGHT,
-                  height: bodyHeight + COMPARE_STEP_HEADER_HEIGHT,
+                  top: header.top,
+                  height: COMPARE_STEP_HEADER_HEIGHT,
                 }}
+                slotStyle={{ top: -header.top, height: bodyHeight }}
                 onOpenChange={(open) => {
                   const key = `step:${targetPath}:${
                     boundary.storedPosition ?? 'end'

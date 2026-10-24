@@ -6,6 +6,7 @@ import { useCellPick } from '@/contexts/cellPickContext'
 import { useSupabase } from '@/contexts/SupabaseProvider'
 import { useEntityDetail } from '@/contexts/EntityDetailContext'
 import { StructureInsert } from './StructureInsert'
+import { COMPARE_LABEL_WIDTH } from '@/lib/sideBySideCompareLayout'
 
 type Boundary = {
   storedPosition: number
@@ -71,7 +72,7 @@ function BlueprintLaneHandlesActive({
       document.removeEventListener('structure-motion-end', refresh)
     }
   }, [bodyRef])
-  const [bodyWidth, setBodyWidth] = useState(0)
+  const [content, setContent] = useState({left: 0, width: 0})
   const [boundaries, setBoundaries] = useState<Boundary[]>([])
   const cameraScale = useCanvasScale()
   const { openCreate, selection, seam, setSeam } = useEntityDetail()
@@ -186,14 +187,17 @@ function BlueprintLaneHandlesActive({
           entry.hitSize === boundaries[index].hitSize,
       )
     if (!same) setBoundaries(next)
-    if (bodyWidth !== body.offsetWidth) setBodyWidth(body.offsetWidth)
+    const left = (Math.min(...rows.map(row => row.getBoundingClientRect().left)) - bodyBox.left) / scale
+    const right = (Math.max(...rows.map(row => row.getBoundingClientRect().right)) - bodyBox.left) / scale
+    if (Math.abs(content.left - left) > 0.5 || Math.abs(content.width - (right - left)) > 0.5)
+      setContent({left, width: right - left})
   })
 
   if (!active || boundaries.length === 0) return null
 
   const draft = selection?.draft
   return (
-    <div className="pointer-events-none absolute inset-0 z-30">
+    <div className="pointer-events-none absolute inset-0 z-40">
       {!draft
         ? boundaries.map((boundary) => (
             <StructureInsert
@@ -206,11 +210,12 @@ function BlueprintLaneHandlesActive({
               label={boundary.label}
               style={{
                 left: 0,
-                width: bodyWidth,
+                width: COMPARE_LABEL_WIDTH,
                 top: seam?.key === `lane:${pathId ?? pathIds?.[0]}:${boundary.storedPosition}` && boundary.centered
                   ? `calc(${boundary.y}px + var(--structure-seam-progress, 1) * ${seam.size / 2}px)`
                   : boundary.y,
               }}
+              slotStyle={{left: content.left, width: content.width}}
               onOpenChange={(open) => {
                 const targetPath = pathId ?? pathIds?.[0]
                 if (!targetPath) return

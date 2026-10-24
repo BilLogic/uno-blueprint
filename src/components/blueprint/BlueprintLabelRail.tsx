@@ -64,6 +64,7 @@ export function BlueprintStickyLabelBackdrop({
   return (
     <div
       aria-hidden
+      data-structure-label-backdrop=""
       className="pointer-events-none sticky z-35"
       style={{
         gridColumn: 1,
@@ -339,7 +340,7 @@ export function BlueprintLabelRow({
         onPointerLeave={(event) => {
           if (
             laneSelectable &&
-            !event.currentTarget.contains(event.currentTarget.ownerDocument.activeElement)
+            !event.currentTarget.querySelector('[data-structure-header-title]:focus-visible')
           )
             highlightStructure(event.currentTarget, 'lane', row.label, false)
         }}

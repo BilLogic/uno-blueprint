@@ -1323,15 +1323,11 @@
 [data-canvas-reorder] [data-structure-highlight='label'] [data-structure-grip] { display: block; }
 [data-structure-reordering] [data-blueprint-arrows] { opacity: 0; }
 
-/* An axis seam owns this pointer: empty cells must not offer a second Add action. */
-[data-structure-insert-hover] [data-blueprint-empty-slot] { pointer-events: none; }
-[data-structure-insert-hover] [data-blueprint-empty-slot] > span { opacity: 0; }
-
-[data-structure-seam]:hover > [data-structure-slot],
-[data-structure-seam]:focus-visible > [data-structure-slot] {
+/* Header triggers and their canvas previews share one interaction state. */
+[data-structure-seam]:is(:hover, :focus-visible) > :is([data-structure-slot], [data-structure-trigger]) {
   border-color: var(--primary);
 }
-[data-structure-seam]:focus-visible > [data-structure-slot] {
+[data-structure-seam]:focus-visible > :is([data-structure-slot], [data-structure-trigger]) {
   border-style: solid;
 }
 [data-structure-seam]:focus-visible {

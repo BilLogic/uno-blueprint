@@ -142,6 +142,7 @@ export function BlueprintPathBand({
     <div
       ref={bandRef}
       data-structure-path={blueprint.path.id}
+      data-structure-step-ids={blueprint.steps.map(step => step.id).join(' ')}
       className="relative z-0 grid overflow-visible"
       style={placementStyle}
     >
@@ -457,7 +458,7 @@ function CompareLaneRow({
 
     return (
       <div
-        className={cn('relative flex items-stretch rounded-md shrink-0')}
+        className={cn('relative flex min-h-0 flex-1 items-stretch rounded-md shrink-0')}
         style={{ backgroundColor: 'transparent' }}
       >
         {playButton}
@@ -513,7 +514,7 @@ function CompareLaneRow({
 
   return (
     <div
-      className={cn('relative flex items-stretch rounded-md shrink-0')}
+      className={cn('relative flex min-h-0 flex-1 items-stretch rounded-md shrink-0')}
       style={{
         backgroundColor: 'transparent',
         paddingLeft: playGutter || undefined,

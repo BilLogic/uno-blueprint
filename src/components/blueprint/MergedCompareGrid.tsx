@@ -292,6 +292,7 @@ export function MergedCompareGrid({
         <CompareStepHeaderRow tracks={tracks} />
         <div
           ref={bandRef}
+          data-structure-paths={blueprints.map(blueprint => blueprint.path.id).join(' ')}
           className="relative z-0 grid overflow-visible"
           style={{
             gridRow: 2,
@@ -447,6 +448,7 @@ function MergedSectionFrame({ blueprints }: { blueprints: BlueprintData[] }) {
       {/* Axis labels stay outside the data boundary in every arrangement. */}
       <div
         aria-hidden
+        data-structure-content-frame=""
         className="pointer-events-none absolute rounded-xl border-2 border-border"
         style={{
           top: -COMPARE_PATH_SECTION_TOP_INSET,

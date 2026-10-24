@@ -256,9 +256,14 @@ it('keeps the entry axis while its opening delay is still running', () => {
 })
 
 it.each([0, 90])(
-  'keeps insertion intent over a cell control after %ims and routes the click to that seam',
+  'leaves canvas cell controls available after %ims outside the header detection band',
   (delay) => {
     vi.useFakeTimers()
+    vi.mocked(HTMLButtonElement.prototype.getBoundingClientRect).mockImplementation(function (this: HTMLButtonElement) {
+      return this.hasAttribute('data-structure-seam')
+        ? new DOMRect(78, 0, 44, 40)
+        : new DOMRect(78, 40, 44, 260)
+    })
     const create = vi.fn(),
       cell = vi.fn()
     render(
@@ -277,12 +282,12 @@ it.each([0, 90])(
     fireEvent.pointerMove(control, { clientX: 100, clientY: 100 })
     expect(
       control.parentElement!.hasAttribute('data-structure-insert-hover'),
-    ).toBe(true)
+    ).toBe(false)
     act(() => vi.advanceTimersByTime(delay))
     const seam = screen.getByRole('button', { name: 'Add a step' })
-    expect(seam.hasAttribute('data-open')).toBe(delay === 90)
+    expect(seam.hasAttribute('data-open')).toBe(false)
     fireEvent.click(control, { clientX: 100, clientY: 100 })
-    expect(create).toHaveBeenCalledExactlyOnceWith(seam)
-    expect(cell).not.toHaveBeenCalled()
+    expect(create).not.toHaveBeenCalled()
+    expect(cell).toHaveBeenCalledOnce()
   },
 )

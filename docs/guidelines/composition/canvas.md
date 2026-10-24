@@ -573,3 +573,5 @@ A drop writes one path's complete identity permutation and records one session i
 An insertion animates the real grid track and the panel's offset from the same extent on the structural duration and move curve. Dependency arrows fade while their endpoints move and reroute at rest; obstacle routing must not block each animation frame. Reduced motion commits the geometry immediately.
 
 Lane hover and keyboard focus outline the whole row-header cell, including its blank area, with one inset rounded outline. The name button has no separate focus ring or hover fill. The corresponding row keeps its continuous wash.
+
+Insertion detection belongs to the gaps between axis headers, not the cell area. A hovered gap shows a primary-tinted header block with a plain plus and opens a separate preview strip inside the path's content frame. The preview shows where the new row or column will go and stays clickable while open. Ordinary canvas hover keeps cell creation available, including on entirely empty rows.

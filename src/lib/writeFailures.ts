@@ -109,6 +109,9 @@ export function reportWriteSuccess(
   entryId: string,
   undo: () => Promise<void>,
 ): void {
+  // Only the latest successful action offers Undo; older changes stay in the session.
+  for (const notice of failures.filter((entry) => entry.success))
+    dismissWriteFailure(notice.id)
   const id = `w${++counter}`
   const timer = setTimeout(() => dismissWriteFailure(id), 8000)
   const unsubscribe = subscribeToSession(() => {

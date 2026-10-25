@@ -812,6 +812,7 @@ for (const camera of ['overview', '100%'] as const) {
             await expect(board.locator('[data-structure-seam][data-open]')).toHaveCount(1)
           }
           await page.mouse.move(24, 24)
+          await page.keyboard.press('Tab')
           await opener.focus()
           await expect(opener).toBeFocused()
           await expect(opener).toHaveAttribute('data-open', '')
@@ -1032,6 +1033,7 @@ for (const camera of ['overview', '100%'] as const) {
             page.getByRole('status', { name: `New ${kind} position` }),
           ).toHaveCount(0)
           expect(requests).toEqual([])
+          await expect(opener).not.toHaveAttribute('data-open','')
           await opener.press('Enter')
           await expect(name).toBeFocused()
           await expect(

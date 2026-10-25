@@ -28,6 +28,8 @@ function contains(target: Target, point: Point) {
 function createIntent(board: Element) {
   const targets = new Set<Target>()
   let active: Target | null = null
+  let keyboardTarget: Target | null = null
+  let keyboardPoint: Point | null = null
   let lastPoint: Point | null = null
   let headerPoint: Point | null = null
   let pending: Target | null | undefined
@@ -61,6 +63,12 @@ function createIntent(board: Element) {
     if (next) board.setAttribute('data-structure-insert-hover', '')
     timer = setTimeout(() => activate(next), next ? 90 : 75)
   }
+  const releaseKeyboard = (point: Point) => {
+    if (keyboardTarget && (!keyboardPoint || Math.hypot(point.clientX-keyboardPoint.clientX,point.clientY-keyboardPoint.clientY)>1)) {
+      keyboardTarget=null
+      keyboardPoint=null
+    }
+  }
   const move = (point: Point) => {
     lastPoint = point
     // Closing layout can move a hit band under a stationary header pointer.
@@ -79,7 +87,7 @@ function createIntent(board: Element) {
     )
     if (
       active &&
-      (active.element === active.element.ownerDocument.activeElement ||
+      ((keyboardTarget === active && active.element === active.element.ownerDocument.activeElement) ||
         contains(active, point))
     ) {
       schedule(active)
@@ -119,8 +127,12 @@ function createIntent(board: Element) {
   const pointerMove = (event: Event) => {
     const pointer = event as PointerEvent
     if (pointer.pointerType === 'touch') return
+    // Real pointer travel takes over from keyboard discovery. Boundary events
+    // caused only by a growing track do not revoke the keyboard's ownership.
+    releaseKeyboard(pointer)
     if (headerAction(event.target, pointer)) {
-      headerPoint = { clientX: pointer.clientX, clientY: pointer.clientY }
+      lastPoint = { clientX: pointer.clientX, clientY: pointer.clientY }
+      headerPoint = lastPoint
       leave()
       return
     }
@@ -130,6 +142,7 @@ function createIntent(board: Element) {
     board.removeAttribute('data-structure-insert-hover')
     if (
       !active ||
+      keyboardTarget !== active ||
       active.element !== active.element.ownerDocument.activeElement
     )
       schedule(null)
@@ -154,7 +167,30 @@ function createIntent(board: Element) {
       owner.create()
     }
   }
-  const leaveBoard = () => { headerPoint = null; leave() }
+  const leaveBoard = () => {
+    keyboardTarget=null
+    keyboardPoint=null
+    headerPoint=null
+    leave()
+  }
+  const dismiss = () => {
+    keyboardTarget=null
+    keyboardPoint=null
+    headerPoint=null
+    lastPoint=null
+    activate(null)
+  }
+  const visibility = () => { if (board.ownerDocument.hidden) dismiss() }
+  const observePointerMove = (event: PointerEvent) => {
+    if (event.pointerType === 'touch') return
+    releaseKeyboard(event)
+    lastPoint={clientX:event.clientX,clientY:event.clientY}
+    if (!(event.target instanceof Node) || !board.contains(event.target)) leave()
+  }
+  const view=board.ownerDocument.defaultView
+  view?.addEventListener('blur',dismiss)
+  view?.addEventListener('pointermove',observePointerMove,true)
+  board.ownerDocument.addEventListener('visibilitychange',visibility)
   board.addEventListener('pointermove', pointerMove, true)
   board.addEventListener('pointerleave', leaveBoard)
   board.addEventListener('click', click, true)
@@ -171,21 +207,29 @@ function createIntent(board: Element) {
           else move(event)
         },
         focus() {
+          if (!target.element.matches(':focus-visible')) return
+          keyboardTarget=target
+          keyboardPoint=lastPoint
           headerPoint = null
           activate(target)
         },
         blur() {
+          if (keyboardTarget===target) {keyboardTarget=null;keyboardPoint=null}
           schedule(null)
         },
         dispose() {
           targets.delete(target)
           if (pending === target) cancel()
           if (active === target) active = null
+          if (keyboardTarget===target) {keyboardTarget=null;keyboardPoint=null}
           if (!targets.size) {
             cancel()
             board.removeEventListener('pointermove', pointerMove, true)
             board.removeEventListener('pointerleave', leaveBoard)
             board.removeEventListener('click', click, true)
+            view?.removeEventListener('blur',dismiss)
+            view?.removeEventListener('pointermove',observePointerMove,true)
+            board.ownerDocument.removeEventListener('visibilitychange',visibility)
             board.removeAttribute('data-structure-insert-hover')
             intents.delete(board)
           }

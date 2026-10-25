@@ -72,6 +72,7 @@ for (const [kind, membership] of [
     const target = board
       .getByRole('button', { name: new RegExp(`^Add a ${kind}`) })
       .nth(1)
+    await page.keyboard.press('Tab')
     await target.focus()
     await expect(target).toHaveAttribute('data-open', '')
     const growth = board.evaluate(

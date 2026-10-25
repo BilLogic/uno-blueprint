@@ -222,7 +222,7 @@ for (const theme of ['dark', 'light']) {
               {
               const board=el.closest('[data-structure-board]')!, scale=board.getBoundingClientRect().width/parseFloat(el.ownerDocument.defaultView!.getComputedStyle(board).width)
               const offset=parseFloat(el.ownerDocument.defaultView!.getComputedStyle(el).getPropertyValue('--structure-indicator-offset'))||0
-              const expected=selector.includes('slot-fill') ? center-offset*scale : center
+              const expected=center-offset*scale
               errors.push(Math.abs((axis === 'x' ? box.left+box.width/2 : box.top+box.height/2)-expected))
             }
           }
@@ -237,13 +237,46 @@ for (const theme of ['dark', 'light']) {
       const errors=await samples
       await expect(target).toHaveAttribute('data-open','')
       expect(errors.length,`${name} produced visible growth frames`).toBeGreaterThan(3)
-      expect(Math.max(...errors),`${name} expands around the resting hint`).toBeLessThan(1)
+      expect(Math.max(...errors),`${name} header and preview grow around the same track centre`).toBeLessThan(1)
+      const alignment=await target.evaluate((el,axis)=>{
+        const a=el.querySelector('[data-structure-trigger]')!.getBoundingClientRect(),b=el.querySelector('[data-structure-slot-fill]')!.getBoundingClientRect()
+        const board=el.closest('[data-structure-board]')!,scale=board.getBoundingClientRect().width/parseFloat(el.ownerDocument.defaultView!.getComputedStyle(board).width)
+        return Math.abs(axis==='x' ? a.left+a.width/2-b.left-b.width/2 : a.top+a.height/2-b.top-b.height/2)/scale
+      },axis)
+      expect(alignment,`${name} plus block aligns with its canvas preview`).toBeLessThan(1)
+      if (name==='Add a step before Invoke ub:map' || name==='Add a lane above Line of interaction')
+        await page.screenshot({path:join(VIEW_SCREENSHOT_DIR,`insertion-alignment-${axis}-${theme}.png`)})
       const closing=measure()
       await page.mouse.move(24,24)
       const closingErrors=await closing
       expect(closingErrors.length,`${name} produced visible closing frames`).toBeGreaterThan(3)
-      expect(Math.max(...closingErrors),`${name} closes around the same centre`).toBeLessThan(1)
+      expect(Math.max(...closingErrors),`${name} header and preview close around the same track centre`).toBeLessThan(1)
+      await expect(target).not.toHaveAttribute('data-open','')
+      await expect(board.locator('[data-structure-seam-track]')).toHaveCount(0)
+      await page.waitForTimeout(350)
+      await expect(target).not.toHaveAttribute('data-open','')
     }
+    const restored=board.getByRole('button',{name:'Add a step before Invoke ub:map',exact:true}).first()
+    await page.mouse.click(1540,145)
+    await restored.evaluate(el=>el.focus())
+    expect(await restored.evaluate(el=>el.matches(':focus-visible'))).toBe(false)
+    await expect(restored).not.toHaveAttribute('data-open','')
+    await page.keyboard.press('Tab')
+    await restored.focus()
+    await expect(restored).toHaveAttribute('data-open','')
+    await page.mouse.move(1550,155)
+    await expect(restored).not.toHaveAttribute('data-open','')
+    await expect(board.locator('[data-structure-seam-track]')).toHaveCount(0)
+    const entry=await restored.locator('[data-structure-hint]').boundingBox()
+    await page.mouse.move(entry!.x+entry!.width/2,entry!.y+entry!.height/2)
+    await expect(restored).toHaveAttribute('data-open','')
+    await restored.evaluate(el=>{
+      const event=el.ownerDocument.createEvent('Event')
+      event.initEvent('blur',false,false)
+      el.ownerDocument.defaultView!.dispatchEvent(event)
+    })
+    await expect(restored).not.toHaveAttribute('data-open','')
+    await expect(board.locator('[data-structure-seam-track]')).toHaveCount(0)
 
   })
 }

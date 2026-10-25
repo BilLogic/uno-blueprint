@@ -180,7 +180,6 @@ export function StructureInsert({
           height: orientation === 'horizontal' ? paintedSize : 'calc(100% - 8px)',
           borderWidth: `calc(${progress} * 1px)`,
           opacity: progress,
-          transform: orientation === 'vertical' ? `translateX(${indicatorOffset}px)` : `translateY(${indicatorOffset}px)`,
           ...(edge
             ? orientation === 'vertical'
               ? { left: `calc(${hitSize / 2 / scale}px + ${gutter})` }

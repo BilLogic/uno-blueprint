@@ -4,6 +4,11 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { StructureInsert } from './StructureInsert'
 beforeEach(() => {
   vi.stubGlobal('PointerEvent', MouseEvent)
+  const matches=HTMLElement.prototype.matches
+  vi.spyOn(HTMLElement.prototype,'matches').mockImplementation(function(this:HTMLElement,selector:string) {
+    // jsdom does not model the browser's keyboard/pointer focus modality.
+    return selector===':focus-visible' ? this===document.activeElement : matches.call(this,selector)
+  })
   vi.spyOn(
     HTMLButtonElement.prototype,
     'getBoundingClientRect',
@@ -59,7 +64,7 @@ it('scales the visible slot with the board while retaining a usable detection ba
   )
   const seam = screen.getByRole('button', { name: 'Add a step' })
   expect(seam.style.width).toBe('176px')
-  fireEvent.focus(seam)
+  act(()=>seam.focus())
   expect(seam.style.left).toBe('120px')
   expect(seam.style.width).toBe('176px')
   expect(
@@ -296,7 +301,7 @@ it.each(['horizontal', 'vertical'] as const)('keeps the %s preview and its icon 
   for (const scale of [0.25, 0.5, 1]) {
     const {unmount}=render(<StructureInsert orientation={orientation} scale={scale} label="Add an item" onClick={() => {}} />)
     const target=screen.getByRole('button',{name:'Add an item'})
-    fireEvent.focus(target)
+    act(()=>target.focus())
     const axis=orientation === 'horizontal' ? 'height' : 'width'
     expect(target.style[axis]).toBe(`${44 / scale}px`)
     expect(target.querySelector<HTMLElement>('[data-structure-slot]')!.style[axis]).toBe('36px')
@@ -336,7 +341,7 @@ it.each(['horizontal', 'vertical'] as const)('offers a quiet resting hint in the
   render(<StructureInsert orientation={orientation} label="Add an item" onClick={() => {}} />)
   const target=screen.getByRole('button',{name:'Add an item'})
   expect(target.querySelector('[data-structure-hint]')).not.toBeNull()
-  fireEvent.focus(target)
+  act(()=>target.focus())
   const fill=target.querySelector<HTMLElement>('[data-structure-trigger]')!
   expect(fill.style[orientation === 'horizontal' ? 'height' : 'width']).toContain('28px')
 })
@@ -357,4 +362,33 @@ it('closes insertion when leaving for a header action inside the overlapping hit
   fireEvent.pointerMove(seam.parentElement!,{clientX:42,clientY:100})
   act(()=>vi.advanceTimersByTime(90))
   expect(seam.hasAttribute('data-open')).toBe(true)
+})
+
+it('does not reopen a zone when pointer focus is restored from a panel',()=>{
+  render(<StructureInsert orientation="vertical" label="Add a step" onClick={()=>{}} />)
+  const seam=screen.getByRole('button',{name:'Add a step'})
+  vi.spyOn(seam,'matches').mockReturnValue(false)
+  fireEvent.focus(seam)
+  expect(seam.hasAttribute('data-open')).toBe(false)
+})
+it.each(['board','outside'] as const)('dismisses a keyboard-open zone when pointer movement takes over %s',surface=>{
+  vi.useFakeTimers()
+  const {container}=render(<div data-structure-board=""><StructureInsert orientation="vertical" label="Add a step" onClick={()=>{}} /></div>)
+  const seam=screen.getByRole('button',{name:'Add a step'})
+  act(()=>seam.focus())
+  expect(seam.hasAttribute('data-open')).toBe(true)
+  fireEvent.pointerMove(surface==='board' ? container.firstElementChild! : document.body,{clientX:2000,clientY:2000})
+  act(()=>vi.advanceTimersByTime(200))
+  expect(seam.hasAttribute('data-open')).toBe(false)
+})
+it('dismisses a hover zone when the browser window loses focus',()=>{
+  vi.useFakeTimers()
+  render(<StructureInsert orientation="vertical" label="Add a step" onClick={()=>{}} />)
+  const seam=screen.getByRole('button',{name:'Add a step'})
+  fireEvent.pointerEnter(seam,{clientX:100,clientY:40})
+  act(()=>vi.advanceTimersByTime(90))
+  expect(seam.hasAttribute('data-open')).toBe(true)
+  fireEvent(window,new Event('blur'))
+  act(()=>vi.advanceTimersByTime(200))
+  expect(seam.hasAttribute('data-open')).toBe(false)
 })

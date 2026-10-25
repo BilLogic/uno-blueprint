@@ -114,11 +114,14 @@ export function useStructureCreatePaths(
     .sort((a, b) => (a.id === clicked?.id ? -1 : b.id === clicked?.id ? 1 : 0))
     .map((path) => ({ pathId: path.id, order: defaultOrder(path), moved: [] }))
   const selected = value ?? initial
+  const selectedPathId = selected.some((entry) => entry.pathId === clicked?.id)
+    ? clicked?.id
+    : selected[0]?.pathId
   if (paths.length && value === null) setValue(selected)
   const preview = useEntityDetailOptional()
   const serialized = JSON.stringify({
     name,
-    clickedPathId: clicked?.id,
+    clickedPathId: selectedPathId,
     kind: draft?.kind,
     role,
     orders: selected,
@@ -134,6 +137,6 @@ export function useStructureCreatePaths(
     onChange: setValue,
     defaultOrder,
     status: result.status,
-    clickedPathId: clicked?.id,
+    clickedPathId: selectedPathId,
   }
 }

@@ -1,3 +1,4 @@
+import { structureDraftExtent } from './structureDraftMotion'
 import { normalizeCompareName } from '@/lib/compareSlots'
 import { ARROW_VIEWPORT_PAD } from '@/lib/blueprintArrowGeometry'
 import {
@@ -519,6 +520,7 @@ export function getSharedLaneRowHeight(
  */
 export function getCompareRowTrackCss(row: CompareRowHeightSpec): string {
   if (row.lane?.seamSize !== undefined) return `calc(var(--structure-seam-progress, 1) * ${row.height}px)`
+  if (row.lane?.id === 'structure-placeholder') return structureDraftExtent(getCompareRowTrackHeight(row))
   return `minmax(${getCompareRowTrackHeight(row)}px, auto)`
 }
 
@@ -712,6 +714,7 @@ export function getStackedComparePanelHeight(
  */
 export function getMergedCompareRowTrackCss(row: CompareRowHeightSpec): string {
   if (row.lane?.seamSize !== undefined) return `calc(var(--structure-seam-progress, 1) * ${row.height}px)`
+  if (row.lane?.id === 'structure-placeholder') return structureDraftExtent(getCompareRowTrackHeight(row))
   return `minmax(${getCompareRowTrackHeight(row)}px, auto)`
 }
 

@@ -23,8 +23,10 @@ export function highlightStructure(
   const label = source.closest('[data-structure-header-cell]') ?? source
   label.setAttribute('data-structure-highlight', 'label')
   const scope = source.closest('[data-structure-path]') ?? board
-  const selector = kind === 'step'
-    ? `[data-step-index="${CSS.escape(String(key))}"]`
+  // Inserting or removing a preview changes rendered column indexes. Follow
+  // the hovered header's current index instead of retaining its old neighbour.
+  const selector = () => kind === 'step'
+    ? `[data-step-index="${CSS.escape(source.closest('[data-step-index]')?.getAttribute('data-step-index') ?? String(key))}"]`
     : `[data-blueprint-row][data-lane-name="${CSS.escape(String(key))}"]`
   const inset = getCellShellInsetY(board.dataset.structureDensity === 'compact') / 2
   board.style.setProperty('--structure-highlight-inset', `${inset}px`)
@@ -42,7 +44,7 @@ export function highlightStructure(
     const origin = board.getBoundingClientRect()
     const scale = board.offsetWidth ? origin.width / board.offsetWidth : 1
     const view = source.ownerDocument.defaultView!
-    const nodes = Array.from(scope.querySelectorAll<HTMLElement>(selector))
+    const nodes = Array.from(scope.querySelectorAll<HTMLElement>(selector()))
     const boxes = nodes.filter(node => node !== source).map(node => {
       const box = node.getBoundingClientRect()
       const style = view.getComputedStyle(node)
@@ -70,7 +72,7 @@ export function highlightStructure(
   if (typeof ResizeObserver !== 'undefined') {
     observer = new ResizeObserver(measure)
     observer.observe(board)
-    for (const node of scope.querySelectorAll(selector)) observer.observe(node)
+    for (const node of scope.querySelectorAll(selector())) observer.observe(node)
   }
   source.ownerDocument.addEventListener('structure-motion-end', measure)
 }

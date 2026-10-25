@@ -127,7 +127,7 @@ function StepPanelBody({
   const [summary, setSummary] = useState(baseline)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<{
-    field: 'name' | 'role' | 'form'
+    field: 'name' | 'role' | 'paths' | 'form'
     message: string
   } | null>(null)
   const paths = useStructureCreatePaths(draft, name)
@@ -155,12 +155,19 @@ function StepPanelBody({
       return
     }
     if (draft && paths.status !== 'ready') return
+    if (draft && paths.value.length === 0) {
+      setError({ field: 'paths', message: 'Choose at least one path' })
+      return
+    }
     setBusy(true)
     setError(null)
     try {
       if (draft) {
         const id = await createStepWithDetails(client, {
           ...draft,
+          pathId: paths.value.some((entry) => entry.pathId === draft.pathId)
+            ? draft.pathId
+            : paths.value[0].pathId,
           pathOrders: Object.fromEntries(
             paths.value.map((entry) => [entry.pathId, entry.order]),
           ),
@@ -233,7 +240,7 @@ function StepPanelBody({
         // Only the surprise: a step that sits at a DIFFERENT position depending
         // on the path. A cell count is bookkeeping, not something a reader of
         // this panel came for.
-        meta={positionLabel ?? ''}
+        meta={draft ? '' : positionLabel ?? ''}
       />
 
       {canEdit ? (
@@ -259,8 +266,10 @@ function StepPanelBody({
 
       {draft ? (
         <>
+          {error?.field === 'paths' ? <p role="alert" className="text-xs text-destructive">{error.message}</p> : null}
           {paths.status === 'ready' ? (
             <PathOrderSection
+              required
               paths={paths.paths}
               value={paths.value}
               onChange={paths.onChange}

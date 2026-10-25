@@ -184,7 +184,7 @@ function LanePanelBody({
   const [form, setForm] = useState<FormState>(baseline)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<{
-    field: 'name' | 'role' | 'form'
+    field: 'name' | 'role' | 'paths' | 'form'
     message: string
   } | null>(null)
   const paths = useStructureCreatePaths(draft, form.name, form.laneRole)
@@ -219,6 +219,10 @@ function LanePanelBody({
       return
     }
     if (draft && paths.status !== 'ready') return
+    if (draft && paths.value.length === 0) {
+      setError({ field: 'paths', message: 'Choose at least one path' })
+      return
+    }
     if (
       draft &&
       paths.value.some((entry) =>
@@ -363,8 +367,10 @@ function LanePanelBody({
 
       {draft ? (
         <>
+          {error?.field === 'paths' ? <p role="alert" className="text-xs text-destructive">{error.message}</p> : null}
           {paths.status === 'ready' ? (
             <PathOrderSection
+              required
               paths={paths.paths}
               value={paths.value}
               onChange={paths.onChange}

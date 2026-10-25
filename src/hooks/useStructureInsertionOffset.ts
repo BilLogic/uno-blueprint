@@ -1,3 +1,4 @@
+import { structureDraftExtent } from '@/lib/structureDraftMotion'
 import { useEntityDetailOptional } from '@/contexts/EntityDetailContext'
 import { STEP_COLUMN_GAP, STEP_COLUMN_WIDTH } from '@/lib/blueprintLayout'
 import { buildSideBySideLabelRowSpecs } from '@/lib/sideBySideCompareLayout'
@@ -31,13 +32,13 @@ export function useStructureInsertionOffset(blueprints: BlueprintData[]) {
     left:
       insertion.kind === 'step'
         ? draft
-          ? -(size + gap) / 2
+          ? `calc(-1 * (${structureDraftExtent(size)} + ${gap}px) / 2)`
           : `calc(-1 * (var(--structure-seam-progress, 1) * ${size}px + ${gap}px) / 2)`
         : 0,
     top:
       insertion.kind === 'lane'
         ? draft
-          ? -size / 2
+          ? `calc(-1 * ${structureDraftExtent(size)} / 2)`
           : `calc(var(--structure-seam-progress, 1) * ${-size / 2}px)`
         : 0,
   }

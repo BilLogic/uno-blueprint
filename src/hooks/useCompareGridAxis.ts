@@ -1,3 +1,5 @@
+import { structureDraftExtent } from '@/lib/structureDraftMotion'
+import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
 import { useEntityDetailOptional } from '@/contexts/EntityDetailContext'
 import { useMemo } from 'react'
 import { useCollapsedBlueprintLanes } from '@/hooks/useCollapsedBlueprintLanes'
@@ -60,7 +62,7 @@ export function useCompareGridAxis(
       return `${COMPARE_LABEL_TRACK_WIDTH}px ${STEP_COLUMN_WIDTH}px`
     }
     return `${COMPARE_LABEL_TRACK_WIDTH}px ${tracks
-      .map(track => track.seamSize === undefined ? `${STEP_COLUMN_WIDTH}px` : `calc(var(--structure-seam-progress, 1) * ${track.seamSize}px)`)
+      .map(track => track.seamSize === undefined ? Object.values(track.stepIdByPath).includes(STRUCTURE_PLACEHOLDER_ID) ? structureDraftExtent(STEP_COLUMN_WIDTH) : `${STEP_COLUMN_WIDTH}px` : `calc(var(--structure-seam-progress, 1) * ${track.seamSize}px)`)
       .join(' ')}`
   }, [tracks])
 

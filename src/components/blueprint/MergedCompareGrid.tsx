@@ -1,3 +1,4 @@
+import { structureDraftExtent } from '@/lib/structureDraftMotion'
 import { StructureLaneDraftZone } from './StructureDraftZones'
 import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
 import { BlueprintLaneHandles } from './BlueprintLaneHandles'
@@ -575,8 +576,8 @@ function MergedLaneRow({
                 data-step-index={trackIndex}
                 className="shrink-0 self-stretch rounded-md"
                 style={{
-                  width: track.seamSize === undefined ? STEP_COLUMN_WIDTH : `calc(var(--structure-seam-progress, 1) * ${track.seamSize}px)`,
-                  minWidth: track.seamSize === undefined ? STEP_COLUMN_WIDTH : 0,
+                  width: track.seamSize === undefined ? Object.values(track.stepIdByPath).includes(STRUCTURE_PLACEHOLDER_ID) ? structureDraftExtent(STEP_COLUMN_WIDTH) : STEP_COLUMN_WIDTH : `calc(var(--structure-seam-progress, 1) * ${track.seamSize}px)`,
+                  minWidth: track.seamSize === undefined && !Object.values(track.stepIdByPath).includes(STRUCTURE_PLACEHOLDER_ID) ? STEP_COLUMN_WIDTH : 0,
                 }}
               />
             ) : subCells.length === 1 ? (

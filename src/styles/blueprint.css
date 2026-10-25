@@ -1354,3 +1354,8 @@
 [data-structure-seam]:focus-visible {
   box-shadow: none;
 }
+
+/* Keyboard discovery stays immediate, including while the pointer rests here. */
+[data-blueprint-empty-slot]:focus-visible > [data-blueprint-empty-preview] {
+  transition-delay: 0s;
+}

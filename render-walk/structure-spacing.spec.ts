@@ -69,6 +69,47 @@ for (const theme of ['dark', 'light']) {
     if(await stacked.count()) await stacked.click()
     await page.getByRole('button',{name:'Edit',exact:true}).click()
     const board=page.locator('[data-focus-slide-id="f0000000-0000-4000-8000-200000000001"]')
+    const empty=board.locator('[data-blueprint-row][data-lane-name="Stakeholders"] [data-blueprint-empty-slot]').first()
+    await empty.hover()
+    await page.waitForTimeout(150)
+    expect(await empty.locator('[data-blueprint-empty-preview]').evaluate(el=>parseFloat(el.ownerDocument.defaultView!.getComputedStyle(el).opacity))).toBeLessThan(0.05)
+    await expect(empty.locator('[data-blueprint-empty-preview]')).toHaveCSS('opacity','1')
+    await expect(page.locator('[data-slot="tooltip-content"]').filter({hasText:'Add a cell here'})).toHaveCount(0)
+    await page.mouse.move(24,24)
+    await expect(empty.locator('[data-blueprint-empty-preview]')).toHaveCSS('opacity','0')
+    for (const label of ['Blueprints','Slices']) {
+      const icon=page.locator('[data-editor-rail]').getByRole('button',{name:label,exact:true})
+      await icon.hover()
+      await page.waitForTimeout(150)
+      await expect(page.locator('[data-slot="tooltip-content"]').filter({hasText:label})).toHaveCount(0)
+      await expect(page.locator('[data-slot="tooltip-content"]').filter({hasText:label})).toBeVisible()
+      await page.mouse.move(24,24)
+    }
+    const hintGaps=await board.evaluate(el=>{
+      const headers=Array.from(el.querySelectorAll('[data-blueprint-column-header]')) as (typeof el)[]
+      const hints=(Array.from(el.querySelectorAll('[data-blueprint-column-handles] [data-structure-hint]')) as (typeof el)[]).map(node=>{const b=node.getBoundingClientRect();return b.left+b.width/2})
+      const scale=el.getBoundingClientRect().width/parseFloat(el.ownerDocument.defaultView!.getComputedStyle(el).width)
+      return headers.map(header=>{const b=header.getBoundingClientRect();const left=b.left+4*scale;const hint=hints.filter(x=>x<left).at(-1)!;return (left-hint)/scale})
+    })
+    expect(Math.max(...hintGaps)-Math.min(...hintGaps),'first-column feedforward has the same clearance as interior columns').toBeLessThan(1)
+    for(const [line,preceding,following] of [
+      ['Line of interaction','Blueprint owner','App & skill surface'],
+      ['Line of visibility','Claude in the IDE','Pipeline scripts'],
+    ]) {
+      const spacing=await board.evaluate((el,{line,preceding,following})=>{
+        const root=el.querySelector('[data-structure-board]')!
+        const scale=root.getBoundingClientRect().width/parseFloat(root.ownerDocument.defaultView!.getComputedStyle(root).width)
+        const rect=(name:string)=>{
+          const row=root.querySelector(`[data-blueprint-row][data-lane-name="${name}"]`)!, box=row.getBoundingClientRect(), style=el.ownerDocument.defaultView!.getComputedStyle(row)
+          return {top:box.top+((parseFloat(style.getPropertyValue('--structure-row-inset-top'))||0)+8)*scale,bottom:box.bottom-((parseFloat(style.getPropertyValue('--structure-row-inset-bottom'))||0)+8)*scale}
+        }
+        const caption=root.querySelector(`[role="separator"][aria-label="${line}"] [data-blueprint-row-header]`)!.getBoundingClientRect()
+        const middle=(name:string)=>{const box=root.querySelector(`[data-structure-seam][aria-label="${name}"] [data-structure-hint]`)!.getBoundingClientRect();return box.top+box.height/2}
+        return {above:Math.abs(2*middle(`Add a lane above ${line}`)-rect(preceding).bottom-caption.top)/scale,below:Math.abs(2*middle(`Add a lane below ${preceding}`)-caption.bottom-rect(following).top)/scale}
+      },{line,preceding,following})
+      expect(spacing.above,'upper hint splits the clear header-to-caption space evenly').toBeLessThan(1)
+      expect(spacing.below,'lower hint splits the clear caption-to-header space evenly').toBeLessThan(1)
+    }
     const titleGaps=[]
     const labelColors=[]
     for(const name of ['Stakeholders','Blueprint owner','Claude in the IDE']) {
@@ -178,7 +219,12 @@ for (const theme of ['dark', 'light']) {
             const node=el.querySelector(selector)!, box=node.getBoundingClientRect()
             const size=axis === 'x' ? box.width : box.height
             if(size>1 && parseFloat(el.ownerDocument.defaultView!.getComputedStyle(node).opacity)>0.1)
-              errors.push(Math.abs((axis === 'x' ? box.left+box.width/2 : box.top+box.height/2)-center))
+              {
+              const board=el.closest('[data-structure-board]')!, scale=board.getBoundingClientRect().width/parseFloat(el.ownerDocument.defaultView!.getComputedStyle(board).width)
+              const offset=parseFloat(el.ownerDocument.defaultView!.getComputedStyle(el).getPropertyValue('--structure-indicator-offset'))||0
+              const expected=selector.includes('slot-fill') ? center-offset*scale : center
+              errors.push(Math.abs((axis === 'x' ? box.left+box.width/2 : box.top+box.height/2)-expected))
+            }
           }
           if(performance.now()-start<650) el.ownerDocument.defaultView!.requestAnimationFrame(sample)
           else resolve(errors)
@@ -186,8 +232,7 @@ for (const theme of ['dark', 'light']) {
         el.ownerDocument.defaultView!.requestAnimationFrame(sample)
       }),{axis,center})
       const samples=measure()
-      const hit=await target.boundingBox()
-      await page.mouse.move(axis === 'y' ? hit!.x+3 : name.includes('before') ? hit!.x+3 : hit!.x+hit!.width-3, axis === 'x' ? hit!.y+hit!.height/2 : name.includes('above Line') ? hit!.y+hit!.height-1 : hit!.y+1)
+      await page.mouse.move(hint!.x+hint!.width/2, hint!.y+hint!.height/2)
       await expect(target).toHaveAttribute('data-open','')
       const errors=await samples
       await expect(target).toHaveAttribute('data-open','')

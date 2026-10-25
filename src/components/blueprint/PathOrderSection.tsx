@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useId } from 'react'
 import { Reorder, useDragControls, useReducedMotion } from 'framer-motion'
 import { Check, ChevronDown, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,7 @@ export function PathOrderSection({
   defaultOrder,
   unavailable = {},
   label = 'Add to paths',
+  required = false,
 }: {
   paths: OrderPath[]
   value: PathOrder[]
@@ -27,7 +28,9 @@ export function PathOrderSection({
   defaultOrder: (path: OrderPath) => string[]
   unavailable?: Record<string, string>
   label?: string
+  required?: boolean
 }) {
+  const requirementId=useId()
   const unticked = useRef(new Map<string, PathOrder>())
   const dragging = useRef<string | undefined>(undefined)
   const [open, setOpen] = useState<string | null | undefined>(undefined)
@@ -76,10 +79,12 @@ export function PathOrderSection({
   return (
     <section
       className="space-y-2"
-      aria-label={paths.length === 1 ? 'Order' : label}
+      aria-label={required ? label : paths.length === 1 ? 'Order' : label}
     >
+      <div role="group" data-required={required || undefined} aria-describedby={required ? requirementId : undefined} aria-label={label}>
+      {required ? <span id={requirementId} className="sr-only">Choose at least one path. Required.</span> : null}
       <div className="flex justify-between text-sm font-medium text-muted-foreground">
-        <span>{paths.length === 1 ? 'Order' : label}</span>
+        <span>{required ? label : paths.length === 1 ? 'Order' : label}{required ? <span aria-hidden className="ml-1 text-destructive">*</span> : null}</span>
         {paths.length > 1 ? (
           <span>
             {value.length} of {paths.length}
@@ -110,6 +115,7 @@ export function PathOrderSection({
                     className="peer absolute inset-0 z-1 size-4 cursor-pointer opacity-0 disabled:cursor-default"
                     aria-label={`Add to ${path.name}`}
                     aria-checked={Boolean(entry)}
+                    required={required && Boolean(entry) && value.length === 1}
                     checked={Boolean(entry)}
                     disabled={Boolean(reason)}
                     onChange={() => toggle(path)}
@@ -226,6 +232,7 @@ export function PathOrderSection({
           </Collapsible>
         )
       })}
+      </div>
     </section>
   )
 }

@@ -12,6 +12,7 @@ type Boundary = {
   beforeDivider?: boolean
   storedPosition: number
   y: number
+  indicatorOffset: number
   label: string
   centered: boolean
   hitSize: number
@@ -128,6 +129,13 @@ function BlueprintLaneHandlesActive({
     const seamY = seamRow
       ? (seamRow.getBoundingClientRect().top - bodyBox.top) / scale
       : null
+    const inset=body.closest<HTMLElement>('[data-structure-board]')?.dataset.structureDensity === 'compact' ? 6 : 8
+    const paint=(row:HTMLElement)=>{
+      const box=row.getBoundingClientRect(), style=getComputedStyle(row)
+      return {top:box.top+((parseFloat(style.getPropertyValue('--structure-row-inset-top'))||0)+inset)*scale,bottom:box.bottom-((parseFloat(style.getPropertyValue('--structure-row-inset-bottom'))||0)+inset)*scale}
+    }
+    const separators=Array.from(body.querySelectorAll<HTMLElement>('[data-blueprint-divider][role="separator"][aria-label]'))
+    const caption=(divider:HTMLElement)=>(divider.querySelector('[data-blueprint-row-header]') ?? divider).getBoundingClientRect()
     const next: Boundary[] = rows.map((row, rowIndex) => {
       const centered =
         rowIndex > 0 &&
@@ -141,7 +149,12 @@ function BlueprintLaneHandlesActive({
             box.bottom <= row.getBoundingClientRect().top + 1
           )
         })
+      const current=row.getBoundingClientRect(), previous=rows[rowIndex-1]
+      const separator=separators.find(node=>{const box=node.getBoundingClientRect();return previous && box.top>=previous.getBoundingClientRect().bottom-1 && box.bottom<=current.top+1})
+      const top=paint(row).top
+      const before=separator ? caption(separator).bottom : previous ? paint(previous).bottom : top-32*scale
       return {
+        indicatorOffset:((before+top)/2-current.top)/scale,
         hitSize: Math.min(44, row.getBoundingClientRect().height / 2),
         centered,
         storedPosition: storedPositions[rowIndex],
@@ -172,6 +185,7 @@ function BlueprintLaneHandlesActive({
       const y = (box.top - bodyBox.top) / scale
       next.push({
         beforeDivider:true, centered:false,
+        indicatorOffset:((paint(preceding).bottom+caption(divider).top)/2-box.top)/scale,
         hitSize:Math.min(44, preceding.getBoundingClientRect().height / 3),
         storedPosition:Number(following.dataset.lanePosition),
         label:`Add a lane above ${divider.getAttribute('aria-label')}`,
@@ -182,6 +196,7 @@ function BlueprintLaneHandlesActive({
     next.push({
       hitSize: Math.min(44, last.height / 2),
       centered: false,
+      indicatorOffset:(paint(rows[rows.length-1]).bottom+16*scale-last.bottom)/scale,
       storedPosition: storedPositions[storedPositions.length - 1] + 1,
       label: `Add a lane below ${
         rows[rows.length - 1].dataset.laneName ?? 'the last lane'
@@ -193,6 +208,13 @@ function BlueprintLaneHandlesActive({
           : (last.bottom - bodyBox.top) / scale,
     })
 
+    // Keep a resting header hint's offset while its track is open. The
+    // separator moves with the track; measuring that as a new resting gap
+    // would move the hint again after the animation finishes.
+    if (seamRow) for (const entry of next) {
+      const resting=boundaries.find(current=>current.storedPosition===entry.storedPosition && current.beforeDivider===entry.beforeDivider)
+      if (resting) entry.indicatorOffset=resting.indicatorOffset
+    }
     const same =
       next.length === boundaries.length &&
       next.every(
@@ -200,6 +222,7 @@ function BlueprintLaneHandlesActive({
           Math.abs(entry.y - boundaries[index].y) < 0.5 &&
           entry.storedPosition === boundaries[index].storedPosition &&
           entry.label === boundaries[index].label &&
+          Math.abs(entry.indicatorOffset-boundaries[index].indicatorOffset)<0.5 &&
           entry.centered === boundaries[index].centered &&
           entry.beforeDivider === boundaries[index].beforeDivider &&
           entry.hitSize === boundaries[index].hitSize,
@@ -223,6 +246,7 @@ function BlueprintLaneHandlesActive({
               hitSize={boundary.hitSize}
               scale={cameraScale}
               extent={seam?.key === `lane:${pathId ?? pathIds?.[0]}:${boundary.storedPosition}${boundary.beforeDivider ? ":above" : ""}` ? seam.size * cameraScale : 0}
+              indicatorOffset={boundary.indicatorOffset}
               edge={!boundary.centered}
               beforeEdge={boundary.beforeDivider}
               orientation="horizontal"

@@ -237,6 +237,7 @@ export function BlueprintColumnHandles({
                 hitSize={boundary.hitSize}
                 scale={scale}
                 extent={seam?.key === `step:${targetPath}:${boundary.storedPosition ?? 'end'}` ? seam.size * scale : 0}
+                indicatorOffset={boundary.centered ? 0 : -STEP_COLUMN_GAP / 2}
                 edge={!boundary.centered}
                 orientation="vertical"
                 label={

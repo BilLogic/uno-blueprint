@@ -13,6 +13,8 @@ import { LanePanel } from './LanePanel'
 import { StructureRenameEditor } from './StructureRenameEditor'
 
 const reads = vi.hoisted(() => ({
+  empty: false,
+  selectedPath: 'path',
   items: [] as Array<{ id: string; name: string }>,
 }))
 const writes = vi.hoisted(() => ({
@@ -32,8 +34,8 @@ vi.mock('@/hooks/useStructureCreatePaths', () => ({
   useStructureCreatePaths: () => ({
     status: 'ready',
     clickedPathId: 'path',
-    paths: [{ id: 'path', name: 'Default', items: reads.items }],
-    value: [{ pathId: 'path', order: ['new'], moved: [] }],
+    paths: [{ id: 'path', name: 'Default', items: reads.items }, ...(reads.selectedPath === 'path' ? [] : [{ id: reads.selectedPath, name: 'Other', items: [] }])],
+    value: reads.empty ? [] : [{ pathId: reads.selectedPath, order: ['new'], moved: [] }],
     onChange: vi.fn(),
     defaultOrder: () => ['new'],
   }),
@@ -56,6 +58,8 @@ vi.mock('@/hooks/useOwnerTags', () => ({
 vi.mock('./StakeholderSelect', () => ({ StakeholderSelect: () => null }))
 afterEach(() => {
   cleanup()
+  reads.selectedPath = 'path'
+  reads.empty = false
   reads.items = []
   vi.clearAllMocks()
 })
@@ -73,6 +77,8 @@ it('keeps a step draft unwritten until Name is filled, then creates all fields t
     </Drawer>,
   )
   const name = await screen.findByRole('textbox', { name: 'Name' })
+  expect(screen.queryByText('in no path yet')).toBeNull()
+  expect(screen.getByRole('group', { name: /Add to paths/ }).getAttribute('data-required')).toBe('true')
   await waitFor(() => expect(document.activeElement).toBe(name))
   const add = screen.getByRole('button', {
     name: 'Add step',
@@ -270,4 +276,26 @@ it('shows the duplicate lane error on Name without writing', async () => {
     'This path already has a lane with that name',
   )
   expect(writes.lane).not.toHaveBeenCalled()
+})
+
+it.each(['step','lane'] as const)('refuses an empty path selection before creating a %s', async kind=>{
+  reads.empty=true
+  render(<Drawer open>{kind==='step' ? <StepPanel stepId="" draft={{kind:'step',pathId:'path'}} onClose={()=>{}} /> : <LanePanel laneId="" draft={{kind:'lane',scenarioId:'scenario',pathId:'path'}} onClose={()=>{}} />}</Drawer>)
+  fireEvent.change(await screen.findByRole('textbox',{name:'Name'}),{target:{value:'Review'}})
+  if(kind==='lane') {
+    fireEvent.mouseDown(screen.getByRole('combobox',{name:'Role'}),{button:0})
+    const role=(await screen.findByText('Frontstage',{exact:true})).closest('[role=option]')!
+    fireEvent.pointerDown(role,{pointerType:'mouse',button:0});fireEvent.click(role)
+  }
+  fireEvent.click(screen.getByRole('button',{name:`Add ${kind}`}))
+  expect(await screen.findByText('Choose at least one path')).toBeTruthy()
+  expect(writes.step).not.toHaveBeenCalled();expect(writes.lane).not.toHaveBeenCalled()
+})
+
+it('creates a step using a selected path when its original path is unchecked',async()=>{
+  reads.selectedPath='other'
+  render(<Drawer open><StepPanel stepId="" draft={{kind:'step',pathId:'path'}} onClose={()=>{}} /></Drawer>)
+  fireEvent.change(await screen.findByRole('textbox',{name:'Name'}),{target:{value:'Review'}})
+  fireEvent.click(screen.getByRole('button',{name:'Add step'}))
+  await waitFor(()=>expect(writes.step).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({pathId:'other',pathOrders:{other:['new']}})))
 })

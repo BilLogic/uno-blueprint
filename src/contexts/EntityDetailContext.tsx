@@ -1,3 +1,4 @@
+import { useAnimatedStructureDraft } from '@/hooks/useAnimatedStructureDraft'
 import { useAnimatedStructureSeam } from '@/hooks/useAnimatedStructureSeam'
 import {
   createContext,
@@ -115,6 +116,7 @@ export function EntityDetailProvider({
   const [selection, setSelection] = useState<EntityDetailSelection | null>(null)
 
   const seam = useAnimatedStructureSeam(targetSeam, Boolean(selection?.draft))
+  useAnimatedStructureDraft(selection?.draft ? selection.draftKey : undefined, openerBoard, Boolean(preview?.orders.length))
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate reset-on-key: the entity a panel is describing may not exist in the new workspace
@@ -133,6 +135,10 @@ export function EntityDetailProvider({
 
   const openCreate = useCallback(
     (draft: StructureDraft, opener: HTMLButtonElement) => {
+      const scope=opener.closest<HTMLElement>('[data-focus-slide-id]')
+      const progress=parseFloat(getComputedStyle(opener).getPropertyValue('--structure-seam-progress')) || 0
+      scope?.style.setProperty('--structure-draft-from',`${36 * progress}px`)
+      scope?.style.setProperty('--structure-draft-progress','0')
       setPreview(null)
       setSeam(null)
       openerRef.current = opener

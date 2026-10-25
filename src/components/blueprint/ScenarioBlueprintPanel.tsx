@@ -129,15 +129,21 @@ export const ScenarioBlueprintPanelBody = memo(function ScenarioBlueprintPanelBo
   const useSideBySideLayout = selectedPathIds.length > 0
 
   const draftContext = useEntityDetailOptional()
-  const loadedBlueprints = useMemo(
-    () =>
-      useSideBySideLayout
-        ? itemsInSelectionOrder(selectedPathIds, (id) =>
-            blueprintsByPathId.get(id),
-          )
-        : [],
-    [blueprintsByPathId, selectedPathIds, useSideBySideLayout],
-  )
+  const draftPathId = draftContext?.selection?.draft || draftContext?.selection?.focusNext
+    ? draftContext.preview?.clickedPathId
+    : undefined
+  const loadedBlueprints = useMemo(() => {
+    // Preview a newly chosen path without changing the reader's saved path
+    // visibility. Closing the draft restores the original view naturally.
+    if (draftPathId && paths.some(path => path.id === draftPathId) &&
+      !selectedPathIds.includes(draftPathId)) {
+      const previewPath = blueprintsByPathId.get(draftPathId)
+      if (previewPath) return [previewPath]
+    }
+    return useSideBySideLayout
+      ? itemsInSelectionOrder(selectedPathIds, id => blueprintsByPathId.get(id))
+      : []
+  }, [blueprintsByPathId, selectedPathIds, useSideBySideLayout, draftPathId, paths])
 
   const visibleBlueprints = useMemo(() => {
     if (draftContext?.selection?.draft)

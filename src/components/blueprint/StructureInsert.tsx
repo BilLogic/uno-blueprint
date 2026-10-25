@@ -8,6 +8,7 @@ export const STRUCTURE_INSERT_SIZE = 36
 export function StructureInsert({
   orientation,
   scale = 1,
+  indicatorOffset = 0,
   edge = false,
   beforeEdge = false,
   extent,
@@ -18,6 +19,7 @@ export function StructureInsert({
   onClick,
   onOpenChange,
 }: {
+  indicatorOffset?: number
   scale?: number
   hitSize?: number
   extent?: number
@@ -66,6 +68,11 @@ export function StructureInsert({
   const trackSize = `calc(${progress} * ${STRUCTURE_INSERT_SIZE}px)`
   const paintedSize = `calc(${progress} * ${STRUCTURE_INSERT_SIZE - 8}px)`
   const gutter = `calc(${progress} * 4px)`
+  // An outer-row hint can sit above the canonical track. Include that clear
+  // header space in detection without moving the contained canvas preview.
+  const edgeInset = orientation === 'horizontal' && edge && !beforeEdge
+    ? Math.max(0, -indicatorOffset)
+    : 0
   return (
     <button
       ref={button}
@@ -75,18 +82,19 @@ export function StructureInsert({
       data-open={open ? '' : undefined}
       style={{
         ...style,
+        '--structure-indicator-offset': `${indicatorOffset}px`,
         ...(orientation === 'vertical'
           ? {
               width: edge ? `calc(${hitSize / scale}px + ${trackSize})` : hitSize / scale,
               marginLeft: -hitSize / 2 / scale,
             }
           : {
-              height: edge ? `calc(${hitSize / scale}px + ${trackSize})` : hitSize / scale,
+              height: edge ? `calc(${hitSize / scale + edgeInset}px + ${trackSize})` : hitSize / scale,
               // Keep the original upper entry fixed as its painted slot moves
               // the divider down. The growing hit area also contains the block.
-              marginTop: beforeEdge ? `calc(-${hitSize / scale}px - ${trackSize})` : edge ? 0 : -hitSize / 2 / scale,
+              marginTop: beforeEdge ? `calc(-${hitSize / scale}px - ${trackSize})` : edge ? -edgeInset : -hitSize / 2 / scale,
             }),
-      }}
+      } as CSSProperties & { '--structure-indicator-offset': string }}
       onPointerDown={(event) => {
         event.preventDefault()
         event.stopPropagation()
@@ -112,8 +120,8 @@ export function StructureInsert({
           height: orientation === 'vertical' ? 16 : 2,
           opacity: `clamp(0, calc(1 - ${progress} * 3), 1)`,
           ...(orientation === 'horizontal' && edge ? beforeEdge
-            ? { bottom: 0, transform: 'translateY(50%)' }
-            : { top: 0, transform: 'translateY(-50%)' } : {}),
+            ? { bottom: 0, transform: `translateY(calc(50% + ${indicatorOffset}px))` }
+            : { top: edgeInset, transform: `translateY(calc(-50% + ${indicatorOffset}px))` } : {transform:orientation === 'vertical' ? `translateX(${indicatorOffset}px)` : `translateY(${indicatorOffset}px)`}),
         }}
       />
       <span
@@ -139,7 +147,7 @@ export function StructureInsert({
                         extent / scale
                       }px)`,
                 width: '100%',
-                ...(beforeEdge ? {bottom:0} : edge ? { top: 0 } : {}),
+                ...(beforeEdge ? {bottom:0} : edge ? { top: edgeInset } : {}),
               }),
           ...slotStyle,
         }}
@@ -172,10 +180,11 @@ export function StructureInsert({
           height: orientation === 'horizontal' ? paintedSize : 'calc(100% - 8px)',
           borderWidth: `calc(${progress} * 1px)`,
           opacity: progress,
+          transform: orientation === 'vertical' ? `translateX(${indicatorOffset}px)` : `translateY(${indicatorOffset}px)`,
           ...(edge
             ? orientation === 'vertical'
               ? { left: `calc(${hitSize / 2 / scale}px + ${gutter})` }
-              : beforeEdge ? {bottom:gutter} : { top: gutter }
+              : beforeEdge ? {bottom:gutter} : { top: `calc(${gutter} + ${edgeInset}px)` }
             : {}),
         }}
       >

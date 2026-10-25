@@ -64,7 +64,7 @@ it('scales the visible slot with the board while retaining a usable detection ba
   expect(seam.style.width).toBe('176px')
   expect(
     seam.querySelector<HTMLElement>('[data-structure-slot]')?.style.width,
-  ).toBe('28px')
+  ).toBe('36px')
   expect(seam.className).not.toContain('-translate-x-1/2')
 })
 
@@ -299,7 +299,7 @@ it.each(['horizontal', 'vertical'] as const)('keeps the %s preview and its icon 
     fireEvent.focus(target)
     const axis=orientation === 'horizontal' ? 'height' : 'width'
     expect(target.style[axis]).toBe(`${44 / scale}px`)
-    expect(target.querySelector<HTMLElement>('[data-structure-slot]')!.style[axis]).toBe('28px')
+    expect(target.querySelector<HTMLElement>('[data-structure-slot]')!.style[axis]).toBe('36px')
     expect(target.querySelector<SVGElement>('svg')!.style.width).toBe('16px')
     unmount()
   }
@@ -331,3 +331,30 @@ it.each([
     expect(background.closest('[data-structure-board]')?.getAttribute('data-axis-highlight')).toBe(opens ? null : 'lane')
   },
 )
+
+it.each(['horizontal', 'vertical'] as const)('offers a quiet resting hint in the %s header gap', orientation => {
+  render(<StructureInsert orientation={orientation} label="Add an item" onClick={() => {}} />)
+  const target=screen.getByRole('button',{name:'Add an item'})
+  expect(target.querySelector('[data-structure-hint]')).not.toBeNull()
+  fireEvent.focus(target)
+  const fill=target.querySelector<HTMLElement>('[data-structure-trigger]')!
+  expect(fill.style[orientation === 'horizontal' ? 'height' : 'width']).toContain('28px')
+})
+
+it('closes insertion when leaving for a header action inside the overlapping hit band', () => {
+  vi.useFakeTimers()
+  render(<div data-structure-board=""><StructureInsert orientation="horizontal" label="Add a lane" onClick={() => {}} /><button data-blueprint-row-header="">Row title</button></div>)
+  const seam=screen.getByRole('button',{name:'Add a lane'})
+  fireEvent.pointerEnter(seam,{clientX:40,clientY:100})
+  act(()=>vi.advanceTimersByTime(90))
+  expect(seam.hasAttribute('data-open')).toBe(true)
+  fireEvent.pointerLeave(seam,{clientX:40,clientY:100,relatedTarget:screen.getByRole('button',{name:'Row title'})})
+  act(()=>vi.advanceTimersByTime(200))
+  expect(seam.hasAttribute('data-open')).toBe(false)
+  fireEvent.pointerEnter(seam,{clientX:40,clientY:100})
+  act(()=>vi.advanceTimersByTime(200))
+  expect(seam.hasAttribute('data-open')).toBe(false)
+  fireEvent.pointerMove(seam.parentElement!,{clientX:42,clientY:100})
+  act(()=>vi.advanceTimersByTime(90))
+  expect(seam.hasAttribute('data-open')).toBe(true)
+})

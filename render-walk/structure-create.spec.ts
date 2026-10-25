@@ -198,7 +198,7 @@ for (const camera of ['overview', '100%'] as const) {
               const board=el.closest('[data-structure-board]')!
               const scale=board.getBoundingClientRect().width/parseFloat(board.ownerDocument.defaultView!.getComputedStyle(board).width)
               const fill=el.ownerDocument.defaultView!.getComputedStyle(el,'::before')
-              return {top:(t.top-b.top)/scale-(b.height/scale-parseFloat(fill.height))/2,left:(t.left-b.left)/scale-(b.width/scale-parseFloat(fill.width))/2}
+              return {top:(t.top-b.top)/scale-parseFloat(fill.top),left:(t.left-b.left)/scale-parseFloat(fill.left)}
             })
             expect(breathingRoom.top, 'the header fill has padding above its title').toBeGreaterThanOrEqual(6)
             expect(breathingRoom.left, 'the header fill has padding before its title').toBeGreaterThanOrEqual(6)
@@ -293,7 +293,7 @@ for (const camera of ['overview', '100%'] as const) {
               .poll(async () => {
                 return slotSize(hover, kind)
               })
-              .toBeGreaterThan(27)
+              .toBeGreaterThan(35)
             const headers =
               kind === 'step'
                 ? board.locator('[data-step-header-affordance]')
@@ -473,7 +473,7 @@ for (const camera of ['overview', '100%'] as const) {
         expect(
           new Set(
             sizes
-              .filter((size) => size > 1 && size < 27)
+              .filter((size) => size > 1 && size < 35)
               .map((size) => Math.round(size)),
           ).size,
           'the board must grow through intermediate sizes',
@@ -747,7 +747,7 @@ for (const camera of ['overview', '100%'] as const) {
             .poll(async () => {
               return slotSize(opener, kind)
             })
-            .toBeGreaterThanOrEqual(27)
+            .toBeGreaterThanOrEqual(35)
           const phantom = board
             .locator(`[data-structure-seam-track="${kind}"]`)
             .first()
@@ -774,7 +774,7 @@ for (const camera of ['overview', '100%'] as const) {
             const b=el.getBoundingClientRect(), slot=el.parentElement!.getBoundingClientRect()
             return {size:(axis === 'step' ? b.width : b.height)/scale,gutter:(axis === 'step' ? b.left-slot.left : b.top-slot.top)/scale}
           },kind)
-          expect(visibleSize.size, 'the visible preview scales with the board').toBeCloseTo(20, 0)
+          expect(visibleSize.size, 'the visible preview scales with the board').toBeCloseTo(28, 0)
           expect(visibleSize.gutter, 'the preview reserves space beside boundaries').toBeCloseTo(4, 0)
           const centeredSlot = await opener
             .locator('[data-structure-slot]')

@@ -5,7 +5,7 @@ import { useCanvasModeValue } from '@/contexts/canvasModeContext'
 import { useCellPick } from '@/contexts/cellPickContext'
 import { useSupabase } from '@/contexts/SupabaseProvider'
 import { useEntityDetail } from '@/contexts/EntityDetailContext'
-import { StructureInsert } from './StructureInsert'
+import { StructureInsert, STRUCTURE_INSERT_SIZE } from './StructureInsert'
 import { COMPARE_LABEL_WIDTH } from '@/lib/sideBySideCompareLayout'
 
 type Boundary = {
@@ -248,7 +248,7 @@ function BlueprintLaneHandlesActive({
                         pathId: targetPath,
                         pathIds,
                         atPosition: boundary.storedPosition,
-                        size: 28,
+                        size: STRUCTURE_INSERT_SIZE,
                         key,
                       }
                     : current?.key === key

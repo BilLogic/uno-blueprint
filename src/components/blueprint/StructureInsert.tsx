@@ -2,6 +2,8 @@ import { Plus } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { registerStructureInsert } from './structureInsertIntent'
 
+export const STRUCTURE_INSERT_SIZE = 36
+
 /** A focusable gap; the entire opened slot is the action. The plus has no chrome. */
 export function StructureInsert({
   orientation,
@@ -61,8 +63,8 @@ export function StructureInsert({
   const progress = extent === undefined
     ? (open ? '1' : '0')
     : extent > 0 ? 'var(--structure-seam-progress, 0)' : '0'
-  const trackSize = `calc(${progress} * 28px)`
-  const paintedSize = `calc(${progress} * 20px)`
+  const trackSize = `calc(${progress} * ${STRUCTURE_INSERT_SIZE}px)`
+  const paintedSize = `calc(${progress} * ${STRUCTURE_INSERT_SIZE - 8}px)`
   const gutter = `calc(${progress} * 4px)`
   return (
     <button
@@ -99,6 +101,19 @@ export function StructureInsert({
       className="pointer-events-auto absolute flex appearance-none items-center justify-center border-0 bg-transparent p-0 outline-none"
     >
       <span
+        data-structure-hint=""
+        aria-hidden
+        className="pointer-events-none absolute rounded-full bg-foreground/20"
+        style={{
+          width: orientation === 'horizontal' ? 16 : 2,
+          height: orientation === 'vertical' ? 16 : 2,
+          opacity: `clamp(0, calc(1 - ${progress} * 3), 1)`,
+          ...(orientation === 'horizontal' && edge ? beforeEdge
+            ? { bottom: 0, transform: 'translateY(50%)' }
+            : { top: 0, transform: 'translateY(-50%)' } : {}),
+        }}
+      />
+      <span
         data-structure-slot=""
         aria-hidden
         style={{
@@ -106,7 +121,7 @@ export function StructureInsert({
             ? {
                 width:
                   extent === undefined
-                    ? (open ? 28 : 0)
+                    ? (open ? STRUCTURE_INSERT_SIZE : 0)
                     : `calc(var(--structure-seam-progress, 1) * ${
                         extent / scale
                       }px)`,
@@ -116,7 +131,7 @@ export function StructureInsert({
             : {
                 height:
                   extent === undefined
-                    ? (open ? 28 : 0)
+                    ? (open ? STRUCTURE_INSERT_SIZE : 0)
                     : `calc(var(--structure-seam-progress, 1) * ${
                         extent / scale
                       }px)`,
@@ -130,7 +145,19 @@ export function StructureInsert({
         <span
           data-structure-slot-fill=""
           className="pointer-events-none absolute rounded-md bg-wash-primary"
-          style={{ inset: gutter, opacity: progress }}
+          style={{
+            top: gutter,
+            right: gutter,
+            bottom: gutter,
+            left: gutter,
+            opacity: progress,
+            ...(orientation === 'horizontal' && !edge ? {
+              top: '50%', bottom: 'auto',
+              height: `max(1px, ${paintedSize})`,
+              transform: 'translateY(-50%)',
+              opacity: extent ? 1 : 0,
+            } : {}),
+          }}
         />
       </span>
       <span

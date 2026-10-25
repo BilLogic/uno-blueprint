@@ -6,7 +6,7 @@ import {
 } from '@/lib/blueprintLayout'
 import type { BlueprintLabelRowSpec } from '@/lib/sideBySideCompareLayout'
 import { cn } from '@/lib/utils'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
 /**
  * One lane row's grid cell: the swimlane data attributes canvas queries rely
@@ -85,11 +85,13 @@ export function CompareLaneRowShell({
       style={{
         gridRow: rowIndex + 1,
         ...(cellTracksOnly ? { gridColumn: '2 / -1' } : {}),
+        '--structure-row-inset-top': `${corridorAbove + inLaneLoopCorridorAbove}px`,
+        '--structure-row-inset-bottom': `${corridorBelow}px`,
         backgroundColor:
           isDivider || row.lane?.id === STRUCTURE_PLACEHOLDER_ID
             ? undefined
             : 'transparent',
-      }}
+      } as CSSProperties}
       {...(isDivider ? { role: 'separator' as const } : {})}
     >
       {corridorAbove > 0 && (

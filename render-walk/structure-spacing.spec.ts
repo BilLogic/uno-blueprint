@@ -31,7 +31,7 @@ for (const theme of ['dark','light']) {
       const view=el.ownerDocument.defaultView!, h=header.getBoundingClientRect(), t=el.getBoundingClientRect(), b=board.getBoundingClientRect(), scale=b.width/parseFloat(board.ownerDocument.defaultView!.getComputedStyle(board).width)
       const fill=view.getComputedStyle(header,'::before'), wash=view.getComputedStyle(board,'::after')
       const face=board.querySelector('[data-blueprint-row][data-lane-name="Blueprint owner"] [data-blueprint-cell-shell] [data-blueprint-cell-anchor]')!.getBoundingClientRect()
-      return {content:fill.content,titleGap:(t.top-h.top)/scale-(h.height/scale-parseFloat(fill.height))/2,cardGap:(face.top-b.top)/scale-parseFloat(wash.top)}
+      return {content:fill.content,titleGap:(t.top-h.top)/scale-parseFloat(fill.top),cardGap:(face.top-b.top)/scale-parseFloat(wash.top)}
     })
     await page.screenshot({path:join(VIEW_SCREENSHOT_DIR,`reported-hover-spacing-${theme}.png`)})
     expect(measured.titleGap).toBeGreaterThan(5.9)
@@ -44,7 +44,109 @@ for (const theme of ['dark','light']) {
     await expect.poll(()=>upper.evaluate(el=>{
       const b=el.closest('[data-structure-board]')!, scale=b.getBoundingClientRect().width/parseFloat(el.ownerDocument.defaultView!.getComputedStyle(b).width)
       return el.querySelector('[data-structure-slot-fill]')!.getBoundingClientRect().height/scale
-    })).toBeGreaterThan(19)
+    })).toBeGreaterThan(27)
     await page.screenshot({path:join(VIEW_SCREENSHOT_DIR,`reported-insert-spacing-${theme}.png`)})
+  })
+}
+
+for (const theme of ['dark', 'light']) {
+  test(`header alignment and closing seam geometry — ${theme}`, async ({ page }) => {
+    test.skip(!canvas, 'Requires the isolated local sample canvas.')
+    await page.goto(canvas!)
+    await page.locator('[data-cover-page], [data-nav-row]').first().waitFor()
+    const cover=page.getByRole('button',{name:'Open the blueprint',exact:true})
+    if(await cover.count()) await cover.click()
+    const expand=page.locator('[data-nav-row] button[aria-controls="phase-panel-f0000000-0000-4000-8000-000700020000"]')
+    await expect(expand).toBeVisible()
+    if(await expand.getAttribute('aria-expanded') === 'false') await expand.click()
+    const scenario=page.locator('[data-nav-row]').getByRole('button',{name:'Map your service',exact:true})
+    await scenario.click()
+    await expect(scenario).toHaveAttribute('aria-current','true')
+    await page.waitForLoadState('networkidle')
+    const themeSwitch=page.getByRole('button',{name:`Switch to ${theme} theme`,exact:true})
+    if(await themeSwitch.count()) await themeSwitch.click()
+    const stacked=page.locator('[aria-label="Path display"]').getByRole('button',{name:'Stacked',exact:true})
+    if(await stacked.count()) await stacked.click()
+    await page.getByRole('button',{name:'Edit',exact:true}).click()
+    const board=page.locator('[data-focus-slide-id="f0000000-0000-4000-8000-200000000001"]')
+    const titleGaps=[]
+    const labelColors=[]
+    for(const name of ['Stakeholders','Blueprint owner','Claude in the IDE']) {
+      const title=board.getByRole('button',{name,exact:true}).first()
+      await title.hover()
+      await page.waitForTimeout(250)
+      labelColors.push(await title.evaluate(el=>{
+        const h=el.closest('[data-structure-header-cell]')!, b=el.closest('[data-structure-board]')!, view=el.ownerDocument.defaultView!
+        return {header:view.getComputedStyle(h,'::before').backgroundColor,wash:view.getComputedStyle(b,'::after').backgroundColor}
+      }))
+      titleGaps.push(await title.evaluate(el=>{
+        const h=el.closest('[data-structure-header-cell]')!, b=h.getBoundingClientRect(), s=el.ownerDocument.defaultView!.getComputedStyle(h,'::before')
+        const board=el.closest('[data-structure-board]')!, scale=board.getBoundingClientRect().width/parseFloat(el.ownerDocument.defaultView!.getComputedStyle(board).width)
+        return (el.getBoundingClientRect().top-b.top)/scale-parseFloat(s.top)
+      }))
+      await page.screenshot({path:join(VIEW_SCREENSHOT_DIR,`header-alignment-${name.split(' ')[0].toLowerCase()}-${theme}.png`)})
+      await page.mouse.move(24,24)
+    }
+    for(const colors of labelColors) expect(colors.wash,'the axis wash uses the same neutral colour as the header').toBe(colors.header)
+    expect(Math.max(...titleGaps)-Math.min(...titleGaps),'arrow corridors must not change header paint padding').toBeLessThan(1)
+    const step=board.getByRole('button',{name:'View details: Invoke ub:map',exact:true}).first()
+    await step.hover()
+    await page.waitForTimeout(250)
+    const gripGap=await step.evaluate(el=>{
+      const h=el.closest('[data-blueprint-column-header]')!, b=h.getBoundingClientRect(), s=el.ownerDocument.defaultView!.getComputedStyle(h,'::before')
+      const board=el.closest('[data-structure-board]')!, scale=board.getBoundingClientRect().width/parseFloat(el.ownerDocument.defaultView!.getComputedStyle(board).width)
+      const grip=el.querySelector('[data-structure-grip]')!.getBoundingClientRect()
+      return (grip.left-b.left)/scale-parseFloat(s.left)
+    })
+    expect(gripGap,'the step grip sits inside the fill with padding').toBeGreaterThanOrEqual(7.9)
+    await page.screenshot({path:join(VIEW_SCREENSHOT_DIR,`step-header-padding-${theme}.png`)})
+    await page.mouse.move(24,24)
+    const seam=board.getByRole('button',{name:'Add a lane below Stakeholders',exact:true}).first()
+    const lineCount=await board.locator('[data-blueprint-swimlane-divider]').count()
+    expect(lineCount).toBeGreaterThan(0)
+    await expect(seam.locator('[data-structure-hint]')).toHaveCSS('opacity','1')
+    await expect(async()=>{
+      const bounds=await seam.boundingBox()
+      await page.waitForTimeout(200)
+      expect(await seam.boundingBox()).toEqual(bounds)
+    }).toPass()
+    const closed=await seam.boundingBox()
+    await seam.hover()
+    await expect(seam).toHaveAttribute('data-open','')
+    await page.waitForTimeout(400)
+    await expect(seam.locator('[data-structure-hint]')).toHaveCSS('opacity','0')
+    await expect(board.locator('[data-blueprint-swimlane-divider]')).toHaveCount(lineCount-1)
+    const fill=await seam.locator('[data-structure-slot-fill]').boundingBox()
+    expect(Math.abs(fill!.y+fill!.height/2-closed!.y-closed!.height/2),'the ordinary divider opens around its own centre').toBeLessThan(1)
+    await page.screenshot({path:join(VIEW_SCREENSHOT_DIR,`centred-divider-insertion-${theme}.png`)})
+    const owner=board.getByRole('button',{name:'Blueprint owner',exact:true}).first()
+    await owner.hover()
+    await expect(board.locator('[data-structure-seam-track]')).toHaveCount(0)
+    await expect(board.locator('[data-blueprint-swimlane-divider]')).toHaveCount(lineCount)
+    const error=await owner.evaluate(el=>{
+      const b=el.closest('[data-structure-board]')!, origin=b.getBoundingClientRect(), scale=origin.width/parseFloat(el.ownerDocument.defaultView!.getComputedStyle(b).width)
+      const path=el.closest('[data-structure-path]')!
+      const face=path.querySelector('[data-lane-name="Blueprint owner"] [data-blueprint-cell-anchor]')!.getBoundingClientRect()
+      const wash=el.ownerDocument.defaultView!.getComputedStyle(b,'::after')
+      return Math.abs((face.top-origin.top)/scale-8-parseFloat(wash.top))
+    })
+    expect(error,'the highlight follows the row as the insertion gap closes').toBeLessThan(1)
+    await page.mouse.move(24,24)
+    const stepSeam=board.getByRole('button',{name:'Add a step after Invoke ub:map',exact:true}).first()
+    await stepSeam.hover()
+    await expect(stepSeam).toHaveAttribute('data-open','')
+    await page.waitForTimeout(400)
+    const nextStep=board.getByRole('button',{name:'View details: Route by what exists',exact:true}).first()
+    await nextStep.hover()
+    await expect(board.locator('[data-structure-seam-track]')).toHaveCount(0)
+    const columnError=await nextStep.evaluate(el=>{
+      const b=el.closest('[data-structure-board]')!, origin=b.getBoundingClientRect(), scale=origin.width/parseFloat(el.ownerDocument.defaultView!.getComputedStyle(b).width)
+      const index=el.closest('[data-step-index]')!.getAttribute('data-step-index')
+      const cell=b.querySelector(`[data-blueprint-cell-shell][data-step-index="${index}"]`)!.getBoundingClientRect()
+      return Math.abs((cell.left-origin.left)/scale+8-parseFloat(el.ownerDocument.defaultView!.getComputedStyle(b,'::after').left))
+    })
+    expect(columnError,'closing the inserted column keeps the highlight on the same step').toBeLessThan(1)
+    await page.screenshot({path:join(VIEW_SCREENSHOT_DIR,`closing-column-highlight-${theme}.png`)})
+
   })
 }

@@ -5,7 +5,7 @@ import { STRUCTURE_SEAM_ID } from '@/lib/structureDraftPreview'
 
 import { useEffect, useLayoutEffect, useState, type RefObject } from 'react'
 import { useEntityDetail } from '@/contexts/EntityDetailContext'
-import { StructureInsert } from './StructureInsert'
+import { StructureInsert, STRUCTURE_INSERT_SIZE } from './StructureInsert'
 import { useAtScenarioLevel } from '@/contexts/EditorContext'
 import { useCanvasModeValue } from '@/contexts/canvasModeContext'
 import { useCellPick } from '@/contexts/cellPickContext'
@@ -262,7 +262,7 @@ export function BlueprintColumnHandles({
                           pathId: targetPath,
                           pathIds: target.pathIds,
                           atPosition: boundary.storedPosition,
-                          size: 28,
+                          size: STRUCTURE_INSERT_SIZE,
                           key,
                         }
                       : current?.key === key

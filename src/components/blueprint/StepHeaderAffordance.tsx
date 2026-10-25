@@ -130,7 +130,7 @@ export function StepHeaderAffordance({
         onClick={(event) => event.stopPropagation()}
         className={cn(
           CANVAS_HEADER_INFO,
-          'absolute right-1 top-1/2 -translate-y-1/2',
+          'absolute right-3 top-1/2 -translate-y-1/2',
         )}
       >
         <InfoGlyph />
@@ -157,6 +157,7 @@ export function StepHeaderAffordance({
         className={cn(
           'group/step-header relative flex h-full min-w-0 items-center justify-center',
           CANVAS_HEADER_BOX,
+          'px-8',
           className,
         )}
       >
@@ -191,6 +192,7 @@ export function StepHeaderAffordance({
       className={cn(
         'group/step-header relative flex h-full min-w-0 items-center justify-center',
         CANVAS_HEADER_BOX,
+        'px-8',
         CANVAS_HEADER_STATE,
         className,
       )}

@@ -206,7 +206,7 @@ export function BlueprintPathBand({
                     height: '100%',
                   }}
                 />
-                {row.showDividerBelow ? (
+                {row.showDividerBelow && rows[rowIndex + 1]?.lane?.seamSize === undefined ? (
                   <BlueprintSwimLaneDivider rowIndex={rowIndex} />
                 ) : null}
               </Fragment>

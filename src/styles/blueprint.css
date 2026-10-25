@@ -1280,11 +1280,18 @@
 [data-structure-highlight='label']:not([data-open])::before {
   content: '';
   position: absolute;
-  inset: min(var(--structure-highlight-inset, 8px), 25%) var(--structure-highlight-inset, 8px);
+  top: calc(var(--structure-row-inset-top, 0px) + var(--structure-highlight-inset, 8px));
+  right: var(--structure-highlight-inset, 8px);
+  bottom: calc(var(--structure-row-inset-bottom, 0px) + var(--structure-highlight-inset, 8px));
+  left: var(--structure-highlight-inset, 8px);
   border-radius: inherit;
   background: color-mix(in oklch, var(--foreground) 5%, transparent);
   pointer-events: none;
 }
+[data-blueprint-column-header][data-structure-highlight='label']:not([data-open])::before {
+  inset: 4px;
+}
+[data-blueprint-column-header] [data-structure-grip] { @apply left-3; }
 [data-blueprint-empty-slot]:focus-visible [data-blueprint-empty-preview] {
   outline: 2px solid var(--ring);
   outline-offset: -2px;
@@ -1296,7 +1303,7 @@
   top: var(--structure-highlight-y, 0px);
   width: var(--structure-highlight-width, 0px);
   height: var(--structure-highlight-height, 0px);
-  background: color-mix(in oklch, var(--primary) 10%, transparent);
+  background: color-mix(in oklch, var(--foreground) 5%, transparent);
   @apply rounded-md;
   pointer-events: none;
   z-index: 1;
@@ -1321,7 +1328,7 @@
 [data-structure-grip] { display: none; }
 [data-canvas-reorder] [data-structure-reorder] { cursor: grab; touch-action: none; }
 [data-canvas-reorder] [data-structure-reorder]:is(:hover, :focus-visible) [data-structure-grip] { display: block; }
-[data-canvas-reorder] [data-structure-reorder]:has([data-structure-grip]) { padding-left: 1.25rem; }
+[data-blueprint-row-header]:has([data-structure-grip]) { padding-left: 1.25rem; }
 [data-structure-lift] { position: relative; z-index: 50; cursor: grabbing; }
 [data-structure-lift-frame], [data-structure-landing] { position: absolute; pointer-events: none; @apply rounded-md; }
 [data-structure-lift-frame] { z-index: 50; border: var(--structure-highlight-stroke, 1px) solid var(--primary); @apply shadow-md; }

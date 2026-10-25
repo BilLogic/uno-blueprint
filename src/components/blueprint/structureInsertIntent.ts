@@ -29,6 +29,7 @@ function createIntent(board: Element) {
   const targets = new Set<Target>()
   let active: Target | null = null
   let lastPoint: Point | null = null
+  let headerPoint: Point | null = null
   let pending: Target | null | undefined
   let timer: ReturnType<typeof setTimeout> | undefined
   const cancel = () => {
@@ -62,6 +63,13 @@ function createIntent(board: Element) {
   }
   const move = (point: Point) => {
     lastPoint = point
+    // Closing layout can move a hit band under a stationary header pointer.
+    // A new insertion needs actual pointer travel, not a layout boundary event.
+    if (headerPoint && Math.hypot(point.clientX - headerPoint.clientX, point.clientY - headerPoint.clientY) <= 1) {
+      leave()
+      return
+    }
+    headerPoint = null
     board.toggleAttribute(
       'data-structure-insert-hover',
       Boolean(
@@ -91,7 +99,7 @@ function createIntent(board: Element) {
     schedule(candidates[0] ?? null)
   }
   const headerAction = (target: EventTarget | null, point: Point) => {
-    const element = target as Element | null
+    const element = target instanceof Element ? target : null
     if (element?.closest(
       '[data-canvas-header-opener], [data-blueprint-row-header], [data-structure-reorder], [data-canvas-header-info]',
     )) return true
@@ -112,6 +120,7 @@ function createIntent(board: Element) {
     const pointer = event as PointerEvent
     if (pointer.pointerType === 'touch') return
     if (headerAction(event.target, pointer)) {
+      headerPoint = { clientX: pointer.clientX, clientY: pointer.clientY }
       leave()
       return
     }
@@ -128,6 +137,11 @@ function createIntent(board: Element) {
   const click = (event: Event) => {
     const pointer = event as MouseEvent
     const clicked = (event.target as Element).closest('[data-structure-seam]')
+    if (clicked && headerPoint && Math.hypot(pointer.clientX - headerPoint.clientX, pointer.clientY - headerPoint.clientY) <= 1) {
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
     const owner =
       active && contains(active, pointer)
         ? active
@@ -140,16 +154,24 @@ function createIntent(board: Element) {
       owner.create()
     }
   }
+  const leaveBoard = () => { headerPoint = null; leave() }
   board.addEventListener('pointermove', pointerMove, true)
-  board.addEventListener('pointerleave', leave)
+  board.addEventListener('pointerleave', leaveBoard)
   board.addEventListener('click', click, true)
   return {
     add(target: Target) {
       targets.add(target)
       return {
         enter: move,
-        leave: move,
+        leave(event: Point & { relatedTarget?: EventTarget | null }) {
+          if (headerAction(event.relatedTarget ?? null, event)) {
+            headerPoint = { clientX: event.clientX, clientY: event.clientY }
+            leave()
+          }
+          else move(event)
+        },
         focus() {
+          headerPoint = null
           activate(target)
         },
         blur() {
@@ -162,7 +184,7 @@ function createIntent(board: Element) {
           if (!targets.size) {
             cancel()
             board.removeEventListener('pointermove', pointerMove, true)
-            board.removeEventListener('pointerleave', leave)
+            board.removeEventListener('pointerleave', leaveBoard)
             board.removeEventListener('click', click, true)
             board.removeAttribute('data-structure-insert-hover')
             intents.delete(board)

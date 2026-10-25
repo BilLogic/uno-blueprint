@@ -93,6 +93,7 @@ export function BlueprintSwimLaneDivider({ rowIndex }: { rowIndex: number }) {
   return (
     <div
       aria-hidden
+      data-blueprint-swimlane-divider=""
       className="pointer-events-none relative z-5 justify-self-stretch"
       style={{
         gridColumn: '2 / -1',
@@ -290,6 +291,12 @@ export function BlueprintLabelRow({
             highlightStructure(event.currentTarget, 'lane', row.label, true)
         }}
         onPointerLeave={(event) => {
+          const box = event.currentTarget.getBoundingClientRect()
+          // A closing gap can move the label out from under the pointer while
+          // the pointer is still inside this header's reserved edge band.
+          if (box.width > 0 && box.height > 0 &&
+              event.clientX >= box.left && event.clientX <= box.right &&
+              event.clientY >= box.top && event.clientY <= box.bottom) return
           if (
             laneSelectable &&
             !event.currentTarget.querySelector('[data-structure-header-title]:focus-visible')
@@ -339,7 +346,9 @@ export function BlueprintLabelRow({
       style={{
         ...style,
         width: COMPARE_LABEL_WIDTH,
-      }}
+        '--structure-row-inset-top': `${corridorAbove + inLaneLoopCorridorAbove}px`,
+        '--structure-row-inset-bottom': `${corridorBelow}px`,
+      } as CSSProperties}
     >
       {corridorAbove > 0 && (
         <div

@@ -168,6 +168,8 @@ for (const camera of ['overview', '100%'] as const) {
             box!.x + box!.width / 2,
             box!.y + box!.height / 2,
           )
+          // A stationary header hover must survive the insertion intent delay.
+          await page.waitForTimeout(250)
           const highlighted = board.locator('[data-axis-highlight]')
           await expect(highlighted).toHaveAttribute('data-axis-highlight', axis)
           expect(

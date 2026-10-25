@@ -304,3 +304,23 @@ it.each(['horizontal', 'vertical'] as const)('keeps the %s preview and its icon 
     unmount()
   }
 })
+
+it.each([{ y: 128, opens: false }, { y: 88, opens: true }])(
+  'protects header interiors while preserving the edge band at $y', ({ y, opens }) => {
+    vi.useFakeTimers()
+    render(<div data-structure-board="" data-axis-highlight="lane">
+      <StructureInsert orientation="horizontal" label="Add a lane" onClick={() => {}} />
+      <div data-structure-header-cell="" data-structure-lane-label=""><span>Lane header background</span></div>
+    </div>)
+    const target = screen.getByRole('button', { name: 'Add a lane' })
+    const background = screen.getByText('Lane header background')
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 78, 300, 88))
+    vi.spyOn(background.parentElement!, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 78, 300, 100))
+    fireEvent.pointerEnter(target, { clientX: 40, clientY: y })
+    act(() => vi.advanceTimersByTime(40))
+    fireEvent.pointerMove(background, { clientX: 40, clientY: y })
+    act(() => vi.advanceTimersByTime(120))
+    expect(target.hasAttribute('data-open')).toBe(opens)
+    expect(background.closest('[data-structure-board]')?.getAttribute('data-axis-highlight')).toBe(opens ? null : 'lane')
+  },
+)

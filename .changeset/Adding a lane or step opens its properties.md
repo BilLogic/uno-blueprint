@@ -2,4 +2,4 @@
 "uno-blueprint": patch
 ---
 
-Lane and step headers offer smaller synchronized insertion previews that scale with the board and leave space beside dividers on either side of semantic lines and path editors, headers and empty-cell hints use inset hover fills with padding around their content, and changes have one Undo notice.
+Lane and step headers open synchronized insertion previews and property panels with path placement and Undo. Previews scale with the board and leave clear space beside dividers. Hover fills reserve padding around labels and cards, and hovering a header interior keeps its row or column highlighted.

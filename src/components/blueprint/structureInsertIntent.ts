@@ -90,14 +90,28 @@ function createIntent(board: Element) {
     })
     schedule(candidates[0] ?? null)
   }
-  const headerAction = (target: EventTarget | null) =>
-    (target as Element | null)?.closest(
+  const headerAction = (target: EventTarget | null, point: Point) => {
+    const element = target as Element | null
+    if (element?.closest(
       '[data-canvas-header-opener], [data-blueprint-row-header], [data-structure-reorder], [data-canvas-header-info]',
-    )
+    )) return true
+    const header = element?.closest('[data-structure-header-cell]')
+    if (!header) return false
+    const box = header.getBoundingClientRect()
+    const lane = header.hasAttribute('data-structure-lane-label')
+    const coordinate = lane ? point.clientY : point.clientX
+    const start = lane ? box.top : box.left
+    const size = lane ? box.height : box.width
+    // The blank middle is still a header hover. Leave its edge bands usable
+    // for insertion, including the side immediately beside a semantic line.
+    const edge = Math.min(22, size / 4)
+    return coordinate > start + edge + 0.5 &&
+      coordinate < start + size - edge - 0.5
+  }
   const pointerMove = (event: Event) => {
     const pointer = event as PointerEvent
     if (pointer.pointerType === 'touch') return
-    if (headerAction(event.target)) {
+    if (headerAction(event.target, pointer)) {
       leave()
       return
     }
@@ -120,7 +134,7 @@ function createIntent(board: Element) {
         : pending && contains(pending, pointer)
         ? pending
         : null
-    if (owner && !headerAction(event.target) && clicked !== owner.element) {
+    if (owner && !headerAction(event.target, pointer) && clicked !== owner.element) {
       event.preventDefault()
       event.stopPropagation()
       owner.create()

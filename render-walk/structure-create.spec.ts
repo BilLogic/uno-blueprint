@@ -579,7 +579,8 @@ for (const camera of ['overview', '100%'] as const) {
               .at(-1)!
             const bounds = line.getBoundingClientRect()
             return {
-              top: Math.round(bounds.top),
+              // The separator shares half the added track's movement.
+              top: Math.round(bounds.top + gap.height / 2),
               height: Math.round(bounds.height),
               kind: line.getAttribute('data-blueprint-divider'),
               beside: Math.abs(gap.top - bounds.bottom) < 1,

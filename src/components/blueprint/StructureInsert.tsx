@@ -76,9 +76,12 @@ export function StructureInsert({
       style={{
         ...style,
         ...(orientation === 'vertical'
-          ? { width: hitSize / scale, marginLeft: -hitSize / 2 / scale }
+          ? {
+              width: edge ? `calc(${hitSize / scale}px + ${trackSize})` : hitSize / scale,
+              marginLeft: -hitSize / 2 / scale,
+            }
           : {
-              height: beforeEdge ? `calc(${hitSize / scale}px + ${trackSize})` : hitSize / scale,
+              height: edge ? `calc(${hitSize / scale}px + ${trackSize})` : hitSize / scale,
               // Keep the original upper entry fixed as its painted slot moves
               // the divider down. The growing hit area also contains the block.
               marginTop: beforeEdge ? `calc(-${hitSize / scale}px - ${trackSize})` : edge ? 0 : -hitSize / 2 / scale,

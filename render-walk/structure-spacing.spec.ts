@@ -148,5 +148,57 @@ for (const theme of ['dark', 'light']) {
     expect(columnError,'closing the inserted column keeps the highlight on the same step').toBeLessThan(1)
     await page.screenshot({path:join(VIEW_SCREENSHOT_DIR,`closing-column-highlight-${theme}.png`)})
 
+    // Every visible indicator grows around the resting hint, including edge
+    // positions and each independently reachable side of a named separator.
+    for (const [name, axis] of [
+      ['Add a step before Invoke ub:map', 'x'],
+      ['Add a step after Deploy', 'x'],
+      ['Add a lane above Journey figures', 'y'],
+      ['Add a lane below References & guardrails', 'y'],
+      ['Add a lane above Line of interaction', 'y'],
+      ['Add a lane below Blueprint owner', 'y'],
+      ['Add a lane above Line of visibility', 'y'],
+      ['Add a lane below Claude in the IDE', 'y'],
+    ] as const) {
+      await page.mouse.move(24,24)
+      await expect(board.locator('[data-structure-seam-track]')).toHaveCount(0)
+      const target=board.getByRole('button',{name,exact:true}).first()
+      await expect(async()=>{
+        const box=await target.boundingBox()
+        await page.waitForTimeout(100)
+        expect(await target.boundingBox()).toEqual(box)
+      }).toPass()
+      const hint=await target.locator('[data-structure-hint]').boundingBox()
+      const center=axis === 'x' ? hint!.x+hint!.width/2 : hint!.y+hint!.height/2
+      const measure=()=>target.evaluate((el,{axis,center})=>new Promise<number[]>(resolve=>{
+        const errors:number[]=[]
+        const start=performance.now()
+        const sample=()=>{
+          for(const selector of ['[data-structure-trigger]','[data-structure-slot-fill]']) {
+            const node=el.querySelector(selector)!, box=node.getBoundingClientRect()
+            const size=axis === 'x' ? box.width : box.height
+            if(size>1 && parseFloat(el.ownerDocument.defaultView!.getComputedStyle(node).opacity)>0.1)
+              errors.push(Math.abs((axis === 'x' ? box.left+box.width/2 : box.top+box.height/2)-center))
+          }
+          if(performance.now()-start<650) el.ownerDocument.defaultView!.requestAnimationFrame(sample)
+          else resolve(errors)
+        }
+        el.ownerDocument.defaultView!.requestAnimationFrame(sample)
+      }),{axis,center})
+      const samples=measure()
+      const hit=await target.boundingBox()
+      await page.mouse.move(axis === 'y' ? hit!.x+3 : name.includes('before') ? hit!.x+3 : hit!.x+hit!.width-3, axis === 'x' ? hit!.y+hit!.height/2 : name.includes('above Line') ? hit!.y+hit!.height-1 : hit!.y+1)
+      await expect(target).toHaveAttribute('data-open','')
+      const errors=await samples
+      await expect(target).toHaveAttribute('data-open','')
+      expect(errors.length,`${name} produced visible growth frames`).toBeGreaterThan(3)
+      expect(Math.max(...errors),`${name} expands around the resting hint`).toBeLessThan(1)
+      const closing=measure()
+      await page.mouse.move(24,24)
+      const closingErrors=await closing
+      expect(closingErrors.length,`${name} produced visible closing frames`).toBeGreaterThan(3)
+      expect(Math.max(...closingErrors),`${name} closes around the same centre`).toBeLessThan(1)
+    }
+
   })
 }

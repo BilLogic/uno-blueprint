@@ -305,20 +305,27 @@ it.each(['horizontal', 'vertical'] as const)('keeps the %s preview and its icon 
   }
 })
 
-it.each([{ y: 128, opens: false }, { y: 88, opens: true }])(
-  'protects header interiors while preserving the edge band at $y', ({ y, opens }) => {
+it.each([
+  { orientation: 'horizontal', coordinate: 128, opens: false },
+  { orientation: 'horizontal', coordinate: 88, opens: true },
+  { orientation: 'vertical', coordinate: 128, opens: false },
+  { orientation: 'vertical', coordinate: 88, opens: true },
+] as const)(
+  'protects $orientation header interiors while preserving the edge band at $coordinate', ({ orientation, coordinate, opens }) => {
     vi.useFakeTimers()
+    const lane = orientation === 'horizontal'
     render(<div data-structure-board="" data-axis-highlight="lane">
-      <StructureInsert orientation="horizontal" label="Add a lane" onClick={() => {}} />
-      <div data-structure-header-cell="" data-structure-lane-label=""><span>Lane header background</span></div>
+      <StructureInsert orientation={orientation} label="Add an item" onClick={() => {}} />
+      <div data-structure-header-cell={lane ? '' : undefined} data-structure-lane-label={lane ? '' : undefined} data-blueprint-column-header={lane ? undefined : ''}><span>Header background</span></div>
     </div>)
-    const target = screen.getByRole('button', { name: 'Add a lane' })
-    const background = screen.getByText('Lane header background')
-    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 78, 300, 88))
-    vi.spyOn(background.parentElement!, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 78, 300, 100))
-    fireEvent.pointerEnter(target, { clientX: 40, clientY: y })
+    const target = screen.getByRole('button', { name: 'Add an item' })
+    const background = screen.getByText('Header background')
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(lane ? new DOMRect(0, 78, 300, 88) : new DOMRect(78, 0, 88, 300))
+    vi.spyOn(background.parentElement!, 'getBoundingClientRect').mockReturnValue(lane ? new DOMRect(0, 78, 300, 100) : new DOMRect(78, 0, 100, 300))
+    const point = lane ? { clientX: 40, clientY: coordinate } : { clientX: coordinate, clientY: 40 }
+    fireEvent.pointerEnter(target, point)
     act(() => vi.advanceTimersByTime(40))
-    fireEvent.pointerMove(background, { clientX: 40, clientY: y })
+    fireEvent.pointerMove(background, point)
     act(() => vi.advanceTimersByTime(120))
     expect(target.hasAttribute('data-open')).toBe(opens)
     expect(background.closest('[data-structure-board]')?.getAttribute('data-axis-highlight')).toBe(opens ? null : 'lane')

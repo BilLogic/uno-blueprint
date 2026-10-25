@@ -95,7 +95,7 @@ function createIntent(board: Element) {
     if (element?.closest(
       '[data-canvas-header-opener], [data-blueprint-row-header], [data-structure-reorder], [data-canvas-header-info]',
     )) return true
-    const header = element?.closest('[data-structure-header-cell]')
+    const header = element?.closest('[data-structure-header-cell], [data-blueprint-column-header]')
     if (!header) return false
     const box = header.getBoundingClientRect()
     const lane = header.hasAttribute('data-structure-lane-label')

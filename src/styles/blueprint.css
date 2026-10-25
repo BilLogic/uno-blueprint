@@ -1359,3 +1359,9 @@
 [data-blueprint-empty-slot]:focus-visible > [data-blueprint-empty-preview] {
   transition-delay: 0s;
 }
+
+/* Resting marks use settled header measurements. Do not paint cached positions
+   while a projected track is moving the board underneath them. */
+[data-structure-board]:has([data-structure-seam-track]) {
+  --structure-hint-visibility: 0;
+}

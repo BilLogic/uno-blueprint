@@ -1922,11 +1922,19 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
         return
       }
 
+      // The camera owns this native event and stops other window listeners.
+      // Let transient canvas affordances dismiss before geometry starts moving.
+      const notifyGesture = () => el.dispatchEvent(new CustomEvent('canvas-camera-gesture', {
+        bubbles: true,
+        detail: { clientX: e.clientX, clientY: e.clientY },
+      }))
+
       // macOS sends pinch as ctrl+wheel; ⌘+wheel is the mouse equivalent.
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault()
         // Immediate: a second viewport's window listener must not also apply
         // the same tick, squaring the scale factor.
+        notifyGesture()
         e.stopImmediatePropagation()
         /*
           The factor is clamped per event, not per gesture. A trackpad pinch
@@ -1965,6 +1973,7 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
           return
         }
         e.preventDefault()
+        notifyGesture()
         e.stopImmediatePropagation()
         cancelCameraNavigation()
         userAdjustedViewRef.current = true

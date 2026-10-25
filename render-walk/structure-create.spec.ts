@@ -283,9 +283,9 @@ for (const camera of ['overview', '100%'] as const) {
               await page.waitForTimeout(100)
               expect(await hover.boundingBox()).toEqual(a)
             }).toPass()
-            const hoverBox = await hover.boundingBox()
+            const hoverBox = await hover.locator('[data-structure-hint]').boundingBox()
             await page.mouse.move(
-              hoverBox!.x + (kind === 'step' ? hoverBox!.width / 2 : 6),
+              hoverBox!.x + hoverBox!.width / 2,
               hoverBox!.y + hoverBox!.height / 2,
             )
             await expect(hover).toHaveAttribute('data-open', '')
@@ -431,7 +431,7 @@ for (const camera of ['overview', '100%'] as const) {
           await page.waitForTimeout(100)
           expect(await motionSeam.boundingBox()).toEqual(a)
         }).toPass()
-        const motionBox = await motionSeam.boundingBox()
+        const motionBox = await motionSeam.locator('[data-structure-hint]').boundingBox()
         const frames = motionSeam.evaluate(
           (element, center) =>
             new Promise<{ sizes: number[]; drift: number[] }>((resolve) => {
@@ -489,7 +489,7 @@ for (const camera of ['overview', '100%'] as const) {
             name: kind === 'step' ? /^Add a step after Invoke ub:map/ : 'Add a lane below Journey figures',
             exact: kind === 'lane',
           }).first()
-          const probe = await animated.boundingBox()
+          const probe = await animated.locator('[data-structure-hint]').boundingBox()
           const observe = () => animated.evaluate((element, axis) => new Promise<{overlap:number[]; mismatch:number[]; earlyIcon:number[]}>((resolve) => {
             const overlap:number[] = [], mismatch:number[] = [], earlyIcon:number[] = []
             const start = performance.now()
@@ -557,8 +557,8 @@ for (const camera of ['overview', '100%'] as const) {
             kind: line.getAttribute('data-blueprint-divider'),
           }
         })
-        const edgeBox = await semanticEdge.boundingBox()
-        await page.mouse.move(edgeBox!.x + 6, edgeBox!.y + edgeBox!.height / 2)
+        const edgeBox = await semanticEdge.locator('[data-structure-hint]').boundingBox()
+        await page.mouse.move(edgeBox!.x + edgeBox!.width/2, edgeBox!.y + edgeBox!.height / 2)
         await expect(semanticEdge).toHaveAttribute('data-open', '')
         expect(
           await semanticEdge.evaluate((el) => {
@@ -597,12 +597,12 @@ for (const camera of ['overview', '100%'] as const) {
         if (camera === 'overview') {
           for (const line of ['Line of interaction', 'Line of visibility']) {
             const upper = board.getByRole('button',{name:`Add a lane above ${line}`,exact:true}).first()
-            const rect = await upper.boundingBox()
+            const rect = await upper.locator('[data-structure-hint]').boundingBox()
             expect(rect, `an upper-side target exists for ${line}`).toBeTruthy()
-            await page.mouse.move(rect!.x + rect!.width / 2, rect!.y + rect!.height - 2)
+            await page.mouse.move(rect!.x + rect!.width / 2, rect!.y + rect!.height / 2)
             await expect(upper).toHaveAttribute('data-open','')
             await page.waitForTimeout(200)
-            await page.mouse.move(rect!.x + rect!.width / 2 + 1, rect!.y + rect!.height - 2)
+            await page.mouse.move(rect!.x + rect!.width / 2 + 1, rect!.y + rect!.height / 2)
             await page.waitForTimeout(200)
             await expect(upper, 'the upper entry remains reachable while the gap grows').toHaveAttribute('data-open','')
             await expect(async () => {
@@ -720,11 +720,9 @@ for (const camera of ['overview', '100%'] as const) {
 
           const axis = kind === 'step' ? 'width' : 'height'
           expect(closed?.[axis]).toBeGreaterThan(8)
-          // Aim in the label rail for lane seams, where the sticky label used to intercept it.
-          await page.mouse.move(
-            closed!.x + (kind === 'step' ? closed!.width / 2 : 6),
-            closed!.y + (kind === 'lane' ? closed!.height / 2 : stepProbeInset),
-          )
+          // Deliberate insertion starts at the resting mark in the header rail.
+          const mark=await opener.locator('[data-structure-hint]').boundingBox()
+          await page.mouse.move(mark!.x+mark!.width/2,mark!.y+mark!.height/2)
           expect(
             await opener.evaluate(
               (el, { itemKind, inset }) => {
@@ -1012,10 +1010,10 @@ for (const camera of ['overview', '100%'] as const) {
             requests,
             'opening and cancelling a draft never writes',
           ).toEqual([])
-          const returned = await opener.boundingBox()
+          const returned = await opener.locator('[data-structure-hint]').boundingBox()
           await page.mouse.move(
-            returned!.x + 6,
-            returned!.y + (kind === 'step' ? stepProbeInset : 6),
+            returned!.x + returned!.width/2,
+            returned!.y + returned!.height/2,
           )
           await expect(opener).toHaveAttribute('data-open', '')
           const opened = await opener

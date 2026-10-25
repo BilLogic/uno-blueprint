@@ -38,7 +38,7 @@ it('opens the whole seam after its hover delay and closes after the leave delay'
   )
   const seam = screen.getByRole('button', { name: 'Add a step after Review' })
   fireEvent.pointerEnter(seam, { clientX: 100, clientY: 40 })
-  act(() => vi.advanceTimersByTime(89))
+  act(() => vi.advanceTimersByTime(349))
   expect(seam.getAttribute('data-open')).toBeNull()
   act(() => vi.advanceTimersByTime(1))
   expect(seam.hasAttribute('data-open')).toBe(true)
@@ -46,7 +46,7 @@ it('opens the whole seam after its hover delay and closes after the leave delay'
   fireEvent.click(seam)
   expect(create).toHaveBeenCalledWith(seam)
   fireEvent.pointerLeave(seam)
-  act(() => vi.advanceTimersByTime(74))
+  act(() => vi.advanceTimersByTime(99))
   expect(seam.hasAttribute('data-open')).toBe(true)
   act(() => vi.advanceTimersByTime(1))
   expect(seam.getAttribute('data-open')).toBeNull()
@@ -121,7 +121,7 @@ it.each(['vertical', 'horizontal'] as const)(
         ? { clientX: 100, clientY: 40 }
         : { clientX: 40, clientY: 100 },
     )
-    act(() => vi.advanceTimersByTime(90))
+    act(() => vi.advanceTimersByTime(350))
     fireEvent.pointerLeave(active, { clientX: 100, clientY: 100 })
     fireEvent.pointerEnter(crossing, { clientX: 100, clientY: 100 })
     fireEvent.pointerMove(container.firstElementChild!, {
@@ -138,7 +138,7 @@ it.each(['vertical', 'horizontal'] as const)(
         ? { clientX: 150, clientY: 100 }
         : { clientX: 100, clientY: 150 }
     fireEvent.pointerMove(container.firstElementChild!, outside)
-    act(() => vi.advanceTimersByTime(90))
+    act(() => vi.advanceTimersByTime(350))
     expect(active.hasAttribute('data-open')).toBe(false)
     expect(crossing.hasAttribute('data-open')).toBe(true)
     vi.unstubAllGlobals()
@@ -165,7 +165,7 @@ it('chooses the nearest boundary at a fresh crossing instead of the painted targ
   const step = screen.getByRole('button', { name: 'Add a step' })
   const lane = screen.getByRole('button', { name: 'Add a lane' })
   fireEvent.pointerEnter(lane, { clientX: 100, clientY: 116 })
-  act(() => vi.advanceTimersByTime(90))
+  act(() => vi.advanceTimersByTime(350))
   expect(step.hasAttribute('data-open')).toBe(true)
   expect(lane.hasAttribute('data-open')).toBe(false)
 })
@@ -219,7 +219,7 @@ it('keeps an edge slot open across its visible extension', () => {
     new DOMRect(100, 0, 34, 300),
   )
   fireEvent.pointerEnter(seam, { clientX: 100, clientY: 40 })
-  act(() => vi.advanceTimersByTime(90))
+  act(() => vi.advanceTimersByTime(350))
   fireEvent.pointerMove(container.firstElementChild!, {
     clientX: 130,
     clientY: 40,
@@ -251,7 +251,7 @@ it('keeps the entry axis while its opening delay is still running', () => {
     clientX: 100,
     clientY: 100,
   })
-  act(() => vi.advanceTimersByTime(50))
+  act(() => vi.advanceTimersByTime(350))
   expect(lane.hasAttribute('data-open')).toBe(true)
   expect(
     screen
@@ -326,12 +326,13 @@ it.each([
     const target = screen.getByRole('button', { name: 'Add an item' })
     const background = screen.getByText('Header background')
     vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(lane ? new DOMRect(0, 78, 300, 88) : new DOMRect(78, 0, 88, 300))
+    vi.spyOn(target.querySelector('[data-structure-hint]')!, 'getBoundingClientRect').mockReturnValue(lane ? new DOMRect(32,87,16,2) : new DOMRect(87,32,2,16))
     vi.spyOn(background.parentElement!, 'getBoundingClientRect').mockReturnValue(lane ? new DOMRect(0, 78, 300, 100) : new DOMRect(78, 0, 100, 300))
     const point = lane ? { clientX: 40, clientY: coordinate } : { clientX: coordinate, clientY: 40 }
     fireEvent.pointerEnter(target, point)
     act(() => vi.advanceTimersByTime(40))
     fireEvent.pointerMove(background, point)
-    act(() => vi.advanceTimersByTime(120))
+    act(() => vi.advanceTimersByTime(350))
     expect(target.hasAttribute('data-open')).toBe(opens)
     expect(background.closest('[data-structure-board]')?.getAttribute('data-axis-highlight')).toBe(opens ? null : 'lane')
   },
@@ -351,7 +352,7 @@ it('closes insertion when leaving for a header action inside the overlapping hit
   render(<div data-structure-board=""><StructureInsert orientation="horizontal" label="Add a lane" onClick={() => {}} /><button data-blueprint-row-header="">Row title</button></div>)
   const seam=screen.getByRole('button',{name:'Add a lane'})
   fireEvent.pointerEnter(seam,{clientX:40,clientY:100})
-  act(()=>vi.advanceTimersByTime(90))
+  act(()=>vi.advanceTimersByTime(350))
   expect(seam.hasAttribute('data-open')).toBe(true)
   fireEvent.pointerLeave(seam,{clientX:40,clientY:100,relatedTarget:screen.getByRole('button',{name:'Row title'})})
   act(()=>vi.advanceTimersByTime(200))
@@ -360,7 +361,7 @@ it('closes insertion when leaving for a header action inside the overlapping hit
   act(()=>vi.advanceTimersByTime(200))
   expect(seam.hasAttribute('data-open')).toBe(false)
   fireEvent.pointerMove(seam.parentElement!,{clientX:42,clientY:100})
-  act(()=>vi.advanceTimersByTime(90))
+  act(()=>vi.advanceTimersByTime(350))
   expect(seam.hasAttribute('data-open')).toBe(true)
 })
 
@@ -386,9 +387,63 @@ it('dismisses a hover zone when the browser window loses focus',()=>{
   render(<StructureInsert orientation="vertical" label="Add a step" onClick={()=>{}} />)
   const seam=screen.getByRole('button',{name:'Add a step'})
   fireEvent.pointerEnter(seam,{clientX:100,clientY:40})
-  act(()=>vi.advanceTimersByTime(90))
+  act(()=>vi.advanceTimersByTime(350))
   expect(seam.hasAttribute('data-open')).toBe(true)
   fireEvent(window,new Event('blur'))
   act(()=>vi.advanceTimersByTime(200))
   expect(seam.hasAttribute('data-open')).toBe(false)
+})
+
+it('ignores a drive-by hover shorter than the deliberate insertion dwell',()=>{
+  vi.useFakeTimers()
+  render(<StructureInsert orientation="vertical" label="Add a step" onClick={()=>{}} />)
+  const seam=screen.getByRole('button',{name:'Add a step'})
+  fireEvent.pointerEnter(seam,{clientX:100,clientY:40})
+  act(()=>vi.advanceTimersByTime(200))
+  expect(seam.hasAttribute('data-open')).toBe(false)
+})
+it('does not publish an intent change just because camera scale changed',()=>{
+  const notify=vi.fn(), create=vi.fn()
+  const view=render(<StructureInsert orientation="vertical" scale={1} label="Add a step" onClick={create} onOpenChange={notify} />)
+  act(()=>screen.getByRole('button',{name:'Add a step'}).focus())
+  notify.mockClear()
+  view.rerender(<StructureInsert orientation="vertical" scale={0.5} label="Add a step" onClick={create} onOpenChange={notify} />)
+  expect(notify).not.toHaveBeenCalled()
+})
+it('dismisses and does not rearm underneath a stationary pointer while scrolling',()=>{
+  vi.useFakeTimers()
+  render(<StructureInsert orientation="vertical" label="Add a step" onClick={()=>{}} />)
+  const seam=screen.getByRole('button',{name:'Add a step'})
+  fireEvent.pointerEnter(seam,{clientX:100,clientY:40})
+  act(()=>vi.advanceTimersByTime(350))
+  expect(seam.hasAttribute('data-open')).toBe(true)
+  fireEvent.wheel(window,{clientX:100,clientY:40,deltaY:80})
+  expect(seam.hasAttribute('data-open')).toBe(false)
+  fireEvent.pointerEnter(seam,{clientX:100,clientY:40})
+  act(()=>vi.advanceTimersByTime(500))
+  expect(seam.hasAttribute('data-open')).toBe(false)
+})
+it('does not arm while the pointer button is held for a canvas drag',()=>{
+  vi.useFakeTimers()
+  render(<StructureInsert orientation="vertical" label="Add a step" onClick={()=>{}} />)
+  const seam=screen.getByRole('button',{name:'Add a step'})
+  fireEvent.pointerEnter(seam,{clientX:100,clientY:40,buttons:1})
+  act(()=>vi.advanceTimersByTime(500))
+  expect(seam.hasAttribute('data-open')).toBe(false)
+})
+
+it('requires steady intent inside the narrow mark band',()=>{
+  vi.useFakeTimers()
+  render(<StructureInsert orientation="vertical" label="Add a step" onClick={()=>{}} />)
+  const seam=screen.getByRole('button',{name:'Add a step'})
+  fireEvent.pointerEnter(seam,{clientX:116,clientY:40})
+  act(()=>vi.advanceTimersByTime(500))
+  expect(seam.hasAttribute('data-open')).toBe(false)
+  fireEvent.pointerEnter(seam,{clientX:100,clientY:40})
+  act(()=>vi.advanceTimersByTime(300))
+  fireEvent.pointerMove(seam,{clientX:100,clientY:60})
+  act(()=>vi.advanceTimersByTime(300))
+  expect(seam.hasAttribute('data-open')).toBe(false)
+  act(()=>vi.advanceTimersByTime(50))
+  expect(seam.hasAttribute('data-open')).toBe(true)
 })

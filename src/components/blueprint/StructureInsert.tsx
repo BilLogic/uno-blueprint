@@ -44,8 +44,8 @@ export function StructureInsert({
   })
   useEffect(() => {
     notify.current?.(open)
-    return () => notify.current?.(false)
-  }, [open, scale])
+  }, [open])
+  useEffect(() => () => notify.current?.(false), [])
   useEffect(() => {
     const element = button.current!
     const registered = registerStructureInsert({
@@ -118,7 +118,7 @@ export function StructureInsert({
         style={{
           width: orientation === 'horizontal' ? 16 : 2,
           height: orientation === 'vertical' ? 16 : 2,
-          opacity: `clamp(0, calc(1 - ${progress} * 3), 1)`,
+          opacity: `calc(var(--structure-hint-visibility, 1) * clamp(0, calc(1 - ${progress} * 3), 1))`,
           ...(orientation === 'horizontal' && edge ? beforeEdge
             ? { bottom: 0, transform: `translateY(calc(50% + ${indicatorOffset}px))` }
             : { top: edgeInset, transform: `translateY(calc(-50% + ${indicatorOffset}px))` } : {transform:orientation === 'vertical' ? `translateX(${indicatorOffset}px)` : `translateY(${indicatorOffset}px)`}),

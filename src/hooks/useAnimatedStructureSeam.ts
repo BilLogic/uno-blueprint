@@ -16,18 +16,16 @@ export function useAnimatedStructureSeam(
   const progress = useRef(0)
   const key = useRef<string | null>(null)
   const instant = immediate || prefersReducedMotion()
+  const latestTarget = useRef(target)
+  useLayoutEffect(() => {
+    latestTarget.current = target
+  }, [target])
   const next = immediate ? null : target
   if (instant && visible !== next) setVisible(next)
-  else if (
-    !instant &&
-    target &&
-    (!visible || visible.key === target.key) &&
-    visible !== target
-  )
-    setVisible(target)
+  else if (!instant && target && !visible) setVisible(target)
+  const opening = Boolean(visible && target?.key === visible.key)
   useLayoutEffect(() => {
     if (!visible) return
-    const opening = target?.key === visible.key
     if (key.current !== visible.key) {
       progress.current = 0
       key.current = visible.key
@@ -35,7 +33,9 @@ export function useAnimatedStructureSeam(
     const scope =
       document
         .querySelector<HTMLElement>(
-          `[data-structure-path="${CSS.escape(visible.pathId)}"], [data-structure-paths~="${CSS.escape(visible.pathId)}"]`,
+          `[data-structure-path="${CSS.escape(
+            visible.pathId,
+          )}"], [data-structure-paths~="${CSS.escape(visible.pathId)}"]`,
         )
         ?.closest<HTMLElement>('[data-focus-slide-id]') ??
       document.documentElement
@@ -56,14 +56,16 @@ export function useAnimatedStructureSeam(
       request = requestAnimationFrame(() => {
         playback = animate(from, opening ? 1 : 0, {
           // A short insertion gap uses three quarters of the structural duration.
-          duration: (MOTION_STRUCTURAL_MS * 0.75) / 1000,
+          duration:
+            (MOTION_STRUCTURAL_MS * 0.75 * Math.abs((opening ? 1 : 0) - from)) /
+            1000,
           ease: EASE_POINTS.move,
           onUpdate: frame,
           onComplete: () => {
             if (!opening) {
               progress.current = 0
-              key.current = target?.key ?? null
-              setVisible(target)
+              key.current = latestTarget.current?.key ?? null
+              setVisible(latestTarget.current)
             }
             delete document.documentElement.dataset.structureMotion
             document.dispatchEvent(new Event('structure-motion-end'))
@@ -76,6 +78,6 @@ export function useAnimatedStructureSeam(
       playback?.stop()
       delete document.documentElement.dataset.structureMotion
     }
-  }, [target, visible, instant])
+  }, [opening, visible, instant])
   return immediate ? null : visible
 }

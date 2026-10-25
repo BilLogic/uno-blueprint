@@ -39,7 +39,7 @@ for (const theme of ['dark','light']) {
     expect(measured.content).not.toBe('none')
     await page.mouse.move(24,24)
     const upper=board.getByRole('button',{name:'Add a lane above Line of visibility',exact:true})
-    await upper.hover()
+    await upper.locator('[data-structure-hint]').hover({force:true})
     await expect(upper).toHaveAttribute('data-open','')
     await expect.poll(()=>upper.evaluate(el=>{
       const b=el.closest('[data-structure-board]')!, scale=b.getBoundingClientRect().width/parseFloat(el.ownerDocument.defaultView!.getComputedStyle(b).width)
@@ -85,6 +85,12 @@ for (const theme of ['dark', 'light']) {
       await expect(page.locator('[data-slot="tooltip-content"]').filter({hasText:label})).toBeVisible()
       await page.mouse.move(24,24)
     }
+    const gesture=board.getByRole('button',{name:'Add a step before Invoke ub:map',exact:true}).first()
+    await gesture.locator('[data-structure-hint]').hover({force:true})
+    await expect(gesture).toHaveAttribute('data-open','')
+    await page.mouse.wheel(0,80)
+    await page.waitForTimeout(600)
+    await expect(board.locator('[data-structure-seam-track]')).toHaveCount(0)
     const hintGaps=await board.evaluate(el=>{
       const headers=Array.from(el.querySelectorAll('[data-blueprint-column-header]')) as (typeof el)[]
       const hints=(Array.from(el.querySelectorAll('[data-blueprint-column-handles] [data-structure-hint]')) as (typeof el)[]).map(node=>{const b=node.getBoundingClientRect();return b.left+b.width/2})
@@ -152,10 +158,11 @@ for (const theme of ['dark', 'light']) {
       expect(await seam.boundingBox()).toEqual(bounds)
     }).toPass()
     const closed=await seam.boundingBox()
-    await seam.hover()
+    await seam.locator('[data-structure-hint]').hover({force:true})
     await expect(seam).toHaveAttribute('data-open','')
     await page.waitForTimeout(400)
     await expect(seam.locator('[data-structure-hint]')).toHaveCSS('opacity','0')
+    for(const hint of await board.locator('[data-structure-hint]').all()) await expect(hint).toHaveCSS('opacity','0')
     await expect(board.locator('[data-blueprint-swimlane-divider]')).toHaveCount(lineCount-1)
     const fill=await seam.locator('[data-structure-slot-fill]').boundingBox()
     expect(Math.abs(fill!.y+fill!.height/2-closed!.y-closed!.height/2),'the ordinary divider opens around its own centre').toBeLessThan(1)
@@ -174,7 +181,7 @@ for (const theme of ['dark', 'light']) {
     expect(error,'the highlight follows the row as the insertion gap closes').toBeLessThan(1)
     await page.mouse.move(24,24)
     const stepSeam=board.getByRole('button',{name:'Add a step after Invoke ub:map',exact:true}).first()
-    await stepSeam.hover()
+    await stepSeam.locator('[data-structure-hint]').hover({force:true})
     await expect(stepSeam).toHaveAttribute('data-open','')
     await page.waitForTimeout(400)
     const nextStep=board.getByRole('button',{name:'View details: Route by what exists',exact:true}).first()
@@ -226,7 +233,7 @@ for (const theme of ['dark', 'light']) {
               errors.push(Math.abs((axis === 'x' ? box.left+box.width/2 : box.top+box.height/2)-expected))
             }
           }
-          if(performance.now()-start<650) el.ownerDocument.defaultView!.requestAnimationFrame(sample)
+          if(performance.now()-start<1100) el.ownerDocument.defaultView!.requestAnimationFrame(sample)
           else resolve(errors)
         }
         el.ownerDocument.defaultView!.requestAnimationFrame(sample)
@@ -277,6 +284,29 @@ for (const theme of ['dark', 'light']) {
     })
     await expect(restored).not.toHaveAttribute('data-open','')
     await expect(board.locator('[data-structure-seam-track]')).toHaveCount(0)
+
+    // Moving through header gaps must not continually reflow the board.
+    const candidates=board.locator('[data-blueprint-column-handles] [data-structure-seam]')
+    for(let lap=0;lap<2;lap++) {
+      for(let index=0;index<3;index++) {
+        const mark=await candidates.nth(index).locator('[data-structure-hint]').boundingBox()
+        await page.mouse.move(mark!.x+mark!.width/2,mark!.y+mark!.height/2)
+        await page.waitForTimeout(100)
+        await expect(board.locator('[data-structure-seam][data-open]')).toHaveCount(0)
+      }
+    }
+    await page.mouse.move(24,24)
+    await expect(board.locator('[data-structure-seam-track]')).toHaveCount(0)
+    const mark=await restored.locator('[data-structure-hint]').boundingBox()
+    const pointer={x:mark!.x+mark!.width/2,y:mark!.y+mark!.height/2}
+    await page.mouse.move(pointer.x,pointer.y)
+    await expect(restored).toHaveAttribute('data-open','')
+    await page.mouse.wheel(0,80)
+    await expect(board.locator('[data-structure-seam-track]')).toHaveCount(0)
+    await page.waitForTimeout(500)
+    await expect(board.locator('[data-structure-seam][data-open]')).toHaveCount(0)
+    for(const hint of await board.locator('[data-structure-hint]').all())
+      await expect(hint).toHaveCSS('opacity','1')
 
   })
 }

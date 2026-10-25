@@ -1,5 +1,5 @@
 import { getCellShellInsetY } from '@/lib/blueprintLayout'
-/** One continuous axis wash, with a rounded outline on its header. */
+/** One continuous axis wash, inset from the boundary and padded around its content. */
 const owners = new WeakMap<Element, HTMLElement>()
 
 export function highlightStructure(
@@ -34,7 +34,8 @@ export function highlightStructure(
   if (!boxes.length) return
   const origin = board.getBoundingClientRect()
   const scale = board.offsetWidth ? origin.width / board.offsetWidth : 1
-  const inset = getCellShellInsetY(board.dataset.structureDensity === 'compact')
+  // Split the shell padding: half outside the wash, half around its content.
+  const inset = getCellShellInsetY(board.dataset.structureDensity === 'compact') / 2
   board.style.setProperty('--structure-highlight-inset', `${inset}px`)
   board.style.setProperty('--structure-highlight-stroke', `${1 / scale}px`)
   source.style.setProperty('--structure-highlight-stroke', `${1 / scale}px`)

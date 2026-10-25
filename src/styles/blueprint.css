@@ -1280,7 +1280,7 @@
 [data-structure-highlight='label']:not([data-open])::before {
   content: '';
   position: absolute;
-  inset: min(var(--structure-highlight-inset, 16px), 25%) var(--structure-highlight-inset, 16px);
+  inset: min(var(--structure-highlight-inset, 8px), 25%) var(--structure-highlight-inset, 8px);
   border-radius: inherit;
   background: color-mix(in oklch, var(--foreground) 5%, transparent);
   pointer-events: none;

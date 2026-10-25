@@ -1,8 +1,18 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { expect } from '@playwright/test'
+import { expect, type Locator } from '@playwright/test'
 import { test } from './remote-images'
 import { VIEW_SCREENSHOT_DIR } from './playwright.config'
+
+// Visual dimensions are board-relative; hit targets remain screen-relative.
+async function slotSize(target: Locator, kind: 'step' | 'lane') {
+  return target.locator('[data-structure-slot]').evaluate((el, axis) => {
+    const board=el.closest('[data-structure-board]')!
+    const scale=board.getBoundingClientRect().width/parseFloat(board.ownerDocument.defaultView!.getComputedStyle(board).width)
+    const b=el.getBoundingClientRect()
+    return (axis === 'step' ? b.width : b.height)/scale
+  }, kind)
+}
 
 // Authoring needs a real caller session. The ordinary no-database walk skips
 // this case; the local canvas supplies its existing synthetic editing account.
@@ -180,11 +190,21 @@ for (const camera of ['overview', '100%'] as const) {
             return {outline:view.getComputedStyle(el).outlineStyle,stroke:view.getComputedStyle(el.closest('[data-structure-board]')!,'::after').boxShadow}
           }), 'pointer hover uses fill without an outline').toEqual({outline:'none',stroke:'none'})
           if (axis === 'lane') {
+            const breathingRoom = await highlighted.locator('[data-structure-highlight="label"]').evaluate(el => {
+              const title=el.querySelector('[data-structure-header-title]')!
+              const b=el.getBoundingClientRect(), t=title.getBoundingClientRect()
+              const board=el.closest('[data-structure-board]')!
+              const scale=board.getBoundingClientRect().width/parseFloat(board.ownerDocument.defaultView!.getComputedStyle(board).width)
+              const fill=el.ownerDocument.defaultView!.getComputedStyle(el,'::before')
+              return {top:(t.top-b.top)/scale-(b.height/scale-parseFloat(fill.height))/2,left:(t.left-b.left)/scale-(b.width/scale-parseFloat(fill.width))/2}
+            })
+            expect(breathingRoom.top, 'the header fill has padding above its title').toBeGreaterThanOrEqual(6)
+            expect(breathingRoom.left, 'the header fill has padding before its title').toBeGreaterThanOrEqual(6)
             expect(
               await highlighted
                 .locator('[data-structure-highlight="label"]')
                 .evaluate((el) => el.matches('[data-structure-header-cell]')),
-              'hover outlines the whole row-header cell',
+              'hover fills the whole row-header cell',
             ).toBe(true)
           }
           await page.screenshot({
@@ -213,6 +233,20 @@ for (const camera of ['overview', '100%'] as const) {
           expect(pad[0]).toBeGreaterThan(0)
           expect(pad[1], 'cells reserve the same padding before a semantic line').toBe(pad[0])
         }
+        await ownerHeader.getByRole('button',{name:'Blueprint owner',exact:true}).hover()
+        const contentRoom=await ownerHeader.evaluate(el=>{
+          const board=el.closest('[data-structure-board]')!
+          const scope=el.closest('[data-structure-path]') ?? board
+          const row=scope.querySelector('[data-blueprint-row][data-lane-name="Blueprint owner"]')!
+          const face=row.querySelector('[data-blueprint-cell-shell] [data-blueprint-cell-anchor]')!
+          const origin=board.getBoundingClientRect(), scale=origin.width/parseFloat(board.ownerDocument.defaultView!.getComputedStyle(board).width)
+          const wash=board.ownerDocument.defaultView!.getComputedStyle(board,'::after')
+          const top=parseFloat(wash.top), left=parseFloat(wash.left)
+          const card=face.getBoundingClientRect(), bounds=row.getBoundingClientRect()
+          return {aboveCard:(card.top-origin.top)/scale-top,beforeCard:(card.left-origin.left)/scale-left,aboveWash:top-(bounds.top-origin.top)/scale}
+        })
+        for (const gap of Object.values(contentRoom)) expect(gap, 'the wash has space inside and outside its content').toBeGreaterThan(5.9)
+        await page.mouse.move(24,24)
         expect(aligned.top, 'row header and content start together').toBeLessThan(1)
         expect(aligned.bottom, 'row header includes the bottom arrow corridor').toBeLessThan(1)
         if (camera === 'overview') {
@@ -255,10 +289,7 @@ for (const camera of ['overview', '100%'] as const) {
             await expect(hover).toHaveAttribute('data-open', '')
             await expect
               .poll(async () => {
-                const box = await hover
-                  .locator('[data-structure-slot]')
-                  .boundingBox()
-                return box?.[kind === 'step' ? 'width' : 'height'] ?? 0
+                return slotSize(hover, kind)
               })
               .toBeGreaterThan(27)
             const headers =
@@ -411,10 +442,12 @@ for (const camera of ['overview', '100%'] as const) {
                   ?.getBoundingClientRect()
                 if (slot && slot.height > 1)
                   drift.push(Math.abs(slot.y + slot.height / 2 - center))
-                samples.push(
+                const board=element.closest('[data-structure-board]')!
+                const scale=board.getBoundingClientRect().width/parseFloat(board.ownerDocument.defaultView!.getComputedStyle(board).width)
+                samples.push((
                   element.ownerDocument
                     .querySelector('[data-structure-seam-track="lane"]')
-                    ?.getBoundingClientRect().height ?? 0,
+                    ?.getBoundingClientRect().height ?? 0) / scale,
                 )
                 if (performance.now() - start < 1200)
                   element.ownerDocument.defaultView!.requestAnimationFrame(
@@ -470,7 +503,9 @@ for (const camera of ['overview', '100%'] as const) {
                 const painted = axis === 'step' ? trigger.width : trigger.height
                 overlap.push(Math.max(0, painted - size))
                 mismatch.push(axis === 'step' ? Math.abs(slot.left-track.left) : Math.abs(slot.top-track.top))
-                if (size < 16) earlyIcon.push(Number(style.opacity))
+                const board=element.closest('[data-structure-board]')!
+                const scale=board.getBoundingClientRect().width/parseFloat(board.ownerDocument.defaultView!.getComputedStyle(board).width)
+                if (size / scale < 16) earlyIcon.push(Number(style.opacity))
               }
               if (performance.now()-start < 1100) element.ownerDocument.defaultView!.requestAnimationFrame(frame)
               else resolve({overlap,mismatch,earlyIcon})
@@ -708,11 +743,7 @@ for (const camera of ['overview', '100%'] as const) {
           await expect(opener).toHaveAttribute('data-open', '')
           await expect
             .poll(async () => {
-              const slot = await opener
-                .locator('[data-structure-slot]')
-                .boundingBox()
-              const axis = kind === 'step' ? 'width' : 'height'
-              return slot?.[axis] ?? 0
+              return slotSize(opener, kind)
             })
             .toBeGreaterThanOrEqual(27)
           const phantom = board
@@ -735,6 +766,14 @@ for (const camera of ['overview', '100%'] as const) {
               }
             })
             .toEqual({ kind, offset: 0, size: 0 })
+          const visibleSize = await opener.locator('[data-structure-slot-fill]').evaluate((el, axis) => {
+            const board=el.closest('[data-structure-board]')!
+            const scale=board.getBoundingClientRect().width/parseFloat(board.ownerDocument.defaultView!.getComputedStyle(board).width)
+            const b=el.getBoundingClientRect(), slot=el.parentElement!.getBoundingClientRect()
+            return {size:(axis === 'step' ? b.width : b.height)/scale,gutter:(axis === 'step' ? b.left-slot.left : b.top-slot.top)/scale}
+          },kind)
+          expect(visibleSize.size, 'the visible preview scales with the board').toBeCloseTo(20, 0)
+          expect(visibleSize.gutter, 'the preview reserves space beside boundaries').toBeCloseTo(4, 0)
           const centeredSlot = await opener
             .locator('[data-structure-slot]')
             .boundingBox()

@@ -47,7 +47,7 @@ it('opens the whole seam after its hover delay and closes after the leave delay'
   expect(seam.getAttribute('data-open')).toBeNull()
 })
 
-it('keeps the opened slot at the boundary and its target usable when zoomed out', () => {
+it('scales the visible slot with the board while retaining a usable detection band', () => {
   render(
     <StructureInsert
       orientation="vertical"
@@ -64,7 +64,7 @@ it('keeps the opened slot at the boundary and its target usable when zoomed out'
   expect(seam.style.width).toBe('176px')
   expect(
     seam.querySelector<HTMLElement>('[data-structure-slot]')?.style.width,
-  ).toBe('112px')
+  ).toBe('28px')
   expect(seam.className).not.toContain('-translate-x-1/2')
 })
 
@@ -291,3 +291,16 @@ it.each([0, 90])(
     expect(cell).toHaveBeenCalledOnce()
   },
 )
+
+it.each(['horizontal', 'vertical'] as const)('keeps the %s preview and its icon proportional at different zoom levels', orientation => {
+  for (const scale of [0.25, 0.5, 1]) {
+    const {unmount}=render(<StructureInsert orientation={orientation} scale={scale} label="Add an item" onClick={() => {}} />)
+    const target=screen.getByRole('button',{name:'Add an item'})
+    fireEvent.focus(target)
+    const axis=orientation === 'horizontal' ? 'height' : 'width'
+    expect(target.style[axis]).toBe(`${44 / scale}px`)
+    expect(target.querySelector<HTMLElement>('[data-structure-slot]')!.style[axis]).toBe('28px')
+    expect(target.querySelector<SVGElement>('svg')!.style.width).toBe('16px')
+    unmount()
+  }
+})

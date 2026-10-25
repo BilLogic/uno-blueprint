@@ -61,7 +61,9 @@ export function StructureInsert({
   const progress = extent === undefined
     ? (open ? '1' : '0')
     : extent > 0 ? 'var(--structure-seam-progress, 0)' : '0'
-  const paintedSize = `calc(${progress} * ${28 / scale}px)`
+  const trackSize = `calc(${progress} * 28px)`
+  const paintedSize = `calc(${progress} * 20px)`
+  const gutter = `calc(${progress} * 4px)`
   return (
     <button
       ref={button}
@@ -74,10 +76,10 @@ export function StructureInsert({
         ...(orientation === 'vertical'
           ? { width: hitSize / scale, marginLeft: -hitSize / 2 / scale }
           : {
-              height: beforeEdge ? `calc(${hitSize / scale}px + ${paintedSize})` : hitSize / scale,
+              height: beforeEdge ? `calc(${hitSize / scale}px + ${trackSize})` : hitSize / scale,
               // Keep the original upper entry fixed as its painted slot moves
               // the divider down. The growing hit area also contains the block.
-              marginTop: beforeEdge ? `calc(-${hitSize / scale}px - ${paintedSize})` : edge ? 0 : -hitSize / 2 / scale,
+              marginTop: beforeEdge ? `calc(-${hitSize / scale}px - ${trackSize})` : edge ? 0 : -hitSize / 2 / scale,
             }),
       }}
       onPointerDown={(event) => {
@@ -104,7 +106,7 @@ export function StructureInsert({
             ? {
                 width:
                   extent === undefined
-                    ? (open ? 28 : 0) / scale
+                    ? (open ? 28 : 0)
                     : `calc(var(--structure-seam-progress, 1) * ${
                         extent / scale
                       }px)`,
@@ -114,7 +116,7 @@ export function StructureInsert({
             : {
                 height:
                   extent === undefined
-                    ? (open ? 28 : 0) / scale
+                    ? (open ? 28 : 0)
                     : `calc(var(--structure-seam-progress, 1) * ${
                         extent / scale
                       }px)`,
@@ -122,30 +124,34 @@ export function StructureInsert({
                 ...(beforeEdge ? {bottom:0} : edge ? { top: 0 } : {}),
               }),
           ...slotStyle,
-          borderWidth: `calc(${progress} * 1px)`,
-          opacity: progress,
         }}
-        className="pointer-events-auto absolute rounded-md border border-dashed border-border-primary bg-wash-primary"
-      />
+        className="pointer-events-auto absolute"
+      >
+        <span
+          data-structure-slot-fill=""
+          className="pointer-events-none absolute rounded-md bg-wash-primary"
+          style={{ inset: gutter, opacity: progress }}
+        />
+      </span>
       <span
         data-structure-trigger=""
         aria-hidden
         className="pointer-events-none absolute flex items-center justify-center overflow-hidden rounded-md border border-border-primary bg-wash-primary"
         style={{
-          width: orientation === 'vertical' ? paintedSize : 'calc(100% - 8px)',
-          height: orientation === 'horizontal' ? paintedSize : 'calc(100% - 4px)',
+          width: orientation === 'vertical' ? paintedSize : 'calc(100% - 16px)',
+          height: orientation === 'horizontal' ? paintedSize : 'calc(100% - 8px)',
           borderWidth: `calc(${progress} * 1px)`,
           opacity: progress,
           ...(edge
             ? orientation === 'vertical'
-              ? { left: hitSize / 2 / scale }
-              : beforeEdge ? {bottom:0} : { top: 0 }
+              ? { left: `calc(${hitSize / 2 / scale}px + ${gutter})` }
+              : beforeEdge ? {bottom:gutter} : { top: gutter }
             : {}),
         }}
       >
         <Plus aria-hidden className="shrink-0 text-primary" style={{
-          width: 16 / scale,
-          height: 16 / scale,
+          width: 16,
+          height: 16,
           opacity: `clamp(0, calc((${progress} - 0.65) / 0.35), 1)`,
         }} />
       </span>

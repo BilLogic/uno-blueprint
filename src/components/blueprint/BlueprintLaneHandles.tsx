@@ -248,7 +248,7 @@ function BlueprintLaneHandlesActive({
                         pathId: targetPath,
                         pathIds,
                         atPosition: boundary.storedPosition,
-                        size: 28 / cameraScale,
+                        size: 28,
                         key,
                       }
                     : current?.key === key

@@ -260,7 +260,7 @@ export function registerCanvasStructureReorder(
       return
     }
     const source = header(event)
-    if (!source || !event.altKey) return
+    if (gesture || !source || !event.altKey) return
     const kind = source.dataset.structureReorder as Kind
     const directions =
       kind === 'step' ? ['ArrowLeft', 'ArrowRight'] : ['ArrowUp', 'ArrowDown']

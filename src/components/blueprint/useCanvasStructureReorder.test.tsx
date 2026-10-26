@@ -124,7 +124,7 @@ it.each([true, false])(
   },
 )
 
-it('marks headers busy through readback and binds Undo to its own write receipt', async () => {
+it('releases busy headers when the write settles without requiring readback and binds Undo to its own write receipt', async () => {
   vi.stubGlobal('CSS', { escape: (s: string) => s })
   let resolve!: (value: unknown) => void
   write.mockImplementationOnce(
@@ -173,9 +173,10 @@ it('marks headers busy through readback and binds Undo to its own write receipt'
   move()
   expect(write).toHaveBeenCalledTimes(count)
   await act(async () => resolve(own))
-  expect(one.getAttribute('aria-disabled')).toBe('true')
+  expect(one.hasAttribute('aria-disabled')).toBe(false)
+  // Even if refetch fails and this view never renders again, gestures are usable.
   move()
-  expect(write).toHaveBeenCalledTimes(count)
+  expect(write).toHaveBeenCalledTimes(count + 1)
   await waitFor(() =>
     expect(success).toHaveBeenCalledWith(
       'Moved the one step',

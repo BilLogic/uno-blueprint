@@ -34,6 +34,10 @@ test('review regressions: saving headers, lost capture, and user-owned draft cam
   page,
 }) => {
   const board = await open(page)
+  let reorderRequests = 0
+  page.on('request', (request) => {
+    if (request.url().endsWith('/rpc/reorder_steps')) reorderRequests += 1
+  })
   const headers = board.locator(
     '[data-blueprint-column-header] [data-structure-reorder="step"]',
   )
@@ -90,6 +94,10 @@ test('review regressions: saving headers, lost capture, and user-owned draft cam
   await page.mouse.move(box!.x + box!.width / 2 + 20, box!.y + box!.height / 2)
   await expect(board.locator('[data-structure-lift-frame]')).toHaveCount(1)
   expect(await source.evaluate((el) => el.hasPointerCapture(1))).toBe(true)
+  await page.keyboard.press('Alt+ArrowRight')
+  await expect(board.locator('[data-structure-save-busy]')).toHaveCount(0)
+  expect(reorderRequests).toBe(1)
+  await expect(board.locator('[data-structure-lift-frame]')).toHaveCount(1)
   await source.evaluate((el) => el.releasePointerCapture(1))
   // Chromium delivers the pending capture change before the next pointer event.
   await page.mouse.move(box!.x + box!.width / 2 + 21, box!.y + box!.height / 2)

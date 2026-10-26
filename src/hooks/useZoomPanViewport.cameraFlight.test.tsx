@@ -52,7 +52,7 @@ let cameraState: () => {
   zoom: number
   pan: { x: number; y: number }
 }
-let panCamera: (dx: number, dy: number) => void
+let panCamera: (dx: number, dy: number, source?: 'structure-draft') => void
 let refitCamera: () => false | Promise<CameraTransitionResult>
 let focusCamera: (
   ids: string[],
@@ -1472,4 +1472,16 @@ describe('viewport camera flights', () => {
     expect(focus('b').style.opacity).toBe('')
     expect(cameraState().moving).toBe(false)
   })
+})
+
+it('announces imperative camera moves and identifies the draft assist separately', () => {
+  const view = render(<Harness resetKey="camera-change" target={{left: 0, top: 0, width: 1200, height: 600}} />)
+  const changed = vi.fn()
+  view.container.firstElementChild!.addEventListener('canvas-camera-change', changed)
+  act(() => panCamera(70, 0))
+  expect(changed).toHaveBeenCalledTimes(1)
+  expect((changed.mock.calls[0][0] as CustomEvent).detail.source).toBeUndefined()
+  act(() => panCamera(-70, 0, 'structure-draft'))
+  expect(changed).toHaveBeenCalledTimes(2)
+  expect((changed.mock.calls[1][0] as CustomEvent).detail.source).toBe('structure-draft')
 })

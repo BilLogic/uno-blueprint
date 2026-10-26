@@ -25,7 +25,8 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
-it('does not re-pan for text changes, and stops restoring after a user camera gesture', () => {
+it.each(['canvas-camera-gesture', 'canvas-camera-change'])('does not re-pan for text edits or restore after %s', (eventName) => {
+  state.context.selection = {draft: {kind: 'step'}, draftKey: 'draft'}
   const frames: FrameRequestCallback[] = []
   vi.stubGlobal('requestAnimationFrame', (fn: FrameRequestCallback) => {
     frames.push(fn)
@@ -67,8 +68,9 @@ it('does not re-pan for text changes, and stops restoring after a user camera ge
   view.rerender(<Board />)
   act(() => frames.splice(0).forEach((fn) => fn(16)))
   expect(pan).toHaveBeenCalledTimes(1)
-  document.dispatchEvent(
-    new CustomEvent('canvas-camera-gesture', {
+  view.container.querySelector('[data-zoom-pan-viewport]')!.dispatchEvent(
+    new CustomEvent(eventName, {
+      bubbles: true,
       detail: { clientX: 600, clientY: 300 },
     }),
   )

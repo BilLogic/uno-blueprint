@@ -28,13 +28,11 @@ for (const kind of ['lane', 'step'] as const) {
       await renameStepName(client, {
         stepId: 'step',
         name: 'Decision',
-        previousName: 'stale client name',
       })
     else
       await renameLane(client, {
         laneId: 'lane',
         name: 'Decision',
-        previousName: 'stale client name',
       })
     expect(saved).toBe('Decision')
     const [entry] = sessionSnapshot()

@@ -61,7 +61,6 @@ for (const kind of ['lane', 'step'] as const) {
       expect(writes[kind]).toHaveBeenCalledWith(expect.anything(), {
         [kind === 'lane' ? 'laneId' : 'stepId']: 'saved',
         name: 'Decision',
-        previousName: 'Review',
       }),
     )
     await waitFor(() => expect(screen.queryByRole('textbox')).toBeNull())

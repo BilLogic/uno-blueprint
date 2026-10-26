@@ -1194,12 +1194,12 @@ export async function createLaneWithDetails(
     : result.ids,entry}
 }
 
-/** Portable canvas rename with a locally captured session inverse. */
-export function renameStepName(client:Client,input:{stepId:string;name:string;previousName:string}):Promise<void> {
+/** Portable canvas rename with a server-captured guarded inverse. */
+export function renameStepName(client:Client,input:{stepId:string;name:string}):Promise<void> {
   return call<void>(client,'rename_step_name',{step_id:input.stepId,new_name:input.name})
 }
 
-export function renameLane(client:Client,input:{laneId:string;name:string;previousName:string}):Promise<void> {
+export function renameLane(client:Client,input:{laneId:string;name:string}):Promise<void> {
   return call<void>(client,'rename_lane',{lane_id:input.laneId,new_name:input.name})
 }
 

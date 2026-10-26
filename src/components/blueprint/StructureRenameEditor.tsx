@@ -31,13 +31,11 @@ export function StructureRenameEditor({
         await renameStepName(client, {
           stepId: id,
           name: draft.trim(),
-          previousName: name,
         })
       else
         await renameLane(client, {
           laneId: id,
           name: draft.trim(),
-          previousName: name,
         })
       onDone()
     } catch (cause) {

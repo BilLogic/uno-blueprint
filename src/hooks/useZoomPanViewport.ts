@@ -781,7 +781,9 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
       syncReact = false,
       /** See `applyTransformToElement` — animated fits pass `stampFitSemanticTier`. */
       tierZoom?: number,
+      source?: 'structure-draft',
     ) => {
+      const changed = !isSameTransform(transformRef.current, {pan: nextPan, zoom: nextZoom})
       transformRef.current = { pan: nextPan, zoom: nextZoom }
       const ground = groundRef.current
       if (ground) {
@@ -798,6 +800,7 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
           tierZoom,
         )
       }
+      if (changed) containerRef.current?.dispatchEvent(new CustomEvent('canvas-camera-change', {bubbles: true, detail: {source}}))
       if (syncReact) {
         setPan(nextPan)
         setZoom(nextZoom)
@@ -2638,7 +2641,7 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
   }, [zoomAtPoint])
 
   const panBy = useCallback(
-    (dx: number, dy: number) => {
+    (dx: number, dy: number, source?: 'structure-draft') => {
       cancelCameraNavigation()
       userAdjustedViewRef.current = true
       const current = transformRef.current
@@ -2646,6 +2649,8 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
         { x: current.pan.x + dx, y: current.pan.y + dy },
         current.zoom,
         true,
+        undefined,
+        source,
       )
     },
     [cancelCameraNavigation, commitTransform],

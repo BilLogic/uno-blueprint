@@ -4,7 +4,7 @@ import { useEntityDetailOptional } from '@/contexts/EntityDetailContext'
 /** Assist placement while the draft owns the camera; a user gesture takes it back. */
 export function useStructureDraftCamera(
   content: RefObject<HTMLDivElement | null>,
-  panBy: (dx: number, dy: number) => void,
+  panBy: (dx: number, dy: number, source?: 'structure-draft') => void,
   active: boolean,
 ) {
   const context = useEntityDetailOptional()
@@ -20,12 +20,12 @@ export function useStructureDraftCamera(
   const draftBoard = context?.draftBoard
   useEffect(() => {
     const gesture = (event: Event) => {
+      if (event instanceof CustomEvent && event.detail?.source === 'structure-draft') return
       const viewport = content.current?.closest('[data-zoom-pan-viewport]')
       if (
         !session.current ||
         !viewport ||
-        (event.target !== document &&
-          event.target !== viewport &&
+        (event.target !== viewport &&
           !(event.target instanceof Node && viewport.contains(event.target)))
       )
         return
@@ -33,12 +33,16 @@ export function useStructureDraftCamera(
       shifted.current = { x: 0, y: 0 }
     }
     document.addEventListener('canvas-camera-gesture', gesture)
-    return () => document.removeEventListener('canvas-camera-gesture', gesture)
+    document.addEventListener('canvas-camera-change', gesture)
+    return () => {
+      document.removeEventListener('canvas-camera-gesture', gesture)
+      document.removeEventListener('canvas-camera-change', gesture)
+    }
   }, [content])
   useEffect(() => {
     if (!active || !keep) {
       if (!userOwned.current && (shifted.current.x || shifted.current.y))
-        panBy(-shifted.current.x, -shifted.current.y)
+        panBy(-shifted.current.x, -shifted.current.y, 'structure-draft')
       shifted.current = { x: 0, y: 0 }
       session.current = false
       userOwned.current = false
@@ -79,7 +83,7 @@ export function useStructureDraftCamera(
       if (!dx && !dy) return
       shifted.current.x += dx
       shifted.current.y += dy
-      panBy(dx, dy)
+      panBy(dx, dy, 'structure-draft')
     }
     const frame = requestAnimationFrame(() => {
       if (!document.documentElement.hasAttribute('data-structure-motion'))

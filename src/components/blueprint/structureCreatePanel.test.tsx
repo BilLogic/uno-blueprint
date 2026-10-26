@@ -10,6 +10,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { Drawer } from '@/components/ui/drawer'
 import { StepPanel } from './StepPanel'
 import { LanePanel } from './LanePanel'
+import { recordChange, clearSession } from '@/lib/authoringSession'
 import { StructureRenameEditor } from './StructureRenameEditor'
 
 const reads = vi.hoisted(() => ({
@@ -18,8 +19,8 @@ const reads = vi.hoisted(() => ({
   items: [] as Array<{ id: string; name: string }>,
 }))
 const writes = vi.hoisted(() => ({
-  step: vi.fn(async () => ({id:'created-step',entry:undefined})),
-  lane: vi.fn(async () => ({ids:['created-lane'],entry:undefined})),
+  step: vi.fn(async () => ({id:'created-step',entry:recordChange('add_step_with_details', {})})),
+  lane: vi.fn(async () => ({ids:['created-lane'],entry:recordChange('add_lane_with_details', {})})),
   renameStepName: vi.fn(async () => {}),
   renameLane: vi.fn(async () => {}),
 }))
@@ -58,6 +59,7 @@ vi.mock('@/hooks/useOwnerTags', () => ({
 vi.mock('./StakeholderSelect', () => ({ StakeholderSelect: () => null }))
 afterEach(() => {
   cleanup()
+  clearSession()
   reads.selectedPath = 'path'
   reads.empty = false
   reads.items = []
@@ -103,7 +105,9 @@ it('keeps a step draft unwritten until Name is filled, then creates all fields t
       }),
     ),
   )
-  expect(created).toHaveBeenCalledWith('created-step',undefined)
+  const receipt = await writes.step.mock.results.at(-1)!.value
+  expect(created).toHaveBeenCalledWith('created-step', receipt.entry)
+  expect(created.mock.calls[0][1]).toBe(receipt.entry)
 })
 
 it('requires both lane Name and Role and submits its properties in one write', async () => {
@@ -155,7 +159,9 @@ it('requires both lane Name and Role and submits its properties in one write', a
       }),
     ),
   )
-  expect(created).toHaveBeenCalledWith('created-lane',undefined)
+  const receipt = await writes.lane.mock.results.at(-1)!.value
+  expect(created).toHaveBeenCalledWith('created-lane', receipt.entry)
+  expect(created.mock.calls[0][1]).toBe(receipt.entry)
 })
 
 for (const kind of ['lane', 'step'] as const) {
@@ -178,7 +184,6 @@ for (const kind of ['lane', 'step'] as const) {
       ).toHaveBeenCalledWith(expect.anything(), {
         [kind === 'step' ? 'stepId' : 'laneId']: 'saved',
         name: 'Decision',
-        previousName: 'Review',
       }),
     )
     expect(done).toHaveBeenCalledOnce()

@@ -61,6 +61,7 @@ for (const kind of ['lane', 'step'] as const) {
     expect(
       items[0].parts.every((part) => part.hasAttribute('data-structure-lift')),
     ).toBe(true)
+    items[0].parts[0].dispatchEvent(new KeyboardEvent('keydown', {key: kind === 'step' ? 'ArrowRight' : 'ArrowDown', altKey: true, bubbles: true}))
     expect(save).not.toHaveBeenCalled()
     document.dispatchEvent(pointer('pointerup', 150, 150))
     expect(save).toHaveBeenCalledExactlyOnceWith(kind, 'one', ['two', 'one'], ['one','two'])

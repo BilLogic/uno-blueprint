@@ -80,8 +80,9 @@ for (const [kind, membership] of [
         new Promise<number[]>((resolve) => {
           el.setAttribute('data-draft-sampling', '')
           const sizes: number[] = []
-          const start = performance.now()
+          let done = false
           const frame = () => {
+            if (done) return
             const current = el.ownerDocument.querySelector(
               `[data-focus-slide-id="${el.getAttribute(
                 'data-focus-slide-id',
@@ -99,13 +100,22 @@ for (const [kind, membership] of [
               const b = zone.getBoundingClientRect()
               sizes.push((kind === 'step' ? b.width : b.height) / scale)
             }
-            if (performance.now() - start < 900)
-              el.ownerDocument.defaultView!.requestAnimationFrame(frame)
-            else {
-              current.removeAttribute('data-draft-sampling')
-              resolve(sizes)
-            }
+            el.ownerDocument.defaultView!.requestAnimationFrame(frame)
           }
+          const finish = () => {
+            const current = el.ownerDocument.querySelector(
+              `[data-focus-slide-id="${el.getAttribute('data-focus-slide-id')}"]`,
+            )!
+            // A seam may still be finishing. Sample through the draft's own clock,
+            // including when browser input delivery takes longer than one animation.
+            if (!current.querySelector('[data-structure-placeholder]')) return
+            frame()
+            done = true
+            current.removeAttribute('data-draft-sampling')
+            el.ownerDocument.removeEventListener('structure-motion-end', finish)
+            resolve(sizes)
+          }
+          el.ownerDocument.addEventListener('structure-motion-end', finish)
           el.ownerDocument.defaultView!.requestAnimationFrame(frame)
         }),
       kind,

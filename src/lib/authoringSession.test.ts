@@ -47,6 +47,12 @@ test('no read RPC can be recorded as a change', () => {
  * argument `DESCRIBERS` itself makes.
  */
 const EVERY_WRITE = Object.keys({
+  update_step_with_details: true,
+  update_lane_with_details: true,
+  add_step_with_details: true,
+  add_lane_with_details: true,
+  rename_step_name: true,
+  rename_lane: true,
   create_phase: true,
   create_scenario: true,
   create_path: true,
@@ -149,7 +155,10 @@ const CELL_UPDATE: ChangeEntry = {
   fn: 'upsert_cell',
   args: {},
   at: 0,
-  revert: { fn: 'restore_cell_content', args: { cell_id: 'cell-1', content: 'was' } },
+  revert: {
+    fn: 'restore_cell_content',
+    args: { cell_id: 'cell-1', content: 'was' },
+  },
 }
 
 const EDGE_INSERT: ChangeEntry = {
@@ -187,7 +196,12 @@ test('an update with no recoverable before-state still reads as an edit', () => 
   // to the create — the fallback is the defect, not the safe default.
   const entry: ChangeEntry = { id: 'c5', fn: 'upsert_cell', args: {}, at: 0 }
   expect(describeChange(entry)).toBe('Edited a cell’s text')
-  const edge: ChangeEntry = { id: 'c6', fn: 'set_cell_dependency', args: {}, at: 0 }
+  const edge: ChangeEntry = {
+    id: 'c6',
+    fn: 'set_cell_dependency',
+    args: {},
+    at: 0,
+  }
   expect(describeChange(edge)).toBe('Edited a connection')
 })
 
@@ -201,7 +215,10 @@ test('an update with no recoverable before-state still reads as an edit', () => 
  */
 
 /** A hand-built entry. `fn` is loose so an operation outside the union can be asked about. */
-const entry = (fn: string, args: Record<string, unknown> = {}): ChangeEntry => ({
+const entry = (
+  fn: string,
+  args: Record<string, unknown> = {},
+): ChangeEntry => ({
   id: 'x',
   fn: fn as WriteFn,
   args,
@@ -235,7 +252,9 @@ test('the snapshot is a new array per change, so subscribers re-render', () => {
 })
 
 test('changes are named by what was done, never by table', () => {
-  expect(describeChange(entry('add_step', { name: 'Greet' }))).toBe('Added step “Greet”')
+  expect(describeChange(entry('add_step', { name: 'Greet' }))).toBe(
+    'Added step “Greet”',
+  )
   expect(describeChange(entry('add_step'))).toBe('Added a step')
   expect(describeChange(entry('remove_lane'))).toBe('Deleted a lane')
 })
@@ -251,12 +270,12 @@ test('a duplicate names the copy it made', () => {
   // switch's default, so the sheet listed the raw function name — which reads
   // plausibly enough that nobody caught it. The sentence is pinned here with
   // its sibling.
-  expect(describeChange(entry('duplicate_scenario', { name: 'Intake (copy)' }))).toBe(
-    'Duplicated a blueprint as “Intake (copy)”',
-  )
-  expect(describeChange(entry('duplicate_path', { name: 'Happy Path (copy)' }))).toBe(
-    'Duplicated a path as “Happy Path (copy)”',
-  )
+  expect(
+    describeChange(entry('duplicate_scenario', { name: 'Intake (copy)' })),
+  ).toBe('Duplicated a blueprint as “Intake (copy)”')
+  expect(
+    describeChange(entry('duplicate_path', { name: 'Happy Path (copy)' })),
+  ).toBe('Duplicated a path as “Happy Path (copy)”')
 })
 
 test('a duplicated blueprint groups with the blueprint it copied', () => {
@@ -305,16 +324,22 @@ test('grouping preserves the order changes were made in', () => {
 })
 
 test('a destructive session is flagged, an additive one is not', () => {
-  expect(sessionHasDestructive([entry('add_step'), entry('upsert_cell')])).toBe(false)
-  expect(sessionHasDestructive([entry('add_step'), entry('remove_lane')])).toBe(true)
+  expect(sessionHasDestructive([entry('add_step'), entry('upsert_cell')])).toBe(
+    false,
+  )
+  expect(sessionHasDestructive([entry('add_step'), entry('remove_lane')])).toBe(
+    true,
+  )
 })
 
 test('a slice delete is named and counts as destructive', () => {
   expect(
-    describeChange(entry('delete_slice', { slice_id: 's1', title: 'Customer journey' })),
+    describeChange(
+      entry('delete_slice', { slice_id: 's1', title: 'Customer journey' }),
+    ),
   ).toBe('Deleted slice “Customer journey”')
-  expect(describeChange(entry('delete_slice', { slice_id: 's1', title: null }))).toBe(
-    'Deleted a slice',
-  )
+  expect(
+    describeChange(entry('delete_slice', { slice_id: 's1', title: null })),
+  ).toBe('Deleted a slice')
   expect(sessionHasDestructive([entry('delete_slice')])).toBe(true)
 })

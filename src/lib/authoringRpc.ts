@@ -6,6 +6,7 @@ import { asEntityStatus, type EntityStatus } from '@/lib/entityStatus'
 import { toAuthoringError } from '@/lib/authoringErrors'
 import {
   recordChange,
+  type SessionEntry,
   type RevertSpec,
   type WriteFn,
 } from '@/lib/authoringSession'
@@ -260,6 +261,13 @@ const FRESHNESS: Record<string, (args: Record<string, unknown>) => void> = {
     invalidateStructure()
     invalidateQueries(queryKeys.stepSpec.prefix)
   },
+  rename_step: stepDetailsWritten,
+  rename_step_name: stepDetailsWritten,
+  update_step_with_details: stepDetailsWritten,
+  restore_step_details: stepDetailsWritten,
+  rename_lane: laneDetailsWritten,
+  update_lane_with_details: laneDetailsWritten,
+  restore_lane_details: laneDetailsWritten,
   rename_owner_tag: ownerTagWritten,
   rename_owner_tag_scoped: ownerTagWritten,
   // The registry entry is drawn on every placement of it and read by the
@@ -268,6 +276,16 @@ const FRESHNESS: Record<string, (args: Record<string, unknown>) => void> = {
   // the structural default re-reads the boards and leaves the registry stale.
   rename_touchpoint: touchpointRegistryWritten,
   update_touchpoint: touchpointRegistryWritten,
+}
+
+function stepDetailsWritten(): void {
+  invalidateStructure()
+  invalidateQueries(queryKeys.stepSpec.prefix)
+}
+
+function laneDetailsWritten(): void {
+  invalidateStructure()
+  invalidateQueries(queryKeys.laneSpec.prefix)
 }
 
 function dependencyWritten(): void {
@@ -291,7 +309,10 @@ function ownerTagWritten(): void {
  * Called by `call()` after every forward write, and by the revert path after
  * an inverse it sends to the database itself.
  */
-export function invalidateAfterRpc(fn: string, args: Record<string, unknown>): void {
+export function invalidateAfterRpc(
+  fn: string,
+  args: Record<string, unknown>,
+): void {
   const narrow = Object.hasOwn(FRESHNESS, fn) ? FRESHNESS[fn] : undefined
   if (narrow) narrow(args)
   else invalidateStructure()
@@ -313,10 +334,14 @@ async function call<T>(
   args: Record<string, unknown>,
   revert?: RevertSpec,
 ): Promise<T> {
-  const data = await invoke<T>(client, fn, args)
-  invalidateAfterRpc(fn, args)
-  recordChange(fn, args, revert ?? deriveRevert(fn, args, data))
-  return data
+  return (await callWithEntry<T>(client,fn,args,revert)).data
+}
+
+async function callWithEntry<T>(client:Client,fn:WriteFn,args:Record<string,unknown>,revert?:RevertSpec):Promise<{data:T;entry:SessionEntry}> {
+  const data=await invoke<T>(client,fn,args)
+  invalidateAfterRpc(fn,args)
+  const entry=recordChange(fn,args,revert ?? deriveRevert(fn,args,data))
+  return {data,entry}
 }
 
 /** Not a portable-core promise: the host must implement this operation. */
@@ -383,13 +408,23 @@ function deriveRevert(
   args: Record<string, unknown>,
   data: unknown,
 ): RevertSpec | undefined {
+  if (fn === 'update_step_with_details' || fn === 'rename_step_name')
+    return { fn: 'restore_step_details', args: { snapshot: data } }
+  if (fn === 'update_lane_with_details' || fn === 'rename_lane')
+    return { fn: 'restore_lane_details', args: { snapshot: data } }
+  if ((fn === 'add_step_with_details' || fn === 'add_lane_with_details') && data && typeof data === 'object' && 'before' in data) {
+    return { fn: 'undo_structure_add', args: { snapshot: data } }
+  }
+  if ((fn === 'reorder_steps' || fn === 'reorder_lanes') && data && typeof data === 'object' && 'before' in data) return {fn:'undo_structure_order',args:{snapshot:data}}
   if (isHostOperation(fn)) return HOST_OPERATIONS[fn].inverse(args, data as RecordedAuthoringWrite)
   switch (fn) {
     case 'add_step':
+    case 'add_step_with_details':
       return typeof data === 'string'
         ? { fn: 'remove_step', args: { path_id: args.path_id, step_id: data } }
         : undefined
     case 'add_lane':
+    case 'add_lane_with_details':
       // By identity, like every other inverse here. The name-keyed
       // `remove_lane(scenario_id, lane_name)` this replaces held only under
       // clean LIFO: rename the lane and it matched nothing; rename a
@@ -461,7 +496,10 @@ function deriveRevert(
       const outcome = data as CellDependencyWrite | null
       if (!outcome?.id) return undefined
       if (outcome.inserted)
-        return { fn: 'clear_cell_dependency', args: { dependency_id: outcome.id } }
+        return {
+          fn: 'clear_cell_dependency',
+          args: { dependency_id: outcome.id },
+        }
       // An update whose before-state did not come back cannot be restored, and
       // a row with no `revert` is how the ledger says so — the same silence it
       // shows on a delete, rather than an approximation that reads like an
@@ -812,15 +850,8 @@ export function upsertCell(
  * `deferrable initially deferred` in the foundation migration — before that, a
  * multi-row shift collided with itself midway through.
  */
-export function reorderSteps(
-  client: Client,
-  pathId: string,
-  stepIds: string[],
-): Promise<void> {
-  return call<void>(client, 'reorder_steps', {
-    path_id: pathId,
-    step_ids: stepIds,
-  })
+export async function reorderSteps(client:Client,pathId:string,stepIds:string[],expectedIds:string[]):Promise<SessionEntry> {
+  return (await callWithEntry(client,'reorder_steps',{path_id:pathId,step_ids:stepIds,expected_ids:expectedIds})).entry
 }
 
 /** Set which columns a version carries, and in what order. */
@@ -835,22 +866,9 @@ export function setPathSteps(
   })
 }
 
-/**
- * Reorder lanes across a whole blueprint, by name.
- *
- * By name, not by id, because every version of a blueprint has its own copy of
- * each lane and they must stay row-aligned — reordering one version's lane ids
- * would misalign it against its siblings in the side-by-side view.
- */
-export function reorderLanes(
-  client: Client,
-  scenarioId: string,
-  laneNames: string[],
-): Promise<void> {
-  return call<void>(client, 'reorder_lanes', {
-    scenario_id: scenarioId,
-    lane_names: laneNames,
-  })
+/** Reorder one path's own lanes, naming every lane exactly once. */
+export async function reorderLanes(client:Client,pathId:string,laneIds:string[],expectedIds:string[]):Promise<SessionEntry> {
+  return (await callWithEntry(client,'reorder_lanes',{path_id:pathId,lane_ids:laneIds,expected_ids:expectedIds})).entry
 }
 
 // ---------------------------------------------------------------------------
@@ -1043,7 +1061,10 @@ export function deletionImpact(
  * that destroys it, so the client skips its own append for exactly these six
  * (`ARCHIVED_BY_THE_DATABASE` in `authoringLog.ts`).
  */
-export function deleteScenario(client: Client, scenarioId: string): Promise<string> {
+export function deleteScenario(
+  client: Client,
+  scenarioId: string,
+): Promise<string> {
   return call<string>(client, 'delete_scenario', { scenario_id: scenarioId })
 }
 
@@ -1056,7 +1077,10 @@ export function removeStep(
   pathId: string,
   stepId: string,
 ): Promise<string> {
-  return call<string>(client, 'remove_step', { path_id: pathId, step_id: stepId })
+  return call<string>(client, 'remove_step', {
+    path_id: pathId,
+    step_id: stepId,
+  })
 }
 
 export function removeLane(
@@ -1109,3 +1133,109 @@ export async function renameOwnerTag(
  * the work, and `authoringSession.test.ts` still names both as reads that must
  * never become members of `WriteFn`.
  */
+
+/** Create a complete draft and capture every replaced order for its session inverse. */
+export async function createStepWithDetails(
+  client: Client,
+  input: {
+    pathId: string
+    name: string
+    summary: string
+    atPosition?: number
+    pathOrders: Record<string, string[]>
+  },
+): Promise<{id:string;entry:SessionEntry}> {
+  const {data:result,entry} = await callWithEntry<string | { ids: string[] }>(
+    client,
+    'add_step_with_details',
+    {
+      path_id: input.pathId,
+      name: input.name.trim(),
+      summary: input.summary.trim(),
+      path_orders: input.pathOrders,
+    },
+  )
+  return {id:typeof result === 'string' ? result : result.ids[0],entry}
+}
+
+export async function createLaneWithDetails(
+  client: Client,
+  input: {
+    scenarioId: string
+    pathId?: string
+    name: string
+    laneRole: string
+    atPosition?: number
+    ownerTeam: string
+    stakeholderId: string | null
+    kpis: string[]
+    tools: string[]
+    pathOrders: Record<string, string[]>
+  },
+): Promise<{ids:string[];entry:SessionEntry}> {
+  const {data:result,entry} = await callWithEntry<
+    string[] | { ids: string[]; by_path?: Record<string, string> }
+  >(client, 'add_lane_with_details', {
+    scenario_id: input.scenarioId,
+    name: input.name.trim(),
+    lane_role: input.laneRole,
+    path_orders: input.pathOrders,
+    details: {
+      owner_team: input.ownerTeam.trim() || null,
+      stakeholder_id: input.stakeholderId,
+      kpis: input.kpis.map((v) => v.trim()).filter(Boolean),
+      tools: input.tools.map((v) => v.trim()).filter(Boolean),
+    },
+  })
+  if (Array.isArray(result)) return {ids:result,entry}
+  const clicked = input.pathId && result.by_path?.[input.pathId]
+  return {ids:clicked
+    ? [clicked, ...result.ids.filter((id) => id !== clicked)]
+    : result.ids,entry}
+}
+
+/** Portable canvas rename with a server-captured guarded inverse. */
+export function renameStepName(client:Client,input:{stepId:string;name:string}):Promise<void> {
+  return call<void>(client,'rename_step_name',{step_id:input.stepId,new_name:input.name})
+}
+
+export function renameLane(client:Client,input:{laneId:string;name:string}):Promise<void> {
+  return call<void>(client,'rename_lane',{lane_id:input.laneId,new_name:input.name})
+}
+
+/** Save the panel's name and properties in one transaction and one session entry. */
+export function updateStepWithDetails(
+  client: Client,
+  input: { stepId: string; name: string; summary: string },
+): Promise<void> {
+  return call<void>(client, 'update_step_with_details', {
+    step_id: input.stepId,
+    name: input.name.trim(),
+    summary: input.summary.trim(),
+  })
+}
+
+export function updateLaneWithDetails(
+  client: Client,
+  input: {
+    laneId: string
+    laneIds: readonly string[]
+    name: string
+    ownerTeam: string
+    stakeholderId: string | null
+    kpis: string[]
+    tools: string[]
+  },
+): Promise<void> {
+  return call<void>(client, 'update_lane_with_details', {
+    lane_id: input.laneId,
+    lane_ids: input.laneIds,
+    name: input.name.trim(),
+    details: {
+      owner_team: input.ownerTeam.trim() || null,
+      stakeholder_id: input.stakeholderId,
+      kpis: input.kpis.map((v) => v.trim()).filter(Boolean),
+      tools: input.tools.map((v) => v.trim()).filter(Boolean),
+    },
+  })
+}

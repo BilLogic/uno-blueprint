@@ -1,4 +1,4 @@
-import { Fragment, useMemo, type RefObject } from 'react'
+import { Fragment, type RefObject } from 'react'
 import { BlueprintPathBand } from '@/components/blueprint/BlueprintPathBand'
 import { CompareStepHeaderRow } from '@/components/blueprint/CompareTrackDecorations'
 import { useCompareGridAxis } from '@/hooks/useCompareGridAxis'
@@ -56,11 +56,6 @@ export function StackedCompareGrid({
   const { lanes, rows, toggleLane, tracks, gridTemplateColumns } =
     useCompareGridAxis(model, blueprints, compact)
 
-  const rowTrackCss = useMemo(
-    () => rows.map((row) => getCompareRowTrackCss(row)).join(' '),
-    [rows],
-  )
-
   const showPathKindBadge = Boolean(sectionTitleLabel)
 
   if (blueprints.length === 0) {
@@ -73,6 +68,8 @@ export function StackedCompareGrid({
 
   return (
     <div
+      data-structure-board=""
+      data-structure-density={compact ? "compact" : undefined}
       className={cn('w-max shrink-0', className)}
       style={getCompareBoardWrapperPadding()}
     >
@@ -85,31 +82,44 @@ export function StackedCompareGrid({
         }}
       >
         <CompareStepHeaderRow tracks={tracks} />
-        {blueprints.map((blueprint, bandIndex) => (
-          <Fragment key={blueprint.path.id}>
-            <BlueprintPathBand
-              blueprint={blueprint}
-              lanes={lanes}
-              rows={rows}
-              arrangement={{
-                kind: 'row',
-                gridRow: bandIndex + 2,
-                tracks,
-                rowTrackCss,
-                marginTop:
-                  bandIndex === 0
-                    ? COMPARE_STACKED_HEADER_GAP
-                    : COMPARE_STACKED_BAND_GAP,
-                onToggleLane: toggleLane,
-              }}
-              compact={compact}
-              scrollContainerRef={scrollContainerRef}
-              scenarioName={scenarioName}
-              phaseName={phaseName}
-              showPathKindBadge={showPathKindBadge}
-            />
-          </Fragment>
-        ))}
+        {blueprints.map((blueprint, bandIndex) => {
+          const bandRows = rows.filter(
+            (row) =>
+              !row.lane ||
+              !['structure-seam', 'structure-placeholder'].includes(
+                row.lane.id,
+              ) ||
+              blueprint.lanes.some((lane) => lane.id === row.lane!.id),
+          )
+          return (
+            <Fragment key={blueprint.path.id}>
+              <BlueprintPathBand
+                blueprint={blueprint}
+                lanes={lanes}
+                rows={bandRows}
+                arrangement={{
+                  kind: 'row',
+                  singlePath: blueprints.length === 1,
+                  gridRow: bandIndex + 2,
+                  tracks,
+                  rowTrackCss: bandRows
+                    .map((row) => getCompareRowTrackCss(row))
+                    .join(' '),
+                  marginTop:
+                    bandIndex === 0
+                      ? COMPARE_STACKED_HEADER_GAP
+                      : COMPARE_STACKED_BAND_GAP,
+                  onToggleLane: toggleLane,
+                }}
+                compact={compact}
+                scrollContainerRef={scrollContainerRef}
+                scenarioName={scenarioName}
+                phaseName={phaseName}
+                showPathKindBadge={showPathKindBadge}
+              />
+            </Fragment>
+          )
+        })}
       </div>
     </div>
   )

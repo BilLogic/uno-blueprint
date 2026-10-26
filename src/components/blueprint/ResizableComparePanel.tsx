@@ -25,6 +25,7 @@ import { FOCUS_DIM_LIFT_CLASS, FOCUS_DIM_REST_CLASS, FOCUS_DIM_STYLE } from '@/l
 import { cn } from '@/lib/utils'
 
 type ResizableComparePanelProps = {
+  insertionOffset?: { left: number | string; top: number | string }
   children: ReactNode
   minWidth?: number
   minHeight?: number
@@ -74,6 +75,7 @@ type ResizableComparePanelProps = {
  */
 export function ResizableComparePanel({
   children,
+  insertionOffset,
   minWidth,
   minHeight,
   defaultWidth,
@@ -143,6 +145,7 @@ export function ResizableComparePanel({
     if (!element) return
 
     const measure = () => {
+      if (document.documentElement.hasAttribute('data-structure-motion')) return
       // Layout size only. `scrollHeight` also counts arrow overlays and path
       // frames that bleed past the board, which would pad the panel with gray.
       setMeasuredContent((current) => {
@@ -159,7 +162,11 @@ export function ResizableComparePanel({
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(element)
-    return () => observer.disconnect()
+    document.addEventListener('structure-motion-end', measure)
+    return () => {
+      observer.disconnect()
+      document.removeEventListener('structure-motion-end', measure)
+    }
   }, [fitContentKey])
 
   const scrollChrome = { lockHeight }
@@ -358,7 +365,7 @@ export function ResizableComparePanel({
         dimmed && navigable && FOCUS_DIM_LIFT_CLASS,
         className,
       )}
-      style={dimmed ? FOCUS_DIM_STYLE : undefined}
+      style={{ ...(dimmed ? FOCUS_DIM_STYLE : {}), ...insertionOffset }}
       data-focus-slide-id={focusSlideId}
       data-canvas-focus-dimmed={dimmed ? '' : undefined}
     >

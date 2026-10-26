@@ -381,3 +381,19 @@ from here. It is listed so a rename knows what it breaks:
 Renaming one of these does not fail a type check or a lint rule; it fails this
 walk, with a locator that found nothing. If you are the one renaming it, the
 fix belongs here in the same change.
+
+## Lane and step create panels
+
+`structure-create.spec.ts` is the local authoring case. Run the development
+canvas against a seeded local Supabase with a synthetic editing account, then:
+
+```bash
+RENDER_WALK_CANVAS_URL=http://localhost:5174 npm run check:render-walk -- structure-create.spec.ts
+```
+
+The URL must be local and cannot use port 5173. The case opens a multi-path
+scenario in Stacked and Merged, in light and dark, checks keyboard activation,
+Name focus, required fields, disabled actions, placement previews and focus
+return after Cancel or Escape. It asserts that opening and cancelling sends
+no authoring RPC. Screenshots land in `views/structure-create/`. The ordinary
+no-database walk skips this case; it cannot prove authenticated authoring.

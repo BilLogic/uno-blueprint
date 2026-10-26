@@ -13,6 +13,10 @@ export type BlueprintPath = {
 }
 
 export type BlueprintLane = {
+  /** An unwritten seam above a semantic divider. */
+  seamBeforeDivider?: boolean
+  /** Unwritten layout track for an open insertion seam. */
+  seamSize?: number
   id: string
   /** Display label — free-form, any language. */
   name: string
@@ -28,6 +32,8 @@ export type BlueprintLane = {
 }
 
 export type BlueprintStep = {
+  /** Unwritten layout track for an open insertion seam. */
+  seamSize?: number
   id: string
   name: string
   position: number

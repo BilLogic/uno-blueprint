@@ -1,3 +1,5 @@
+import { useAnimatedStructureDraft } from '@/hooks/useAnimatedStructureDraft'
+import { useAnimatedStructureSeam } from '@/hooks/useAnimatedStructureSeam'
 import {
   createContext,
   useCallback,
@@ -5,8 +7,12 @@ import {
   useEffect,
   useMemo,
   useState,
+  useRef,
   useSyncExternalStore,
   type ReactNode,
+  type Dispatch,
+  type SetStateAction,
+  type RefObject,
 } from 'react'
 import {
   claimPanel,
@@ -14,6 +20,37 @@ import {
   releasePanel,
   subscribePanelOwner,
 } from '@/lib/openPanelStore'
+
+export type StructurePreview = {
+  name: string
+  clickedPathId?: string
+  role?: string
+  kind?: 'lane' | 'step'
+  orders: Array<{ pathId: string; order: string[] }>
+  paths: Array<{ id: string; items: Array<{ id: string; name: string }> }>
+}
+
+export type StructureSeam = {
+  beforeDivider?: boolean
+  centered?: boolean
+  kind: 'lane' | 'step'
+  pathId: string
+  pathIds?: string[]
+  atPosition?: number
+  size: number
+  key: string
+}
+
+export type StructureDraft = { centered?: boolean; beforeDivider?: boolean } & (
+  | {
+      kind: 'lane'
+      scenarioId: string
+      pathId?: string
+      pathIds?: string[]
+      atPosition?: number
+    }
+  | { kind: 'step'; pathId: string; pathIds?: string[]; atPosition?: number }
+)
 
 /**
  * The levels of the tree that own spec fields and are not a cell.
@@ -33,10 +70,18 @@ export type EntityDetailSelection = {
   kind: EntityDetailKind
   /** The row's id — the panel reads everything else from the database. */
   id: string
+  draft?: StructureDraft
+  focusNext?: boolean
+  draftKey?: number
 }
 
 type EntityDetailContextValue = {
   selection: EntityDetailSelection | null
+  preview: StructurePreview | null
+  seam: StructureSeam | null
+  setSeam: Dispatch<SetStateAction<StructureSeam | null>>
+  draftBoard: RefObject<Element | null>
+  setPreview: (preview: StructurePreview | null) => void
   openEntity: (selection: EntityDetailSelection) => void
   /**
    * Open it, or close it if it is already the one open.
@@ -46,6 +91,7 @@ type EntityDetailContextValue = {
    * for the ✕ after every glance.
    */
   toggleEntity: (selection: EntityDetailSelection) => void
+  openCreate: (draft: StructureDraft, opener: HTMLButtonElement) => void
   closeEntity: () => void
   isOpen: boolean
 }
@@ -60,35 +106,89 @@ export function EntityDetailProvider({
   children: ReactNode
   resetKey?: string
 }) {
+  const [targetSeam, setSeam] = useState<StructureSeam | null>(null)
+  const [preview, setPreview] = useState<StructurePreview | null>(null)
+  const draftSequence = useRef(0)
+  const openerBoard = useRef<Element | null>(null)
+  const openerIndex = useRef(0)
+  const openerLabel = useRef<string | null>(null)
+  const openerRef = useRef<HTMLButtonElement | null>(null)
   const [selection, setSelection] = useState<EntityDetailSelection | null>(null)
+
+  const seam = useAnimatedStructureSeam(targetSeam, Boolean(selection?.draft))
+  useAnimatedStructureDraft(selection?.draft ? selection.draftKey : undefined, openerBoard, Boolean(preview?.orders.length))
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate reset-on-key: the entity a panel is describing may not exist in the new workspace
     setSelection(null)
+    setSeam(null)
+    setPreview(null)
+    openerRef.current = null
   }, [resetKey])
 
   const openEntity = useCallback((next: EntityDetailSelection) => {
+    openerRef.current = null
+    setSeam(null)
     claimPanel('entity')
     setSelection(next)
   }, [])
 
-  const toggleEntity = useCallback(
-    (next: EntityDetailSelection) => {
-      setSelection((current) => {
-        if (current && current.kind === next.kind && current.id === next.id) {
-          releasePanel('entity')
-          return null
-        }
-        claimPanel('entity')
-        return next
+  const openCreate = useCallback(
+    (draft: StructureDraft, opener: HTMLButtonElement) => {
+      const scope=opener.closest<HTMLElement>('[data-focus-slide-id]')
+      const progress=parseFloat(getComputedStyle(opener).getPropertyValue('--structure-seam-progress')) || 0
+      scope?.style.setProperty('--structure-draft-from',`${36 * progress}px`)
+      scope?.style.setProperty('--structure-draft-progress','0')
+      setPreview(null)
+      setSeam(null)
+      openerRef.current = opener
+      openerBoard.current = opener.closest('[data-structure-board]')
+      openerLabel.current = opener.getAttribute('aria-label')
+      openerIndex.current = [
+        ...(openerBoard.current?.querySelectorAll('button') ?? []),
+      ]
+        .filter(
+          (button) => button.getAttribute('aria-label') === openerLabel.current,
+        )
+        .indexOf(opener)
+      claimPanel('entity')
+      setSelection({
+        kind: draft.kind,
+        id: 'draft',
+        draft,
+        draftKey: ++draftSequence.current,
       })
     },
     [],
   )
 
+  const toggleEntity = useCallback((next: EntityDetailSelection) => {
+    setSelection((current) => {
+      if (current && current.kind === next.kind && current.id === next.id) {
+        releasePanel('entity')
+        return null
+      }
+      claimPanel('entity')
+      return next
+    })
+  }, [])
+
   const closeEntity = useCallback(() => {
     setSelection(null)
+    setPreview(null)
     releasePanel('entity')
+    const opener = openerRef.current
+    openerRef.current = null
+    requestAnimationFrame(() => {
+      const replacement =
+        openerBoard.current?.isConnected && openerLabel.current
+          ? openerBoard.current.querySelectorAll<HTMLButtonElement>(
+              `button[aria-label="${CSS.escape(openerLabel.current)}"]`,
+            )[openerIndex.current]
+          : null
+      if (opener?.isConnected) opener.focus()
+      else replacement?.focus()
+    })
   }, [])
 
   // One panel at a time: when the cell panel takes the drawer, this one drops
@@ -102,12 +202,26 @@ export function EntityDetailProvider({
   const value = useMemo<EntityDetailContextValue>(
     () => ({
       selection,
+      preview,
+      seam,
+      setSeam,
+      draftBoard: openerBoard,
+      setPreview,
       openEntity,
+      openCreate,
       toggleEntity,
       closeEntity,
       isOpen: selection !== null,
     }),
-    [selection, openEntity, toggleEntity, closeEntity],
+    [
+      selection,
+      preview,
+      seam,
+      openEntity,
+      openCreate,
+      toggleEntity,
+      closeEntity,
+    ],
   )
 
   return (
@@ -141,4 +255,9 @@ export function useEntityDetail(): EntityDetailContextValue {
     )
   }
   return value
+}
+
+/** Draft preview is optional for standalone panel bodies. */
+export function useEntityDetailOptional() {
+  return useContext(EntityDetailContext)
 }

@@ -46,8 +46,8 @@ import { cn } from '@/lib/utils'
  *    never a restated label.
  *
  * No `TooltipProvider` is needed — one is mounted app-wide in `App.tsx` at a
- * 200 ms delay. Wrap in a local provider only to change that delay, the way
- * the annotation toolbar deliberately slows its View/Edit switch down.
+ * 600 ms delay, without instant reopening between neighbours. Independently
+ * mounted rails and toolbars keep the same dwell in their local providers.
  */
 export function IconTooltip({
   label,

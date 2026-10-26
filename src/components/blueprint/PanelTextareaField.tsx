@@ -1,7 +1,4 @@
-import {
-  Field,
-  PANEL_TEXTAREA_CLASS,
-} from '@/components/blueprint/panelShell'
+import { Field, PANEL_TEXTAREA_CLASS } from '@/components/blueprint/panelShell'
 import { cn } from '@/lib/utils'
 
 /**
@@ -12,7 +9,7 @@ import { cn } from '@/lib/utils'
  * group owns the border and the single focus ring.
  */
 export function PanelTextareaField({
-  label,
+  label, autoFocus,
   hint,
   value,
   rows = 3,
@@ -21,6 +18,7 @@ export function PanelTextareaField({
   onChange,
 }: {
   label: string
+  autoFocus?: boolean
   hint: string
   value: string
   rows?: number
@@ -36,10 +34,14 @@ export function PanelTextareaField({
         // CellOverviewSpec render every authored value at. A disabled
         // textarea reads as a broken input; prose reads as prose.
         <p className="text-sm whitespace-pre-wrap text-foreground">
-          {value || <span className="text-muted-foreground">Not specified.</span>}
+          {value || (
+            <span className="text-muted-foreground">Not specified.</span>
+          )}
         </p>
       ) : (
         <textarea
+          autoFocus={autoFocus}
+          aria-label={label}
           value={value}
           rows={rows}
           placeholder={placeholder}

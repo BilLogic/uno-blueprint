@@ -1150,11 +1150,43 @@ export type Database = {
         }
         Returns: string[]
       }
+      add_lane_with_details: {
+        Args: {
+          details?: Json
+          lane_role: string
+          name: string
+          path_orders: Json
+          scenario_id: string
+        }
+        Returns: Json
+      }
       add_step: {
         Args: { at_position?: number; name: string; path_id: string }
         Returns: string
       }
+      add_step_with_details: {
+        Args: {
+          name: string
+          path_id: string
+          path_orders: Json
+          summary?: string
+        }
+        Returns: Json
+      }
+      apply_structure_order: {
+        Args: {
+          expected_ids: string[]
+          ids: string[]
+          kind: string
+          path_id: string
+        }
+        Returns: Json
+      }
       cell_natural_key: { Args: { cell_id: string }; Returns: string }
+      check_structure_draft_order: {
+        Args: { current_ids: string[]; requested: Json }
+        Returns: undefined
+      }
       clear_cell_dependency: {
         Args: { dependency_id: string }
         Returns: undefined
@@ -1246,6 +1278,14 @@ export type Database = {
         Args: { p_content: string; p_from: string; p_to: string }
         Returns: string
       }
+      rename_lane: {
+        Args: { lane_id: string; new_name: string }
+        Returns: Json
+      }
+      rename_lane_checked: {
+        Args: { lane_id: string; new_name: string }
+        Returns: undefined
+      }
       rename_owner_tag: {
         Args: { from_name: string; to_name: string }
         Returns: string[]
@@ -1262,21 +1302,45 @@ export type Database = {
         Args: { new_name: string; scenario_id: string }
         Returns: undefined
       }
+      rename_step_name: {
+        Args: { new_name: string; step_id: string }
+        Returns: Json
+      }
       rename_touchpoint: {
         Args: { p_name: string; p_touchpoint_id: string }
         Returns: Json
       }
-      reorder_lanes: {
-        Args: { lane_names: string[]; scenario_id: string }
-        Returns: undefined
-      }
-      reorder_steps: {
-        Args: { path_id: string; step_ids: string[] }
-        Returns: undefined
-      }
+      reorder_lanes:
+        | { Args: { lane_ids: string[]; path_id: string }; Returns: Json }
+        | {
+            Args: {
+              expected_ids: string[]
+              lane_ids: string[]
+              path_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: { lane_names: string[]; scenario_id: string }
+            Returns: undefined
+          }
+      reorder_steps:
+        | { Args: { path_id: string; step_ids: string[] }; Returns: Json }
+        | {
+            Args: {
+              expected_ids: string[]
+              path_id: string
+              step_ids: string[]
+            }
+            Returns: Json
+          }
       replace_slides: {
         Args: { p_slice_id: string; p_slides: Json }
         Returns: Json
+      }
+      require_structure_author: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       restore_cell_content: {
         Args: { cell_id: string; content: string }
@@ -1291,6 +1355,7 @@ export type Database = {
         Returns: undefined
       }
       restore_featured_resources: { Args: { p_rows: Json }; Returns: undefined }
+      restore_lane_details: { Args: { snapshot: Json }; Returns: undefined }
       restore_placement: {
         Args: { p_resources?: Json; p_row: Json }
         Returns: Json
@@ -1299,6 +1364,7 @@ export type Database = {
         Args: { p_rows: Json; p_slice_id: string }
         Returns: Json
       }
+      restore_step_details: { Args: { snapshot: Json }; Returns: undefined }
       schema_comments: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -1350,6 +1416,8 @@ export type Database = {
         Args: { p_placement_id: string; p_rows: Json }
         Returns: undefined
       }
+      undo_structure_add: { Args: { snapshot: Json }; Returns: undefined }
+      undo_structure_order: { Args: { snapshot: Json }; Returns: undefined }
       update_cell_dependency: {
         Args: {
           dependency_id: string
@@ -1359,9 +1427,22 @@ export type Database = {
         }
         Returns: Json
       }
+      update_lane_with_details: {
+        Args: {
+          details: Json
+          lane_id: string
+          lane_ids: string[]
+          name: string
+        }
+        Returns: Json
+      }
       update_scenario_layout: {
         Args: { layout: string; scenario_id: string }
         Returns: undefined
+      }
+      update_step_with_details: {
+        Args: { name: string; step_id: string; summary: string }
+        Returns: Json
       }
       update_touchpoint: {
         Args: {

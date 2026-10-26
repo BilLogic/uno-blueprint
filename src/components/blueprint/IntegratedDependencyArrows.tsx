@@ -355,7 +355,7 @@ export function IntegratedDependencyArrows({
     let raf = 0
     const scheduleUpdate = () => {
       cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(updateArrows)
+      if (!document.documentElement.hasAttribute('data-structure-motion')) raf = requestAnimationFrame(updateArrows)
     }
 
     // Scrolling is NOT a geometry signal: every box the routers read is
@@ -378,6 +378,7 @@ export function IntegratedDependencyArrows({
       passive: true,
     })
     window.addEventListener('resize', scheduleUpdate)
+    document.addEventListener('structure-motion-end', scheduleUpdate)
 
     return () => {
       cancelAnimationFrame(raf)
@@ -385,6 +386,7 @@ export function IntegratedDependencyArrows({
       observer.disconnect()
       scrollParent.removeEventListener('scroll', scheduleSizeUpdate)
       window.removeEventListener('resize', scheduleUpdate)
+      document.removeEventListener('structure-motion-end', scheduleUpdate)
     }
   }, [contentRef, measureSize, scrollContainerRef, updateArrows])
 

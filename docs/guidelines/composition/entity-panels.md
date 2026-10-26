@@ -1,6 +1,12 @@
 ---
 summary: One shell, six subjects — the drawer chrome every entity panel is made of, what the six panels share, where they legitimately differ, and the invariants a well-meaning edit breaks.
 claims:
+  - src/components/blueprint/PathOrderSection.tsx
+  - src/components/blueprint/structureHighlight.ts
+  - src/components/blueprint/StructureInsert.tsx
+  - src/components/blueprint/structureInsertIntent.ts
+  - src/components/blueprint/StructureRenameEditor.tsx
+  - src/components/blueprint/useStructureRename.tsx
   - src/components/blueprint/BlueprintCellDetailPanel.tsx
   - src/components/blueprint/cellDetailCrumbs.ts
   - src/components/blueprint/CellDetailDifferencesSurface.tsx
@@ -455,3 +461,28 @@ it renders as inert prose, not a disabled button.
 > `NotionPropertyRow`'s docstring says it belongs to the cell detail panel. It
 > does not — its only consumer is `ScenarioSlideHeader`. The docstring is stale;
 > the component is a plain label/value row.
+
+## Lane and step creation
+
+The shared gap target opens these same panels with a draft, without writing.
+Name is first and required; a lane also requires Role, chosen through
+`OptionSelect`. Optional properties use the existing field treatments. The
+primary action is Add lane or Add step. Cancel and Escape remove the preview
+and restore focus to the insert target. A successful atomic creation changes
+the open panel to the new item's editor. Panel and header renames share the
+structural write and captured inverse used by the change sheet.
+
+The opened seam is an unwritten row or column in the same rendered projection
+as the draft. Camera scale determines its hit band and icon size; the camera
+holds its framing while it is open. The lane overlay sits above the sticky
+label rail so its full-width target reaches the rail as well as the cells.
+`PathOrderSection` owns pointer and keyboard ordering, token-painted checks
+and the height-animated path accordion. Duplicate names disable a path without
+changing its selected state. One path shows its Order rail directly.
+
+Creation notices use the shell's shared write notice surface. A successful
+addition offers Undo, can be closed, expires, and disappears when its session
+entry is removed elsewhere. A panel edit saves its name and properties with
+one RPC, whose result captures the exact fields its one inverse restores.
+
+`structureInsertIntent` gives each board one hover owner. A fresh crossing chooses the nearest boundary; an open seam keeps ownership while the pointer remains inside its detection band. Leaving the band allows the other axis to open after the normal delay. Crossing clicks follow that owner rather than whichever overlapping element painted last. Keyboard focus retains ownership until blur.

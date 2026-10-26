@@ -22,8 +22,8 @@ const EMPTY: WriteFailure[] = []
  * thing to time out and take away while the user is still looking for what
  * happened.
  *
- * `aria-live="assertive"`, because this is the correction of a belief the
- * user already holds: they watched the spinner clear and moved on.
+ * Failures announce assertively because they correct a belief the user
+ * already holds. Success uses a polite status and offers the latest Undo.
  */
 export function WriteFailureNotices() {
   const failures = useSyncExternalStore(
@@ -36,21 +36,22 @@ export function WriteFailureNotices() {
 
   return (
     <div
-      aria-live="assertive"
       data-write-failures=""
-      className="pointer-events-none fixed inset-x-0 bottom-4 z-50 mx-auto flex w-[min(32rem,calc(100vw-2rem))] flex-col gap-2"
+      className="pointer-events-none fixed inset-x-0 bottom-20 z-50 mx-auto flex w-[min(32rem,calc(100vw-2rem))] flex-col gap-2"
     >
       {failures.map((failure) => (
         <Alert
           key={failure.id}
-          variant="destructive"
-          className="pointer-events-auto shadow-md"
+          role={failure.success ? 'status' : 'alert'}
+          variant={failure.success ? 'default' : 'destructive'}
+          className="pointer-events-auto flex items-center gap-3 shadow-md has-data-[slot=alert-action]:pr-2"
         >
-          <AlertTriangle aria-hidden />
-          <AlertDescription className="text-foreground">
+          {failure.success ? null : <AlertTriangle aria-hidden />}
+          <AlertDescription className="min-w-0 flex-1 text-foreground">
             {failure.message}
           </AlertDescription>
-          <AlertAction>
+          <AlertAction className="static flex shrink-0 items-center gap-1">
+            {failure.undo ? <Button type="button" variant="ghost" size="sm" disabled={failure.busy} onClick={() => void failure.undo?.()}>Undo</Button> : null}
             <Button
               type="button"
               variant="ghost"

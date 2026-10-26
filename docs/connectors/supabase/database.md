@@ -387,6 +387,33 @@ credentials.
 | `21000110000000_the_ir_can_author_a_needs_edge.sql` | `schema_version` → `2026.08.26`. No DDL: `cell_dependencies.kind` has existed since `20260729120000`; the IR gained the field that can author it |
 | `21000111000000_propositions_are_the_business_model.sql` | `propositions` → `business_models`, with its constraint, index, policy and trigger names swept from the catalogue rather than listed. `evidence.proposition_question_key` is a permanent exemption and is asserted to survive. `schema_version` → `2026.08.27` |
 | `21000112000000_the_word_boundary_left_five_behind.sql` | Repairs what `\m…\M` could not reach. `set_cell_dependency` named `cell_triggers_source_target_kind_unique` in an `on conflict on constraint`, and `21000103`'s catalogue sweep had renamed that constraint — the body rewrite used a word-boundary pattern, and `_` is a word constituent, so it matched the table reference and not the constraint. Plus three stale comments and one inside a function body. No version bump: nothing about the shape moves |
+| `21000309000000_a_structure_panel_saves_one_change.sql` | Atomic multi-path structure creation and panel saves with captured receipts; 311 completes path-local lane properties and server-captured guarded inverses |
+| `21000310000000_path_orders_are_guarded_permutations.sql` | Path-local identity permutations and exact reorder receipts; legacy name-based reorder becomes a reload refusal |
+| `21000311000000_structure_undo_and_edits_refuse_stale_state.sql` | Expected-order checks under lock, complete Add-Undo membership/content guards, per-path lane properties, guarded server-captured panel/rename inverses and authorized reload stubs for older apps |
+
+Apply 309–311 together with the matching app; drag reordering does not work
+between those migrations. Regenerate database types afterwards. Reorder callers,
+including custom and host callers, must send `expected_ids`, the complete order
+they saw. The server returns a JSON receipt and refuses a stale expected order.
+Older reorder signatures remain granted to authenticated authors as stubs that
+raise `Reload: the app was updated`; they cannot write. Anonymous callers and
+readers remain refused. The private order helper is not exposed.
+
+Creation saves complete fields, memberships and validated path orders in one
+transaction. `undo_structure_add` verifies every new identity's complete path
+membership, matching current orders and non-negative contiguous before positions;
+it refuses any later cell, preserving its evidence, resources and dependencies.
+Successful Undo removes only the new items and restores the stored order.
+
+Lane names and properties are per path: saving one lane never updates a
+same-named sibling. Panel saves and step/lane renames capture before-values and
+after-values on the server under lock. `restore_step_details` and
+`restore_lane_details` refuse when the current row differs from that receipt's
+after-values. `undo_structure_order` similarly refuses a newer order. Undo
+history captured before this upgrade lacks the required guarded receipt and is
+refused; reload rather than replaying an old inverse. Exact signatures and
+refusals are in [the backend contract](../backend-contract.md#structure-authoring-signatures).
+
 
 ## Reserved migration timestamp band
 

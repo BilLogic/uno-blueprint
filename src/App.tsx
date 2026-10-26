@@ -9,6 +9,7 @@
  * stays strict rather than granting the eval it refuses.
  */
 import '@/lib/validationJit'
+import { HOVER_HINT_DELAY } from '@/lib/hoverIntent'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { EditorErrorBoundary } from '@/components/EditorErrorBoundary'
 import { EditorShell } from '@/components/editor/EditorShell'
@@ -146,7 +147,7 @@ export function App({ config }: { config?: DeploymentConfig | null }) {
                          * those three providers may learn about the other two.
                          */}
                         <BoardAddressSync />
-                        <TooltipProvider delay={200}>
+                        <TooltipProvider delay={HOVER_HINT_DELAY} timeout={0}>
                           <EditorErrorBoundary>
                             <EditorShell />
                           </EditorErrorBoundary>

@@ -1,3 +1,6 @@
+import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
+import { highlightStructure } from './structureHighlight'
+import { useStructureRename } from './useStructureRename'
 import { useEffect, useRef, useState } from 'react'
 import { EntityDefinitionPopover } from '@/components/blueprint/EntityDefinitionPopover'
 import { useBlueprintCellDetailOptional } from '@/contexts/BlueprintCellDetailContext'
@@ -74,6 +77,7 @@ export function LaneHeaderAffordance({
   color?: string
   className?: string
 }) {
+  const rename = useStructureRename('lane', laneId, laneName)
   const { toggleEntity, selection } = useEntityDetail()
   const detail = useBlueprintCellDetailOptional()
   const boardInScope = useScenarioBoardInScope()
@@ -97,11 +101,13 @@ export function LaneHeaderAffordance({
   */
   const blockRef = useRef<HTMLDivElement>(null)
   const [defOpen, setDefOpen] = useState(false)
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  )
   useEffect(() => () => clearTimeout(hoverTimer.current), [])
 
   const armHover = (event: React.PointerEvent) => {
-    if (event.pointerType === 'touch') return
+    if (rename.editing || event.pointerType === 'touch') return
     clearTimeout(hoverTimer.current)
     hoverTimer.current = setTimeout(
       () => setDefOpen(true),
@@ -155,13 +161,15 @@ export function LaneHeaderAffordance({
   // control that announces itself and refuses is worse than no control. The
   // definition is still on the block, because "what is a lane?" is not a
   // question about which board is in scope.
-  if (!isInteractive) {
+  if (!isInteractive || laneId === STRUCTURE_PLACEHOLDER_ID) {
     return (
       <div
         ref={blockRef}
         data-blueprint-row-header=""
-        onPointerEnter={armHover}
-        onPointerLeave={cancelHover}
+        onPointerEnter={event=>{ highlightStructure(event.currentTarget,'lane',laneId,true);armHover(event) }}
+        onPointerLeave={event=>{ highlightStructure(event.currentTarget,'lane',laneId,false);cancelHover() }}
+      onFocusCapture={event=>highlightStructure(event.currentTarget,'lane',laneId,true)}
+      onBlurCapture={event=>{if (!event.currentTarget.contains(event.relatedTarget as Node)) highlightStructure(event.currentTarget,'lane',laneId,false)}}
         className={cn(
           'group/lane-header relative flex min-w-0 flex-1 items-start self-stretch text-left',
           CANVAS_HEADER_BOX,
@@ -169,7 +177,7 @@ export function LaneHeaderAffordance({
         )}
       >
         {nameSpan}
-        {info}
+        {laneId === STRUCTURE_PLACEHOLDER_ID ? null : info}
       </div>
     )
   }
@@ -188,9 +196,15 @@ export function LaneHeaderAffordance({
       ref={blockRef}
       data-blueprint-row-header=""
       data-open={open ? '' : undefined}
-      onClick={openPanel}
-      onPointerEnter={armHover}
-      onPointerLeave={cancelHover}
+      onClick={rename.editing ? undefined : (event) => rename.click(event, () => openPanel(event))}
+      onDoubleClick={(event) => {
+        cancelHover()
+        rename.begin(event)
+      }}
+      onPointerEnter={event=>{ highlightStructure(event.currentTarget,'lane',laneId,true);armHover(event) }}
+      onPointerLeave={event=>{ highlightStructure(event.currentTarget,'lane',laneId,false);cancelHover() }}
+      onFocusCapture={event=>highlightStructure(event.currentTarget,'lane',laneId,true)}
+      onBlurCapture={event=>{if (!event.currentTarget.contains(event.relatedTarget as Node)) highlightStructure(event.currentTarget,'lane',laneId,false)}}
       className={cn(
         // No negative margins. They pulled the ink block outside the rail,
         // which clips (`overflow-hidden`) — so the hover surface came back cut
@@ -205,15 +219,21 @@ export function LaneHeaderAffordance({
           ⓘ opens the panel; the click bubbles to the block, which carries the
           open — so a click that reaches the block (a keyboard activation, a
           click on the label falling through) opens it too. */}
-      <button
-        type="button"
-        data-lane-header-affordance=""
-        data-canvas-header-opener=""
-        aria-label={`View details: ${laneName}`}
-        aria-pressed={open}
-        className={CANVAS_HEADER_OPENER}
-      />
-      {nameSpan}
+      {rename.editing ? (
+        rename.editor
+      ) : (
+        <>
+          <button
+            type="button"
+            data-lane-header-affordance=""
+            data-canvas-header-opener=""
+            aria-label={`View details: ${laneName}`}
+            aria-pressed={open}
+            className={CANVAS_HEADER_OPENER}
+          />
+          {nameSpan}
+        </>
+      )}
       {info}
     </div>
   )

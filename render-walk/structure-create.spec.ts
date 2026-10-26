@@ -355,7 +355,22 @@ for (const camera of ['overview', '100%'] as const) {
             expect(
               await path.locator('[data-structure-lift]').count(),
             ).toBeGreaterThan(1)
+            const landingPaint = await path.locator('[data-structure-landing]').evaluate(el => {
+              const view = el.ownerDocument.defaultView!
+              const probe = el.ownerDocument.createElement('span')
+              probe.style.cssText = 'position:absolute;visibility:hidden;border:1px solid var(--border-primary)'
+              el.append(probe)
+              const actual = view.getComputedStyle(el)
+              const result = {style: actual.borderStyle, color: actual.borderTopColor, expected: view.getComputedStyle(probe).borderTopColor}
+              probe.remove()
+              return result
+            })
+            expect(landingPaint.style).toBe('dashed')
+            expect(landingPaint.color).toBe(landingPaint.expected)
             expect(writes).toHaveLength(0)
+            expect(await source.evaluate(el => el.ownerDocument.getSelection()?.toString() ?? ''),
+              'header dragging must not select the names underneath the opener',
+            ).toBe('')
             await page.screenshot({
               path: join(
                 VIEW_SCREENSHOT_DIR,

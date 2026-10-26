@@ -1332,7 +1332,7 @@
 [data-structure-lift] { position: relative; z-index: 50; cursor: grabbing; }
 [data-structure-lift-frame], [data-structure-landing] { position: absolute; pointer-events: none; @apply rounded-md; }
 [data-structure-lift-frame] { z-index: 50; border: var(--structure-highlight-stroke, 1px) solid var(--primary); @apply shadow-md; }
-[data-structure-landing] { z-index: 1; border: var(--structure-highlight-stroke, 1px) dashed var(--primary); background: var(--wash-primary); }
+[data-structure-landing] { z-index: 1; border: var(--structure-highlight-stroke, 1px) dashed var(--border-primary); background: var(--wash-primary); }
 
 /* Route once after structural motion rather than blocking every frame with obstacle routing. */
 [data-blueprint-arrows] { transition: opacity var(--motion-micro) var(--ease-move); }
@@ -1340,6 +1340,13 @@
 @media (prefers-reduced-motion: reduce) { [data-blueprint-arrows] { transition: none; } }
 
 [data-canvas-reorder-global] [data-step-header-affordance] { cursor: grab; touch-action: none; }
+/* A drag may start over the label layered above the opener. Keep the browser
+   from selecting that prose while the pointer belongs to the reorder gesture. */
+[data-canvas-reorder-global] [data-blueprint-column-header]:not(:has(input)),
+[data-canvas-reorder] [data-structure-lane-label]:not(:has(input)) {
+  -webkit-user-select: none;
+  user-select: none;
+}
 [data-canvas-reorder-global] [data-blueprint-column-header]:is(:hover, :focus-within) [data-structure-grip],
 [data-canvas-reorder] [data-structure-highlight='label'] [data-structure-grip] { display: block; }
 [data-structure-reordering] [data-blueprint-arrows] { opacity: 0; }

@@ -157,6 +157,24 @@ export function registerCanvasStructureReorder(
       g.index,
       target,
     )
+    // Project the reordered extents, not the old indexes: rows can differ in
+    // height. Keep the measured gaps at their slots while each item carries
+    // its own size, so neither the landing slot nor a neighbour overlaps.
+    const start = (rect: DOMRect) =>
+      g.kind === 'step' ? rect.left : rect.top
+    const extent = (rect: DOMRect) =>
+      g.kind === 'step' ? rect.width : rect.height
+    const offsets = new Map<string, number>()
+    let cursor = start(g.boxes[0])
+    for (const [index, id] of ids.entries()) {
+      const originalIndex = g.items.findIndex((item) => item.id === id)
+      offsets.set(id, cursor - start(g.boxes[originalIndex]))
+      const gap =
+        index < ids.length - 1
+          ? start(g.boxes[index + 1]) - start(g.boxes[index]) - extent(g.boxes[index])
+          : 0
+      cursor += extent(g.boxes[originalIndex]) + gap
+    }
     const origin = body.getBoundingClientRect()
     const place = (node: HTMLElement, b: DOMRect, offset: number) => {
       node.style.setProperty('--structure-highlight-stroke', `${1 / scale}px`)
@@ -172,14 +190,7 @@ export function registerCanvasStructureReorder(
       })
     }
     place(frame, box, delta)
-    const destination = g.boxes[target]
-    place(
-      slot!,
-      box,
-      g.kind === 'step'
-        ? destination.left - box.left
-        : destination.top - box.top,
-    )
+    place(slot!, box, offsets.get(g.id)!)
     for (const part of g.items[g.index].parts)
       part.style.translate =
         g.kind === 'step' ? `${delta / scale}px 0` : `0 ${delta / scale}px`
@@ -187,10 +198,7 @@ export function registerCanvasStructureReorder(
       g.target = target
       for (const [index, item] of g.items.entries()) {
         if (index === g.index) continue
-        const to = g.boxes[ids.indexOf(item.id)],
-          from = g.boxes[index]
-        const shift =
-          (g.kind === 'step' ? to.left - from.left : to.top - from.top) / scale
+        const shift = offsets.get(item.id)! / scale
         for (const part of item.parts) {
           moves.get(part)?.stop()
           moves.set(

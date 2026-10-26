@@ -4,7 +4,7 @@ import { useCanvasModeValue } from '@/contexts/canvasModeContext'
 import { useEntityDetailOptional } from '@/contexts/EntityDetailContext'
 import { useSupabase } from '@/contexts/SupabaseProvider'
 import { reorderLanes, reorderSteps } from '@/lib/authoringRpc'
-import { forgetChange, sessionSnapshot } from '@/lib/authoringSession'
+import { forgetChange } from '@/lib/authoringSession'
 import { executeRevert } from '@/lib/revertChange'
 import { reportWriteFailure, reportWriteSuccess } from '@/lib/writeFailures'
 import type { BlueprintData } from '@/types/blueprint'
@@ -21,9 +21,11 @@ export function useCanvasStructureReorder(
   const context = useEntityDetailOptional()
   const { client, canWrite } = useSupabase()
   const draft = Boolean(context?.selection?.draft)
+  const reconcile = useRef<(() => void) | null>(null)
   const latest = useRef({ blueprint, scale })
   useLayoutEffect(() => {
     latest.current = { blueprint, scale }
+    reconcile.current?.()
   })
   const pathId = blueprint.path.id
   useEffect(() => {
@@ -42,8 +44,43 @@ export function useCanvasStructureReorder(
     const board = body.closest<HTMLElement>('[data-structure-board]')
     if (single && board) board.dataset.canvasReorderGlobal = ''
     let busy = false
+    let waiting: {
+      kind: 'step' | 'lane'
+      ids: string[]
+      source: readonly unknown[]
+    } | null = null
+    const setBusy = (value: boolean) => {
+      busy = value
+      const root = single ? board ?? body : body
+      root.toggleAttribute('data-structure-save-busy', value)
+      root.setAttribute('aria-busy', String(value))
+      root.querySelectorAll('[data-structure-reorder]').forEach((node) => {
+        if (value) node.setAttribute('aria-disabled', 'true')
+        else node.removeAttribute('aria-disabled')
+      })
+    }
+    reconcile.current = () => {
+      if (!waiting) return
+      const items =
+        waiting.kind === 'step'
+          ? latest.current.blueprint.steps
+          : latest.current.blueprint.lanes
+      const actual = items
+        .filter((item) => item.seamSize === undefined)
+        .map((item) => item.id)
+      // A concurrent author may supply a newer order before our refetch lands.
+      // Any fresh readback settles the save; do not wait forever for our order.
+      if (
+        items !== waiting.source ||
+        JSON.stringify(actual) === JSON.stringify(waiting.ids)
+      ) {
+        waiting = null
+        setBusy(false)
+      }
+    }
     const dispose = registerCanvasStructureReorder(body, {
       root: single ? board ?? body : body,
+      busy: () => busy,
       scale: () => latest.current.scale,
       items: (kind) =>
         (kind === 'step'
@@ -81,9 +118,9 @@ export function useCanvasStructureReorder(
             }
           })
           .filter((item) => item.seamSize === undefined),
-      save: (kind, id, ids) => {
+      save: (kind, id, ids, expected) => {
         if (busy) return
-        busy = true
+        setBusy(true)
         const name =
           (kind === 'step'
             ? latest.current.blueprint.steps
@@ -93,9 +130,18 @@ export function useCanvasStructureReorder(
           client,
           pathId,
           ids,
+          expected,
         )
-          .then(() => {
-            const entry = sessionSnapshot().at(-1)
+          .then((entry) => {
+            waiting = {
+              kind,
+              ids,
+              source:
+                kind === 'step'
+                  ? latest.current.blueprint.steps
+                  : latest.current.blueprint.lanes,
+            }
+            reconcile.current?.()
             if (entry?.revert)
               reportWriteSuccess(
                 `Moved the ${name} ${kind}`,
@@ -106,16 +152,17 @@ export function useCanvasStructureReorder(
                 },
               )
           })
-          .catch((error) =>
-            reportWriteFailure(`The ${kind} was not moved`, error),
-          )
-          .finally(() => {
-            busy = false
+          .catch((error) => {
+            waiting = null
+            setBusy(false)
+            reportWriteFailure(`The ${kind} was not moved`, error)
           })
       },
     })
     return () => {
       dispose()
+      reconcile.current = null
+      setBusy(false)
       delete body.dataset.canvasReorder
       if (single && board) delete board.dataset.canvasReorderGlobal
     }

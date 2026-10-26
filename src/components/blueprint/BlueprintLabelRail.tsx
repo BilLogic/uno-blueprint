@@ -288,7 +288,7 @@ export function BlueprintLabelRow({
         data-open={selection?.kind === 'lane' && selection.id === laneId ? '' : undefined}
         onPointerEnter={(event) => {
           if (laneSelectable)
-            highlightStructure(event.currentTarget, 'lane', row.label, true)
+            highlightStructure(event.currentTarget, 'lane', laneId!, true)
         }}
         onPointerLeave={(event) => {
           const box = event.currentTarget.getBoundingClientRect()
@@ -301,18 +301,18 @@ export function BlueprintLabelRow({
             laneSelectable &&
             !event.currentTarget.querySelector('[data-structure-header-title]:focus-visible')
           )
-            highlightStructure(event.currentTarget, 'lane', row.label, false)
+            highlightStructure(event.currentTarget, 'lane', laneId!, false)
         }}
         onFocusCapture={(event) => {
           if (laneSelectable)
-            highlightStructure(event.currentTarget, 'lane', row.label, true)
+            highlightStructure(event.currentTarget, 'lane', laneId!, true)
         }}
         onBlurCapture={(event) => {
           if (
             laneSelectable &&
             !event.currentTarget.contains(event.relatedTarget as Node)
           )
-            highlightStructure(event.currentTarget, 'lane', row.label, false)
+            highlightStructure(event.currentTarget, 'lane', laneId!, false)
         }}
       data-structure-lane-label={laneId ?? undefined}
       role={laneId === STRUCTURE_PLACEHOLDER_ID ? 'status' : undefined}

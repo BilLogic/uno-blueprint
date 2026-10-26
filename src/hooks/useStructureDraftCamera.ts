@@ -1,7 +1,7 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import { useEntityDetailOptional } from '@/contexts/EntityDetailContext'
 
-/** Keep the new row or column beside the floating inspector, then return the camera. */
+/** Assist placement while the draft owns the camera; a user gesture takes it back. */
 export function useStructureDraftCamera(
   content: RefObject<HTMLDivElement | null>,
   panBy: (dx: number, dy: number) => void,
@@ -9,30 +9,59 @@ export function useStructureDraftCamera(
 ) {
   const context = useEntityDetailOptional()
   const shifted = useRef({ x: 0, y: 0 })
+  const session = useRef(false)
+  const userOwned = useRef(false)
   const keep = Boolean(
     context?.selection?.draft || context?.selection?.focusNext,
   )
+  // Names, property edits and animation ticks do not move the insertion destination.
+  const placement = JSON.stringify(context?.preview?.orders ?? [])
+  const kind = context?.preview?.kind
+  const draftBoard = context?.draftBoard
+  useEffect(() => {
+    const gesture = (event: Event) => {
+      const viewport = content.current?.closest('[data-zoom-pan-viewport]')
+      if (
+        !session.current ||
+        !viewport ||
+        (event.target !== document &&
+          event.target !== viewport &&
+          !(event.target instanceof Node && viewport.contains(event.target)))
+      )
+        return
+      userOwned.current = true
+      shifted.current = { x: 0, y: 0 }
+    }
+    document.addEventListener('canvas-camera-gesture', gesture)
+    return () => document.removeEventListener('canvas-camera-gesture', gesture)
+  }, [content])
   useEffect(() => {
     if (!active || !keep) {
-      if (shifted.current.x || shifted.current.y) {
+      if (!userOwned.current && (shifted.current.x || shifted.current.y))
         panBy(-shifted.current.x, -shifted.current.y)
-        shifted.current = { x: 0, y: 0 }
-      }
+      shifted.current = { x: 0, y: 0 }
+      session.current = false
+      userOwned.current = false
       return
     }
-    const frame = requestAnimationFrame(() => {
-      const board = context?.draftBoard.current
+    session.current = true
+    if (userOwned.current) return
+    let waiting = true
+    const measure = () => {
+      if (!waiting || userOwned.current) return
+      const board = draftBoard?.current
       if (!board || !content.current?.contains(board)) return
       const marker = board.querySelector<HTMLElement>(
         '[data-structure-placeholder]',
       )
       const view = content.current
-        ?.closest('[data-zoom-pan-viewport]')
+        .closest('[data-zoom-pan-viewport]')
         ?.getBoundingClientRect()
       const panel = document.querySelector<HTMLElement>(
         '[data-cell-detail-panel]',
       )
       if (!marker || !view || !panel) return
+      waiting = false
       const box = marker.getBoundingClientRect()
       const panelInset = Number.parseFloat(getComputedStyle(panel).right) || 0
       const right =
@@ -40,8 +69,7 @@ export function useStructureDraftCamera(
           panel.getBoundingClientRect().left,
           view.right - panel.offsetWidth - panelInset,
         ) - 16
-      const dx =
-        context?.preview?.kind === 'step' ? Math.min(0, right - box.right) : 0
+      const dx = kind === 'step' ? Math.min(0, right - box.right) : 0
       const dy =
         box.top < view.top + 16
           ? view.top + 16 - box.top
@@ -52,7 +80,15 @@ export function useStructureDraftCamera(
       shifted.current.x += dx
       shifted.current.y += dy
       panBy(dx, dy)
+    }
+    const frame = requestAnimationFrame(() => {
+      if (!document.documentElement.hasAttribute('data-structure-motion'))
+        measure()
     })
-    return () => cancelAnimationFrame(frame)
-  }, [active, keep, context?.preview, context?.draftBoard, content, panBy])
+    document.addEventListener('structure-motion-end', measure)
+    return () => {
+      cancelAnimationFrame(frame)
+      document.removeEventListener('structure-motion-end', measure)
+    }
+  }, [active, keep, placement, kind, draftBoard, content, panBy])
 }

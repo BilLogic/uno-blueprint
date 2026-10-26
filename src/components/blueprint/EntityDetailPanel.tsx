@@ -1,5 +1,5 @@
 import { useSupabase } from '@/contexts/SupabaseProvider'
-import { sessionSnapshot, forgetChange } from '@/lib/authoringSession'
+import { type SessionEntry, forgetChange } from '@/lib/authoringSession'
 import { executeRevert } from '@/lib/revertChange'
 import { reportWriteSuccess } from '@/lib/writeFailures'
 import { useEffect, useState, type ComponentType } from 'react'
@@ -57,7 +57,7 @@ const PANELS: Record<
     id: string
     draft?: StructureDraft
     focusNext?: boolean
-    onCreated: (id: string) => void
+    onCreated: (id: string, entry: SessionEntry) => void
     onClose: () => void
     onSaved: () => void
   }>
@@ -146,8 +146,7 @@ function EntityDetailPanelBody() {
           id={shown.id}
           draft={shown.draft}
           focusNext={shown.focusNext}
-          onCreated={(id) => {
-            const entry = sessionSnapshot().at(-1)
+          onCreated={(id, entry) => {
             if (entry?.revert && client)
               reportWriteSuccess(
                 `Added the ${preview?.name.trim() || ''} ${shown.kind} to ${

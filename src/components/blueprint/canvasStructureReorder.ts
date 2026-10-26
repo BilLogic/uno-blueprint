@@ -8,10 +8,11 @@ import {
 type Kind = 'lane' | 'step'
 export type ReorderItem = { id: string; name: string; parts: HTMLElement[] }
 type Options = {
+  busy?: () => boolean
   root?: HTMLElement
   items: (kind: Kind) => ReorderItem[]
   scale: () => number
-  save: (kind: Kind, id: string, order: string[]) => void
+  save: (kind: Kind, id: string, order: string[], expected: string[]) => void
 }
 
 /** Pointer intent belongs to the header; the whole measured axis travels with it. */
@@ -21,6 +22,7 @@ export function registerCanvasStructureReorder(
 ) {
   const root = options.root ?? body
   let gesture: {
+    source: HTMLElement
     kind: Kind
     id: string
     pointerId: number
@@ -39,6 +41,10 @@ export function registerCanvasStructureReorder(
   let frame: HTMLDivElement | null = null
   let slot: HTMLDivElement | null = null
   const reset = () => {
+    const captured = gesture
+    gesture = null
+    if (captured?.source.hasPointerCapture?.(captured.pointerId))
+      captured.source.releasePointerCapture(captured.pointerId)
     for (const playback of moves.values()) playback.cancel()
     moves.clear()
     for (const [node, value] of original) {
@@ -77,13 +83,15 @@ export function registerCanvasStructureReorder(
     )
   const down = (event: PointerEvent) => {
     const source = header(event)
-    if (!source || event.button !== 0 || gesture) return
+    if (!source || event.button !== 0 || gesture || options.busy?.()) return
     if ((event.target as Element).closest('[data-canvas-header-info]')) return
     const kind = source.dataset.structureReorder as Kind
     const items = options.items(kind),
       index = items.findIndex((item) => item.id === source.dataset.structureId)
     if (index < 0 || items.length < 2) return
+    suppressClick = false
     gesture = {
+      source,
       kind,
       id: items[index].id,
       pointerId: event.pointerId,
@@ -94,6 +102,12 @@ export function registerCanvasStructureReorder(
       index,
       target: index,
       lifted: false,
+    }
+    try {
+      source.setPointerCapture?.(event.pointerId)
+    } catch {
+      reset()
+      return
     }
     event.stopPropagation()
   }
@@ -219,14 +233,22 @@ export function registerCanvasStructureReorder(
             g.index,
             g.target,
           ),
+          g.items.map((item) => item.id),
         )
     }
     reset()
   }
-  const cancel = () => reset()
+  const cancel = () => {
+    if (gesture?.lifted) {
+      suppressClick = true
+      clearTimeout(clickReset)
+    }
+    reset()
+  }
   const click = (event: MouseEvent) => {
     if (suppressClick) {
       suppressClick = false
+      if (event.detail === 0) return
       event.preventDefault()
       event.stopPropagation()
     }
@@ -234,7 +256,7 @@ export function registerCanvasStructureReorder(
   const key = (event: KeyboardEvent) => {
     if (event.key === 'Escape' && gesture) {
       event.preventDefault()
-      reset()
+      cancel()
       return
     }
     const source = header(event)
@@ -246,6 +268,7 @@ export function registerCanvasStructureReorder(
     if (direction < 0) return
     event.preventDefault()
     event.stopPropagation()
+    if (options.busy?.()) return
     const items = options.items(kind),
       index = items.findIndex((item) => item.id === source.dataset.structureId),
       target = index + (direction === 0 ? -1 : 1)
@@ -258,8 +281,21 @@ export function registerCanvasStructureReorder(
           index,
           target,
         ),
+        items.map((item) => item.id),
       )
   }
+  const view = body.ownerDocument.defaultView
+  const hidden = () => {
+    if (body.ownerDocument.hidden) reset()
+  }
+  const freshPointer = () => {
+    suppressClick = false
+    clearTimeout(clickReset)
+  }
+  document.addEventListener('pointerdown', freshPointer, true)
+  root.addEventListener('lostpointercapture', cancel)
+  view?.addEventListener('blur', cancel)
+  body.ownerDocument.addEventListener('visibilitychange', hidden)
   root.addEventListener('pointerdown', down)
   document.addEventListener('click', click, true)
   root.addEventListener('keydown', key)
@@ -271,6 +307,10 @@ export function registerCanvasStructureReorder(
   document.addEventListener('pointercancel', cancel)
   return () => {
     reset()
+    document.removeEventListener('pointerdown', freshPointer, true)
+    root.removeEventListener('lostpointercapture', cancel)
+    view?.removeEventListener('blur', cancel)
+    body.ownerDocument.removeEventListener('visibilitychange', hidden)
     root.removeEventListener('pointerdown', down)
     clearTimeout(clickReset)
     document.removeEventListener('click', click, true)

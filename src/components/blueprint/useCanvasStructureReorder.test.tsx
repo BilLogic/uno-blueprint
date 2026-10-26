@@ -1,11 +1,19 @@
 // @vitest-environment jsdom
 import { useRef } from 'react'
-import { cleanup, render } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+} from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { BlueprintData } from '@/types/blueprint'
 import { useCanvasStructureReorder } from './useCanvasStructureReorder'
 
-const { write, client } = vi.hoisted(() => ({
+const { write, client, success, revert } = vi.hoisted(() => ({
+  success: vi.fn(),
+  revert: vi.fn(async () => {}),
   write: vi.fn().mockResolvedValue(undefined),
   client: {},
 }))
@@ -19,6 +27,11 @@ vi.mock('@/contexts/EntityDetailContext', () => ({
 vi.mock('@/contexts/SupabaseProvider', () => ({
   useSupabase: () => ({ client, canWrite: true }),
 }))
+vi.mock('@/lib/writeFailures', () => ({
+  reportWriteSuccess: success,
+  reportWriteFailure: vi.fn(),
+}))
+vi.mock('@/lib/revertChange', () => ({ executeRevert: revert }))
 vi.mock('@/lib/authoringRpc', () => ({
   reorderSteps: write,
   reorderLanes: write,
@@ -101,10 +114,85 @@ it.each([true, false])(
     document.dispatchEvent(pointer('pointermove', 125))
     document.dispatchEvent(pointer('pointerup', 125))
     if (single)
-      expect(write).toHaveBeenCalledExactlyOnceWith(client, 'path', [
-        'two',
-        'one',
-      ])
+      expect(write).toHaveBeenCalledExactlyOnceWith(
+        client,
+        'path',
+        ['two', 'one'],
+        ['one', 'two'],
+      )
     else expect(write).not.toHaveBeenCalled()
   },
 )
+
+it('marks headers busy through readback and binds Undo to its own write receipt', async () => {
+  vi.stubGlobal('CSS', { escape: (s: string) => s })
+  let resolve!: (value: unknown) => void
+  write.mockImplementationOnce(
+    () =>
+      new Promise((r) => {
+        resolve = r
+      }),
+  )
+  const own = {
+    id: 'own',
+    fn: 'reorder_steps',
+    args: {},
+    revert: { fn: 'undo_structure_order', args: { snapshot: {} } },
+  }
+  const model = (ids: string[]) =>
+    ({
+      path: { id: 'path' },
+      steps: ids.map((id, position) => ({ id, name: id, position })),
+      lanes: [],
+    } as unknown as BlueprintData)
+  function Board({ ids }: { ids: string[] }) {
+    const ref = useRef<HTMLDivElement>(null)
+    useCanvasStructureReorder(ref, model(ids), true, true)
+    return (
+      <div data-structure-board="">
+        <div ref={ref}>
+          {ids.map((id) => (
+            <button
+              key={id}
+              data-structure-reorder="step"
+              data-structure-id={id}
+            >
+              {id}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+  const view = render(<Board ids={['one', 'two', 'three']} />),
+    one = view.getByText('one')
+  const move = () => fireEvent.keyDown(one, { key: 'ArrowRight', altKey: true })
+  move()
+  expect(one.getAttribute('aria-disabled')).toBe('true')
+  const count = write.mock.calls.length
+  move()
+  expect(write).toHaveBeenCalledTimes(count)
+  await act(async () => resolve(own))
+  expect(one.getAttribute('aria-disabled')).toBe('true')
+  move()
+  expect(write).toHaveBeenCalledTimes(count)
+  await waitFor(() =>
+    expect(success).toHaveBeenCalledWith(
+      'Moved the one step',
+      'own',
+      expect.any(Function),
+    ),
+  )
+  await success.mock.calls.at(-1)![2]()
+  expect(revert).toHaveBeenLastCalledWith(client, own)
+  // Another author can win before the refreshed blueprint reaches this view.
+  view.rerender(<Board ids={['three', 'one', 'two']} />)
+  expect(one.hasAttribute('aria-disabled')).toBe(false)
+  move()
+  expect(write).toHaveBeenLastCalledWith(
+    client,
+    'path',
+    ['three', 'two', 'one'],
+    ['three', 'one', 'two'],
+  )
+})

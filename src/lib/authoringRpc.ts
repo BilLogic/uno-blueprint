@@ -6,6 +6,7 @@ import { asEntityStatus, type EntityStatus } from '@/lib/entityStatus'
 import { toAuthoringError } from '@/lib/authoringErrors'
 import {
   recordChange,
+  type SessionEntry,
   type RevertSpec,
   type WriteFn,
 } from '@/lib/authoringSession'
@@ -333,10 +334,14 @@ async function call<T>(
   args: Record<string, unknown>,
   revert?: RevertSpec,
 ): Promise<T> {
-  const data = await invoke<T>(client, fn, args)
-  invalidateAfterRpc(fn, args)
-  recordChange(fn, args, revert ?? deriveRevert(fn, args, data))
-  return data
+  return (await callWithEntry<T>(client,fn,args,revert)).data
+}
+
+async function callWithEntry<T>(client:Client,fn:WriteFn,args:Record<string,unknown>,revert?:RevertSpec):Promise<{data:T;entry:SessionEntry}> {
+  const data=await invoke<T>(client,fn,args)
+  invalidateAfterRpc(fn,args)
+  const entry=recordChange(fn,args,revert ?? deriveRevert(fn,args,data))
+  return {data,entry}
 }
 
 /** Not a portable-core promise: the host must implement this operation. */
@@ -403,9 +408,9 @@ function deriveRevert(
   args: Record<string, unknown>,
   data: unknown,
 ): RevertSpec | undefined {
-  if (fn === 'update_step_with_details')
+  if (fn === 'update_step_with_details' || fn === 'rename_step_name')
     return { fn: 'restore_step_details', args: { snapshot: data } }
-  if (fn === 'update_lane_with_details')
+  if (fn === 'update_lane_with_details' || fn === 'rename_lane')
     return { fn: 'restore_lane_details', args: { snapshot: data } }
   if ((fn === 'add_step_with_details' || fn === 'add_lane_with_details') && data && typeof data === 'object' && 'before' in data) {
     return { fn: 'undo_structure_add', args: { snapshot: data } }
@@ -845,15 +850,8 @@ export function upsertCell(
  * `deferrable initially deferred` in the foundation migration — before that, a
  * multi-row shift collided with itself midway through.
  */
-export function reorderSteps(
-  client: Client,
-  pathId: string,
-  stepIds: string[],
-): Promise<void> {
-  return call<void>(client, 'reorder_steps', {
-    path_id: pathId,
-    step_ids: stepIds,
-  })
+export async function reorderSteps(client:Client,pathId:string,stepIds:string[],expectedIds:string[]):Promise<SessionEntry> {
+  return (await callWithEntry(client,'reorder_steps',{path_id:pathId,step_ids:stepIds,expected_ids:expectedIds})).entry
 }
 
 /** Set which columns a version carries, and in what order. */
@@ -869,8 +867,8 @@ export function setPathSteps(
 }
 
 /** Reorder one path's own lanes, naming every lane exactly once. */
-export function reorderLanes(client: Client, pathId: string, laneIds: string[]): Promise<unknown> {
-  return call(client,'reorder_lanes',{path_id:pathId,lane_ids:laneIds})
+export async function reorderLanes(client:Client,pathId:string,laneIds:string[],expectedIds:string[]):Promise<SessionEntry> {
+  return (await callWithEntry(client,'reorder_lanes',{path_id:pathId,lane_ids:laneIds,expected_ids:expectedIds})).entry
 }
 
 // ---------------------------------------------------------------------------
@@ -1146,8 +1144,8 @@ export async function createStepWithDetails(
     atPosition?: number
     pathOrders: Record<string, string[]>
   },
-): Promise<string> {
-  const result = await call<string | { ids: string[] }>(
+): Promise<{id:string;entry:SessionEntry}> {
+  const {data:result,entry} = await callWithEntry<string | { ids: string[] }>(
     client,
     'add_step_with_details',
     {
@@ -1157,7 +1155,7 @@ export async function createStepWithDetails(
       path_orders: input.pathOrders,
     },
   )
-  return typeof result === 'string' ? result : result.ids[0]
+  return {id:typeof result === 'string' ? result : result.ids[0],entry}
 }
 
 export async function createLaneWithDetails(
@@ -1174,8 +1172,8 @@ export async function createLaneWithDetails(
     tools: string[]
     pathOrders: Record<string, string[]>
   },
-): Promise<string[]> {
-  const result = await call<
+): Promise<{ids:string[];entry:SessionEntry}> {
+  const {data:result,entry} = await callWithEntry<
     string[] | { ids: string[]; by_path?: Record<string, string> }
   >(client, 'add_lane_with_details', {
     scenario_id: input.scenarioId,
@@ -1189,42 +1187,20 @@ export async function createLaneWithDetails(
       tools: input.tools.map((v) => v.trim()).filter(Boolean),
     },
   })
-  if (Array.isArray(result)) return result
+  if (Array.isArray(result)) return {ids:result,entry}
   const clicked = input.pathId && result.by_path?.[input.pathId]
-  return clicked
+  return {ids:clicked
     ? [clicked, ...result.ids.filter((id) => id !== clicked)]
-    : result.ids
+    : result.ids,entry}
 }
 
 /** Portable canvas rename with a locally captured session inverse. */
-export function renameStepName(
-  client: Client,
-  input: { stepId: string; name: string; previousName: string },
-): Promise<void> {
-  return call<void>(
-    client,
-    'rename_step_name',
-    { step_id: input.stepId, new_name: input.name },
-    {
-      fn: 'rename_step_name',
-      args: { step_id: input.stepId, new_name: input.previousName },
-    },
-  )
+export function renameStepName(client:Client,input:{stepId:string;name:string;previousName:string}):Promise<void> {
+  return call<void>(client,'rename_step_name',{step_id:input.stepId,new_name:input.name})
 }
 
-export function renameLane(
-  client: Client,
-  input: { laneId: string; name: string; previousName: string },
-): Promise<void> {
-  return call<void>(
-    client,
-    'rename_lane',
-    { lane_id: input.laneId, new_name: input.name },
-    {
-      fn: 'rename_lane',
-      args: { lane_id: input.laneId, new_name: input.previousName },
-    },
-  )
+export function renameLane(client:Client,input:{laneId:string;name:string;previousName:string}):Promise<void> {
+  return call<void>(client,'rename_lane',{lane_id:input.laneId,new_name:input.name})
 }
 
 /** Save the panel's name and properties in one transaction and one session entry. */

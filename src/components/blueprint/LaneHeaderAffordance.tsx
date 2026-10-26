@@ -166,10 +166,10 @@ export function LaneHeaderAffordance({
       <div
         ref={blockRef}
         data-blueprint-row-header=""
-        onPointerEnter={event=>{ highlightStructure(event.currentTarget,'lane',laneName,true);armHover(event) }}
-        onPointerLeave={event=>{ highlightStructure(event.currentTarget,'lane',laneName,false);cancelHover() }}
-      onFocusCapture={event=>highlightStructure(event.currentTarget,'lane',laneName,true)}
-      onBlurCapture={event=>{if (!event.currentTarget.contains(event.relatedTarget as Node)) highlightStructure(event.currentTarget,'lane',laneName,false)}}
+        onPointerEnter={event=>{ highlightStructure(event.currentTarget,'lane',laneId,true);armHover(event) }}
+        onPointerLeave={event=>{ highlightStructure(event.currentTarget,'lane',laneId,false);cancelHover() }}
+      onFocusCapture={event=>highlightStructure(event.currentTarget,'lane',laneId,true)}
+      onBlurCapture={event=>{if (!event.currentTarget.contains(event.relatedTarget as Node)) highlightStructure(event.currentTarget,'lane',laneId,false)}}
         className={cn(
           'group/lane-header relative flex min-w-0 flex-1 items-start self-stretch text-left',
           CANVAS_HEADER_BOX,
@@ -201,10 +201,10 @@ export function LaneHeaderAffordance({
         cancelHover()
         rename.begin(event)
       }}
-      onPointerEnter={event=>{ highlightStructure(event.currentTarget,'lane',laneName,true);armHover(event) }}
-      onPointerLeave={event=>{ highlightStructure(event.currentTarget,'lane',laneName,false);cancelHover() }}
-      onFocusCapture={event=>highlightStructure(event.currentTarget,'lane',laneName,true)}
-      onBlurCapture={event=>{if (!event.currentTarget.contains(event.relatedTarget as Node)) highlightStructure(event.currentTarget,'lane',laneName,false)}}
+      onPointerEnter={event=>{ highlightStructure(event.currentTarget,'lane',laneId,true);armHover(event) }}
+      onPointerLeave={event=>{ highlightStructure(event.currentTarget,'lane',laneId,false);cancelHover() }}
+      onFocusCapture={event=>highlightStructure(event.currentTarget,'lane',laneId,true)}
+      onBlurCapture={event=>{if (!event.currentTarget.contains(event.relatedTarget as Node)) highlightStructure(event.currentTarget,'lane',laneId,false)}}
       className={cn(
         // No negative margins. They pulled the ink block outside the rail,
         // which clips (`overflow-hidden`) — so the hover surface came back cut

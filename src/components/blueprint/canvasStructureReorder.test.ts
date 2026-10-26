@@ -63,9 +63,9 @@ for (const kind of ['lane', 'step'] as const) {
     ).toBe(true)
     expect(save).not.toHaveBeenCalled()
     document.dispatchEvent(pointer('pointerup', 150, 150))
-    expect(save).toHaveBeenCalledExactlyOnceWith(kind, 'one', ['two', 'one'])
+    expect(save).toHaveBeenCalledExactlyOnceWith(kind, 'one', ['two', 'one'], ['one','two'])
     expect(body.querySelector('[data-structure-lift]')).toBeNull()
-    items[1].parts[0].click()
+    items[1].parts[0].dispatchEvent(new MouseEvent('click',{bubbles:true,detail:1}))
     expect(insert).not.toHaveBeenCalled()
     dispose()
   })
@@ -97,7 +97,7 @@ it('preserves click intent, cancels a drag, and supports Alt movement without pl
       bubbles: true,
     }),
   )
-  expect(save).toHaveBeenCalledExactlyOnceWith('lane', 'one', ['two', 'one'])
+  expect(save).toHaveBeenCalledExactlyOnceWith('lane', 'one', ['two', 'one'], ['one','two'])
   dispose()
 })
 
@@ -156,5 +156,24 @@ it('keeps a click usable, ignores movement on the other axis and cancels a lifte
   expect(save).not.toHaveBeenCalled()
   expect(content.style.translate).toBe('')
   expect(body.querySelector('[data-structure-landing]')).toBeNull()
+  dispose()
+})
+
+it.each(['blur','lostpointercapture','visibilitychange'])('resets a lifted gesture after %s', (reason) => {
+  const body=document.createElement('div');document.body.append(body)
+  const source=document.createElement('button');source.dataset.structureReorder='lane';source.dataset.structureId='one';body.append(source)
+  const capture=vi.fn(),release=vi.fn()
+  source.setPointerCapture=capture;source.releasePointerCapture=release;source.hasPointerCapture=()=>true
+  vi.spyOn(source,'getBoundingClientRect').mockReturnValue(new DOMRect(0,0,100,100))
+  const save=vi.fn()
+  const dispose=registerCanvasStructureReorder(body,{items:()=>[{id:'one',name:'One',parts:[source]},{id:'two',name:'Two',parts:[]}],scale:()=>1,save})
+  const event=(type:string)=>{const e=new MouseEvent(type,{bubbles:true,button:0,clientX:10,clientY:type==='pointerdown'?10:80});Object.defineProperty(e,'pointerId',{value:1});return e}
+  source.dispatchEvent(event('pointerdown'));document.dispatchEvent(event('pointermove'))
+  expect(body.querySelector('[data-structure-lift]')).not.toBeNull()
+  if(reason==='visibilitychange') {vi.spyOn(document,'hidden','get').mockReturnValue(true);document.dispatchEvent(new Event(reason))}
+  else (reason==='blur'?window:source).dispatchEvent(new Event(reason,{bubbles:true}))
+  expect(body.querySelector('[data-structure-lift]')).toBeNull()
+  expect(capture).toHaveBeenCalledWith(1)
+  expect(save).not.toHaveBeenCalled()
   dispose()
 })

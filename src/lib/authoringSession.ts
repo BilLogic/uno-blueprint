@@ -276,8 +276,10 @@ function captureChange(fn: WriteFn, args: Record<string, unknown>, revert?: Reve
 }
 
 /** Ordinary saves retain their existing best-effort durable append. */
-export function recordChange(fn: WriteFn, args: Record<string, unknown>, revert?: RevertSpec): void {
-  appendToAuthoringLog(captureChange(fn, args, revert))
+export function recordChange(fn: WriteFn, args: Record<string, unknown>, revert?: RevertSpec): SessionEntry {
+  const entry = captureChange(fn, args, revert)
+  appendToAuthoringLog(entry)
+  return entry
 }
 
 /** The content write landed; callers must recover using this captured entry. */

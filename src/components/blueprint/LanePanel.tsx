@@ -1,3 +1,4 @@
+import type { SessionEntry } from '@/lib/authoringSession'
 import { toAuthoringError } from '@/lib/authoringErrors'
 import { PathOrderSection } from './PathOrderSection'
 import {
@@ -20,8 +21,6 @@ import {
   PanelKindBadge,
 } from '@/components/blueprint/panelShell'
 import { LanePanelLoading } from '@/components/blueprint/panelLoading'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertTriangle } from 'lucide-react'
 import { StakeholderSelect } from '@/components/blueprint/StakeholderSelect'
 import { useLaneSpec, type LaneSpec } from '@/hooks/useLaneSpec'
 import { useOwnerTags } from '@/hooks/useOwnerTags'
@@ -79,7 +78,7 @@ export function LanePanel({
 }: {
   laneId: string
   draft?: Extract<StructureDraft, { kind: 'lane' }>
-  onCreated?: (id: string) => void
+  onCreated?: (id: string, entry: SessionEntry) => void
   focusNext?: boolean
   onClose: () => void
   onSaved?: () => void
@@ -161,7 +160,7 @@ function LanePanelBody({
 }: {
   lane: LaneSpec
   draft?: Extract<StructureDraft, { kind: 'lane' }>
-  onCreated?: (id: string) => void
+  onCreated?: (id: string, entry: SessionEntry) => void
   focusNext?: boolean
   onDone: () => void
 }) {
@@ -244,7 +243,7 @@ function LanePanelBody({
     setError(null)
     try {
       if (draft) {
-        const ids = await createLaneWithDetails(client, {
+        const {ids,entry} = await createLaneWithDetails(client, {
           ...draft,
           pathOrders: Object.fromEntries(
             paths.value.map((entry) => [entry.pathId, entry.order]),
@@ -253,11 +252,11 @@ function LanePanelBody({
           laneRole: form.laneRole,
         })
         if (!ids[0]) throw new Error('The lane was not created.')
-        onCreated?.(ids[0])
+        onCreated?.(ids[0],entry)
       } else {
         await updateLaneWithDetails(client, {
           laneId: lane.id,
-          laneIds: lane.siblingLaneIds,
+          laneIds: [lane.id],
           ...form,
         })
         onDone()
@@ -274,7 +273,6 @@ function LanePanelBody({
     }
   }
 
-  const fanOut = lane.siblingLaneIds.length
   const resolvedRole = getLaneRole({ name: lane.name, role: lane.role })
   /*
     The badge takes its colour the same way a CELL does — through
@@ -408,28 +406,6 @@ function LanePanelBody({
           ) : null}
         </>
       ) : null}
-      {/*
-        An inline Alert, not a hover and not an ⓘ.
-
-        This is a consequence the reader would be surprised by — one Save
-        writes several rows — and the whole point of saying it is that they
-        must not miss it. A hover can be missed by never hovering, and an ⓘ
-        can be missed by never clicking. Something that must be read is
-        always visible; that is the rule, and `Alert` is how the design
-        system already says it.
-      */}
-      {canEdit && fanOut > 1 ? (
-        <Alert variant="warning">
-          <AlertTriangle aria-hidden />
-          <AlertDescription className="text-xs">
-            Saving writes all {fanOut} “{lane.name}” lanes in{' '}
-            {lane.scenarioName}. A lane row belongs to one path, so the same
-            lane would otherwise claim a different owner depending on which path
-            you were looking at.
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       {/* ACTOR, not Stakeholder. The column is `lanes.stakeholder_id` and the
           registry it points into is `stakeholders`; the word on screen is the
           one the rest of this vocabulary uses for a party standing in the room

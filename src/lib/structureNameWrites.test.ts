@@ -4,6 +4,8 @@ import type { Database } from '@/types/database'
 import { renameLane, renameStepName } from './authoringRpc'
 import {
   clearSession,
+  recordChange,
+  subscribeToSession,
   describeChange,
   sessionSnapshot,
 } from './authoringSession'
@@ -15,30 +17,31 @@ for (const kind of ['lane', 'step'] as const) {
   it(`records a ${kind} rename in the change sheet and restores its captured name`, async () => {
     clearSession()
     let saved = 'Review'
+    const receipt={name:'Review',[`${kind}_id`]:kind,summary:null,rows:[],after:{name:'Decision'}}
     const client = {
-      rpc: vi.fn(async (_fn: string, args: { new_name: string }) => {
-        saved = args.new_name
-        return { data: null, error: null }
+      rpc: vi.fn(async (fn: string, args: { new_name: string; snapshot?:{name:string} }) => {
+        saved = fn.startsWith('restore_') ? args.snapshot!.name : args.new_name
+        return { data: receipt, error: null }
       }),
     } as unknown as SupabaseClient<Database>
     if (kind === 'step')
       await renameStepName(client, {
         stepId: 'step',
         name: 'Decision',
-        previousName: saved,
+        previousName: 'stale client name',
       })
     else
       await renameLane(client, {
         laneId: 'lane',
         name: 'Decision',
-        previousName: saved,
+        previousName: 'stale client name',
       })
     expect(saved).toBe('Decision')
     const [entry] = sessionSnapshot()
     expect(describeChange(entry)).toContain(`Renamed a ${kind}`)
     expect(entry.revert).toEqual({
-      fn: kind === 'step' ? 'rename_step_name' : 'rename_lane',
-      args: { [`${kind}_id`]: kind, new_name: 'Review' },
+      fn: `restore_${kind}_details`,
+      args: {snapshot:receipt},
     })
     await executeRevert(client, entry)
     expect(saved).toBe('Review')
@@ -50,7 +53,7 @@ it('creates a step with complete path orders and reverts the captured database s
   const snapshot = {kind:'step',ids:['created'],before:{one:[{id:'start',position:4}],two:[]},after:{one:[{id:'created',position:0},{id:'start',position:1}],two:[{id:'created',position:0}]}}
   const rpc = vi.fn(async () => ({data:snapshot,error:null}))
   const client = {rpc} as unknown as SupabaseClient<Database>
-  expect(await createStepWithDetails(client,{pathId:'one',name:'Review',summary:'Check the request.',pathOrders:{one:['new','start'],two:['new']}})).toBe('created')
+  expect(await createStepWithDetails(client,{pathId:'one',name:'Review',summary:'Check the request.',pathOrders:{one:['new','start'],two:['new']}})).toMatchObject({id:'created'})
   expect(rpc).toHaveBeenCalledExactlyOnceWith('add_step_with_details',{path_id:'one',name:'Review',summary:'Check the request.',path_orders:{one:['new','start'],two:['new']}})
   const [entry] = sessionSnapshot()
   expect(entry.revert).toEqual({fn:'undo_structure_add',args:{snapshot}})
@@ -81,11 +84,25 @@ for (const kind of ['step', 'lane'] as const) {
     const snapshot = {kind,path_id:'path',before:[{id:'first',position:4},{id:'last',position:9}],after:[{id:'last',position:0},{id:'first',position:1}]}
     const rpc = vi.fn(async () => ({data:snapshot,error:null}))
     const client = {rpc} as unknown as SupabaseClient<Database>
-    await (kind === 'step' ? api.reorderSteps : api.reorderLanes)(client,'path',['last','first'])
-    expect(rpc).toHaveBeenCalledExactlyOnceWith(`reorder_${kind}s`,{path_id:'path',[`${kind}_ids`]:['last','first']})
+    await (kind === 'step' ? api.reorderSteps : api.reorderLanes)(client,'path',['last','first'],['first','last'])
+    expect(rpc).toHaveBeenCalledExactlyOnceWith(`reorder_${kind}s`,{path_id:'path',[`${kind}_ids`]:['last','first'],expected_ids:['first','last']})
     const [entry] = sessionSnapshot()
     expect(entry.revert).toEqual({fn:'undo_structure_order',args:{snapshot}})
     await executeRevert(client,entry)
     expect(rpc).toHaveBeenLastCalledWith('undo_structure_order',{snapshot})
   })
 }
+
+it('returns its own recorded entry even when a subscriber appends another write before the caller resumes',async()=>{
+ const {createStepWithDetails}=await import('./authoringRpc')
+ const snapshot={kind:'step',ids:['created'],before:{one:[]},after:{one:[{id:'created',position:0}]}}
+ const client={rpc:vi.fn(async()=>({data:snapshot,error:null}))} as unknown as SupabaseClient<Database>
+ let interleaved=false
+ const dispose=subscribeToSession(()=>{if(!interleaved){interleaved=true;recordChange('rename_step_name',{step_id:'other',new_name:'Other write'})}})
+ try {
+  const result=await createStepWithDetails(client,{pathId:'one',name:'Review',summary:'',pathOrders:{one:['new']}})
+  expect(sessionSnapshot()).toHaveLength(2)
+  expect(result.entry).toBe(sessionSnapshot()[0])
+  expect(result.entry).not.toBe(sessionSnapshot().at(-1))
+ }finally{dispose()}
+})

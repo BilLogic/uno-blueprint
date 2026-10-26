@@ -303,7 +303,7 @@ function createIntent(board: Element) {
     suspendedPoint = { clientX: point.clientX, clientY: point.clientY }
   }
   const wheel = (event: WheelEvent) => suspend(event)
-  const cameraGesture = (event: Event) => suspend((event as CustomEvent<Point>).detail)
+  const cameraGesture = (event: Event) => suspend((event as CustomEvent<Point|null>).detail ?? lastPoint ?? {clientX:0,clientY:0})
   const pointerDown = (event: PointerEvent) => {
     if (
       !(event.target instanceof Element) ||

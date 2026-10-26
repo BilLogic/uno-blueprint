@@ -18,8 +18,8 @@ const reads = vi.hoisted(() => ({
   items: [] as Array<{ id: string; name: string }>,
 }))
 const writes = vi.hoisted(() => ({
-  step: vi.fn(async () => 'created-step'),
-  lane: vi.fn(async () => ['created-lane']),
+  step: vi.fn(async () => ({id:'created-step',entry:undefined})),
+  lane: vi.fn(async () => ({ids:['created-lane'],entry:undefined})),
   renameStepName: vi.fn(async () => {}),
   renameLane: vi.fn(async () => {}),
 }))
@@ -103,7 +103,7 @@ it('keeps a step draft unwritten until Name is filled, then creates all fields t
       }),
     ),
   )
-  expect(created).toHaveBeenCalledWith('created-step')
+  expect(created).toHaveBeenCalledWith('created-step',undefined)
 })
 
 it('requires both lane Name and Role and submits its properties in one write', async () => {
@@ -155,7 +155,7 @@ it('requires both lane Name and Role and submits its properties in one write', a
       }),
     ),
   )
-  expect(created).toHaveBeenCalledWith('created-lane')
+  expect(created).toHaveBeenCalledWith('created-lane',undefined)
 })
 
 for (const kind of ['lane', 'step'] as const) {

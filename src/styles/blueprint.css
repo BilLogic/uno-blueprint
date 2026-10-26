@@ -1365,3 +1365,5 @@
 [data-structure-board]:has([data-structure-seam-track]) {
   --structure-hint-visibility: 0;
 }
+
+[data-structure-save-busy] [data-structure-reorder] { cursor: progress; opacity: .55; }

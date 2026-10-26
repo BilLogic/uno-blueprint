@@ -1,3 +1,4 @@
+import type { SessionEntry } from '@/lib/authoringSession'
 import { toAuthoringError } from '@/lib/authoringErrors'
 import { PathOrderSection } from './PathOrderSection'
 import {
@@ -51,7 +52,7 @@ export function StepPanel({
 }: {
   stepId: string
   draft?: Extract<StructureDraft, { kind: 'step' }>
-  onCreated?: (id: string) => void
+  onCreated?: (id: string, entry: SessionEntry) => void
   focusNext?: boolean
   onClose: () => void
   onSaved?: () => void
@@ -114,7 +115,7 @@ function StepPanelBody({
 }: {
   step: StepSpec
   draft?: Extract<StructureDraft, { kind: 'step' }>
-  onCreated?: (id: string) => void
+  onCreated?: (id: string, entry: SessionEntry) => void
   focusNext?: boolean
   onDone: () => void
 }) {
@@ -163,7 +164,7 @@ function StepPanelBody({
     setError(null)
     try {
       if (draft) {
-        const id = await createStepWithDetails(client, {
+        const {id,entry} = await createStepWithDetails(client, {
           ...draft,
           pathId: paths.value.some((entry) => entry.pathId === draft.pathId)
             ? draft.pathId
@@ -174,7 +175,7 @@ function StepPanelBody({
           name,
           summary,
         })
-        onCreated?.(id)
+        onCreated?.(id,entry)
       } else {
         await updateStepWithDetails(client, { stepId: step.id, name, summary })
         onDone()

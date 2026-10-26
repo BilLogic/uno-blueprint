@@ -1173,10 +1173,20 @@ export type Database = {
         }
         Returns: Json
       }
-      apply_structure_order: {
-        Args: { ids: string[]; kind: string; path_id: string }
-        Returns: Json
-      }
+      apply_structure_order:
+        | {
+            Args: { ids: string[]; kind: string; path_id: string }
+            Returns: Json
+          }
+        | {
+            Args: {
+              expected_ids: string[]
+              ids: string[]
+              kind: string
+              path_id: string
+            }
+            Returns: Json
+          }
       cell_natural_key: { Args: { cell_id: string }; Returns: string }
       check_structure_draft_order: {
         Args: { current_ids: string[]; requested: Json }
@@ -1275,6 +1285,10 @@ export type Database = {
       }
       rename_lane: {
         Args: { lane_id: string; new_name: string }
+        Returns: Json
+      }
+      rename_lane_checked: {
+        Args: { lane_id: string; new_name: string }
         Returns: undefined
       }
       rename_owner_tag: {
@@ -1295,7 +1309,7 @@ export type Database = {
       }
       rename_step_name: {
         Args: { new_name: string; step_id: string }
-        Returns: undefined
+        Returns: Json
       }
       rename_touchpoint: {
         Args: { p_name: string; p_touchpoint_id: string }
@@ -1304,13 +1318,27 @@ export type Database = {
       reorder_lanes:
         | { Args: { lane_ids: string[]; path_id: string }; Returns: Json }
         | {
+            Args: {
+              expected_ids: string[]
+              lane_ids: string[]
+              path_id: string
+            }
+            Returns: Json
+          }
+        | {
             Args: { lane_names: string[]; scenario_id: string }
             Returns: undefined
           }
-      reorder_steps: {
-        Args: { path_id: string; step_ids: string[] }
-        Returns: Json
-      }
+      reorder_steps:
+        | { Args: { path_id: string; step_ids: string[] }; Returns: Json }
+        | {
+            Args: {
+              expected_ids: string[]
+              path_id: string
+              step_ids: string[]
+            }
+            Returns: Json
+          }
       replace_slides: {
         Args: { p_slice_id: string; p_slides: Json }
         Returns: Json

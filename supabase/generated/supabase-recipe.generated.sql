@@ -2823,3 +2823,21 @@ begin
     perform public.undo_structure_order('{}'); raise exception 'reader undid order';
   exception when insufficient_privilege then null; end;
 end $reader$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000311000000_structure_undo_and_edits_refuse_stale_state.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- Only guarded author entry points are exposed.
+grant execute on function public.undo_structure_add(jsonb), public.rename_step_name(uuid,text), public.rename_lane(uuid,text), public.update_step_with_details(uuid,text,text), public.update_lane_with_details(uuid,uuid[],text,jsonb), public.restore_step_details(jsonb), public.restore_lane_details(jsonb), public.reorder_steps(uuid,uuid[],uuid[]), public.reorder_lanes(uuid,uuid[],uuid[]), public.undo_structure_order(jsonb) to authenticated;
+
+-- Exercise the replacement entry points as a reader, not just as the owner.
+do $reader$
+begin
+ perform set_config('request.jwt.claims','{}',true);
+ begin perform public.undo_structure_add('{}'); raise exception 'reader undid Add'; exception when insufficient_privilege then null; end;
+ begin perform public.reorder_steps(gen_random_uuid(),'{}'::uuid[],'{}'::uuid[]); raise exception 'reader reordered steps'; exception when insufficient_privilege then null; end;
+ begin perform public.reorder_lanes(gen_random_uuid(),'{}'::uuid[],'{}'::uuid[]); raise exception 'reader reordered lanes'; exception when insufficient_privilege then null; end;
+ begin perform public.restore_step_details('{}'); raise exception 'reader restored step'; exception when insufficient_privilege then null; end;
+ begin perform public.restore_lane_details('{}'); raise exception 'reader restored lane'; exception when insufficient_privilege then null; end;
+end $reader$;

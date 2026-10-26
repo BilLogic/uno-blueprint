@@ -215,6 +215,19 @@ CREATE FUNCTION public.apply_structure_order(path_id uuid, kind text, ids uuid[]
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
     AS $$
+begin
+  perform public.require_structure_author();
+  raise exception 'This path changed. Reload and try again';
+end $$;
+
+--
+-- Name: apply_structure_order(uuid, text, uuid[], uuid[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.apply_structure_order(path_id uuid, kind text, ids uuid[], expected_ids uuid[]) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
 declare current_ids uuid[]; before_rows jsonb; after_rows jsonb;
 begin
   perform public.require_structure_author();
@@ -228,6 +241,7 @@ begin
     perform 1 from public.lanes l where l.path_id=apply_structure_order.path_id order by id for update;
     select array_agg(id order by position),coalesce(jsonb_agg(jsonb_build_object('id',id,'position',position) order by position),'[]') into current_ids,before_rows from public.lanes l where l.path_id=apply_structure_order.path_id;
   end if;
+  if expected_ids is distinct from coalesce(current_ids,'{}'::uuid[]) then raise exception 'This path changed. Reload and try again'; end if;
   if ids is null or cardinality(ids)<>coalesce(cardinality(current_ids),0)
     or (select count(distinct id) from unnest(ids) id)<>cardinality(ids)
     or exists(select 1 from unnest(ids) id where id is null or not id=any(coalesce(current_ids,'{}'))) then
@@ -1452,7 +1466,27 @@ COMMENT ON FUNCTION public.rename_content_item(p_content text, p_from text, p_to
 -- Name: rename_lane(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.rename_lane(lane_id uuid, new_name text) RETURNS void
+CREATE FUNCTION public.rename_lane(lane_id uuid, new_name text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare previous jsonb; after_row jsonb; p uuid;
+begin
+  perform public.require_structure_author();
+  select path_id into p from public.lanes where id=lane_id;
+  perform 1 from public.paths where id=p for update;
+  select jsonb_build_object('lane_id',l.id,'name',l.name,'rows',jsonb_build_array(jsonb_build_object('id',l.id,'owner_team',l.owner_team,'stakeholder_id',l.stakeholder_id,'kpis',l.kpis,'tools',l.tools))) into previous from public.lanes l where l.id=lane_id for update;
+  if not found then raise exception 'That lane no longer exists'; end if;
+  perform public.rename_lane_checked(lane_id,new_name);
+  select to_jsonb(l) into after_row from public.lanes l where l.id=lane_id;
+  return previous||jsonb_build_object('after',after_row);
+end $$;
+
+--
+-- Name: rename_lane_checked(uuid, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.rename_lane_checked(lane_id uuid, new_name text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
     AS $$
@@ -1618,17 +1652,18 @@ $$;
 -- Name: rename_step_name(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.rename_step_name(step_id uuid, new_name text) RETURNS void
+CREATE FUNCTION public.rename_step_name(step_id uuid, new_name text) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
     AS $$
+declare previous jsonb; after_row jsonb;
 begin
-  if not public.is_service_account() then
-    raise exception 'This account cannot edit the blueprint' using errcode = '42501';
-  end if;
-  if nullif(trim(new_name), '') is null then raise exception 'A step needs a name'; end if;
-  update public.steps set name = trim(new_name) where id = step_id;
+  perform public.require_structure_author();
+  if nullif(trim(new_name),'') is null then raise exception 'Enter a name'; end if;
+  select jsonb_build_object('step_id',s.id,'name',s.name,'summary',s.summary) into previous from public.steps s where s.id=step_id for update;
   if not found then raise exception 'That step no longer exists'; end if;
+  update public.steps s set name=trim(new_name) where s.id=step_id returning to_jsonb(s) into after_row;
+  return previous||jsonb_build_object('after',after_row);
 end $$;
 
 --
@@ -1758,6 +1793,15 @@ CREATE FUNCTION public.reorder_lanes(path_id uuid, lane_ids uuid[]) RETURNS json
     AS $$ select public.apply_structure_order(path_id,'lane',lane_ids) $$;
 
 --
+-- Name: reorder_lanes(uuid, uuid[], uuid[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.reorder_lanes(path_id uuid, lane_ids uuid[], expected_ids uuid[]) RETURNS jsonb
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$ select public.apply_structure_order(path_id,'lane',lane_ids,expected_ids) $$;
+
+--
 -- Name: reorder_steps(uuid, uuid[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1765,6 +1809,15 @@ CREATE FUNCTION public.reorder_steps(path_id uuid, step_ids uuid[]) RETURNS json
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
     AS $$ select public.apply_structure_order(path_id,'step',step_ids) $$;
+
+--
+-- Name: reorder_steps(uuid, uuid[], uuid[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.reorder_steps(path_id uuid, step_ids uuid[], expected_ids uuid[]) RETURNS jsonb
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$ select public.apply_structure_order(path_id,'step',step_ids,expected_ids) $$;
 
 --
 -- Name: replace_slides(uuid, jsonb); Type: FUNCTION; Schema: public; Owner: -
@@ -2050,16 +2103,17 @@ CREATE FUNCTION public.restore_lane_details(snapshot jsonb) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
     AS $$
-declare row_data jsonb;
+declare actual jsonb; row_data jsonb; p uuid; target uuid := (snapshot->>'lane_id')::uuid;
 begin
   perform public.require_structure_author();
-  if jsonb_typeof(snapshot->'rows') is distinct from 'array' then raise exception 'The saved lane properties are missing'; end if;
-  -- The rename uses the same path lock and duplicate-name guard as the forward save.
-  perform public.rename_lane((snapshot->>'lane_id')::uuid,snapshot->>'name');
-  for row_data in select value from jsonb_array_elements(snapshot->'rows') order by value->>'id' loop
-    update public.lanes set owner_team=row_data->>'owner_team',stakeholder_id=nullif(row_data->>'stakeholder_id','')::uuid,kpis=row_data->'kpis',tools=row_data->'tools' where id=(row_data->>'id')::uuid;
-    if not found then raise exception 'A lane no longer exists. Reload before undoing'; end if;
-  end loop;
+  select path_id into p from public.lanes where id=target;
+  perform 1 from public.paths where id=p for update;
+  select to_jsonb(l) into actual from public.lanes l where l.id=target for update;
+  if actual is null or actual is distinct from snapshot->'after' then raise exception 'This lane changed since your save'; end if;
+  if jsonb_typeof(snapshot->'rows') is distinct from 'array' or jsonb_array_length(snapshot->'rows')<>1 or (snapshot->'rows'->0->>'id')::uuid is distinct from target then raise exception 'The saved lane properties are missing'; end if;
+  row_data:=snapshot->'rows'->0;
+  perform public.rename_lane_checked(target,snapshot->>'name');
+  update public.lanes set owner_team=row_data->>'owner_team',stakeholder_id=nullif(row_data->>'stakeholder_id','')::uuid,kpis=row_data->'kpis',tools=row_data->'tools' where id=target;
 end $$;
 
 --
@@ -2206,11 +2260,13 @@ CREATE FUNCTION public.restore_step_details(snapshot jsonb) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
     AS $$
+declare actual jsonb;
 begin
   perform public.require_structure_author();
+  select to_jsonb(s) into actual from public.steps s where s.id=(snapshot->>'step_id')::uuid for update;
+  if actual is null or actual is distinct from snapshot->'after' then raise exception 'This step changed since your save'; end if;
   if nullif(trim(snapshot->>'name'),'') is null then raise exception 'The saved step name is missing'; end if;
   update public.steps set name=snapshot->>'name',summary=snapshot->>'summary' where id=(snapshot->>'step_id')::uuid;
-  if not found then raise exception 'That step no longer exists'; end if;
 end $$;
 
 --
@@ -3007,24 +3063,59 @@ CREATE FUNCTION public.undo_structure_add(snapshot jsonb) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
     AS $$
-declare p uuid; rows jsonb; actual jsonb; ids uuid[];
+declare p uuid; rows jsonb; actual jsonb; ids uuid[]; kind text := snapshot->>'kind'; memberships uuid[]; named_paths uuid[]; n integer;
 begin
   perform public.require_structure_author();
-  if snapshot->>'kind' not in ('lane','step') or jsonb_typeof(snapshot->'before') is distinct from 'object' then raise exception 'This change cannot be undone. Reload the canvas'; end if;
+  if kind is null or kind not in ('lane','step')
+    or jsonb_typeof(snapshot->'before') is distinct from 'object'
+    or jsonb_typeof(snapshot->'after') is distinct from 'object' or snapshot->'after'='{}'
+    or jsonb_typeof(snapshot->'ids') is distinct from 'array' or snapshot->'ids'='[]'
+    or (select array_agg(key order by key) from jsonb_each(snapshot->'before')) is distinct from
+       (select array_agg(key order by key) from jsonb_each(snapshot->'after')) then
+    raise exception 'This change cannot be undone. Reload the canvas';
+  end if;
   select array_agg(x::uuid) into ids from jsonb_array_elements_text(snapshot->'ids') x;
-  perform 1 from public.paths where id in(select key::uuid from jsonb_each(snapshot->'before')) order by id for update;
+  if cardinality(ids)<>(select count(distinct x) from unnest(ids) x) or array_position(ids,null) is not null then
+    raise exception 'This change cannot be undone. Reload the canvas';
+  end if;
+  select array_agg(key::uuid order by key::uuid) into named_paths from jsonb_each(snapshot->'after');
+  perform 1 from public.paths where id=any(named_paths) order by id for update;
+  if kind='step' then
+    perform 1 from public.steps where id=any(ids) order by id for update;
+    select count(*) into n from public.steps where id=any(ids);
+    select array_agg(distinct path_id order by path_id) into memberships from public.path_steps where step_id=any(ids);
+  else
+    perform 1 from public.lanes where id=any(ids) order by id for update;
+    select count(*) into n from public.lanes where id=any(ids);
+    select array_agg(distinct path_id order by path_id) into memberships from public.lanes where id=any(ids);
+  end if;
+  if n<>cardinality(ids) or memberships is distinct from named_paths then raise exception 'This change cannot be undone. Reload the canvas'; end if;
   for p,rows in select key::uuid,value from jsonb_each(snapshot->'after') order by key loop
-    if snapshot->>'kind'='step' then
-      select jsonb_agg(jsonb_build_object('id',step_id,'position',position) order by position) into actual from public.path_steps where path_id=p;
+    if jsonb_typeof(rows) is distinct from 'array' or jsonb_typeof(snapshot->'before'->p::text) is distinct from 'array'
+      or (select count(*) from jsonb_array_elements(snapshot->'before'->p::text)) <>
+         (select count(distinct q->>'id') from jsonb_array_elements(snapshot->'before'->p::text) q)
+      or (select array_agg(q->>'id' order by q->>'id') from jsonb_array_elements(snapshot->'before'->p::text) q) is distinct from
+         (select array_agg(q->>'id' order by q->>'id') from jsonb_array_elements(rows) q where not (q->>'id')::uuid=any(ids)) then
+      raise exception 'This change cannot be undone. Reload the canvas';
+    end if;
+    if kind='step' then
+      select coalesce(jsonb_agg(jsonb_build_object('id',step_id,'position',position) order by position),'[]') into actual from public.path_steps where path_id=p;
     else
-      select jsonb_agg(jsonb_build_object('id',id,'position',position) order by position) into actual from public.lanes where path_id=p;
+      select coalesce(jsonb_agg(jsonb_build_object('id',id,'position',position) order by position),'[]') into actual from public.lanes where path_id=p;
     end if;
     if actual is distinct from rows then raise exception 'This path changed since Add. Reload before undoing this change'; end if;
   end loop;
-  if snapshot->>'kind'='step' then delete from public.steps where id=any(ids);
-  else delete from public.lanes where id=any(ids); end if;
+  -- FOR UPDATE on the parent ids also excludes concurrent FK inserts while
+  -- checking dependent content. Even a blank cell is later authored work.
+  if kind='step' then
+    if exists(select 1 from public.cells where step_id=any(ids)) then raise exception 'This step has content since Add. Delete it instead if you mean to'; end if;
+    delete from public.steps where id=any(ids);
+  else
+    if exists(select 1 from public.cells where lane_id=any(ids)) then raise exception 'This lane has content since Add. Delete it instead if you mean to'; end if;
+    delete from public.lanes where id=any(ids);
+  end if;
   for p,rows in select key::uuid,value from jsonb_each(snapshot->'before') loop
-    if snapshot->>'kind'='step' then
+    if kind='step' then
       update public.path_steps ps set position=(q->>'position')::int from jsonb_array_elements(rows) q where ps.path_id=p and ps.step_id=(q->>'id')::uuid;
     else
       update public.lanes l set position=(q->>'position')::int from jsonb_array_elements(rows) q where l.path_id=p and l.id=(q->>'id')::uuid;
@@ -3052,7 +3143,7 @@ begin
   end if;
   if actual is distinct from snapshot->'after' then raise exception 'This path changed since Move. Reload before undoing this change'; end if;
   select coalesce(array_agg((q->>'id')::uuid),'{}') into ids from jsonb_array_elements(snapshot->'before') q;
-  perform public.apply_structure_order(p,kind,ids);
+  perform public.apply_structure_order(p,kind,ids,array(select (q->>'id')::uuid from jsonb_array_elements(actual) q));
   if kind='step' then
     update public.path_steps ps set position=(q->>'position')::int from jsonb_array_elements(snapshot->'before') q where ps.path_id=p and ps.step_id=(q->>'id')::uuid;
   else
@@ -3148,23 +3239,19 @@ CREATE FUNCTION public.update_lane_with_details(lane_id uuid, lane_ids uuid[], n
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
     AS $$
-declare original_name text; sc uuid; p uuid; previous jsonb;
+declare previous jsonb; after_row jsonb; p uuid;
 begin
   perform public.require_structure_author();
   if nullif(trim(name),'') is null then raise exception 'Enter a name'; end if;
   if jsonb_typeof(details->'kpis') is distinct from 'array' or jsonb_typeof(details->'tools') is distinct from 'array' then raise exception 'KPIs and tools must be lists'; end if;
-  select l.name,paths.scenario_id,l.path_id into original_name,sc,p from public.lanes l join public.paths on paths.id=l.path_id where l.id=lane_id;
+  select path_id into p from public.lanes where id=lane_id;
+  perform 1 from public.paths where id=p for update;
+  select jsonb_build_object('lane_id',l.id,'name',l.name,'rows',jsonb_build_array(jsonb_build_object('id',l.id,'owner_team',l.owner_team,'stakeholder_id',l.stakeholder_id,'kpis',l.kpis,'tools',l.tools))) into previous from public.lanes l where l.id=lane_id for update;
   if not found then raise exception 'That lane no longer exists'; end if;
-  perform 1 from public.paths where scenario_id=sc order by id for update;
-  perform 1 from public.lanes where id=any(lane_ids) order by id for update;
-  if not lane_id=any(lane_ids) or cardinality(lane_ids) is distinct from
-    (select count(distinct l.id)::integer from public.lanes l join public.paths on paths.id=l.path_id where l.id=any(lane_ids) and paths.scenario_id=sc and l.name=original_name) then
-    raise exception 'Reload the lane before saving its properties';
-  end if;
-  select jsonb_build_object('lane_id',lane_id,'name',original_name,'rows',jsonb_agg(jsonb_build_object('id',id,'owner_team',owner_team,'stakeholder_id',stakeholder_id,'kpis',kpis,'tools',tools) order by id)) into previous from public.lanes where id=any(lane_ids);
-  perform public.rename_lane(lane_id,name);
-  update public.lanes set owner_team=nullif(trim(details->>'owner_team'),''),stakeholder_id=nullif(details->>'stakeholder_id','')::uuid,kpis=details->'kpis',tools=details->'tools' where id=any(lane_ids);
-  return previous;
+  -- lane_ids is retained for wire compatibility only; a lane belongs to one path.
+  perform public.rename_lane_checked(lane_id,name);
+  update public.lanes l set owner_team=nullif(trim(details->>'owner_team'),''),stakeholder_id=nullif(details->>'stakeholder_id','')::uuid,kpis=details->'kpis',tools=details->'tools' where l.id=lane_id returning to_jsonb(l) into after_row;
+  return previous||jsonb_build_object('after',after_row);
 end $$;
 
 --
@@ -3206,15 +3293,14 @@ CREATE FUNCTION public.update_step_with_details(step_id uuid, name text, summary
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
     AS $$
-declare previous jsonb;
+declare previous jsonb; after_row jsonb;
 begin
   perform public.require_structure_author();
   if nullif(trim(name),'') is null then raise exception 'Enter a name'; end if;
-  select jsonb_build_object('step_id',s.id,'name',s.name,'summary',s.summary) into previous
-    from public.steps s where s.id=step_id for update;
+  select jsonb_build_object('step_id',s.id,'name',s.name,'summary',s.summary) into previous from public.steps s where s.id=step_id for update;
   if not found then raise exception 'That step no longer exists'; end if;
-  update public.steps s set name=trim(update_step_with_details.name),summary=nullif(trim(update_step_with_details.summary),'') where s.id=step_id;
-  return previous;
+  update public.steps s set name=trim(update_step_with_details.name),summary=nullif(trim(update_step_with_details.summary),'') where s.id=step_id returning to_jsonb(s) into after_row;
+  return previous||jsonb_build_object('after',after_row);
 end $$;
 
 --

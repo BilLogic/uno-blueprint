@@ -1,3 +1,4 @@
+-- Authored 2026-10-24. Path orders use complete identity permutations.
 -- @core — Each reorder owns one path and captures the exact inverse.
 drop function public.reorder_steps(uuid,uuid[]);
 -- Earlier recipe grants still name this signature; it remains a refusal, never a name-based write.

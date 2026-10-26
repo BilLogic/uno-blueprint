@@ -61,7 +61,13 @@ for (const kind of ['lane', 'step'] as const) {
     expect(
       items[0].parts.every((part) => part.hasAttribute('data-structure-lift')),
     ).toBe(true)
-    items[0].parts[0].dispatchEvent(new KeyboardEvent('keydown', {key: kind === 'step' ? 'ArrowRight' : 'ArrowDown', altKey: true, bubbles: true}))
+    for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']) {
+      const shortcut = new KeyboardEvent('keydown', {
+        key, altKey: true, bubbles: true, cancelable: true,
+      })
+      items[0].parts[0].dispatchEvent(shortcut)
+      expect(shortcut.defaultPrevented).toBe(true)
+    }
     expect(save).not.toHaveBeenCalled()
     document.dispatchEvent(pointer('pointerup', 150, 150))
     expect(save).toHaveBeenCalledExactlyOnceWith(kind, 'one', ['two', 'one'], ['one','two'])

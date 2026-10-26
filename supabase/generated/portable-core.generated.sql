@@ -14864,6 +14864,7 @@ end $proof$;
 -- 21000310000000_path_orders_are_guarded_permutations.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
+-- Authored 2026-10-24. Path orders use complete identity permutations.
 -- Each reorder owns one path and captures the exact inverse.
 drop function public.reorder_steps(uuid,uuid[]);
 -- Earlier recipe grants still name this signature; it remains a refusal, never a name-based write.

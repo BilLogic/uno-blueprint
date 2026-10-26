@@ -129,6 +129,8 @@ and either succeeds atomically or refuses without changing data.
 
 | RPC | Arguments | Return |
 | --- | --- | --- |
+| `add_step_with_details` | `path_id uuid`, `name text`, `path_orders jsonb`, `summary text default null` | `jsonb` step Add receipt |
+| `add_lane_with_details` | `scenario_id uuid`, `name text`, `lane_role text`, `path_orders jsonb`, `details jsonb default '{}'` | `jsonb` lane Add receipt |
 | `reorder_steps` | `path_id uuid`, `step_ids uuid[]`, `expected_ids uuid[]` | `jsonb` order receipt |
 | `reorder_lanes` | `path_id uuid`, `lane_ids uuid[]`, `expected_ids uuid[]` | `jsonb` order receipt |
 | `rename_step_name` | `step_id uuid`, `new_name text` | `jsonb` step receipt |
@@ -146,7 +148,8 @@ compares the stored identity order with `expected_ids` under a path lock; a stal
 view raises `This path changed. Reload and try again`. Order Undo compares the
 complete current order with `after`, refusing a newer reorder with
 `This path changed since Move. Reload before undoing this change`, then restores
-the exact positions in `before`.
+the exact positions in `before`. A missing or invalid kind, before-array or
+after-array raises `This order cannot be undone. Reload the canvas`.
 
 A step receipt is `{step_id, name, summary, after}`. A lane receipt is
 `{lane_id, name, rows: [{id, owner_team, stakeholder_id, kpis, tools}], after}`.
@@ -155,9 +158,34 @@ not supplied from the client's previous name. Restore requires the current row
 to match `after` exactly or raises `This step changed since your save` (or
 `This lane changed since your save`). Lane saves affect only `lane_id`;
 `lane_ids` is retained for wire compatibility and never fans properties out.
+`restore_step_details` also refuses a missing saved name with
+`The saved step name is missing`; `restore_lane_details` refuses missing,
+extra or mismatched saved property rows with `The saved lane properties are missing`.
 
-An Add receipt is `{kind, ids, before, after}`, where before/after map path IDs
-to `{id, position}` arrays. Add Undo requires non-empty matching path maps,
+`add_step_with_details` creates one shared step on the selected paths and returns
+`{kind: 'step', ids: [step_id], before, after}`. `add_lane_with_details` creates a
+separate lane per selected path and returns
+`{kind: 'lane', ids: [lane_id, ...], by_path: {path_id: lane_id, ...}, before, after}`.
+In both receipts, before/after map path IDs to `{id, position}` arrays.
+
+Both Add operations require a nonempty name (`Enter a name`) and complete
+`path_orders`: a JSON object mapping each selected path ID to an ordered array
+of every existing identity exactly once plus the literal `new` exactly once.
+Invalid complete-order arrays raise `Reload this path and include every item
+exactly once, plus the new item`. All selected paths must belong to the same
+scenario (`Choose paths in the same scenario`).
+
+Step Add requires an existing reference `path_id` (`That path no longer exists.
+Reload and choose a path`) included in `path_orders`; an empty selection or
+missing reference raises `Choose at least the path where you opened the new step`.
+Lane Add requires at least one path (`Choose at least one path`) and a semantic
+`lane_role` (`Choose a role`). Its optional `details` contains `owner_team`,
+`stakeholder_id`, `kpis` and `tools`; KPIs and tools default to empty arrays and
+non-array values raise `KPIs and tools must be lists`. A case-insensitive lane
+name collision on a selected path raises `This path already has a lane named
+<name>. Choose another name or untick this path`.
+
+Add Undo requires non-empty matching path maps,
 complete membership coverage for all deleted identities, matching current after
 orders, and non-negative contiguous before positions containing exactly the
 surviving identities. Malformed or incomplete receipts raise

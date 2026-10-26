@@ -208,19 +208,6 @@ begin
 end $$;
 
 --
--- Name: apply_structure_order(uuid, text, uuid[]); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.apply_structure_order(path_id uuid, kind text, ids uuid[]) RETURNS jsonb
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
-    AS $$
-begin
-  perform public.require_structure_author();
-  raise exception 'This path changed. Reload and try again';
-end $$;
-
---
 -- Name: apply_structure_order(uuid, text, uuid[], uuid[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1780,7 +1767,7 @@ CREATE FUNCTION public.reorder_lanes(scenario_id uuid, lane_names text[]) RETURN
     AS $$
 begin
   perform public.require_structure_author();
-  raise exception 'Reload the canvas and reorder one path using its lane identities';
+  raise exception 'Reload: the app was updated';
 end $$;
 
 --
@@ -1788,9 +1775,13 @@ end $$;
 --
 
 CREATE FUNCTION public.reorder_lanes(path_id uuid, lane_ids uuid[]) RETURNS jsonb
-    LANGUAGE sql SECURITY DEFINER
+    LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
-    AS $$ select public.apply_structure_order(path_id,'lane',lane_ids) $$;
+    AS $$
+begin
+  perform public.require_structure_author();
+  raise exception 'Reload: the app was updated';
+end $$;
 
 --
 -- Name: reorder_lanes(uuid, uuid[], uuid[]); Type: FUNCTION; Schema: public; Owner: -
@@ -1806,9 +1797,13 @@ CREATE FUNCTION public.reorder_lanes(path_id uuid, lane_ids uuid[], expected_ids
 --
 
 CREATE FUNCTION public.reorder_steps(path_id uuid, step_ids uuid[]) RETURNS jsonb
-    LANGUAGE sql SECURITY DEFINER
+    LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
-    AS $$ select public.apply_structure_order(path_id,'step',step_ids) $$;
+    AS $$
+begin
+  perform public.require_structure_author();
+  raise exception 'Reload: the app was updated';
+end $$;
 
 --
 -- Name: reorder_steps(uuid, uuid[], uuid[]); Type: FUNCTION; Schema: public; Owner: -
@@ -3062,7 +3057,7 @@ COMMENT ON FUNCTION public.sync_placement_resources(p_placement_id uuid, p_rows 
 CREATE FUNCTION public.undo_structure_add(snapshot jsonb) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
-    AS $$
+    AS $_$
 declare p uuid; rows jsonb; actual jsonb; ids uuid[]; kind text := snapshot->>'kind'; memberships uuid[]; named_paths uuid[]; n integer;
 begin
   perform public.require_structure_author();
@@ -3092,6 +3087,9 @@ begin
   if n<>cardinality(ids) or memberships is distinct from named_paths then raise exception 'This change cannot be undone. Reload the canvas'; end if;
   for p,rows in select key::uuid,value from jsonb_each(snapshot->'after') order by key loop
     if jsonb_typeof(rows) is distinct from 'array' or jsonb_typeof(snapshot->'before'->p::text) is distinct from 'array'
+      or exists(select 1 from jsonb_array_elements(snapshot->'before'->p::text) with ordinality q(value,n)
+        where coalesce(q.value->>'position','') !~ '^(0|[1-9][0-9]*)$'
+           or (q.value->>'position')::numeric is distinct from q.n-1)
       or (select count(*) from jsonb_array_elements(snapshot->'before'->p::text)) <>
          (select count(distinct q->>'id') from jsonb_array_elements(snapshot->'before'->p::text) q)
       or (select array_agg(q->>'id' order by q->>'id') from jsonb_array_elements(snapshot->'before'->p::text) q) is distinct from
@@ -3121,7 +3119,7 @@ begin
       update public.lanes l set position=(q->>'position')::int from jsonb_array_elements(rows) q where l.path_id=p and l.id=(q->>'id')::uuid;
     end if;
   end loop;
-end $$;
+end $_$;
 
 --
 -- Name: undo_structure_order(jsonb); Type: FUNCTION; Schema: public; Owner: -

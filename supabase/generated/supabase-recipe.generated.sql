@@ -2802,6 +2802,7 @@ end $panel_edit_proof$;
 -- The guarded entry points accept authenticated authors only.
 grant execute on function public.reorder_steps(uuid,uuid[]) to authenticated;
 grant execute on function public.reorder_lanes(uuid,uuid[]) to authenticated;
+grant execute on function public.reorder_lanes(uuid,text[]) to authenticated;
 grant execute on function public.undo_structure_order(jsonb) to authenticated;
 
 -- Anonymous callers cannot enter a reorder or its inverse.
@@ -2829,7 +2830,7 @@ end $reader$;
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- Only guarded author entry points are exposed.
-grant execute on function public.undo_structure_add(jsonb), public.rename_step_name(uuid,text), public.rename_lane(uuid,text), public.update_step_with_details(uuid,text,text), public.update_lane_with_details(uuid,uuid[],text,jsonb), public.restore_step_details(jsonb), public.restore_lane_details(jsonb), public.reorder_steps(uuid,uuid[],uuid[]), public.reorder_lanes(uuid,uuid[],uuid[]), public.undo_structure_order(jsonb) to authenticated;
+grant execute on function public.undo_structure_add(jsonb), public.rename_step_name(uuid,text), public.rename_lane(uuid,text), public.update_step_with_details(uuid,text,text), public.update_lane_with_details(uuid,uuid[],text,jsonb), public.restore_step_details(jsonb), public.restore_lane_details(jsonb), public.reorder_steps(uuid,uuid[],uuid[]), public.reorder_lanes(uuid,uuid[],uuid[]), public.undo_structure_order(jsonb), public.reorder_steps(uuid,uuid[]), public.reorder_lanes(uuid,uuid[]), public.reorder_lanes(uuid,text[]) to authenticated;
 
 -- Exercise the replacement entry points as a reader, not just as the owner.
 do $reader$
@@ -2841,3 +2842,25 @@ begin
  begin perform public.restore_step_details('{}'); raise exception 'reader restored step'; exception when insufficient_privilege then null; end;
  begin perform public.restore_lane_details('{}'); raise exception 'reader restored lane'; exception when insufficient_privilege then null; end;
 end $reader$;
+
+-- Old app signatures are reachable but can only instruct an author to reload.
+do $compatibility$
+declare signature text; statement text;
+begin
+  perform set_config('request.jwt.claims','{"app_metadata":{"role":"service"}}',true);
+  foreach signature in array array['public.reorder_steps(uuid,uuid[])','public.reorder_lanes(uuid,uuid[])','public.reorder_lanes(uuid,text[])'] loop
+    if not has_function_privilege('authenticated',signature,'execute') or has_function_privilege('anon',signature,'execute') then raise exception 'Incorrect compatibility stub grants: %',signature; end if;
+  end loop;
+  foreach statement in array array[
+    'select public.reorder_steps(gen_random_uuid(),array[]::uuid[])',
+    'select public.reorder_lanes(gen_random_uuid(),array[]::uuid[])',
+    'select public.reorder_lanes(gen_random_uuid(),array[]::text[])'
+  ] loop
+    begin
+      execute statement;
+      raise exception 'Old client wrote without an expected order';
+    exception when raise_exception then
+      if sqlerrm <> 'Reload: the app was updated' then raise; end if;
+    end;
+  end loop;
+end $compatibility$;

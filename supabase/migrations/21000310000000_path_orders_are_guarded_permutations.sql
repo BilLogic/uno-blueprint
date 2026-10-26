@@ -5,7 +5,7 @@ create or replace function public.reorder_lanes(scenario_id uuid, lane_names tex
 language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
 begin
   perform public.require_structure_author();
-  raise exception 'Reload the canvas and reorder one path using its lane identities';
+  raise exception 'Reload: the app was updated';
 end $$;
 
 create function public.apply_structure_order(path_id uuid, kind text, ids uuid[])
@@ -79,6 +79,7 @@ end $acl$;
 -- @recipe — The guarded entry points accept authenticated authors only.
 grant execute on function public.reorder_steps(uuid,uuid[]) to authenticated;
 grant execute on function public.reorder_lanes(uuid,uuid[]) to authenticated;
+grant execute on function public.reorder_lanes(uuid,text[]) to authenticated;
 grant execute on function public.undo_structure_order(jsonb) to authenticated;
 
 -- @core — Real rows, both kinds, exact undo, malformed orders and reader refusal; all rolled back.

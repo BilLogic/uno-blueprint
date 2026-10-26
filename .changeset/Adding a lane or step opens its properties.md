@@ -7,3 +7,5 @@ Lane and step headers show subtle insertion hints, padded grips and neutral hove
 Require a steady header hover before opening insertion; dismiss during camera gestures and coordinate reversals, closing tracks and resting marks on one motion clock.
 
 Protect Add-Undo and saved-field inverses from later edits, guard reordering against stale orders, keep lane properties path-local, bind Undo to each write's receipt, and recover interrupted gestures without taking the camera back from the person editing.
+
+Upgrade the database and app together: apply migrations 309–311 as one upgrade; drag reordering breaks at intermediate versions. Regenerate database types. Custom and host callers of `reorder_steps` and `reorder_lanes` must pass `expected_ids` and accept a JSON receipt. Older app calls receive “Reload: the app was updated.” Lane properties are now per path. Undo history from before the upgrade is refused; start a fresh session after upgrading.

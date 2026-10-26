@@ -120,6 +120,60 @@ and return shapes — as the generated portable core carries them — are **norm
 the generated `Database['public']['Functions']` types are the client's
 compile-time contract.
 
+### Structure authoring signatures
+
+A host serving this app must implement the following portable operations, with
+these argument names and PostgreSQL types. Every write and inverse uses the
+host's author-tier guard, performs its checks under the same locks as its write,
+and either succeeds atomically or refuses without changing data.
+
+| RPC | Arguments | Return |
+| --- | --- | --- |
+| `reorder_steps` | `path_id uuid`, `step_ids uuid[]`, `expected_ids uuid[]` | `jsonb` order receipt |
+| `reorder_lanes` | `path_id uuid`, `lane_ids uuid[]`, `expected_ids uuid[]` | `jsonb` order receipt |
+| `rename_step_name` | `step_id uuid`, `new_name text` | `jsonb` step receipt |
+| `rename_lane` | `lane_id uuid`, `new_name text` | `jsonb` lane receipt |
+| `update_step_with_details` | `step_id uuid`, `name text`, `summary text` | `jsonb` step receipt |
+| `update_lane_with_details` | `lane_id uuid`, `lane_ids uuid[]`, `name text`, `details jsonb` | `jsonb` lane receipt |
+| `restore_step_details` | `snapshot jsonb` | `void` |
+| `restore_lane_details` | `snapshot jsonb` | `void` |
+| `undo_structure_add` | `snapshot jsonb` | `void` |
+| `undo_structure_order` | `snapshot jsonb` | `void` |
+
+An order receipt is `{kind, path_id, before, after}`. Both orders are arrays of
+`{id, position}`. Forward reorder requires a complete identity permutation and
+compares the stored identity order with `expected_ids` under a path lock; a stale
+view raises `This path changed. Reload and try again`. Order Undo compares the
+complete current order with `after`, refusing a newer reorder with
+`This path changed since Move. Reload before undoing this change`, then restores
+the exact positions in `before`.
+
+A step receipt is `{step_id, name, summary, after}`. A lane receipt is
+`{lane_id, name, rows: [{id, owner_team, stakeholder_id, kpis, tools}], after}`.
+Before-values and `after` (the complete saved row) are captured by the server,
+not supplied from the client's previous name. Restore requires the current row
+to match `after` exactly or raises `This step changed since your save` (or
+`This lane changed since your save`). Lane saves affect only `lane_id`;
+`lane_ids` is retained for wire compatibility and never fans properties out.
+
+An Add receipt is `{kind, ids, before, after}`, where before/after map path IDs
+to `{id, position}` arrays. Add Undo requires non-empty matching path maps,
+complete membership coverage for all deleted identities, matching current after
+orders, and non-negative contiguous before positions containing exactly the
+surviving identities. Malformed or incomplete receipts raise
+`This change cannot be undone. Reload the canvas`; a changed order raises
+`This path changed since Add. Reload before undoing this change`. Any cell on a
+new identity, including an empty cell and its attached evidence, resources and
+dependencies, prevents deletion with `This step has content since Add. Delete
+it instead if you mean to` (or the lane equivalent).
+
+Apply migrations 309–311 with the matching app and regenerate database types.
+Custom reorder callers must supply `expected_ids`; old Undo receipts without
+after-values are refused. Legacy `reorder_steps(path_id uuid, step_ids uuid[])`,
+`reorder_lanes(path_id uuid, lane_ids uuid[])` and
+`reorder_lanes(scenario_id uuid, lane_names text[])` remain authorized reload
+stubs: `Reload: the app was updated`. They never perform a write.
+
 ### Optional host authoring operations
 
 A deployment may supply additional named RPCs under

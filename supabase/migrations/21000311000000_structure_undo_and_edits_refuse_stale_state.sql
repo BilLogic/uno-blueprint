@@ -30,6 +30,9 @@ begin
   if n<>cardinality(ids) or memberships is distinct from named_paths then raise exception 'This change cannot be undone. Reload the canvas'; end if;
   for p,rows in select key::uuid,value from jsonb_each(snapshot->'after') order by key loop
     if jsonb_typeof(rows) is distinct from 'array' or jsonb_typeof(snapshot->'before'->p::text) is distinct from 'array'
+      or exists(select 1 from jsonb_array_elements(snapshot->'before'->p::text) with ordinality q(value,n)
+        where coalesce(q.value->>'position','') !~ '^(0|[1-9][0-9]*)$'
+           or (q.value->>'position')::numeric is distinct from q.n-1)
       or (select count(*) from jsonb_array_elements(snapshot->'before'->p::text)) <>
          (select count(distinct q->>'id') from jsonb_array_elements(snapshot->'before'->p::text) q)
       or (select array_agg(q->>'id' order by q->>'id') from jsonb_array_elements(snapshot->'before'->p::text) q) is distinct from
@@ -203,12 +206,26 @@ begin
 end $$;
 
 
-create or replace function public.apply_structure_order(path_id uuid,kind text,ids uuid[]) returns jsonb
+-- Older apps remain authorized to receive a useful reload refusal, never a write.
+create or replace function public.reorder_steps(path_id uuid, step_ids uuid[]) returns jsonb
 language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
 begin
   perform public.require_structure_author();
-  raise exception 'This path changed. Reload and try again';
+  raise exception 'Reload: the app was updated';
 end $$;
+create or replace function public.reorder_lanes(path_id uuid, lane_ids uuid[]) returns jsonb
+language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+begin
+  perform public.require_structure_author();
+  raise exception 'Reload: the app was updated';
+end $$;
+create or replace function public.reorder_lanes(scenario_id uuid, lane_names text[]) returns void
+language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+begin
+  perform public.require_structure_author();
+  raise exception 'Reload: the app was updated';
+end $$;
+drop function public.apply_structure_order(uuid,text,uuid[]);
 
 -- Explicit ACLs include the renamed helper and overloads; none inherit PUBLIC access.
 do $acl$
@@ -220,7 +237,7 @@ begin
  end loop;
 end $acl$;
 -- @recipe — Only guarded author entry points are exposed.
-grant execute on function public.undo_structure_add(jsonb), public.rename_step_name(uuid,text), public.rename_lane(uuid,text), public.update_step_with_details(uuid,text,text), public.update_lane_with_details(uuid,uuid[],text,jsonb), public.restore_step_details(jsonb), public.restore_lane_details(jsonb), public.reorder_steps(uuid,uuid[],uuid[]), public.reorder_lanes(uuid,uuid[],uuid[]), public.undo_structure_order(jsonb) to authenticated;
+grant execute on function public.undo_structure_add(jsonb), public.rename_step_name(uuid,text), public.rename_lane(uuid,text), public.update_step_with_details(uuid,text,text), public.update_lane_with_details(uuid,uuid[],text,jsonb), public.restore_step_details(jsonb), public.restore_lane_details(jsonb), public.reorder_steps(uuid,uuid[],uuid[]), public.reorder_lanes(uuid,uuid[],uuid[]), public.undo_structure_order(jsonb), public.reorder_steps(uuid,uuid[]), public.reorder_lanes(uuid,uuid[]), public.reorder_lanes(uuid,text[]) to authenticated;
 
 -- @core — Real content and concurrent edits must survive Undo; fixtures roll back.
 create function pg_temp.expect_structure_refusal(statement text, message text) returns void
@@ -264,6 +281,8 @@ begin
   perform pg_temp.expect_structure_refusal(format('select public.undo_structure_add(%L::jsonb)',jsonb_set(added,'{after}','{}')),'This change cannot be undone. Reload the canvas');
   perform pg_temp.expect_structure_refusal(format('select public.undo_structure_add(%L::jsonb)',jsonb_set(added,'{ids}',jsonb_build_array(s))),'This change cannot be undone. Reload the canvas');
   perform pg_temp.expect_structure_refusal(format('select public.undo_structure_add(%L::jsonb)',(added-'after')||jsonb_build_object('after',jsonb_build_object(a,added->'after'->a::text),'before',jsonb_build_object(a,added->'before'->a::text))),'This change cannot be undone. Reload the canvas');
+  perform pg_temp.expect_structure_refusal(format('select public.undo_structure_add(%L::jsonb)',jsonb_set(added,array['before',a::text,'0','position'],'-1')),'This change cannot be undone. Reload the canvas');
+  perform pg_temp.expect_structure_refusal(format('select public.undo_structure_add(%L::jsonb)',jsonb_set(added,array['before',a::text,'1','position'],'3')),'This change cannot be undone. Reload the canvas');
   perform public.undo_structure_add(added);
   added:=public.add_lane_with_details(sc,'Reviewer','customer_actions',jsonb_build_object(a,jsonb_build_array(la,'new')));
   created_id:=(added->'ids'->>0)::uuid;
@@ -291,13 +310,15 @@ begin
   perform pg_temp.expect_structure_refusal(format('select public.restore_lane_details(%L::jsonb)',saved),'This lane changed since your save');
   perform public.reorder_lanes(a,array[la],array[la]);
   perform pg_temp.expect_structure_refusal(format('select public.reorder_lanes(%L::uuid,%L::uuid[],%L::uuid[])',a,array[la],array[lb]),'This path changed. Reload and try again');
-  if to_regprocedure('public.reorder_steps(uuid,uuid[],uuid[])') is null then
-    perform public.reorder_steps(a,array[t,s]);
-    perform pg_temp.expect_structure_refusal(format('select public.reorder_steps(%L::uuid,%L::uuid[])',a,array[s,t]),'This path changed. Reload and try again');
-  else
-    perform public.reorder_steps(a,array[t,s],array[s,t]);
-    perform pg_temp.expect_structure_refusal(format('select public.reorder_steps(%L::uuid,%L::uuid[],%L::uuid[])',a,array[s,t],array[s,t]),'This path changed. Reload and try again');
-  end if;
+  saved:=public.reorder_steps(a,array[t,s],array[s,t]);
+  perform pg_temp.expect_structure_refusal(format('select public.reorder_steps(%L::uuid,%L::uuid[],%L::uuid[])',a,array[s,t],array[s,t]),'This path changed. Reload and try again');
+  perform public.reorder_steps(a,array[s,t],array[t,s]);
+  perform pg_temp.expect_structure_refusal(format('select public.undo_structure_order(%L::jsonb)',saved),'This path changed since Move. Reload before undoing this change');
+  -- A later lane reorder invalidates the first move's receipt as well.
+  insert into public.lanes(path_id,name,lane_role,position) values(a,'Second actor','customer_actions',1) returning id into created_id;
+  saved:=public.reorder_lanes(a,array[created_id,la],array[la,created_id]);
+  perform public.reorder_lanes(a,array[la,created_id],array[created_id,la]);
+  perform pg_temp.expect_structure_refusal(format('select public.undo_structure_order(%L::jsonb)',saved),'This path changed since Move. Reload before undoing this change');
   -- Every fixture above disappears even when this proof passes.
   raise exception 'structure review proof complete' using errcode='ZX002';
 exception when sqlstate 'ZX002' then null;
@@ -314,3 +335,25 @@ begin
  begin perform public.restore_step_details('{}'); raise exception 'reader restored step'; exception when insufficient_privilege then null; end;
  begin perform public.restore_lane_details('{}'); raise exception 'reader restored lane'; exception when insufficient_privilege then null; end;
 end $reader$;
+
+-- @recipe — Old app signatures are reachable but can only instruct an author to reload.
+do $compatibility$
+declare signature text; statement text;
+begin
+  perform set_config('request.jwt.claims','{"app_metadata":{"role":"service"}}',true);
+  foreach signature in array array['public.reorder_steps(uuid,uuid[])','public.reorder_lanes(uuid,uuid[])','public.reorder_lanes(uuid,text[])'] loop
+    if not has_function_privilege('authenticated',signature,'execute') or has_function_privilege('anon',signature,'execute') then raise exception 'Incorrect compatibility stub grants: %',signature; end if;
+  end loop;
+  foreach statement in array array[
+    'select public.reorder_steps(gen_random_uuid(),array[]::uuid[])',
+    'select public.reorder_lanes(gen_random_uuid(),array[]::uuid[])',
+    'select public.reorder_lanes(gen_random_uuid(),array[]::text[])'
+  ] loop
+    begin
+      execute statement;
+      raise exception 'Old client wrote without an expected order';
+    exception when raise_exception then
+      if sqlerrm <> 'Reload: the app was updated' then raise; end if;
+    end;
+  end loop;
+end $compatibility$;

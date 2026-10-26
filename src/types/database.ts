@@ -1173,20 +1173,15 @@ export type Database = {
         }
         Returns: Json
       }
-      apply_structure_order:
-        | {
-            Args: { ids: string[]; kind: string; path_id: string }
-            Returns: Json
-          }
-        | {
-            Args: {
-              expected_ids: string[]
-              ids: string[]
-              kind: string
-              path_id: string
-            }
-            Returns: Json
-          }
+      apply_structure_order: {
+        Args: {
+          expected_ids: string[]
+          ids: string[]
+          kind: string
+          path_id: string
+        }
+        Returns: Json
+      }
       cell_natural_key: { Args: { cell_id: string }; Returns: string }
       check_structure_draft_order: {
         Args: { current_ids: string[]; requested: Json }

@@ -20,8 +20,12 @@ export function CompareStepHeaderRow({
 }) {
   return (
     <>
-      {tracks.map((track, trackIndex) =>
-        track.seamSize !== undefined ? (
+      {tracks.map((track, trackIndex) => {
+        const columnPathId =
+          pathId && track.stepIdByPath[pathId]
+            ? pathId
+            : Object.keys(track.stepIdByPath)[0]
+        return track.seamSize !== undefined ? (
           <div
             key={track.key}
             aria-hidden
@@ -41,15 +45,11 @@ export function CompareStepHeaderRow({
               />
             ) : null}
             <StepHeaderAffordance
-              // The selected path owns the click context, even when another
-              // path inserted this canonical track into the lookup first.
+              // Prefer the selected path when it owns this column; otherwise
+              // keep the step and its actual owning path together.
               stepIndex={trackIndex}
-              pathId={pathId}
-              stepId={
-                (pathId ? track.stepIdByPath[pathId] : undefined) ??
-                Object.values(track.stepIdByPath)[0] ??
-                ''
-              }
+              pathId={columnPathId}
+              stepId={columnPathId ? track.stepIdByPath[columnPathId] : ''}
               name={track.label}
               // `relative z-1`: when a path frame extends up to wrap this
               // row (single-path stacked, merged), the frame's opaque fill is
@@ -62,8 +62,8 @@ export function CompareStepHeaderRow({
               style={{ gridColumn: trackIndex + 2, gridRow: 1 }}
             />
           </Fragment>
-        ),
-      )}
+        )
+      })}
     </>
   )
 }

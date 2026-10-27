@@ -27,3 +27,21 @@ it('opens the selected path rather than the first key in the track lookup', () =
   )
   expect(screen.getByRole('button').textContent).toBe('selected:selected-step')
 })
+
+it('uses the column’s owning path when the first visible path has no step there', () => {
+  render(
+    <CompareStepHeaderRow
+      pathId="selected"
+      tracks={[
+        {
+          kind: 'column',
+          key: 'review',
+          label: 'Review',
+          divergent: false,
+          stepIdByPath: { other: 'other-step' },
+        },
+      ]}
+    />,
+  )
+  expect(screen.getByRole('button').textContent).toBe('other:other-step')
+})

@@ -129,9 +129,8 @@ function schemaNames(schema: string): string[] {
 }
 
 describe('the translations that name a database object', () => {
-  // Identifier-shaped only. The sentences the triggers raise ("cells: lane_id
-  // does not exist") and the Postgres phrases ("duplicate key value") name
-  // nothing and are not subject.
+  // Identifier-shaped only. Postgres phrases such as "duplicate key value"
+  // name no database object and are not subject.
   const identifiers = matchers(SOURCE).filter((m) =>
     /^[a-z][a-z0-9_]*_[a-z0-9_]+$/.test(m),
   )
@@ -157,4 +156,16 @@ describe('the translations that name a database object', () => {
       ).toBe(true)
     })
   }
+})
+
+describe('human cell-validation refusals', () => {
+  it.each([
+    'This lane no longer exists. Reload the canvas',
+    'Choose a lane on this path',
+    'This step is not on this path. Reload the canvas',
+  ])('preserves the actionable server sentence: %s', (message) => {
+    const error = toAuthoringError(postgrest(message, '', 'P0001'))
+    expect(error.message).toBe(message)
+    expect(error.raw).toContain(message)
+  })
 })

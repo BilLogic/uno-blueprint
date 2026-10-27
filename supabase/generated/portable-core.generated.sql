@@ -15328,7 +15328,7 @@ begin
     left join public.path_steps ps on ps.path_id=c.path_id and ps.step_id=c.step_id
     where ps.step_id is null;
   if orphan_count>0 then
-    raise exception 'Cannot upgrade: % cells sit off any path-step. Find them with: SELECT c.id, c.path_id, c.step_id FROM public.cells c LEFT JOIN public.path_steps ps ON ps.path_id=c.path_id AND ps.step_id=c.step_id WHERE ps.step_id IS NULL;', orphan_count;
+    raise exception 'Cannot upgrade: % % off any path-step. Find them with: SELECT c.id, c.path_id, c.step_id FROM public.cells c LEFT JOIN public.path_steps ps ON ps.path_id=c.path_id AND ps.step_id=c.step_id WHERE ps.step_id IS NULL;', orphan_count, case when orphan_count=1 then 'cell sits' else 'cells sit' end;
   end if;
 end $$;
 select pg_temp.assert_cell_path_steps();
@@ -15623,7 +15623,17 @@ begin
     perform pg_temp.assert_cell_path_steps();
     raise exception 'Preflight accepted orphaned cells' using errcode='ZX001';
   exception when others then
-    if sqlerrm not like 'Cannot upgrade: 1 cells sit off any path-step. Find them with: SELECT%' then raise; end if;
+    if sqlerrm not like 'Cannot upgrade: 1 cell sits off any path-step. Find them with: SELECT%' then raise; end if;
+  end;
+  begin
+    alter table public.path_steps disable trigger path_step_keeps_saved_cells;
+    set constraints cells_path_step_fkey deferred;
+    insert into public.cells(path_id,lane_id,step_id,content) values(b,lb,start_id,'Saved start');
+    delete from public.path_steps where path_id=b and step_id in(start_id,end_id);
+    perform pg_temp.assert_cell_path_steps();
+    raise exception 'Preflight accepted two orphaned cells' using errcode='ZX001';
+  exception when others then
+    if sqlerrm not like 'Cannot upgrade: 2 cells sit off any path-step. Find them with: SELECT%' then raise; end if;
   end;
   perform public.remove_step(b,end_id);
   if exists(select 1 from public.cells where id=target_cell) then raise exception 'Explicit step deletion left its cells'; end if;

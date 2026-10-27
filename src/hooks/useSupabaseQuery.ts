@@ -9,7 +9,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 /** A read's answer, keyed by its query status — `loading`, `ready` or `error`: a fact about the data, never about the screen. */
 export type QueryResult<T> =
   | { status: 'loading' }
-  | { status: 'ready'; data: T; source: 'database' | 'fallback'; updatedAt?: number }
+  | { status: 'ready'; data: T; source: 'database' | 'fallback' }
   | { status: 'error'; message: string; fallback: T | null }
 
 type SettledQueryResult<T> = Exclude<QueryResult<T>, { status: 'loading' }>
@@ -107,9 +107,7 @@ export function useSupabaseQuery<T>(
   if (noDbResult) return noDbResult
   if (errorResult) return errorResult
   if (query.data !== undefined) {
-    // A completed read can retain its data identity through structural sharing.
-    // Editors still need to reconcile an Undo that returns the original value.
-    return { status: 'ready', data: query.data, source: 'database', updatedAt: query.dataUpdatedAt }
+    return { status: 'ready', data: query.data, source: 'database' }
   }
   return LOADING_RESULT
 }

@@ -65,7 +65,7 @@ vi.mock('@/hooks/useStructurePaths', () => ({
   useStructurePaths: () => ({
     status: 'ready',
     data: state.paths,
-    updatedAt: state.readAt,
+    readAt: state.readAt,
   }),
 }))
 vi.mock('@/hooks/useStructureCreatePaths', () => ({
@@ -146,11 +146,11 @@ vi.mock('@/lib/authoringRpc', () => ({
   createLaneWithDetails: vi.fn(),
 }))
 const item = (id: string, name = id) => ({ id, name })
-function mount(kind: 'step' | 'lane' = 'step') {
+function mount(kind: 'step' | 'lane' = 'step', pathId: string | undefined = 'a') {
   return render(
     <Drawer open>
       {kind === 'step' ? (
-        <StepPanel stepId="review" pathId="a" onClose={() => {}} />
+        <StepPanel stepId="review" pathId={pathId} onClose={() => {}} />
       ) : (
         <LanePanel laneId="actor" onClose={() => {}} />
       )}
@@ -235,12 +235,12 @@ it('shows the shared Paths rail, protects the last path, and attaches after the 
   expect(
     (
       within(paths).getByRole('checkbox', {
-        name: 'Add to Online',
+        name: 'Take off Online',
       }) as HTMLInputElement
     ).disabled,
   ).toBe(true)
   expect(
-    within(paths).getByText('A step must stay on at least one path'),
+    within(paths).getByText('Add another path before taking this step off this one.'),
   ).toBeTruthy()
   fireEvent.click(within(paths).getByRole('checkbox', { name: 'Add to Phone' }))
   await waitFor(() => expect(writes.membership).toHaveBeenCalledOnce())
@@ -287,7 +287,7 @@ it('reconciles an immediate Undo read before the saved membership was rendered',
     expect(writeFailureSnapshot().at(-1)?.undo).toBeTypeOf('function'),
   )
   expect(
-    (screen.getByRole('checkbox', { name: 'Add to Phone' }) as HTMLInputElement)
+    (screen.getByRole('checkbox', { name: 'Take off Phone' }) as HTMLInputElement)
       .checked,
   ).toBe(true)
   await act(async () => {
@@ -306,7 +306,7 @@ it('reconciles an immediate Undo read before the saved membership was rendered',
   expect(
     (
       screen.getByRole('checkbox', {
-        name: 'Add to Online',
+        name: 'Take off Online',
       }) as HTMLInputElement
     ).disabled,
   ).toBe(true)
@@ -319,7 +319,7 @@ it('names the saved cell count, cancels without a write, then sends the exact co
     { id: 'cell-two', updated_at: '2026-10-26T12:00:01Z' },
   ]
   mount()
-  fireEvent.click(screen.getByRole('checkbox', { name: 'Add to Phone' }))
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Take off Phone' }))
   const dialog = await screen.findByRole('dialog', {
     name: 'Remove step from this path?',
   })
@@ -330,12 +330,12 @@ it('names the saved cell count, cancels without a write, then sends the exact co
     expect(
       (
         screen.getByRole('checkbox', {
-          name: 'Add to Phone',
+          name: 'Take off Phone',
         }) as HTMLInputElement
       ).checked,
     ).toBe(true),
   )
-  fireEvent.click(screen.getByRole('checkbox', { name: 'Add to Phone' }))
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Take off Phone' }))
   const confirm = await screen.findByRole('button', {
     name: 'Remove from path',
   })
@@ -408,4 +408,11 @@ it('previews intermediate rail positions locally and writes only the dropped ord
     ['start', 'review', 'finish'],
   ])
   expect(sessionSnapshot()).toHaveLength(1)
+})
+
+it('appends when the panel has no opened-path context, even when another path has a predecessor', async () => {
+  mount('step', '')
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Add to Phone' }))
+  await waitFor(() => expect(writes.membership).toHaveBeenCalledOnce())
+  expect(writes.membership.mock.calls[0][1].atPosition).toBe(2)
 })

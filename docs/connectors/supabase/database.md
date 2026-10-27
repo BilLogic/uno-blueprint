@@ -403,6 +403,42 @@ upserts. The new foreign key validates the existing path-membership rule:
 repair any orphaned cells by restoring their membership before applying 312;
 the migration never deletes content to pass validation.
 
+Preflight before applying 312 (the migration also refuses with the count and
+this query rather than a raw constraint error):
+
+```sql
+SELECT c.id, c.path_id, c.step_id
+FROM public.cells c
+LEFT JOIN public.path_steps ps ON ps.path_id=c.path_id AND ps.step_id=c.step_id
+WHERE ps.step_id IS NULL;
+```
+
+All cell inserts/updates take a membership key-share lock and refuse a missing
+membership with `This step is not on this path. Reload the canvas`. All direct
+membership deletes/key updates, including `set_path_steps`, refuse saved cells
+with `This step has saved cells on this path. Remove its cells explicitly or use
+the confirmed path removal`. Parent deletion and confirmed removal retain their
+explicit deletion semantics.
+
+Evidence is a provenance record, not a cascading cell child. Detach leaves its
+`cell_id` and `cell_key` unchanged; Undo restores the exact cell id and reconnects
+it. The canvas evidence tab reads evidence directly (`useEvidence`), and agent
+`listEvidence` / `getEvidence` format those rows without joining a live cell.
+Slice rendering resolves missing cell ids as tombstones (`resolveSliceCells`);
+presentation snippets say `Removed cell`. The IR and seed export contracts omit
+derived evidence rather than dereferencing it. Panel and agent-reader regression
+tests exercise an absent cell, and the migration proves both its absence during
+detach and the evidence-to-cell join restored by Undo.
+
+Receipt retention: unspent receipts keep their recoverable content until Undo;
+expiring them automatically would silently discard the recovery offered by the
+change sheet. Successful Undo clears the archive and before/after payloads.
+Only the opaque spent identity, timestamps and membership identifiers remain as
+a single-use tombstone; it contains no saved cell content. Tombstones are kept
+as a durable audit of successful recovery, without retaining removed content;
+`reverted` makes an old Undo request refuse. There is no scheduled expiry job.
+
+
 Apply 309–311 together with the matching app; drag reordering does not work
 between those migrations. Regenerate database types afterwards. Reorder callers,
 including custom and host callers, must send `expected_ids`, the complete order

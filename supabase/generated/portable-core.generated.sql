@@ -15319,9 +15319,52 @@ drop function pg_temp.expect_structure_refusal(text,text);
 
 -- Authored 2026-10-26. Existing steps can join or leave a path without losing recoverable content.
 
--- The existing validation trigger states this rule; the FK also serializes a
--- concurrent cell insert against a membership removal. NO ACTION deliberately
--- refuses an older set_path_steps caller that would leave saved cells orphaned.
+-- Refuse before installing the constraint, with a count and a usable finding
+-- query. No existing content is deleted or repaired implicitly.
+create function pg_temp.assert_cell_path_steps() returns void language plpgsql as $$
+declare orphan_count bigint;
+begin
+  select count(*) into orphan_count from public.cells c
+    left join public.path_steps ps on ps.path_id=c.path_id and ps.step_id=c.step_id
+    where ps.step_id is null;
+  if orphan_count>0 then
+    raise exception 'Cannot upgrade: % cells sit off any path-step. Find them with: SELECT c.id, c.path_id, c.step_id FROM public.cells c LEFT JOIN public.path_steps ps ON ps.path_id=c.path_id AND ps.step_id=c.step_id WHERE ps.step_id IS NULL;', orphan_count;
+  end if;
+end $$;
+select pg_temp.assert_cell_path_steps();
+
+-- Lock the referenced membership before accepting a cell write. This gives
+-- every app, importer and tool caller a readable refusal and closes the race
+-- with a concurrent detach. The deferred FK remains the final invariant.
+-- The caller's cell RLS still authorizes its write. The trigger owns this
+-- lock read because path_steps updates are RPC-only under RLS.
+create or replace function public.cells_validate_path_match() returns trigger
+language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+declare lane_path uuid;
+begin
+  select path_id into lane_path from public.lanes where id=new.lane_id;
+  if lane_path is null then raise exception 'This lane no longer exists. Reload the canvas'; end if;
+  if lane_path<>new.path_id then raise exception 'Choose a lane on this path'; end if;
+  perform 1 from public.path_steps ps where ps.path_id=new.path_id and ps.step_id=new.step_id for key share;
+  if not found then raise exception 'This step is not on this path. Reload the canvas'; end if;
+  return new;
+end $$;
+create function public.path_step_keeps_saved_cells() returns trigger
+language plpgsql set search_path to 'public','pg_catalog','pg_temp' as $$
+begin
+  if tg_op='UPDATE' and new.path_id=old.path_id and new.step_id=old.step_id then return new; end if;
+  -- A parent cascade is intentional deletion; normal remove_step and confirmed
+  -- membership removal delete their cells first. An order-only writer cannot.
+  if exists(select 1 from public.paths where id=old.path_id)
+    and exists(select 1 from public.steps where id=old.step_id)
+    and exists(select 1 from public.cells where path_id=old.path_id and step_id=old.step_id) then
+    raise exception 'This step has saved cells on this path. Remove its cells explicitly or use the confirmed path removal';
+  end if;
+  if tg_op='DELETE' then return old; end if;
+  return new;
+end $$;
+create trigger path_step_keeps_saved_cells before delete or update of path_id,step_id
+  on public.path_steps for each row execute function public.path_step_keeps_saved_cells();
 alter table public.cells add constraint cells_path_step_fkey
   foreign key (path_id, step_id) references public.path_steps(path_id, step_id)
   deferrable initially deferred;
@@ -15346,7 +15389,8 @@ returns jsonb language sql stable set search_path to 'public','pg_catalog','pg_t
   select jsonb_build_object(
     'step', (select to_jsonb(s) from public.steps s where s.id=p_step),
     'paths', (select coalesce(jsonb_agg(ps.path_id order by ps.path_id),'[]') from public.path_steps ps where ps.step_id=p_step),
-    'order', (select coalesce(jsonb_agg(ps.step_id order by ps.position),'[]') from public.path_steps ps where ps.path_id=p_path)
+    'order', (select coalesce(jsonb_agg(ps.step_id order by ps.position),'[]') from public.path_steps ps where ps.path_id=p_path),
+    'positions', (select coalesce(jsonb_agg(jsonb_build_object('step_id',ps.step_id,'position',ps.position) order by ps.position),'[]') from public.path_steps ps where ps.path_id=p_path)
   )
 $$;
 
@@ -15368,7 +15412,7 @@ begin
   if step_scenario is null or path_scenario is null or step_scenario<>path_scenario then
     raise exception 'That step and path must belong to the same scenario';
   end if;
-  perform 1 from public.path_steps ps where ps.step_id=change_step_path.step_id order by ps.path_id for update;
+  perform 1 from public.path_steps ps where ps.step_id=change_step_path.step_id order by ps.path_id for no key update;
   select coalesce(array_agg(ps.step_id order by ps.position),'{}') into ordered from public.path_steps ps where ps.path_id=change_step_path.path_id;
   select coalesce(array_agg(ps.path_id order by ps.path_id),'{}') into memberships from public.path_steps ps where ps.step_id=change_step_path.step_id;
   if expected_ids is distinct from ordered or expected_path_ids is distinct from memberships then
@@ -15443,7 +15487,7 @@ begin
   if not found or r.reverted then raise exception 'This path change cannot be undone. Reload the canvas'; end if;
   perform 1 from public.paths p where p.id=r.path_id for update;
   perform 1 from public.steps s where s.id=r.step_id for update;
-  perform 1 from public.path_steps ps where ps.step_id=r.step_id order by ps.path_id for update;
+  perform 1 from public.path_steps ps where ps.step_id=r.step_id order by ps.path_id for no key update;
   if public.structure_membership_state(r.step_id,r.path_id) is distinct from r.after_state then
     raise exception 'This step or path changed since your save. Reload before undoing';
   end if;
@@ -15472,9 +15516,11 @@ begin
       raise exception 'Content referenced by this change changed. Reload before undoing';
     end;
   end if;
-  update public.path_steps ps set position=q.n-1 from unnest(prior_order) with ordinality q(id,n)
-    where ps.path_id=r.path_id and ps.step_id=q.id;
-  update public.structure_membership_receipts set reverted=true where id=r.id;
+  -- Restore stored positions too: older paths may have intentional gaps.
+  update public.path_steps ps set position=q.position
+    from jsonb_to_recordset(r.before_state->'positions') q(step_id uuid,position integer)
+    where ps.path_id=r.path_id and ps.step_id=q.step_id;
+  update public.structure_membership_receipts set reverted=true, before_state='{}', after_state='{}', archive='{}' where id=r.id;
 end $$;
 
 -- Real attach, detach, round-trip content and stale-state proofs. No fixture survives.
@@ -15502,7 +15548,7 @@ begin
   insert into public.paths(scenario_id,name,kind) values(sc,'Online','happy') returning id into a;
   insert into public.paths(scenario_id,name,kind) values(sc,'Phone','variant') returning id into b;
   start_id:=public.add_step(a,'Start',0); review_id:=public.add_step(a,'Review',1); end_id:=public.add_step(a,'Finish',2);
-  insert into public.path_steps(path_id,step_id,position) values(b,start_id,0),(b,end_id,1);
+  insert into public.path_steps(path_id,step_id,position) values(b,start_id,0),(b,end_id,3);
   insert into public.lanes(path_id,name,position,lane_role) values(a,'Actor',0,'customer_actions') returning id into la;
   insert into public.lanes(path_id,name,position,lane_role) values(b,'Actor',0,'customer_actions') returning id into lb;
   perform pg_temp.expect_membership_refusal(format('select public.change_step_path(%L,%L,false,0,%L::uuid[],%L::uuid[])',review_id,a,array[start_id,review_id,end_id],array[a]),'A step must stay on at least one path');
@@ -15511,6 +15557,7 @@ begin
   if (select array_agg(step_id order by position) from public.path_steps where path_id=b)<>array[start_id,review_id,end_id] then raise exception 'Attach lost its requested placement'; end if;
   perform public.undo_step_path_change((result->>'receipt_id')::uuid);
   if exists(select 1 from public.path_steps where path_id=b and step_id=review_id) then raise exception 'Attach inverse left membership'; end if;
+  if (select position from public.path_steps where path_id=b and step_id=end_id)<>3 then raise exception 'Attach inverse lost stored positions'; end if;
   perform pg_temp.expect_membership_refusal(format('select public.undo_step_path_change(%L)',result->>'receipt_id'),'This path change cannot be undone. Reload the canvas');
   result:=public.change_step_path(review_id,b,true,1,array[start_id,end_id],array[a]);
   select array_agg(x order by x) into members from unnest(array[a,b]) x;
@@ -15533,7 +15580,8 @@ begin
   perform pg_temp.expect_membership_refusal(format('select public.change_step_path(%L,%L,false,0,%L::uuid[],%L::uuid[],%L::jsonb)',review_id,b,array[start_id,review_id,end_id],members,'[]'),'The cells on this step changed. Reload and confirm removing them');
   detached:=public.change_step_path(review_id,b,false,0,array[start_id,review_id,end_id],members,confirmation);
   if exists(select 1 from public.cells where id=cell) or exists(select 1 from public.resources where id=resource) then raise exception 'Detach left live cells or resources'; end if;
-  if not exists(select 1 from public.evidence where id=ev) then raise exception 'Detach removed provenance'; end if;
+  if not exists(select 1 from public.evidence where id=ev and cell_id=cell) then raise exception 'Detach removed provenance'; end if;
+  if exists(select 1 from public.evidence e join public.cells c on c.id=e.cell_id where e.id=ev) then raise exception 'Detached provenance unexpectedly has a live cell'; end if;
   update public.lanes set owner_team='New ownership' where id=lb;
   perform pg_temp.expect_membership_refusal(format('select public.undo_step_path_change(%L)',detached->>'receipt_id'),'The lanes holding this step changed. Reload before undoing');
   update public.lanes set owner_team=null where id=lb;
@@ -15551,19 +15599,36 @@ begin
      or not exists(select 1 from public.cell_touchpoints where id=placement)
      or not exists(select 1 from public.cell_dependencies where id=edge)
      or not exists(select 1 from public.slide_images where id=image_id) then raise exception 'Detach inverse failed to restore exact content and related identities'; end if;
+  if not exists(select 1 from public.evidence e join public.cells c on c.id=e.cell_id where e.id=ev and c.id=cell) then raise exception 'Undo did not reconnect preserved evidence'; end if;
+  if exists(select 1 from public.structure_membership_receipts where id=(detached->>'receipt_id')::uuid and (archive<>'{}' or before_state<>'{}' or after_state<>'{}')) then raise exception 'Spent receipt retained content'; end if;
   -- A changed row cannot be overwritten by membership Undo either.
   detached:=public.change_step_path(review_id,b,false,0,array[start_id,review_id,end_id],members,confirmation);
   update public.steps set summary='A newer summary' where id=review_id;
   perform pg_temp.expect_membership_refusal(format('select public.undo_step_path_change(%L)',detached->>'receipt_id'),'This step or path changed since your save. Reload before undoing');
   perform pg_temp.expect_membership_refusal(format('select public.change_step_path(%L,%L,true,1,%L::uuid[],%L::uuid[])',review_id,b,array[start_id,end_id],members),'This path changed. Reload and try again');
-  -- The membership FK itself refuses an orphan from any older writer.
+  -- All writers, including legacy set_path_steps and direct writes, refuse
+  -- before the FK can emit a raw constraint error.
+  perform pg_temp.expect_membership_refusal(format('select public.set_path_steps(%L,%L::uuid[])',b,array[start_id]),'This step has saved cells on this path. Remove its cells explicitly or use the confirmed path removal');
+  perform pg_temp.expect_membership_refusal(format('delete from public.path_steps where path_id=%L and step_id=%L',b,end_id),'This step has saved cells on this path. Remove its cells explicitly or use the confirmed path removal');
+  perform pg_temp.expect_membership_refusal(format('update public.path_steps set step_id=%L where path_id=%L and step_id=%L',review_id,b,end_id),'This step has saved cells on this path. Remove its cells explicitly or use the confirmed path removal');
+  perform pg_temp.expect_membership_refusal(format('insert into public.cells(path_id,lane_id,step_id,content) values(%L,%L,%L,%L)',b,lb,review_id,'New cell'),'This step is not on this path. Reload the canvas');
+  perform pg_temp.expect_membership_refusal(format('update public.cells set step_id=%L where id=%L',review_id,target_cell),'This step is not on this path. Reload the canvas');
+  -- Plant one orphan in a rollback-only subtransaction to prove the exact
+  -- migration preflight. The deferred FK is never allowed to commit it.
+  set constraints all immediate;
   begin
+    alter table public.path_steps disable trigger path_step_keeps_saved_cells;
+    set constraints cells_path_step_fkey deferred;
     delete from public.path_steps where path_id=b and step_id=end_id;
-    set constraints cells_path_step_fkey immediate;
-    raise exception 'An old writer orphaned a saved cell';
-  exception when foreign_key_violation then null;
+    perform pg_temp.assert_cell_path_steps();
+    raise exception 'Preflight accepted orphaned cells' using errcode='ZX001';
+  exception when others then
+    if sqlerrm not like 'Cannot upgrade: 1 cells sit off any path-step. Find them with: SELECT%' then raise; end if;
   end;
+  perform public.remove_step(b,end_id);
+  if exists(select 1 from public.cells where id=target_cell) then raise exception 'Explicit step deletion left its cells'; end if;
   raise exception 'membership proof complete' using errcode='ZX002';
 exception when sqlstate 'ZX002' then null;
 end $proof$;
 drop function pg_temp.expect_membership_refusal(text,text);
+drop function pg_temp.assert_cell_path_steps();

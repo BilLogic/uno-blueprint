@@ -273,37 +273,18 @@ $_$;
 --
 
 CREATE FUNCTION public.cells_validate_path_match() RETURNS trigger
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
     AS $$
-declare
-  lane_path uuid;
-  step_on_path boolean;
+declare lane_path uuid;
 begin
-  select path_id into lane_path from public.lanes where id = new.lane_id;
-
-  select exists (
-    select 1
-    from public.path_steps ps
-    where ps.path_id = new.path_id
-      and ps.step_id = new.step_id
-  ) into step_on_path;
-
-  if lane_path is null then
-    raise exception 'cells: lane_id does not exist';
-  end if;
-
-  if lane_path <> new.path_id then
-    raise exception 'cells.path_id must match lanes.path_id';
-  end if;
-
-  if not step_on_path then
-    raise exception 'cells.step_id must be linked to cells.path_id in path_steps';
-  end if;
-
+  select path_id into lane_path from public.lanes where id=new.lane_id;
+  if lane_path is null then raise exception 'This lane no longer exists. Reload the canvas'; end if;
+  if lane_path<>new.path_id then raise exception 'Choose a lane on this path'; end if;
+  perform 1 from public.path_steps ps where ps.path_id=new.path_id and ps.step_id=new.step_id for key share;
+  if not found then raise exception 'This step is not on this path. Reload the canvas'; end if;
   return new;
-end;
-$$;
+end $$;
 
 --
 -- Name: change_step_path(uuid, uuid, boolean, integer, uuid[], uuid[], jsonb); Type: FUNCTION; Schema: public; Owner: -
@@ -326,7 +307,7 @@ begin
   if step_scenario is null or path_scenario is null or step_scenario<>path_scenario then
     raise exception 'That step and path must belong to the same scenario';
   end if;
-  perform 1 from public.path_steps ps where ps.step_id=change_step_path.step_id order by ps.path_id for update;
+  perform 1 from public.path_steps ps where ps.step_id=change_step_path.step_id order by ps.path_id for no key update;
   select coalesce(array_agg(ps.step_id order by ps.position),'{}') into ordered from public.path_steps ps where ps.path_id=change_step_path.path_id;
   select coalesce(array_agg(ps.path_id order by ps.path_id),'{}') into memberships from public.path_steps ps where ps.step_id=change_step_path.step_id;
   if expected_ids is distinct from ordered or expected_path_ids is distinct from memberships then
@@ -1258,6 +1239,27 @@ CREATE FUNCTION public.mint_cell_key(path_id uuid, lane_id uuid, step_id uuid) R
   join public.steps s on s.id = $3
   where p.id = $1;
 $_$;
+
+--
+-- Name: path_step_keeps_saved_cells(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.path_step_keeps_saved_cells() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+begin
+  if tg_op='UPDATE' and new.path_id=old.path_id and new.step_id=old.step_id then return new; end if;
+  -- A parent cascade is intentional deletion; normal remove_step and confirmed
+  -- membership removal delete their cells first. An order-only writer cannot.
+  if exists(select 1 from public.paths where id=old.path_id)
+    and exists(select 1 from public.steps where id=old.step_id)
+    and exists(select 1 from public.cells where path_id=old.path_id and step_id=old.step_id) then
+    raise exception 'This step has saved cells on this path. Remove its cells explicitly or use the confirmed path removal';
+  end if;
+  if tg_op='DELETE' then return old; end if;
+  return new;
+end $$;
 
 --
 -- Name: record_authoring_change(text, jsonb, jsonb, text, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -2780,7 +2782,8 @@ CREATE FUNCTION public.structure_membership_state(p_step uuid, p_path uuid) RETU
   select jsonb_build_object(
     'step', (select to_jsonb(s) from public.steps s where s.id=p_step),
     'paths', (select coalesce(jsonb_agg(ps.path_id order by ps.path_id),'[]') from public.path_steps ps where ps.step_id=p_step),
-    'order', (select coalesce(jsonb_agg(ps.step_id order by ps.position),'[]') from public.path_steps ps where ps.path_id=p_path)
+    'order', (select coalesce(jsonb_agg(ps.step_id order by ps.position),'[]') from public.path_steps ps where ps.path_id=p_path),
+    'positions', (select coalesce(jsonb_agg(jsonb_build_object('step_id',ps.step_id,'position',ps.position) order by ps.position),'[]') from public.path_steps ps where ps.path_id=p_path)
   )
 $$;
 
@@ -3167,7 +3170,7 @@ begin
   if not found or r.reverted then raise exception 'This path change cannot be undone. Reload the canvas'; end if;
   perform 1 from public.paths p where p.id=r.path_id for update;
   perform 1 from public.steps s where s.id=r.step_id for update;
-  perform 1 from public.path_steps ps where ps.step_id=r.step_id order by ps.path_id for update;
+  perform 1 from public.path_steps ps where ps.step_id=r.step_id order by ps.path_id for no key update;
   if public.structure_membership_state(r.step_id,r.path_id) is distinct from r.after_state then
     raise exception 'This step or path changed since your save. Reload before undoing';
   end if;
@@ -3196,9 +3199,11 @@ begin
       raise exception 'Content referenced by this change changed. Reload before undoing';
     end;
   end if;
-  update public.path_steps ps set position=q.n-1 from unnest(prior_order) with ordinality q(id,n)
-    where ps.path_id=r.path_id and ps.step_id=q.id;
-  update public.structure_membership_receipts set reverted=true where id=r.id;
+  -- Restore stored positions too: older paths may have intentional gaps.
+  update public.path_steps ps set position=q.position
+    from jsonb_to_recordset(r.before_state->'positions') q(step_id uuid,position integer)
+    where ps.path_id=r.path_id and ps.step_id=q.step_id;
+  update public.structure_membership_receipts set reverted=true, before_state='{}', after_state='{}', archive='{}' where id=r.id;
 end $$;
 
 --
@@ -5305,6 +5310,12 @@ CREATE TRIGGER authoring_changes_no_truncate BEFORE TRUNCATE ON public.authoring
 --
 
 CREATE TRIGGER cells_validate_path_match BEFORE INSERT OR UPDATE ON public.cells FOR EACH ROW EXECUTE FUNCTION public.cells_validate_path_match();
+
+--
+-- Name: path_steps path_step_keeps_saved_cells; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER path_step_keeps_saved_cells BEFORE DELETE OR UPDATE OF path_id, step_id ON public.path_steps FOR EACH ROW EXECUTE FUNCTION public.path_step_keeps_saved_cells();
 
 --
 -- Name: audit_findings set_audit_findings_updated_at; Type: TRIGGER; Schema: public; Owner: -

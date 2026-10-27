@@ -204,6 +204,16 @@ stubs: `Reload: the app was updated`. They never perform a write.
 
 ### Saved step membership
 
+Migration preflight and all legacy writers must uphold the membership invariant.
+Before adding the cell-to-path-step foreign key, count cells missing a matching
+`path_steps` row and refuse with that count and the finding query documented in
+[the database upgrade notes](supabase/database.md). Cell writes to a missing
+membership refuse `This step is not on this path. Reload the canvas`; order-only
+writers such as `set_path_steps` must refuse removal of populated memberships
+with `This step has saved cells on this path. Remove its cells explicitly or use
+the confirmed path removal`. These are readable refusals, not raw FK errors.
+
+
 Existing step panels use `change_step_path` for a single attach or detach; lane
 panels reorder only the owning path through `reorder_lanes` above. Each operation
 returns its own receipt for the session entry and toast Undo.

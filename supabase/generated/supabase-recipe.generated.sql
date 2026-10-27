@@ -2870,6 +2870,8 @@ end $compatibility$;
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- mementos are server-only; only guarded entry points are callable.
+revoke execute on function public.cells_validate_path_match() from public,anon,authenticated;
+revoke execute on function public.path_step_keeps_saved_cells() from public,anon,authenticated;
 alter table public.structure_membership_receipts enable row level security;
 revoke all on public.structure_membership_receipts from public,anon,authenticated;
 revoke execute on function public.structure_membership_state(uuid,uuid) from public,anon,authenticated;

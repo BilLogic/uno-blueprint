@@ -1,4 +1,5 @@
-import { useCallback } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useSupabaseQuery } from './useSupabaseQuery'
 import { queryKeys } from '@/lib/queryKeys'
 import type { OrderPath } from '@/components/blueprint/PathOrderSection'
@@ -13,14 +14,16 @@ export type StructurePathSource = {
 /** The same ordered path read feeds both the draft and saved-item rails. */
 export function useStructurePaths(source: StructurePathSource | null) {
   const fallback = useCallback(() => null, [])
-  return useSupabaseQuery<OrderPath[]>(
-    source
-      ? queryKeys.structureCreatePaths.of(
-          `${source.kind}:${source.onlyPath ? 'path' : 'scenario'}:${
-            source.onlyPath ? source.pathId : source.scenarioId ?? source.pathId
-          }`,
-        )
-      : null,
+  const queryClient = useQueryClient()
+  const key = source
+    ? queryKeys.structurePaths.of(
+        `${source.kind}:${source.onlyPath ? 'path' : 'scenario'}:${
+          source.onlyPath ? source.pathId : source.scenarioId ?? source.pathId
+        }`,
+      )
+    : null
+  const result = useSupabaseQuery<OrderPath[]>(
+    key,
     async (client, signal) => {
       if (!source) return []
       let scenarioId = source.scenarioId
@@ -59,4 +62,16 @@ export function useStructurePaths(source: StructurePathSource | null) {
     },
     fallback,
   )
+  // Subscribe locally: structural sharing can preserve the data reference
+  // when Undo returns the original rows, but it is still a new saved read.
+  const subscribe = useCallback(
+    (notify: () => void) => queryClient.getQueryCache().subscribe(notify),
+    [queryClient],
+  )
+  const snapshot = useCallback(
+    () => queryClient.getQueryState([key])?.dataUpdatedAt,
+    [queryClient, key],
+  )
+  const readAt = useSyncExternalStore(subscribe, snapshot, snapshot)
+  return result.status === 'ready' ? { ...result, readAt } : result
 }

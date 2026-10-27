@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStructurePaths } from './useStructurePaths'
 import { useSupabase } from '@/contexts/SupabaseProvider'
 import { changeStepPath, reorderLanes, reorderSteps } from '@/lib/authoringRpc'
@@ -52,8 +52,10 @@ export function useStructureEditPaths(input: {
   })
   const [value, setValue] = useState<PathOrder[]>([])
   const signature = JSON.stringify(live)
-  const [busy, setBusy] = useState(false)
-  const [previewing, setPreviewing] = useState(false)
+  const [phase, setPhase] = useState<
+    'idle' | 'dragging' | 'saving' | 'confirm'
+  >('idle')
+  const busy = phase === 'saving'
   const inFlight = useRef(false)
   const [pending, setPending] = useState<Removal | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -61,15 +63,15 @@ export function useStructureEditPaths(input: {
     ...path,
     items: model.baseline.get(path.id)?.items ?? path.items,
   }))
-  // Reconcile an idle read in one render-phase state update. A saved response
-  // never resets an active drag or its confirmation snapshot.
-  if (
-    result.status === 'ready' &&
-    !busy &&
-    !pending &&
-    !previewing &&
-    (signature !== model.signature || result.updatedAt !== model.readAt)
-  ) {
+  // A fresh authoritative read reconciles only at the idle boundary. Reads
+  // arriving during a drag, save or confirmation wait for that interaction.
+  useEffect(() => {
+    if (
+      result.status !== 'ready' ||
+      phase !== 'idle' ||
+      (signature === model.signature && result.readAt === model.readAt)
+    )
+      return
     const baseline = new Map(model.baseline)
     const orders = new Map<string, string[]>()
     for (const path of live) {
@@ -111,22 +113,21 @@ export function useStructureEditPaths(input: {
             baseline.get(path.id)!.items.findIndex((row) => row.id === id),
         ),
       }))
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronize the completed external query at the idle boundary, including structurally shared Undo reads
     setModel({
       signature,
-      readAt: result.updatedAt,
+      readAt: result.readAt,
       baseline,
       orders,
       persisted: next,
     })
     setValue(next)
-  }
+  }, [result, phase, signature, model, live, item.id, value])
   const defaultOrder = (path: OrderPath) => {
     const order = (
       model.orders.get(path.id) ?? path.items.map((row) => row.id)
     ).filter((id) => id !== item.id)
-    const origin =
-      model.persisted.find((entry) => entry.pathId === pathId) ??
-      model.persisted[0]
+    const origin = model.persisted.find((entry) => entry.pathId === pathId)
     const index = origin?.order.indexOf(item.id) ?? -1
     const previous = origin?.order[index - 1]
     const anchor = previous ? order.indexOf(previous) : -1
@@ -140,6 +141,55 @@ export function useStructureEditPaths(input: {
         forgetChange(entry.id)
       })
   }
+  const readRemovalCells = async (targetPath: string): Promise<SavedCell[]> => {
+    const { data, error } = await client!
+      .from('cells')
+      .select('id,updated_at')
+      .eq('path_id', targetPath)
+      .eq('step_id', item.id)
+      .order('id')
+    if (error) throw error
+    return data
+  }
+  const saveMembership = async (
+    path: OrderPath,
+    added: PathOrder | undefined,
+    before: PathOrder[],
+    order: string[],
+    confirmedCells?: SavedCell[],
+  ) => {
+    const entry = await changeStepPath(client!, {
+      stepId: item.id,
+      pathId: path.id,
+      present: Boolean(added),
+      atPosition: added?.order.indexOf(item.id) ?? 0,
+      expectedIds: order,
+      expectedPathIds: before.map((row) => row.pathId).sort(),
+      confirmedCells,
+    })
+    announce(
+      entry,
+      `${added ? 'Added' : 'Removed'} the ${item.name} step ${
+        added ? 'to' : 'from'
+      } ${path.name}`,
+    )
+    return added ? added.order : order.filter((id) => id !== item.id)
+  }
+  const saveOrder = async (changed: PathOrder, prior: PathOrder) => {
+    const entry = await (kind === 'step' ? reorderSteps : reorderLanes)(
+      client!,
+      changed.pathId,
+      changed.order,
+      prior.order,
+    )
+    announce(
+      entry,
+      `Saved the ${kind} order on ${
+        live.find((path) => path.id === changed.pathId)!.name
+      }`,
+    )
+    return changed.order
+  }
   const save = async (
     next: PathOrder[],
     before: PathOrder[],
@@ -150,7 +200,7 @@ export function useStructureEditPaths(input: {
       return
     }
     inFlight.current = true
-    setBusy(true)
+    setPhase('saving')
     setError(null)
     try {
       const removed = before.find(
@@ -160,22 +210,14 @@ export function useStructureEditPaths(input: {
         (entry) => !before.some((row) => row.pathId === entry.pathId),
       )
       if (removed || added) {
-        if (kind !== 'step') throw new Error('A lane belongs to its own path')
         const target = removed ?? added!
         const path = live.find((path) => path.id === target.pathId)!
         if (removed && !confirmedCells) {
-          // Read only on untick. Confirmation names this exact saved set;
-          // the RPC compares ids and timestamps again under lock.
-          const { data, error: readError } = await client
-            .from('cells')
-            .select('id,updated_at')
-            .eq('path_id', path.id)
-            .eq('step_id', item.id)
-            .order('id')
-          if (readError) throw readError
-          if (data.length) {
+          const cells = await readRemovalCells(path.id)
+          if (cells.length) {
             setValue(before)
-            setPending({ path, before, next, cells: data })
+            setPending({ path, before, next, cells })
+            setPhase('confirm')
             return
           }
         }
@@ -183,28 +225,17 @@ export function useStructureEditPaths(input: {
           before.find((entry) => entry.pathId === path.id)?.order ??
           model.orders.get(path.id) ??
           path.items.map((row) => row.id)
-        const entry = await changeStepPath(client, {
-          stepId: item.id,
-          pathId: path.id,
-          present: Boolean(added),
-          atPosition: added?.order.indexOf(item.id) ?? 0,
-          expectedIds: order,
-          expectedPathIds: before.map((row) => row.pathId).sort(),
+        const savedOrder = await saveMembership(
+          path,
+          added,
+          before,
+          order,
           confirmedCells,
-        })
+        )
         setModel((current) => ({
           ...current,
-          orders: new Map(current.orders).set(
-            path.id,
-            added ? added.order : order.filter((id) => id !== item.id),
-          ),
+          orders: new Map(current.orders).set(path.id, savedOrder),
         }))
-        announce(
-          entry,
-          `${added ? 'Added' : 'Removed'} the ${item.name} step ${
-            added ? 'to' : 'from'
-          } ${path.name}`,
-        )
       } else {
         const changed = next.find((entry) => {
           const prior = before.find((row) => row.pathId === entry.pathId)
@@ -212,27 +243,17 @@ export function useStructureEditPaths(input: {
         })
         if (!changed) return
         const prior = before.find((row) => row.pathId === changed.pathId)!
-        const entry = await (kind === 'step' ? reorderSteps : reorderLanes)(
-          client,
-          changed.pathId,
-          changed.order,
-          prior.order,
-        )
+        const savedOrder = await saveOrder(changed, prior)
         setModel((current) => ({
           ...current,
-          orders: new Map(current.orders).set(changed.pathId, changed.order),
+          orders: new Map(current.orders).set(changed.pathId, savedOrder),
         }))
-        announce(
-          entry,
-          `Saved the ${kind} order on ${
-            live.find((path) => path.id === changed.pathId)!.name
-          }`,
-        )
       }
       setModel((current) => ({ ...current, persisted: next }))
       setValue(next)
       setPending(null)
     } catch (cause) {
+      if (pending) setPhase('confirm')
       setValue(before)
       setError(
         toAuthoringError(
@@ -241,7 +262,7 @@ export function useStructureEditPaths(input: {
       )
     } finally {
       inFlight.current = false
-      setBusy(false)
+      setPhase((current) => (current === 'confirm' ? current : 'idle'))
     }
   }
   return {
@@ -253,7 +274,14 @@ export function useStructureEditPaths(input: {
     pending,
     error,
     status: result.status,
-    setPreviewing,
+    setPreviewing: (dragging: boolean) =>
+      setPhase((current) =>
+        current === 'saving' || current === 'confirm'
+          ? current
+          : dragging
+          ? 'dragging'
+          : 'idle',
+      ),
     loadError: result.status === 'error' ? result.message : null,
     commit: (next: PathOrder[]) => {
       void save(next, model.persisted)
@@ -263,6 +291,7 @@ export function useStructureEditPaths(input: {
     },
     cancel: () => {
       setPending(null)
+      setPhase('idle')
       setValue(model.persisted)
       setError(null)
     },

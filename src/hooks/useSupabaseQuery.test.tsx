@@ -117,7 +117,6 @@ describe('useSupabaseQuery (read lifetime)', () => {
         status: 'ready',
         data: 'the newer answer',
         source: 'database',
-        updatedAt: expect.any(Number),
       }),
     )
 
@@ -133,7 +132,6 @@ describe('useSupabaseQuery (read lifetime)', () => {
       status: 'ready',
       data: 'the newer answer',
       source: 'database',
-      updatedAt: expect.any(Number),
     })
   })
 })

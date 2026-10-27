@@ -13,7 +13,9 @@ import type { CompareGridTrack } from '@/lib/compareGridTracks'
 /** Step names above the canvas. */
 export function CompareStepHeaderRow({
   tracks,
+  pathId,
 }: {
+  pathId?: string
   tracks: readonly CompareGridTrack[]
 }) {
   return (
@@ -39,12 +41,15 @@ export function CompareStepHeaderRow({
               />
             ) : null}
             <StepHeaderAffordance
-              // A canonical column can carry a different step id per path; they
-              // are the same MOMENT, and the summary is stored once per step, so
-              // the first is the one to open.
+              // The selected path owns the click context, even when another
+              // path inserted this canonical track into the lookup first.
               stepIndex={trackIndex}
-              pathId={Object.keys(track.stepIdByPath)[0]}
-              stepId={Object.values(track.stepIdByPath)[0] ?? ''}
+              pathId={pathId}
+              stepId={
+                (pathId ? track.stepIdByPath[pathId] : undefined) ??
+                Object.values(track.stepIdByPath)[0] ??
+                ''
+              }
               name={track.label}
               // `relative z-1`: when a path frame extends up to wrap this
               // row (single-path stacked, merged), the frame's opaque fill is

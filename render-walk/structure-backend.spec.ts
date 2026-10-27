@@ -8,9 +8,11 @@ async function openAuthoringCanvas(page: Page) {
   const api = new URL(env.VITE_SUPABASE_URL)
   if (
     !['localhost', '127.0.0.1'].includes(api.hostname) ||
-    api.port !== '55421'
+    !process.env.RENDER_WALK_SUPABASE_URL ||
+    api.origin !== new URL(process.env.RENDER_WALK_SUPABASE_URL).origin ||
+    api.port === '55421'
   )
-    throw new Error('Requires the isolated local database.')
+    throw new Error('Requires an explicitly selected, owned local database; shared authoring ports are refused.')
   await page.goto(canvas!)
   await page.locator('[data-cover-page], [data-nav-row]').first().waitFor()
   const cover = page.getByRole('button', {
@@ -312,7 +314,7 @@ test('saved structure Paths attach, detach with confirmation, reorder and Undo',
   let group = page.getByRole('group', { name: 'Paths', exact: true })
   await expect(group).toBeVisible()
   await expect(
-    group.getByRole('checkbox', { name: `Add to ${origin.name}`, exact: true })
+    group.getByRole('checkbox', { name: `Take off ${origin.name}`, exact: true })
   ).toBeDisabled()
   await group
     .getByRole('checkbox', { name: `Add to ${other.name}`, exact: true })
@@ -377,7 +379,7 @@ test('saved structure Paths attach, detach with confirmation, reorder and Undo',
     relatedQueries.map((query) => read(query))
   )
   const tick = group.getByRole('checkbox', {
-    name: `Add to ${other.name}`,
+    name: `Take off ${other.name}`,
     exact: true,
   })
   await tick.uncheck()

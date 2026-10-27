@@ -51,6 +51,33 @@ function projectOffsets(
   return { previewIds: next, offsets }
 }
 
+it('keeps the line fixed when an unrole’d band row swaps below the spine actor', () => {
+  // Sample board: Stakeholders (null) above Blueprint owner (customer_actions).
+  // Dragging Stakeholders below the owner must not glue the line to the owner.
+  const ids = ['stakeholders', 'owner', 'frontstage']
+  const rolesById = new Map<string, string | null>([
+    ['stakeholders', null],
+    ['owner', CUSTOMER_ACTIONS_ROLE],
+    ['frontstage', FRONTSTAGE_ACTIONS_ROLE],
+  ])
+  const starts = [0, 100, 228]
+  const extents = [100, 100, 100]
+  const { previewIds, offsets } = projectOffsets(ids, 0, 1, starts, extents)
+  expect(previewIds).toEqual(['owner', 'stakeholders', 'frontstage'])
+  expect(dividerAnchorIndex('interaction', previewIds.map((id) => rolesById.get(id)))).toBe(1)
+  expect(
+    dividerTranslateForPreview({
+      kind: 'interaction',
+      ids,
+      previewIds,
+      rolesById,
+      starts,
+      extents,
+      offsets,
+    }),
+  ).toBe(0)
+})
+
 it('swapping two recipient lanes leaves both divider positions unchanged', () => {
   const ids = ['r1', 'r2', 'r3', 'f1', 'b1']
   const rolesById = new Map<string, string>([

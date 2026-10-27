@@ -1,6 +1,7 @@
 import { parseCellContentItems } from '@/lib/parseCellContent'
 import {
   BACKSTAGE_ACTIONS_ROLE,
+  BACKSTAGE_TOUCHPOINTS_ROLE,
   CUSTOMER_ACTIONS_ROLE,
   FRONTSTAGE_ACTIONS_ROLE,
   FRONTSTAGE_TOUCHPOINTS_ROLE,
@@ -103,6 +104,49 @@ export function shouldUseStoryboardContent(lane: LaneRoleSource): boolean {
 }
 
 /**
+ * Roles on the service side of the line of interaction — frontstage and
+ * everything behind it. Lanes without these roles (customer actions,
+ * storyboard, unrole'd context rows such as Stakeholders) sit above the line.
+ */
+export function isServiceSideOfInteraction(
+  role: string | null | undefined,
+): boolean {
+  return (
+    role === FRONTSTAGE_ACTIONS_ROLE ||
+    role === FRONTSTAGE_TOUCHPOINTS_ROLE ||
+    role === BACKSTAGE_ACTIONS_ROLE ||
+    role === BACKSTAGE_TOUCHPOINTS_ROLE ||
+    role === SUPPORT_ACTIONS_ROLE
+  )
+}
+
+/**
+ * Index of the lane the line of interaction draws after, or `-1` when the
+ * board has no recipient spine.
+ *
+ * The line closes the recipient band: it follows the last `customer_actions`
+ * lane, then any non-service rows that still sit above the first frontstage
+ * (or deeper) lane. Without that extension, dragging an unrole'd band row
+ * (Stakeholders) below the spine actor parked it under the line while the
+ * line stayed glued to the spine — a boundary that moved with a row.
+ */
+export function interactionLineAnchorIndex(
+  lanes: readonly LaneRoleSource[],
+): number {
+  let lastCustomer = -1
+  for (let index = 0; index < lanes.length; index++) {
+    if (getLaneRole(lanes[index]!) === CUSTOMER_ACTIONS_ROLE) lastCustomer = index
+  }
+  if (lastCustomer < 0) return -1
+  let anchor = lastCustomer
+  for (let index = lastCustomer + 1; index < lanes.length; index++) {
+    if (isServiceSideOfInteraction(getLaneRole(lanes[index]!))) break
+    anchor = index
+  }
+  return anchor
+}
+
+/**
  * The interaction line closes the customer side, and the customer side is a
  * BAND rather than a single row.
  *
@@ -114,9 +158,9 @@ export function shouldUseStoryboardContent(lane: LaneRoleSource): boolean {
  * the boundary between the people the service is for and the machinery that
  * serves them, and a boundary drawn twice is not a boundary.
  *
- * So the line follows the LAST customer-side lane. Adding a customer-side
- * lane extends the band; it does not divide the board again, and no row has
- * to move to make that true.
+ * So the line follows the LAST customer-side lane, then any still-above-the-
+ * service rows that extend the band (CONTEXT.md § Line of visibility). Adding
+ * a customer-side lane extends the band; it does not divide the board again.
  *
  * Without `lanes` there is no band for a lane to be last in, so a
  * customer-side lane is its own band and answers as it always did. That is
@@ -126,14 +170,9 @@ export function shouldShowInteractionLineAfter(
   lane: BlueprintLane,
   lanes?: BlueprintLane[],
 ): boolean {
-  if (getLaneRole(lane) !== CUSTOMER_ACTIONS_ROLE) return false
-  if (!lanes) return true
-
-  let last: BlueprintLane | undefined
-  for (const entry of lanes) {
-    if (getLaneRole(entry) === CUSTOMER_ACTIONS_ROLE) last = entry
-  }
-  return last === undefined || last.id === lane.id
+  if (!lanes) return getLaneRole(lane) === CUSTOMER_ACTIONS_ROLE
+  const anchor = interactionLineAnchorIndex(lanes)
+  return anchor >= 0 && lanes[anchor]?.id === lane.id
 }
 
 /** The visibility line is drawn after frontstage lanes (above backstage lanes). */

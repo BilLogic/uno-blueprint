@@ -7,8 +7,8 @@
  * swap, gliding only when that boundary moves — rather than riding the
  * translated lane that happened to precede them at gesture start.
  */
+import { interactionLineAnchorIndex } from '@/lib/blueprintLayout'
 import {
-  CUSTOMER_ACTIONS_ROLE,
   FRONTSTAGE_ACTIONS_ROLE,
   FRONTSTAGE_TOUCHPOINTS_ROLE,
   BACKSTAGE_ACTIONS_ROLE,
@@ -31,11 +31,9 @@ export function dividerAnchorIndex(
   roles: readonly StructureLaneRole[],
 ): number {
   if (kind === 'interaction') {
-    let last = -1
-    for (let index = 0; index < roles.length; index++) {
-      if (roles[index] === CUSTOMER_ACTIONS_ROLE) last = index
-    }
-    return last
+    return interactionLineAnchorIndex(
+      roles.map((role, index) => ({ name: `lane-${index}`, role })),
+    )
   }
   if (kind === 'visibility') {
     let last = -1

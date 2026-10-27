@@ -118,25 +118,24 @@ test('a board with no customer-side lane draws no line of interaction', () => {
   assert.deepEqual(interactionLinesAfter(lanes), [])
 })
 
-test('classifying the lane under the spine moves the line down to it', () => {
-  // An actor lane can sit above the spine or below it, and both orders are
-  // authored. Giving the one BELOW a customer-side role extends the band
-  // downwards, so the line follows it — the row does not move, the floor of
-  // the band does.
-  const before = customerBand(
+test('an unrole’d row below the spine still closes above frontstage', () => {
+  // Stakeholders and similar context rows carry no role. Parking one under
+  // the spine actor must not drop it through the line of interaction — the
+  // line follows past it until the first service-side lane.
+  const withNull = customerBand(
     STORYBOARD_ROLE,
     CUSTOMER_ACTIONS_ROLE,
     null,
     FRONTSTAGE_ACTIONS_ROLE,
   )
-  const after = customerBand(
+  const withSecondActor = customerBand(
     STORYBOARD_ROLE,
     CUSTOMER_ACTIONS_ROLE,
     CUSTOMER_ACTIONS_ROLE,
     FRONTSTAGE_ACTIONS_ROLE,
   )
-  assert.deepEqual(interactionLinesAfter(before), [1])
-  assert.deepEqual(interactionLinesAfter(after), [2])
+  assert.deepEqual(interactionLinesAfter(withNull), [2])
+  assert.deepEqual(interactionLinesAfter(withSecondActor), [2])
 })
 
 test('three customer-side lanes still draw one line', () => {

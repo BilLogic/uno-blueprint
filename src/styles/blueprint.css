@@ -1350,6 +1350,15 @@
 [data-canvas-reorder-global] [data-blueprint-column-header]:is(:hover, :focus-within) [data-structure-grip],
 [data-canvas-reorder] [data-structure-highlight='label'] [data-structure-grip] { display: block; }
 [data-structure-reordering] [data-blueprint-arrows] { opacity: 0; }
+/* Corridors decorate the derived boundary; they must not ride a translated lane. */
+[data-structure-reordering] :is(
+  [data-blueprint-wrap-corridor],
+  [data-blueprint-rail-corridor],
+  [data-blueprint-loop-corridor]
+) {
+  height: 0 !important;
+  overflow: hidden;
+}
 
 /* Header triggers and their canvas previews share one interaction state. */
 [data-structure-seam]:is(:hover, :focus-visible) > :is([data-structure-slot], [data-structure-trigger]) {

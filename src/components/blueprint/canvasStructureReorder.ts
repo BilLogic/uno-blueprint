@@ -4,9 +4,22 @@ import {
   MOTION_STRUCTURAL_MS,
   prefersReducedMotion,
 } from '@/lib/motion'
+import { getLaneRole } from '@/lib/laneRoles'
+import {
+  dividerTranslateForPreview,
+  measureStructureParts,
+  type StructureDividerKind,
+  type StructureLaneRole,
+} from './canvasStructureDividerGeometry'
 
 type Kind = 'lane' | 'step'
-export type ReorderItem = { id: string; name: string; parts: HTMLElement[] }
+export type ReorderItem = {
+  id: string
+  name: string
+  parts: HTMLElement[]
+  /** Lane role used to derive divider boundaries during a drag preview. */
+  role?: StructureLaneRole
+}
 type Options = {
   busy?: () => boolean
   root?: HTMLElement
@@ -92,19 +105,13 @@ export function registerCanvasStructureReorder(
     next.splice(to, 0, ...next.splice(from, 1))
     return next
   }
-  const bounds = (parts: HTMLElement[]) => {
-    const boxes = parts
-      .map((part) => part.getBoundingClientRect())
-      .filter((box) => box.width && box.height)
-    const left = Math.min(...boxes.map((box) => box.left)),
-      top = Math.min(...boxes.map((box) => box.top))
-    return new DOMRect(
-      left,
-      top,
-      Math.max(...boxes.map((box) => box.right)) - left,
-      Math.max(...boxes.map((box) => box.bottom)) - top,
+  const bounds = (parts: HTMLElement[], kind: Kind) =>
+    measureStructureParts(parts, kind)
+  /** Semantic lines only — not the light swimlane hairlines between rows. */
+  const dividerNodes = () =>
+    Array.from(
+      body.querySelectorAll<HTMLElement>('[data-blueprint-divider]'),
     )
-  }
   const header = (event: Event) =>
     (event.target as Element).closest<HTMLElement>(
       '[data-structure-reorder][data-structure-id]',
@@ -126,7 +133,7 @@ export function registerCanvasStructureReorder(
       x: event.clientX,
       y: event.clientY,
       items,
-      boxes: items.map((item) => bounds(item.parts)),
+      boxes: items.map((item) => bounds(item.parts, kind)),
       axis: AXES[kind],
       ids: items.map((item) => item.id),
       indexById: new Map(items.map((item, index) => [item.id, index])),
@@ -178,6 +185,10 @@ export function registerCanvasStructureReorder(
     if (!frame) {
       for (const item of g.items)
         for (const part of item.parts) original.set(part, part.style.translate)
+      if (g.kind === 'lane') {
+        for (const node of dividerNodes())
+          original.set(node, node.style.translate)
+      }
       frame = document.createElement('div')
       frame.dataset.structureLiftFrame = ''
       slot = document.createElement('div')
@@ -222,6 +233,44 @@ export function registerCanvasStructureReorder(
         for (const part of item.parts) {
           moves.get(part)?.stop()
           moves.set(part, animate(part, { translate }, motion))
+        }
+      }
+      if (g.kind === 'lane') {
+        const rolesById = new Map(
+          g.items.map((item) => [
+            item.id,
+            getLaneRole({ name: item.name, role: item.role }),
+          ]),
+        )
+        const starts = g.boxes.map((entry) => axis.start(entry))
+        const extents = g.boxes.map((entry) => axis.extent(entry))
+        const byKind = new Map<StructureDividerKind, number>()
+        for (const kind of [
+          'interaction',
+          'visibility',
+          'internal-interaction',
+        ] as const) {
+          byKind.set(
+            kind,
+            dividerTranslateForPreview({
+              kind,
+              ids: g.ids,
+              previewIds: ids,
+              rolesById,
+              starts,
+              extents,
+              offsets: g.offsets,
+            }) / scale,
+          )
+        }
+        for (const node of dividerNodes()) {
+          const kind = node.dataset.blueprintDivider as
+            | StructureDividerKind
+            | undefined
+          if (!kind || !byKind.has(kind)) continue
+          const translate = axis.translate(byKind.get(kind)!)
+          moves.get(node)?.stop()
+          moves.set(node, animate(node, { translate }, motion))
         }
       }
     }

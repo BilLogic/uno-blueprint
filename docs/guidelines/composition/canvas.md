@@ -3,6 +3,7 @@ summary: The board and the chrome around it — click grammar, canvas modes, pan
 claims:
   - src/components/blueprint/StructureDragGrip.tsx
   - src/components/blueprint/canvasStructureReorder.ts
+  - src/components/blueprint/canvasStructureDividerGeometry.ts
   - src/components/blueprint/useCanvasStructureReorder.ts
   - src/components/blueprint/BlueprintArrowMarkerDefs.tsx
   - src/components/blueprint/BlueprintCellButton.tsx

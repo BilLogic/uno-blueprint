@@ -18,6 +18,7 @@ async function openAuthoringCanvas(page: Page) {
     exact: true,
   })
   if (await cover.count()) await cover.click()
+  await page.waitForLoadState('networkidle')
   const expand = page.locator(
     '[data-nav-row] button[aria-controls="phase-panel-f0000000-0000-4000-8000-000700020000"]'
   )
@@ -270,6 +271,9 @@ test('saved structure Paths attach, detach with confirmation, reorder and Undo',
   page,
 }) => {
   test.skip(!canvas, 'Requires the isolated local authoring stack.')
+  // At this width the centred toast overlaps the open panel. Undo must remain
+  // reachable above that non-modal drawer, not merely present in the DOM.
+  await page.setViewportSize({ width: 1038, height: 900 })
   const { board, read } = await openAuthoringCanvas(page)
   const paths = (await read(
     'paths?scenario_id=eq.f0000000-0000-4000-8000-200000000001&select=id,name&order=id'

@@ -37,7 +37,7 @@ export function WriteFailureNotices() {
   return (
     <div
       data-write-failures=""
-      className="pointer-events-none fixed inset-x-0 bottom-20 z-50 mx-auto flex w-[min(32rem,calc(100vw-2rem))] flex-col gap-2"
+      className="pointer-events-none fixed inset-x-0 bottom-20 z-60 mx-auto flex w-[min(32rem,calc(100vw-2rem))] flex-col gap-2"
     >
       {failures.map((failure) => (
         <Alert

@@ -1,5 +1,6 @@
 import type { SessionEntry } from '@/lib/authoringSession'
 import { toAuthoringError } from '@/lib/authoringErrors'
+import { StructurePathsSection } from './StructurePathsSection'
 import { PathOrderSection } from './PathOrderSection'
 import {
   useStructureCreatePaths,
@@ -405,6 +406,15 @@ function LanePanelBody({
             </p>
           ) : null}
         </>
+      ) : null}
+      {!draft ? (
+        <StructurePathsSection
+          kind="lane"
+          item={{ id: lane.id, name: lane.name }}
+          scenarioId={lane.scenarioId}
+          pathId={lane.pathId}
+          editable={canEdit}
+        />
       ) : null}
       {/* ACTOR, not Stakeholder. The column is `lanes.stakeholder_id` and the
           registry it points into is `stakeholders`; the word on screen is the

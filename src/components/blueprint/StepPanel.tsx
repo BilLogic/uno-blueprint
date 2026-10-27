@@ -1,5 +1,6 @@
 import type { SessionEntry } from '@/lib/authoringSession'
 import { toAuthoringError } from '@/lib/authoringErrors'
+import { StructurePathsSection } from './StructurePathsSection'
 import { PathOrderSection } from './PathOrderSection'
 import {
   useStructureCreatePaths,
@@ -44,6 +45,7 @@ import {
  */
 export function StepPanel({
   stepId,
+  pathId,
   draft,
   onCreated,
   focusNext,
@@ -51,6 +53,7 @@ export function StepPanel({
   onClose,
 }: {
   stepId: string
+  pathId?: string
   draft?: Extract<StructureDraft, { kind: 'step' }>
   onCreated?: (id: string, entry: SessionEntry) => void
   focusNext?: boolean
@@ -88,6 +91,7 @@ export function StepPanel({
           <StepPanelBody
             key={step.id}
             step={step}
+            pathId={pathId}
             draft={draft}
             onCreated={onCreated}
             focusNext={focusNext}
@@ -108,12 +112,14 @@ export function StepPanel({
 
 function StepPanelBody({
   step,
+  pathId,
   draft,
   onCreated,
   focusNext,
   onDone,
 }: {
   step: StepSpec
+  pathId?: string
   draft?: Extract<StructureDraft, { kind: 'step' }>
   onCreated?: (id: string, entry: SessionEntry) => void
   focusNext?: boolean
@@ -285,6 +291,15 @@ function StepPanelBody({
             </p>
           )}
         </>
+      ) : null}
+      {!draft ? (
+        <StructurePathsSection
+          kind="step"
+          item={{ id: step.id, name: step.name }}
+          scenarioId={step.scenarioId}
+          pathId={pathId}
+          editable={canEdit}
+        />
       ) : null}
       <PanelTextareaField
         label="Summary"

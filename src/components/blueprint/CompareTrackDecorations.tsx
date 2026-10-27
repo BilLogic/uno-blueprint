@@ -43,6 +43,7 @@ export function CompareStepHeaderRow({
               // are the same MOMENT, and the summary is stored once per step, so
               // the first is the one to open.
               stepIndex={trackIndex}
+              pathId={Object.keys(track.stepIdByPath)[0]}
               stepId={Object.values(track.stepIdByPath)[0] ?? ''}
               name={track.label}
               // `relative z-1`: when a path frame extends up to wrap this

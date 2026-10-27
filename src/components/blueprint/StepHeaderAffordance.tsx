@@ -55,12 +55,13 @@ function InfoGlyph() {
  * stays centred over the cells it names and the mark sits at the box's edge.
  */
 export function StepHeaderAffordance({
-  stepId, stepIndex,
+  stepId, stepIndex, pathId,
   name,
   className,
   style,
 }: {
   stepId: string
+  pathId?: string
   stepIndex?: number
   name: string
   className?: string
@@ -170,7 +171,7 @@ export function StepHeaderAffordance({
   const openPanel = (event: React.SyntheticEvent) => {
     event.stopPropagation()
     setDefOpen(false)
-    toggleEntity({ kind: 'step', id: stepId })
+    toggleEntity({ kind: 'step', id: stepId, pathId })
   }
 
   return (

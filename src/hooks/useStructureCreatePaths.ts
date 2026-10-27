@@ -1,6 +1,5 @@
-import { useCallback, useState, useEffect } from 'react'
-import { queryKeys } from '@/lib/queryKeys'
-import { useSupabaseQuery } from './useSupabaseQuery'
+import { useState, useEffect } from 'react'
+import { useStructurePaths } from './useStructurePaths'
 import {
   useEntityDetailOptional,
   type StructureDraft,
@@ -18,50 +17,7 @@ export function useStructureCreatePaths(
   name = '',
   role?: string,
 ) {
-  const fallback = useCallback(() => null, [])
-  const result = useSupabaseQuery<OrderPath[]>(
-    draft
-      ? queryKeys.structureCreatePaths.of(
-          `${draft.kind}:${
-            draft.kind === 'step' ? draft.pathId : draft.scenarioId
-          }`,
-        )
-      : null,
-    async (client, signal) => {
-      if (!draft) return []
-      let scenarioId = draft.kind === 'lane' ? draft.scenarioId : ''
-      if (draft.kind === 'step') {
-        const { data, error } = await client
-          .from('paths')
-          .select('scenario_id')
-          .eq('id', draft.pathId)
-          .abortSignal(signal)
-          .single()
-        if (error) throw error
-        scenarioId = data.scenario_id
-      }
-      const { data, error } = await client
-        .from('paths')
-        .select(
-          'id,name,lanes(id,name,position),path_steps(position,steps(id,name))',
-        )
-        .eq('scenario_id', scenarioId)
-        .order('name')
-        .abortSignal(signal)
-      if (error) throw error
-      return data.map((path) => ({
-        id: path.id,
-        name: path.name,
-        items:
-          draft.kind === 'lane'
-            ? [...path.lanes].sort((a, b) => a.position - b.position)
-            : [...path.path_steps]
-                .sort((a, b) => a.position - b.position)
-                .map((row) => ({ ...row.steps, position: row.position })),
-      }))
-    },
-    fallback,
-  )
+  const result = useStructurePaths(draft ? { kind: draft.kind, pathId: draft.pathId, scenarioId: draft.kind === 'lane' ? draft.scenarioId : undefined } : null)
   const paths = result.status === 'ready' ? result.data : []
   const [value, setValue] = useState<PathOrder[] | null>(null)
   const clicked = paths.find((path) => path.id === draft?.pathId) ?? paths[0]

@@ -390,6 +390,18 @@ credentials.
 | `21000309000000_a_structure_panel_saves_one_change.sql` | Atomic multi-path structure creation and panel saves with captured receipts; 311 completes path-local lane properties and server-captured guarded inverses |
 | `21000310000000_path_orders_are_guarded_permutations.sql` | Path-local identity permutations and exact reorder receipts; legacy name-based reorder becomes a reload refusal |
 | `21000311000000_structure_undo_and_edits_refuse_stale_state.sql` | Expected-order checks under lock, complete Add-Undo membership/content guards, per-path lane properties, guarded server-captured panel/rename inverses and authorized reload stubs for older apps |
+| `21000312000000_step_path_membership_is_guarded_and_reversible.sql` | Guarded existing-step attach/detach, server-only single-use membership receipts, confirmation against saved cell identities/timestamps, complete related-row recovery, and an enforced cell-to-path-step foreign key |
+
+Apply 312 with the matching app and regenerate database types. Existing step
+panels now use `change_step_path` and `undo_step_path_change`; custom hosts must
+implement the signatures in [the backend contract](../backend-contract.md#saved-step-membership).
+`structure_membership_receipts` holds the server-captured before/after states
+and any removed cells, placements, resources, dependencies and slide-image
+members. RLS and explicit revokes keep that table inaccessible to API callers.
+Evidence stays intact. Undo refuses newer work and restores identities without
+upserts. The new foreign key validates the existing path-membership rule:
+repair any orphaned cells by restoring their membership before applying 312;
+the migration never deletes content to pass validation.
 
 Apply 309–311 together with the matching app; drag reordering does not work
 between those migrations. Regenerate database types afterwards. Reorder callers,

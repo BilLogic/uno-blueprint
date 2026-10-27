@@ -104,3 +104,15 @@ it('returns its own recorded entry even when a subscriber appends another write 
   expect(result.entry).not.toBe(sessionSnapshot().at(-1))
  }finally{dispose()}
 })
+
+it('records one membership change and sends only its server receipt to Undo', async () => {
+  const {changeStepPath} = await import('./authoringRpc')
+  const rpc=vi.fn(async()=>({data:{receipt_id:'server-receipt',step_id:'review',path_id:'phone',present:true},error:null}))
+  const client={rpc} as unknown as SupabaseClient<Database>
+  const own=await changeStepPath(client,{stepId:'review',pathId:'phone',present:true,atPosition:1,expectedIds:['start','finish'],expectedPathIds:['online']})
+  expect(rpc).toHaveBeenCalledExactlyOnceWith('change_step_path',{step_id:'review',path_id:'phone',present:true,at_position:1,expected_ids:['start','finish'],expected_path_ids:['online'],confirmed_cells:null})
+  expect(sessionSnapshot()).toEqual([own])
+  recordChange('rename_path',{})
+  await executeRevert(client,own)
+  expect(rpc).toHaveBeenLastCalledWith('undo_step_path_change',{receipt_id:'server-receipt'})
+})

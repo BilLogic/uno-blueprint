@@ -115,6 +115,7 @@ export type WriteFn =
   | 'update_cell_dependency'
   | 'set_cell_featured_image'
   | 'clear_cell_dependency'
+  | 'change_step_path'
   | 'reorder_steps'
   | 'set_path_steps'
   | 'reorder_lanes'
@@ -514,6 +515,7 @@ const DESCRIBERS: Record<WriteFn, (entry: ChangeEntry) => string> = {
       ? 'Set a cell’s featured image'
       : 'Cleared a cell’s featured image',
   clear_cell_dependency: () => 'Removed a connection',
+  change_step_path: (entry) => entry.args.present ? 'Added a step to a path' : 'Removed a step from a path',
   reorder_steps: () => 'Reordered the steps',
   set_path_steps: () => 'Reordered the steps',
   reorder_lanes: () => 'Reordered the lanes',

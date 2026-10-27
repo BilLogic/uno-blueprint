@@ -97,6 +97,7 @@ const EVERY_WRITE = Object.keys({
   update_cell_dependency: true,
   set_cell_featured_image: true,
   clear_cell_dependency: true,
+  change_step_path: true,
   reorder_steps: true,
   set_path_steps: true,
   reorder_lanes: true,

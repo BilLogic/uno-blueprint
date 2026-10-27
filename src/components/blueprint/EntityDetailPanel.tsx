@@ -55,6 +55,7 @@ const PANELS: Record<
   EntityDetailKind,
   ComponentType<{
     id: string
+    pathId?: string
     draft?: StructureDraft
     focusNext?: boolean
     onCreated: (id: string, entry: SessionEntry) => void
@@ -77,9 +78,10 @@ const PANELS: Record<
   scenario: ({ id, onClose }) => (
     <ScenarioPanel scenarioId={id} onClose={onClose} />
   ),
-  step: ({ id, draft, focusNext, onCreated, onSaved, onClose }) => (
+  step: ({ id, pathId, draft, focusNext, onCreated, onSaved, onClose }) => (
     <StepPanel
       stepId={id}
+      pathId={pathId}
       draft={draft?.kind === 'step' ? draft : undefined}
       onCreated={onCreated}
       onSaved={onSaved}
@@ -144,6 +146,7 @@ function EntityDetailPanelBody() {
         <Panel
           key={`${shown.kind}-${shown.draftKey ?? shown.id}`}
           id={shown.id}
+          pathId={shown.pathId}
           draft={shown.draft}
           focusNext={shown.focusNext}
           onCreated={(id, entry) => {
@@ -159,7 +162,7 @@ function EntityDetailPanelBody() {
                   closeEntity()
                 },
               )
-            openEntity({ kind: shown.kind, id, focusNext: true })
+            openEntity({ kind: shown.kind, id, pathId:preview?.clickedPathId ?? shown.pathId, focusNext: true })
           }}
           onSaved={closeEntity}
           onClose={() => {

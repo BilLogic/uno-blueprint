@@ -2,6 +2,7 @@
 summary: One shell, six subjects — the drawer chrome every entity panel is made of, what the six panels share, where they legitimately differ, and the invariants a well-meaning edit breaks.
 claims:
   - src/components/blueprint/PathOrderSection.tsx
+  - src/components/blueprint/StructurePathsSection.tsx
   - src/components/blueprint/structureHighlight.ts
   - src/components/blueprint/StructureInsert.tsx
   - src/components/blueprint/structureInsertIntent.ts
@@ -486,3 +487,22 @@ entry is removed elsewhere. A panel edit saves its name and properties with
 one RPC, whose result captures the exact fields its one inverse restores.
 
 `structureInsertIntent` gives each board one hover owner. A fresh crossing chooses the nearest boundary; an open seam keeps ownership while the pointer remains inside its detection band. Leaving the band allows the other axis to open after the normal delay. Crossing clicks follow that owner rather than whichever overlapping element painted last. Keyboard focus retains ownership until blur.
+
+
+## Saved structure paths
+
+`StructurePathsSection` parameterizes the same `PathOrderSection` used during
+creation. The edit label is Paths. Steps show token-painted membership checks;
+the last selected path is disabled with a reason. Lanes show only their owning
+path and no checks. The edited item keeps the `bg-wash-primary` and
+`border-border-primary` card treatment; every row retains the same grip,
+keyboard moves, moved tag and Reset order action.
+
+A pointer drag previews locally and commits once on drop, with no momentum
+reorder after release. Keys, ticks, unticks and Reset commit immediately. The
+rail is disabled while saving, and fresh reads wait through a held drag or a
+removal confirmation. A removal first reads and names the saved cell count;
+its dialog carries `data-panel-dialog` so Escape cancels that dialog without
+closing the panel below. The write rechecks the confirmed cell identities and
+timestamps, and every successful change binds its own session entry to toast
+Undo. A stale refusal keeps the prior rail and shows the reason next to it.

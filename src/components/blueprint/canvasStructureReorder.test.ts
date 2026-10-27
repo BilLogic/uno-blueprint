@@ -155,7 +155,7 @@ it('keeps a click usable, ignores movement on the other axis and cancels a lifte
   expect(click).toHaveBeenCalledTimes(1)
   button.dispatchEvent(pointer('pointerdown', 25, 25))
   document.dispatchEvent(pointer('pointermove', 125, 100))
-  expect(content.style.translate).toBe('0 300px')
+  expect(content.style.translate).toBe('0px 300px')
   button.dispatchEvent(
     new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
   )

@@ -15,6 +15,30 @@ type Options = {
   save: (kind: Kind, id: string, order: string[], expected: string[]) => void
 }
 
+type AxisGeometry = {
+  start: (rect: DOMRect) => number
+  extent: (rect: DOMRect) => number
+  coordinate: (x: number, y: number) => number
+  offset: (value: number) => { left: number; top: number }
+  translate: (value: number) => string
+}
+const AXES: Record<Kind, AxisGeometry> = {
+  step: {
+    start: (rect) => rect.left,
+    extent: (rect) => rect.width,
+    coordinate: (x) => x,
+    offset: (left) => ({ left, top: 0 }),
+    translate: (value) => `${value}px 0px`,
+  },
+  lane: {
+    start: (rect) => rect.top,
+    extent: (rect) => rect.height,
+    coordinate: (_x, y) => y,
+    offset: (top) => ({ left: 0, top }),
+    translate: (value) => `0px ${value}px`,
+  },
+}
+
 /** Pointer intent belongs to the header; the whole measured axis travels with it. */
 export function registerCanvasStructureReorder(
   body: HTMLElement,
@@ -30,6 +54,10 @@ export function registerCanvasStructureReorder(
     y: number
     items: ReorderItem[]
     boxes: DOMRect[]
+    axis: AxisGeometry
+    ids: string[]
+    indexById: Map<string, number>
+    offsets: Map<string, number>
     index: number
     target: number
     lifted: boolean
@@ -99,6 +127,10 @@ export function registerCanvasStructureReorder(
       y: event.clientY,
       items,
       boxes: items.map((item) => bounds(item.parts)),
+      axis: AXES[kind],
+      ids: items.map((item) => item.id),
+      indexById: new Map(items.map((item, index) => [item.id, index])),
+      offsets: new Map(items.map((item) => [item.id, 0])),
       index,
       target: index,
       lifted: false,
@@ -114,13 +146,35 @@ export function registerCanvasStructureReorder(
   const move = (event: PointerEvent) => {
     const g = gesture
     if (!g || event.pointerId !== g.pointerId) return
-    const delta = g.kind === 'step' ? event.clientX - g.x : event.clientY - g.y
+    const axis = g.axis
+    const delta = axis.coordinate(event.clientX - g.x, event.clientY - g.y)
     if (!g.lifted && Math.abs(delta) <= 5) return
     event.preventDefault()
     event.stopPropagation()
     g.lifted = true
     const scale = options.scale(),
       box = g.boxes[g.index]
+    const origin = body.getBoundingClientRect()
+    const motion = {
+      duration: prefersReducedMotion() ? 0 : MOTION_STRUCTURAL_MS / 1000,
+      ease: EASE_POINTS.move,
+    }
+    const place = (node: HTMLElement, offset: number, glide = false) => {
+      const delta = axis.offset(offset)
+      const position = {
+        left: `${(box.left - origin.left + delta.left) / scale}px`,
+        top: `${(box.top - origin.top + delta.top) / scale}px`,
+      }
+      node.style.setProperty('--structure-highlight-stroke', `${1 / scale}px`)
+      Object.assign(node.style, {
+        width: `${box.width / scale}px`,
+        height: `${box.height / scale}px`,
+      })
+      if (glide) {
+        moves.get(node)?.stop()
+        moves.set(node, animate(node, position, motion))
+      } else Object.assign(node.style, position)
+    }
     if (!frame) {
       for (const item of g.items)
         for (const part of item.parts) original.set(part, part.style.translate)
@@ -129,98 +183,50 @@ export function registerCanvasStructureReorder(
       slot = document.createElement('div')
       slot.dataset.structureLanding = ''
       body.append(slot, frame)
+      place(slot, 0)
       body.dataset.structureReordering = ''
       for (const part of g.items[g.index].parts) part.dataset.structureLift = ''
     }
-    const center =
-      g.kind === 'step'
-        ? box.left + box.width / 2 + delta
-        : box.top + box.height / 2 + delta
+    const center = axis.start(box) + axis.extent(box) / 2 + delta
+    const distance = (rect: DOMRect) =>
+      Math.abs(axis.start(rect) + axis.extent(rect) / 2 - center)
     const target = g.boxes.reduce(
-      (best, item, index) =>
-        Math.abs(
-          (g.kind === 'step'
-            ? item.left + item.width / 2
-            : item.top + item.height / 2) - center,
-        ) <
-        Math.abs(
-          (g.kind === 'step'
-            ? g.boxes[best].left + g.boxes[best].width / 2
-            : g.boxes[best].top + g.boxes[best].height / 2) - center,
-        )
-          ? index
-          : best,
+      (best, rect, index) =>
+        distance(rect) < distance(g.boxes[best]) ? index : best,
       0,
     )
-    const ids = order(
-      g.items.map((item) => item.id),
-      g.index,
-      target,
-    )
-    // Project the reordered extents, not the old indexes: rows can differ in
-    // height. Keep the measured gaps at their slots while each item carries
-    // its own size, so neither the landing slot nor a neighbour overlaps.
-    const start = (rect: DOMRect) =>
-      g.kind === 'step' ? rect.left : rect.top
-    const extent = (rect: DOMRect) =>
-      g.kind === 'step' ? rect.width : rect.height
-    const offsets = new Map<string, number>()
-    let cursor = start(g.boxes[0])
-    for (const [index, id] of ids.entries()) {
-      const originalIndex = g.items.findIndex((item) => item.id === id)
-      offsets.set(id, cursor - start(g.boxes[originalIndex]))
-      const gap =
-        index < ids.length - 1
-          ? start(g.boxes[index + 1]) - start(g.boxes[index]) - extent(g.boxes[index])
-          : 0
-      cursor += extent(g.boxes[originalIndex]) + gap
-    }
-    const origin = body.getBoundingClientRect()
-    const place = (node: HTMLElement, b: DOMRect, offset: number) => {
-      node.style.setProperty('--structure-highlight-stroke', `${1 / scale}px`)
-      Object.assign(node.style, {
-        left: `${
-          (b.left - origin.left + (g.kind === 'step' ? offset : 0)) / scale
-        }px`,
-        top: `${
-          (b.top - origin.top + (g.kind === 'lane' ? offset : 0)) / scale
-        }px`,
-        width: `${b.width / scale}px`,
-        height: `${b.height / scale}px`,
-      })
-    }
-    place(frame, box, delta)
-    place(slot!, box, offsets.get(g.id)!)
+    place(frame, delta)
     for (const part of g.items[g.index].parts)
-      part.style.translate =
-        g.kind === 'step' ? `${delta / scale}px 0` : `0 ${delta / scale}px`
+      part.style.translate = axis.translate(delta / scale)
     if (g.target !== target) {
       g.target = target
+      // A target change projects once in linear time. Pointer movement within
+      // that slot reuses these offsets and never restarts the neighbour motion.
+      const ids = order(g.ids, g.index, target)
+      let cursor = axis.start(g.boxes[0])
+      for (const [index, id] of ids.entries()) {
+        const originalIndex = g.indexById.get(id)!
+        g.offsets.set(id, cursor - axis.start(g.boxes[originalIndex]))
+        const gap =
+          index < ids.length - 1
+            ? axis.start(g.boxes[index + 1]) -
+              axis.start(g.boxes[index]) -
+              axis.extent(g.boxes[index])
+            : 0
+        cursor += axis.extent(g.boxes[originalIndex]) + gap
+      }
+      place(slot!, g.offsets.get(g.id)!, true)
       for (const [index, item] of g.items.entries()) {
         if (index === g.index) continue
-        const shift = offsets.get(item.id)! / scale
+        const translate = axis.translate(g.offsets.get(item.id)! / scale)
         for (const part of item.parts) {
           moves.get(part)?.stop()
-          moves.set(
-            part,
-            animate(
-              part,
-              {
-                translate:
-                  g.kind === 'step' ? `${shift}px 0px` : `0px ${shift}px`,
-              },
-              {
-                duration: prefersReducedMotion()
-                  ? 0
-                  : MOTION_STRUCTURAL_MS / 1000,
-                ease: EASE_POINTS.move,
-              },
-            ),
-          )
+          moves.set(part, animate(part, { translate }, motion))
         }
       }
     }
   }
+
   const up = (event: PointerEvent) => {
     const g = gesture
     if (!g || event.pointerId !== g.pointerId) return
@@ -268,7 +274,10 @@ export function registerCanvasStructureReorder(
       return
     }
     if (gesture) {
-      if (event.altKey && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+      if (
+        event.altKey &&
+        ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)
+      ) {
         event.preventDefault()
         event.stopPropagation()
       }

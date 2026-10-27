@@ -1268,25 +1268,51 @@
   outline: none;
   box-shadow: none;
 }
+/*
+  Hover, selected, and keyboard focus share one content-band box: the arrow
+  corridors above/below the label are NOT part of the chrome. Painting the
+  full sticky cell (corridor spacers included) left a tall empty frame with a
+  second nested wash around the name — the broken selected/hover state.
+*/
+[data-structure-header-cell] {
+  --structure-header-chrome-top: calc(
+    var(--structure-row-inset-top, 0px) + var(--structure-highlight-inset, 8px)
+  );
+  --structure-header-chrome-bottom: calc(
+    var(--structure-row-inset-bottom, 0px) + var(--structure-highlight-inset, 8px)
+  );
+  --structure-header-chrome-inline: var(--structure-highlight-inset, 8px);
+}
+[data-structure-header-cell]:has([data-structure-header-title]:focus-visible)::after,
+[data-structure-highlight='label']:not([data-open])::before,
+[data-structure-header-cell][data-open]::before {
+  content: '';
+  position: absolute;
+  top: var(--structure-header-chrome-top);
+  right: var(--structure-header-chrome-inline);
+  bottom: var(--structure-header-chrome-bottom);
+  left: var(--structure-header-chrome-inline);
+  border-radius: inherit;
+  pointer-events: none;
+}
 [data-structure-header-cell]:has([data-structure-header-title]:focus-visible) {
-  outline: var(--structure-highlight-stroke, 1px) solid var(--primary);
-  outline-offset: calc(-1 * var(--structure-highlight-stroke, 1px));
+  outline: none;
   @apply rounded-md;
+}
+[data-structure-header-cell]:has([data-structure-header-title]:focus-visible)::after {
+  box-shadow: inset 0 0 0 var(--structure-highlight-stroke, 1px) var(--primary);
+  z-index: 1;
 }
 [data-structure-highlight='label']:not([data-open]) {
   background-color: transparent;
   @apply rounded-md;
 }
 [data-structure-highlight='label']:not([data-open])::before {
-  content: '';
-  position: absolute;
-  top: calc(var(--structure-row-inset-top, 0px) + var(--structure-highlight-inset, 8px));
-  right: var(--structure-highlight-inset, 8px);
-  bottom: calc(var(--structure-row-inset-bottom, 0px) + var(--structure-highlight-inset, 8px));
-  left: var(--structure-highlight-inset, 8px);
-  border-radius: inherit;
   background: color-mix(in oklch, var(--foreground) 5%, transparent);
-  pointer-events: none;
+}
+[data-structure-header-cell][data-open]::before {
+  background: color-mix(in oklch, var(--foreground) 7%, transparent);
+  box-shadow: inset 0 0 0 2px color-mix(in oklch, var(--foreground) 30%, transparent);
 }
 [data-blueprint-column-header][data-structure-highlight='label']:not([data-open])::before {
   inset: 4px;

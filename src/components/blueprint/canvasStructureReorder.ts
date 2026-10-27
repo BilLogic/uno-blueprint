@@ -4,7 +4,7 @@ import {
   MOTION_STRUCTURAL_MS,
   prefersReducedMotion,
 } from '@/lib/motion'
-import { getLaneRole } from '@/lib/laneRoles'
+import { getLaneRole, STORYBOARD_ROLE } from '@/lib/laneRoles'
 import {
   measureStructureParts,
   projectLaneDragPreview,
@@ -19,6 +19,58 @@ export type ReorderItem = {
   parts: HTMLElement[]
   /** Lane role used to derive divider boundaries during a drag preview. */
   role?: StructureLaneRole
+}
+
+/** Structural artwork rows stay put while neighbours reorder around them. */
+export function isStructureReorderFixedLane(
+  role: StructureLaneRole,
+): boolean {
+  return getLaneRole({ name: '', role }) === STORYBOARD_ROLE
+}
+
+/**
+ * Splice `from` → `to`, then reseat every fixed index so storyboard (and any
+ * other locked seat) never leaves its slot — even when the drop target was
+ * nudged off that seat.
+ */
+export function orderKeepingFixed(
+  ids: readonly string[],
+  from: number,
+  to: number,
+  fixed: ReadonlySet<number>,
+): string[] {
+  if (from === to || fixed.has(from)) return [...ids]
+  let target = to
+  if (fixed.has(target)) {
+    if (from < target) {
+      while (target < ids.length - 1 && fixed.has(target)) target += 1
+      if (fixed.has(target)) {
+        while (target > 0 && fixed.has(target)) target -= 1
+      }
+    } else {
+      while (target > 0 && fixed.has(target)) target -= 1
+      if (fixed.has(target)) {
+        while (target < ids.length - 1 && fixed.has(target)) target += 1
+      }
+    }
+  }
+  if (fixed.has(target) || target === from) return [...ids]
+
+  const next = [...ids]
+  next.splice(target, 0, ...next.splice(from, 1))
+  if (fixed.size === 0) return next
+
+  const locked = new Map(
+    [...fixed].map((index) => [ids[index]!, index] as const),
+  )
+  const floating = next.filter((id) => !locked.has(id))
+  const result: string[] = Array.from({ length: ids.length })
+  for (const [id, index] of locked) result[index] = id
+  let cursor = 0
+  for (let index = 0; index < result.length; index++) {
+    if (result[index] === undefined) result[index] = floating[cursor++]!
+  }
+  return result
 }
 type Options = {
   busy?: () => boolean
@@ -102,11 +154,20 @@ export function registerCanvasStructureReorder(
     slot = null
     gesture = null
   }
-  const order = (ids: string[], from: number, to: number) => {
-    const next = [...ids]
-    next.splice(to, 0, ...next.splice(from, 1))
-    return next
+  const fixedIndexes = (items: ReorderItem[], kind: Kind) => {
+    if (kind !== 'lane') return new Set<number>()
+    return new Set(
+      items.flatMap((item, index) =>
+        isStructureReorderFixedLane(item.role) ? [index] : [],
+      ),
+    )
   }
+  const order = (
+    ids: string[],
+    from: number,
+    to: number,
+    fixed: ReadonlySet<number> = new Set(),
+  ) => orderKeepingFixed(ids, from, to, fixed)
   const bounds = (parts: HTMLElement[], kind: Kind) =>
     measureStructureParts(parts, kind)
   /** Semantic lines only — not the light swimlane hairlines between rows. */
@@ -210,10 +271,15 @@ export function registerCanvasStructureReorder(
     const center = axis.start(box) + axis.extent(box) / 2 + delta
     const distance = (rect: DOMRect) =>
       Math.abs(axis.start(rect) + axis.extent(rect) / 2 - center)
+    const fixed = fixedIndexes(g.items, g.kind)
+    const seed =
+      [...g.boxes.keys()].find((index) => !fixed.has(index)) ?? g.index
     const target = g.boxes.reduce(
-      (best, rect, index) =>
-        distance(rect) < distance(g.boxes[best]) ? index : best,
-      0,
+      (best, rect, index) => {
+        if (fixed.has(index)) return best
+        return distance(rect) < distance(g.boxes[best]) ? index : best
+      },
+      seed,
     )
     place(frame, delta)
     for (const part of g.items[g.index].parts)
@@ -222,7 +288,7 @@ export function registerCanvasStructureReorder(
       g.target = target
       // A target change projects once. Pointer movement within that slot
       // reuses these offsets and never restarts the neighbour motion.
-      const ids = order(g.ids, g.index, target)
+      const ids = order(g.ids, g.index, target, fixed)
       let dividerTranslates = new Map<StructureDividerKind, number>()
       if (g.kind === 'lane') {
         // Lanes and semantic lines share one projected stack so a divider
@@ -301,6 +367,7 @@ export function registerCanvasStructureReorder(
             g.items.map((item) => item.id),
             g.index,
             g.target,
+            fixedIndexes(g.items, g.kind),
           ),
           g.items.map((item) => item.id),
         )

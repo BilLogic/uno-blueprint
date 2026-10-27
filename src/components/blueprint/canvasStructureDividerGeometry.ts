@@ -2,10 +2,11 @@
  * Divider positions during a lane reorder.
  *
  * The line of interaction and line of visibility are derived from lane roles
- * (CONTEXT.md § Line of visibility), not stored on a row. During a drag they
- * must follow the previewed order's boundary — staying put for a same-side
- * swap, gliding only when that boundary moves — rather than riding the
- * translated lane that happened to precede them at gesture start.
+ * (CONTEXT.md § Line of visibility), not stored on a row. During a drag the
+ * preview must show the next layout: lanes and dividers share one projected
+ * stack so a divider gap cannot be left behind while the line itself glides
+ * (or the reverse). Same-side reorders keep each line fixed; crossing a line
+ * moves it with the same motion as neighbouring rows.
  */
 import { interactionLineAnchorIndex } from '@/lib/blueprintLayout'
 import {
@@ -21,6 +22,12 @@ export type StructureDividerKind =
   | 'internal-interaction'
 
 export type StructureLaneRole = string | null | undefined
+
+const DIVIDER_KINDS: readonly StructureDividerKind[] = [
+  'interaction',
+  'visibility',
+  'internal-interaction',
+]
 
 /**
  * Index of the lane after which the divider draws for this ordered role list.
@@ -59,43 +66,123 @@ export function dividerAnchorIndex(
 }
 
 /**
- * How far a divider must translate so it sits after the previewed anchor,
- * using the same projected lane offsets as neighbouring rows.
- *
- * Returns `0` when the boundary does not move (same-side reorder) or when
- * either order has no such line.
+ * One coherent drag preview: lane offsets and divider translates from the
+ * same projected stack. Divider-sized gaps travel with their derived
+ * boundary instead of staying glued to the original slot index.
+ */
+export function projectLaneDragPreview(options: {
+  ids: readonly string[]
+  previewIds: readonly string[]
+  rolesById: ReadonlyMap<string, StructureLaneRole>
+  starts: readonly number[]
+  extents: readonly number[]
+  /** Measured top (axis start) of each divider at gesture start. */
+  dividerStarts: ReadonlyMap<StructureDividerKind, number>
+}): {
+  laneOffsets: Map<string, number>
+  dividerTranslates: Map<StructureDividerKind, number>
+} {
+  const rolesFor = (order: readonly string[]) =>
+    order.map((id) => options.rolesById.get(id) ?? null)
+  const originalRoles = rolesFor(options.ids)
+  const previewRoles = rolesFor(options.previewIds)
+
+  const originalAnchor = new Map(
+    DIVIDER_KINDS.map((kind) => [kind, dividerAnchorIndex(kind, originalRoles)]),
+  )
+  const previewAnchor = new Map(
+    DIVIDER_KINDS.map((kind) => [kind, dividerAnchorIndex(kind, previewRoles)]),
+  )
+
+  const dividerGapByKind = new Map<StructureDividerKind, number>()
+  let laneGapSum = 0
+  let laneGapCount = 0
+  for (let index = 0; index < options.ids.length - 1; index++) {
+    const gap =
+      options.starts[index + 1]! -
+      options.starts[index]! -
+      options.extents[index]!
+    let dividerKind: StructureDividerKind | undefined
+    for (const kind of DIVIDER_KINDS) {
+      if (originalAnchor.get(kind) === index) dividerKind = kind
+    }
+    if (dividerKind) dividerGapByKind.set(dividerKind, gap)
+    else {
+      laneGapSum += gap
+      laneGapCount++
+    }
+  }
+  const laneGap = laneGapCount > 0 ? laneGapSum / laneGapCount : 0
+
+  /** Preview lane index → divider kind that should follow it. */
+  const dividerAfterPreview = new Map<number, StructureDividerKind>()
+  for (const kind of DIVIDER_KINDS) {
+    const anchor = previewAnchor.get(kind)!
+    if (anchor >= 0 && options.dividerStarts.has(kind)) {
+      dividerAfterPreview.set(anchor, kind)
+    }
+  }
+
+  const indexById = new Map(options.ids.map((id, index) => [id, index]))
+  const laneOffsets = new Map<string, number>()
+  const dividerTranslates = new Map<StructureDividerKind, number>()
+  let cursor = options.starts[0]!
+
+  for (let index = 0; index < options.previewIds.length; index++) {
+    const id = options.previewIds[index]!
+    const original = indexById.get(id)!
+    laneOffsets.set(id, cursor - options.starts[original]!)
+    cursor += options.extents[original]!
+
+    const kind = dividerAfterPreview.get(index)
+    if (kind) {
+      const origin = options.dividerStarts.get(kind)!
+      dividerTranslates.set(kind, cursor - origin)
+      cursor += dividerGapByKind.get(kind) ?? laneGap
+    } else if (index < options.previewIds.length - 1) {
+      cursor += laneGap
+    }
+  }
+
+  // Kinds present at start but with no preview anchor keep a zero translate
+  // so cancel/reset still has an entry to restore from motion.
+  for (const kind of options.dividerStarts.keys()) {
+    if (!dividerTranslates.has(kind)) dividerTranslates.set(kind, 0)
+  }
+
+  return { laneOffsets, dividerTranslates }
+}
+
+/**
+ * @deprecated Prefer {@link projectLaneDragPreview}; kept for focused
+ * translate assertions that already hold projected lane offsets.
  */
 export function dividerTranslateForPreview(options: {
   kind: StructureDividerKind
   ids: readonly string[]
   previewIds: readonly string[]
   rolesById: ReadonlyMap<string, StructureLaneRole>
-  /** Original top (or left) of each lane, parallel to `ids`. */
   starts: readonly number[]
-  /** Original extent of each lane, parallel to `ids`. */
   extents: readonly number[]
-  /** Projected translate for each lane id. */
   offsets: ReadonlyMap<string, number>
 }): number {
-  const rolesFor = (order: readonly string[]) =>
-    order.map((id) => options.rolesById.get(id) ?? null)
-  const from = dividerAnchorIndex(options.kind, rolesFor(options.ids))
-  const to = dividerAnchorIndex(options.kind, rolesFor(options.previewIds))
-  if (from < 0 || to < 0) return 0
-  const indexById = new Map(options.ids.map((id, index) => [id, index]))
-  const endAfter = (order: readonly string[], anchor: number) => {
-    const id = order[anchor]!
-    const original = indexById.get(id)!
-    return (
-      options.starts[original]! +
-      options.extents[original]! +
-      (options.offsets.get(id) ?? 0)
-    )
-  }
-  // The original order has no projected offsets yet.
-  const originalEnd =
-    options.starts[from]! + options.extents[from]!
-  return endAfter(options.previewIds, to) - originalEnd
+  const dividerStarts = new Map<StructureDividerKind, number>()
+  const roles = options.ids.map((id) => options.rolesById.get(id) ?? null)
+  const from = dividerAnchorIndex(options.kind, roles)
+  if (from < 0) return 0
+  dividerStarts.set(
+    options.kind,
+    options.starts[from]! + options.extents[from]!,
+  )
+  const { dividerTranslates } = projectLaneDragPreview({
+    ids: options.ids,
+    previewIds: options.previewIds,
+    rolesById: options.rolesById,
+    starts: options.starts,
+    extents: options.extents,
+    dividerStarts,
+  })
+  return dividerTranslates.get(options.kind) ?? 0
 }
 
 /** Corridor nodes that decorate a lane row but are not the lane itself. */

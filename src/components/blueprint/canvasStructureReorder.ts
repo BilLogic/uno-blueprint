@@ -6,8 +6,8 @@ import {
 } from '@/lib/motion'
 import { getLaneRole } from '@/lib/laneRoles'
 import {
-  dividerTranslateForPreview,
   measureStructureParts,
+  projectLaneDragPreview,
   type StructureDividerKind,
   type StructureLaneRole,
 } from './canvasStructureDividerGeometry'
@@ -71,6 +71,8 @@ export function registerCanvasStructureReorder(
     ids: string[]
     indexById: Map<string, number>
     offsets: Map<string, number>
+    /** Measured divider tops at lift; lane previews share this with row offsets. */
+    dividerStarts: Map<StructureDividerKind, number>
     index: number
     target: number
     lifted: boolean
@@ -138,6 +140,7 @@ export function registerCanvasStructureReorder(
       ids: items.map((item) => item.id),
       indexById: new Map(items.map((item, index) => [item.id, index])),
       offsets: new Map(items.map((item) => [item.id, 0])),
+      dividerStarts: new Map(),
       index,
       target: index,
       lifted: false,
@@ -186,8 +189,14 @@ export function registerCanvasStructureReorder(
       for (const item of g.items)
         for (const part of item.parts) original.set(part, part.style.translate)
       if (g.kind === 'lane') {
-        for (const node of dividerNodes())
+        for (const node of dividerNodes()) {
           original.set(node, node.style.translate)
+          const kind = node.dataset.blueprintDivider as
+            | StructureDividerKind
+            | undefined
+          if (!kind || g.dividerStarts.has(kind)) continue
+          g.dividerStarts.set(kind, axis.start(node.getBoundingClientRect()))
+        }
       }
       frame = document.createElement('div')
       frame.dataset.structureLiftFrame = ''
@@ -211,20 +220,42 @@ export function registerCanvasStructureReorder(
       part.style.translate = axis.translate(delta / scale)
     if (g.target !== target) {
       g.target = target
-      // A target change projects once in linear time. Pointer movement within
-      // that slot reuses these offsets and never restarts the neighbour motion.
+      // A target change projects once. Pointer movement within that slot
+      // reuses these offsets and never restarts the neighbour motion.
       const ids = order(g.ids, g.index, target)
-      let cursor = axis.start(g.boxes[0])
-      for (const [index, id] of ids.entries()) {
-        const originalIndex = g.indexById.get(id)!
-        g.offsets.set(id, cursor - axis.start(g.boxes[originalIndex]))
-        const gap =
-          index < ids.length - 1
-            ? axis.start(g.boxes[index + 1]) -
-              axis.start(g.boxes[index]) -
-              axis.extent(g.boxes[index])
-            : 0
-        cursor += axis.extent(g.boxes[originalIndex]) + gap
+      let dividerTranslates = new Map<StructureDividerKind, number>()
+      if (g.kind === 'lane') {
+        // Lanes and semantic lines share one projected stack so a divider
+        // gap cannot stay glued to a slot while the line glides (or reverse).
+        const rolesById = new Map(
+          g.items.map((item) => [
+            item.id,
+            getLaneRole({ name: item.name, role: item.role }),
+          ]),
+        )
+        const preview = projectLaneDragPreview({
+          ids: g.ids,
+          previewIds: ids,
+          rolesById,
+          starts: g.boxes.map((entry) => axis.start(entry)),
+          extents: g.boxes.map((entry) => axis.extent(entry)),
+          dividerStarts: g.dividerStarts,
+        })
+        for (const [id, offset] of preview.laneOffsets) g.offsets.set(id, offset)
+        dividerTranslates = preview.dividerTranslates
+      } else {
+        let cursor = axis.start(g.boxes[0])
+        for (const [index, id] of ids.entries()) {
+          const originalIndex = g.indexById.get(id)!
+          g.offsets.set(id, cursor - axis.start(g.boxes[originalIndex]))
+          const gap =
+            index < ids.length - 1
+              ? axis.start(g.boxes[index + 1]) -
+                axis.start(g.boxes[index]) -
+                axis.extent(g.boxes[index])
+              : 0
+          cursor += axis.extent(g.boxes[originalIndex]) + gap
+        }
       }
       place(slot!, g.offsets.get(g.id)!, true)
       for (const [index, item] of g.items.entries()) {
@@ -236,39 +267,14 @@ export function registerCanvasStructureReorder(
         }
       }
       if (g.kind === 'lane') {
-        const rolesById = new Map(
-          g.items.map((item) => [
-            item.id,
-            getLaneRole({ name: item.name, role: item.role }),
-          ]),
-        )
-        const starts = g.boxes.map((entry) => axis.start(entry))
-        const extents = g.boxes.map((entry) => axis.extent(entry))
-        const byKind = new Map<StructureDividerKind, number>()
-        for (const kind of [
-          'interaction',
-          'visibility',
-          'internal-interaction',
-        ] as const) {
-          byKind.set(
-            kind,
-            dividerTranslateForPreview({
-              kind,
-              ids: g.ids,
-              previewIds: ids,
-              rolesById,
-              starts,
-              extents,
-              offsets: g.offsets,
-            }) / scale,
-          )
-        }
         for (const node of dividerNodes()) {
           const kind = node.dataset.blueprintDivider as
             | StructureDividerKind
             | undefined
-          if (!kind || !byKind.has(kind)) continue
-          const translate = axis.translate(byKind.get(kind)!)
+          if (!kind || !dividerTranslates.has(kind)) continue
+          const translate = axis.translate(
+            dividerTranslates.get(kind)! / scale,
+          )
           moves.get(node)?.stop()
           moves.set(node, animate(node, { translate }, motion))
         }

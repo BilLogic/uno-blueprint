@@ -569,6 +569,8 @@ canvas is not what renders.
 
 Reordering is available in Edit mode when exactly one stacked path is shown. Its step headers and lane labels carry a grip on hover or keyboard focus. A header press holds the current camera. Moving more than five screen pixels lifts its whole column or row along one axis; a dashed landing slot names the destination while the other items slide. Escape cancels the move. A press without movement keeps selection and double-click rename available. Alt with Left or Right moves a step; Alt with Up or Down moves a lane.
 
+During a lane drag the semantic dividers (line of interaction, line of visibility, line of internal interaction) share one projected stack with the rows: divider-sized gaps travel with their derived boundary, so the mid-drag board shows where each line will sit after the drop rather than leaving the original hole behind while the caption glides — or the reverse. Same-side swaps keep each line fixed; crossing a boundary moves that line with the same motion clock as neighbouring rows.
+
 A drop writes one path's complete identity permutation and records one session inverse. Undo restores the captured positions and refuses a path that has changed since that drop. Merged, read mode, several visible paths and an open create draft withhold the grips. Both kinds reorder the displayed path's own identities.
 
 An insertion animates the real grid track and the panel's offset from the same extent on the structural duration and move curve. Dependency arrows fade while their endpoints move and reroute at rest; obstacle routing must not block each animation frame. Reduced motion commits the geometry immediately.

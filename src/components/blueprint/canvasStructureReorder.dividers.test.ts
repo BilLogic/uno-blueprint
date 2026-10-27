@@ -128,8 +128,9 @@ it('moves the line of interaction by one lane height when a lane crosses it', ()
   })
   items[2].parts[0].dispatchEvent(pointer('pointerdown', 250))
   document.dispatchEvent(pointer('pointermove', 380))
-  // One lane extent (100) plus the 28px gap the line occupied between boxes.
-  expect(nodes[0].style.translate).toBe('0px 128px')
+  // One lane extent: the divider gap travels with the line under the last
+  // recipient instead of leaving a hole between frontstage and that lane.
+  expect(nodes[0].style.translate).toBe('0px 100px')
   const glide = vi
     .mocked(animate)
     .mock.calls.find(([node]) => node === nodes[0])
@@ -178,7 +179,7 @@ it('restores divider start positions on cancel', () => {
   })
   items[2].parts[0].dispatchEvent(pointer('pointerdown', 250))
   document.dispatchEvent(pointer('pointermove', 380))
-  expect(nodes[0].style.translate).toBe('0px 128px')
+  expect(nodes[0].style.translate).toBe('0px 100px')
   items[2].parts[0].dispatchEvent(
     new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
   )

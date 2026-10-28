@@ -345,8 +345,14 @@ it('scopes Add-to-paths to the insert band and auto-picks a band role', async ()
   expect(screen.getByRole('button', { name: 'Move Claude in the IDE in Default' })).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Move Journey figures in Default' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Move Subagent fleet in Default' })).toBeNull()
-  // Narrow frontstage band auto-defaults the role.
+  // Narrow frontstage band auto-defaults the role (full band, not intersected).
   expect(screen.getByRole('combobox', { name: 'Role' }).textContent).toMatch(
     /Frontstage touchpoints|Frontstage/,
   )
+  fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Role' }), {
+    button: 0,
+  })
+  expect(
+    await screen.findAllByRole('option', { name: /Frontstage/ }),
+  ).toHaveLength(2)
 })

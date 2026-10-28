@@ -48,7 +48,10 @@ export function PathOrderSection({
   unavailable?: Record<string, string>
   label?: string
   required?: boolean
-  sectionForOrder?: (order: string[]) => PathOrderSectionRail | null
+  sectionForOrder?: (
+    path: OrderPath,
+    order: string[],
+  ) => PathOrderSectionRail | null
 }) {
   const requirementId=useId()
   const unticked = useRef(new Map<string, PathOrder>())
@@ -185,7 +188,8 @@ export function PathOrderSection({
               {entry ? (
                 <div id={`path-order-${path.id}`} className="px-1 pb-3">
                   {(() => {
-                    const rail = sectionForOrder?.(entry.order) ?? null
+                    const rail =
+                      sectionForOrder?.(path, entry.order) ?? null
                     const visible = rail
                       ? entry.order.slice(rail.start, rail.end + 1)
                       : entry.order

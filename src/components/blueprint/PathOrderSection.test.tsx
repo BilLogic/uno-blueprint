@@ -137,7 +137,7 @@ it('scopes the order rail to a section window with divider labels', () => {
       onChange={() => {}}
       item={{ id: 'new', name: 'Review' }}
       defaultOrder={() => []}
-      sectionForOrder={() => ({
+      sectionForOrder={(_path, _order) => ({
         start: 1,
         end: 2,
         lineAbove: 'Line of interaction',

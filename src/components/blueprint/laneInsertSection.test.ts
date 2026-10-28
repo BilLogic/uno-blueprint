@@ -14,16 +14,31 @@ import {
   VISIBILITY_LINE_LABEL,
 } from '@/lib/blueprintLayout'
 
-it('scopes a frontstage insert to LoI–LoV with only frontstage roles', () => {
-  const order = ['story', 'customer', 'new', 'touch', 'front', 'back', 'support']
+const BOARD = () => {
+  const order = [
+    'story',
+    'customer',
+    'touch',
+    'front',
+    'backTouch',
+    'back',
+    'support',
+  ]
   const roles = new Map<string, string | null>([
     ['story', STORYBOARD_ROLE],
     ['customer', CUSTOMER_ACTIONS_ROLE],
     ['touch', FRONTSTAGE_TOUCHPOINTS_ROLE],
     ['front', FRONTSTAGE_ACTIONS_ROLE],
+    ['backTouch', 'backstage_touchpoints'],
     ['back', BACKSTAGE_ACTIONS_ROLE],
     ['support', SUPPORT_ACTIONS_ROLE],
   ])
+  return { order, roles }
+}
+
+it('scopes a frontstage insert to LoI–LoV with the full frontstage role band', () => {
+  const { order: base, roles } = BOARD()
+  const order = ['story', 'customer', 'new', 'touch', 'front', 'backTouch', 'back', 'support']
   const section = laneInsertSectionForOrder(order, roles, 'new')
   expect(order.slice(section.start, section.end + 1)).toEqual([
     'new',
@@ -32,6 +47,72 @@ it('scopes a frontstage insert to LoI–LoV with only frontstage roles', () => {
   ])
   expect(section.lineAbove).toBe(INTERACTION_LINE_LABEL)
   expect(section.lineBelow).toBe(VISIBILITY_LINE_LABEL)
+  expect(section.allowedRoles).toEqual([
+    FRONTSTAGE_TOUCHPOINTS_ROLE,
+    FRONTSTAGE_ACTIONS_ROLE,
+  ])
+})
+
+it('keeps a draft parked last in frontstage from jumping into backstage', () => {
+  const { roles } = BOARD()
+  const order = [
+    'story',
+    'customer',
+    'touch',
+    'front',
+    'new',
+    'backTouch',
+    'back',
+    'support',
+  ]
+  const section = laneInsertSectionForOrder(order, roles, 'new', {
+    lock: {
+      lineAbove: INTERACTION_LINE_LABEL,
+      lineBelow: VISIBILITY_LINE_LABEL,
+    },
+  })
+  expect(order.slice(section.start, section.end + 1)).toEqual([
+    'touch',
+    'front',
+    'new',
+  ])
+  expect(section.lineAbove).toBe(INTERACTION_LINE_LABEL)
+  expect(section.lineBelow).toBe(VISIBILITY_LINE_LABEL)
+})
+
+it('seats the handle above a divider in the preceding band', () => {
+  const { roles } = BOARD()
+  // Same splice as “above first frontstage lane”, opposite band.
+  const order = [
+    'story',
+    'customer',
+    'new',
+    'touch',
+    'front',
+    'backTouch',
+    'back',
+    'support',
+  ]
+  const section = laneInsertSectionForOrder(order, roles, 'new', {
+    beforeDivider: true,
+  })
+  expect(order.slice(section.start, section.end + 1)).toEqual([
+    'story',
+    'customer',
+    'new',
+  ])
+  expect(section.lineAbove).toBeNull()
+  expect(section.lineBelow).toBe(INTERACTION_LINE_LABEL)
+})
+
+it('offers every band role even when only one is already present', () => {
+  const order = ['customer', 'new', 'touch', 'back']
+  const roles = new Map<string, string | null>([
+    ['customer', CUSTOMER_ACTIONS_ROLE],
+    ['touch', FRONTSTAGE_TOUCHPOINTS_ROLE],
+    ['back', BACKSTAGE_ACTIONS_ROLE],
+  ])
+  const section = laneInsertSectionForOrder(order, roles, 'new')
   expect(section.allowedRoles).toEqual([
     FRONTSTAGE_TOUCHPOINTS_ROLE,
     FRONTSTAGE_ACTIONS_ROLE,

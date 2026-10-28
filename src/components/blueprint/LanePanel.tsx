@@ -5,7 +5,7 @@ import {
   useStructureCreatePaths,
   NEW_STRUCTURE_ITEM,
 } from '@/hooks/useStructureCreatePaths'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -195,16 +195,34 @@ function LanePanelBody({
   const clickedPath =
     paths.paths.find((path) => path.id === paths.clickedPathId) ??
     paths.paths[0]
+  const bandLock = useRef<{
+    lineAbove: string | null
+    lineBelow: string | null
+  } | null>(null)
+  useEffect(() => {
+    bandLock.current = null
+  }, [draft?.scenarioId, draft?.pathId, draft?.atPosition, draft?.beforeDivider])
   const insertSection = useMemo(() => {
     if (!draft || !clickedOrder || !clickedPath) return null
     const roleById = new Map(
       clickedPath.items.map((row) => [row.id, row.role ?? null] as const),
     )
-    return laneInsertSectionForOrder(
+    const section = laneInsertSectionForOrder(
       clickedOrder,
       roleById,
       NEW_STRUCTURE_ITEM,
+      {
+        beforeDivider: draft.beforeDivider,
+        lock: bandLock.current ?? undefined,
+      },
     )
+    if (!bandLock.current) {
+      bandLock.current = {
+        lineAbove: section.lineAbove,
+        lineBelow: section.lineBelow,
+      }
+    }
+    return section
   }, [draft, clickedOrder, clickedPath])
   const roleOptions = insertSection?.allowedRoles ?? CANONICAL_LANE_ROLES
   useEffect(() => {
@@ -406,22 +424,20 @@ function LanePanelBody({
               defaultOrder={paths.defaultOrder}
               sectionForOrder={
                 insertSection
-                  ? (order) => {
-                      const roleById = new Map(
-                        (
-                          paths.paths.find(
-                            (path) => path.id === paths.clickedPathId,
-                          ) ?? paths.paths[0]
-                        )?.items.map(
-                          (row) => [row.id, row.role ?? null] as const,
-                        ) ?? [],
-                      )
-                      return laneInsertSectionForOrder(
+                  ? (path, order) =>
+                      laneInsertSectionForOrder(
                         order,
-                        roleById,
+                        new Map(
+                          path.items.map(
+                            (row) => [row.id, row.role ?? null] as const,
+                          ),
+                        ),
                         NEW_STRUCTURE_ITEM,
+                        {
+                          beforeDivider: draft?.beforeDivider,
+                          lock: bandLock.current ?? undefined,
+                        },
                       )
-                    }
                   : undefined
               }
               item={{

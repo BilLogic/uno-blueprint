@@ -4,6 +4,7 @@
  */
 import {
   dividerAnchorIndex,
+  laneSectionBounds,
   sectionRangeForIndex,
   type StructureDividerKind,
   type StructureLaneRole,
@@ -49,6 +50,21 @@ export type LaneInsertSection = {
   lineAbove: string | null
   lineBelow: string | null
   allowedRoles: readonly CanonicalLaneRole[]
+}
+
+/** Optional seating hints for an ambiguous gap between two bands. */
+export type LaneInsertSectionOptions = {
+  /**
+   * True when the draft opened from the handle above a semantic divider
+   * (still in the section above the line). Same splice index as “above the
+   * first lane below”, but the opposite band.
+   */
+  beforeDivider?: boolean
+  /**
+   * Keep this band when the draft seat slides to a cross-band edge during
+   * in-panel reorder — otherwise the following-lane seat jumps the rail.
+   */
+  lock?: { lineAbove: string | null; lineBelow: string | null }
 }
 
 /**
@@ -102,6 +118,62 @@ function rolesForBand(
 }
 
 /**
+ * Seat among existing lanes for the insert gap.
+ *
+ * Cross-band gaps need `beforeDivider`: the handle above a line stays with
+ * the preceding band; the handle on the first lane below joins that band.
+ *
+ * @param existingRoles - Roles of every lane except the draft seat.
+ * @param insertAmongExisting - Splice index among those lanes.
+ * @param beforeDivider - Draft opened above a semantic divider.
+ */
+function seatAmongExisting(
+  existingRoles: readonly StructureLaneRole[],
+  insertAmongExisting: number,
+  beforeDivider: boolean,
+): number {
+  if (existingRoles.length === 0) return 0
+  if (insertAmongExisting <= 0) return 0
+  if (insertAmongExisting >= existingRoles.length)
+    return existingRoles.length - 1
+  const preceding = insertAmongExisting - 1
+  const prev = sectionRangeForIndex(existingRoles, preceding)
+  const next = sectionRangeForIndex(existingRoles, insertAmongExisting)
+  const crossBand =
+    prev.start !== next.start || prev.end !== next.end
+  if (!crossBand) return preceding
+  return beforeDivider ? preceding : insertAmongExisting
+}
+
+/**
+ * Remap a locked band onto the current existing-role list.
+ *
+ * @param existingRoles - Roles without the draft id.
+ * @param lock - Line labels from the section that opened the draft.
+ */
+function sectionForLock(
+  existingRoles: readonly StructureLaneRole[],
+  lock: { lineAbove: string | null; lineBelow: string | null },
+): { start: number; end: number } | null {
+  if (existingRoles.length === 0) return { start: 0, end: 0 }
+  for (const section of laneSectionBounds(existingRoles)) {
+    const above =
+      section.start > 0
+        ? dividerKindAfter(existingRoles, section.start - 1)
+        : null
+    const below =
+      section.end < existingRoles.length - 1
+        ? dividerKindAfter(existingRoles, section.end)
+        : null
+    const lineAbove = above ? DIVIDER_LABEL[above] : null
+    const lineBelow = below ? DIVIDER_LABEL[below] : null
+    if (lineAbove === lock.lineAbove && lineBelow === lock.lineBelow)
+      return section
+  }
+  return null
+}
+
+/**
  * Section window around a new lane in one path's draft order.
  *
  * Computed from the existing lanes' divider geometry, then expanded to include
@@ -110,11 +182,13 @@ function rolesForBand(
  * @param order - Full identity order including the new-item id.
  * @param roleById - Role (or null) for each existing lane id.
  * @param newId - Id of the unwritten lane in `order`.
+ * @param options - Divider-side seating and optional band lock.
  */
 export function laneInsertSectionForOrder(
   order: readonly string[],
   roleById: ReadonlyMap<string, StructureLaneRole>,
   newId: string,
+  options?: LaneInsertSectionOptions,
 ): LaneInsertSection {
   const newIndex = order.indexOf(newId)
   if (newIndex < 0 || order.length === 0) {
@@ -133,14 +207,18 @@ export function laneInsertSectionForOrder(
   const insertAmongExisting = following
     ? existing.indexOf(following)
     : existing.length
-  const seat =
-    insertAmongExisting < existing.length
-      ? insertAmongExisting
-      : Math.max(0, existing.length - 1)
+  const seat = seatAmongExisting(
+    existingRoles,
+    insertAmongExisting,
+    Boolean(options?.beforeDivider),
+  )
   const section =
     existing.length === 0
       ? { start: 0, end: 0 }
-      : sectionRangeForIndex(existingRoles, seat)
+      : options?.lock
+        ? (sectionForLock(existingRoles, options.lock) ??
+          sectionRangeForIndex(existingRoles, seat))
+        : sectionRangeForIndex(existingRoles, seat)
 
   const sectionIds = new Set(
     existing.length === 0
@@ -171,8 +249,10 @@ export function laneInsertSectionForOrder(
     if (role) present.add(role as CanonicalLaneRole)
   }
   const band = rolesForBand(aboveKind, belowKind)
+  // Full band vocabulary — a frontstage with only touchpoints must still
+  // offer frontstage actions. Out-of-band present roles stay available too.
   const allowedRoles = [
-    ...band.filter((role) => present.size === 0 || present.has(role)),
+    ...band,
     ...[...present].filter((role) => !band.includes(role)),
   ]
 
@@ -181,6 +261,6 @@ export function laneInsertSectionForOrder(
     end,
     lineAbove: aboveKind ? DIVIDER_LABEL[aboveKind] : null,
     lineBelow: belowKind ? DIVIDER_LABEL[belowKind] : null,
-    allowedRoles: allowedRoles.length > 0 ? allowedRoles : band,
+    allowedRoles,
   }
 }

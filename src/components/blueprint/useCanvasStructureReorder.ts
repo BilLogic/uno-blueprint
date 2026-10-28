@@ -13,6 +13,20 @@ import { reportWriteFailure, reportWriteSuccess } from '@/lib/writeFailures'
 import type { BlueprintData } from '@/types/blueprint'
 import { registerCanvasStructureReorder } from './canvasStructureReorder'
 
+/*
+ * Drop handoff, so the moved item never paints at its old seat:
+ * - the destination preview stays parked while the optimistic cache update
+ *   below notifies its readers;
+ * - a layout effect clears the offsets only once the new order commits,
+ *   before that frame paints, and a lost pointer capture after a completed
+ *   drop does not cancel it;
+ * - routing corridors keep their layout space: the interaction boundary's
+ *   lower gap belongs to the destination seat, while overhead and in-lane
+ *   loop space travel with the lane;
+ * - `reorder_lanes` / `reorder_steps` invalidate the other structure reads
+ *   without refetching this optimistic board.
+ */
+
 /**
  * Patch every cached canvas-blueprint query that holds `pathId` so the board
  * paints the dropped order before the RPC refetch returns.

@@ -220,14 +220,6 @@ export function registerCanvasStructureReorder(
   const showLanding = () => {
     if (slot) slot.style.opacity = ''
   }
-  const order = (
-    ids: string[],
-    from: number,
-    to: number,
-    section: LaneSectionRange,
-  ) => orderWithinSection(ids, from, to, section)
-  const bounds = (parts: HTMLElement[], kind: Kind) =>
-    measureStructureParts(parts, kind)
   const dividerNodes = () =>
     Array.from(
       board.querySelectorAll<HTMLElement>('[data-blueprint-divider]'),
@@ -276,7 +268,7 @@ export function registerCanvasStructureReorder(
       kind === 'lane'
         ? sectionRangeForIndex(roles, index)
         : { start: 0, end: items.length - 1 }
-    const boxes = items.map((item) => bounds(item.parts, kind))
+    const boxes = items.map((item) => measureStructureParts(item.parts, kind))
     const axis = AXES[kind]
     let legalStart = axis.start(boxes[section.start]!)
     let legalEnd =
@@ -418,7 +410,7 @@ export function registerCanvasStructureReorder(
     }, seed)
     if (g.target !== target) {
       g.target = target
-      const ids = order(g.ids, g.index, target, g.section)
+      const ids = orderWithinSection(g.ids, g.index, target, g.section)
       const packed = packAxisOffsets({
         ids: g.ids,
         previewIds: ids,
@@ -506,7 +498,7 @@ export function registerCanvasStructureReorder(
         options.save(
           g.kind,
           g.id,
-          order(
+          orderWithinSection(
             g.items.map((item) => item.id),
             g.index,
             g.target,
@@ -575,7 +567,7 @@ export function registerCanvasStructureReorder(
     options.save(
       kind,
       items[index]!.id,
-      order(
+      orderWithinSection(
         items.map((item) => item.id),
         index,
         target,

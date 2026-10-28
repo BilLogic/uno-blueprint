@@ -1304,13 +1304,31 @@
   z-index: 1;
 }
 [data-structure-highlight='label']:not([data-open]) {
-  background-color: transparent;
+  /* Kill CANVAS_HEADER_STATE hover/open fills — ::before is the one wash. */
+  background-color: transparent !important;
   @apply rounded-md;
+}
+[data-structure-highlight='label']:not([data-open]):hover {
+  background-color: transparent !important;
 }
 [data-structure-highlight='label']:not([data-open])::before {
   background: color-mix(in oklch, var(--foreground) 5%, transparent);
 }
 [data-structure-header-cell][data-open]::before {
+  background: color-mix(in oklch, var(--foreground) 7%, transparent);
+  box-shadow: inset 0 0 0 2px color-mix(in oklch, var(--foreground) 30%, transparent);
+}
+/* Step headers wear CANVAS_HEADER_STATE rings; keep one wash via ::before only. */
+[data-blueprint-column-header][data-structure-highlight='label'][data-open] {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+[data-blueprint-column-header][data-structure-highlight='label'][data-open]::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: inherit;
+  pointer-events: none;
   background: color-mix(in oklch, var(--foreground) 7%, transparent);
   box-shadow: inset 0 0 0 2px color-mix(in oklch, var(--foreground) 30%, transparent);
 }
@@ -1332,7 +1350,8 @@
   background: color-mix(in oklch, var(--foreground) 5%, transparent);
   @apply rounded-md;
   pointer-events: none;
-  z-index: 1;
+  /* Above row/cell fills so empty tracks stay washed; below sticky labels (z-40). */
+  z-index: 20;
 }
 [data-order-row]:has(button:focus-visible) [data-order-card] {
   outline: 1px solid var(--ring);
@@ -1355,10 +1374,75 @@
 [data-canvas-reorder] [data-structure-reorder] { cursor: grab; touch-action: none; }
 [data-canvas-reorder] [data-structure-reorder]:is(:hover, :focus-visible) [data-structure-grip] { display: block; }
 [data-blueprint-row-header]:has([data-structure-grip]) { padding-left: 1.25rem; }
-[data-structure-lift] { position: relative; z-index: 50; cursor: grabbing; }
+[data-structure-lift] { position: relative; z-index: 50; cursor: grabbing; transition: none; }
+/* Neighbour settle preview — same translate write as the lift, with CSS glide. */
+[data-structure-reordering] :is(
+  [data-blueprint-row],
+  [data-structure-lane-label],
+  [data-blueprint-column-header],
+  [data-step-index]
+):not([data-structure-lift]) {
+  transition: translate var(--motion-structural, 320ms) var(--ease-move, ease);
+}
+/*
+  Post-drop commit: kill the glide so clearing parked translates cannot ease
+  back through the old seats while React rewrites the order (the back-and-forth).
+*/
+[data-structure-settling] :is(
+  [data-blueprint-row],
+  [data-structure-lane-label],
+  [data-blueprint-column-header],
+  [data-step-index]
+) {
+  transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-structure-reordering] :is(
+    [data-blueprint-row],
+    [data-structure-lane-label],
+    [data-blueprint-column-header],
+    [data-step-index]
+  ):not([data-structure-lift]) {
+    transition: none;
+  }
+}
 [data-structure-lift-frame], [data-structure-landing] { position: absolute; pointer-events: none; @apply rounded-md; }
 [data-structure-lift-frame] { z-index: 50; border: var(--structure-highlight-stroke, 1px) solid var(--primary); @apply shadow-md; }
+/* Wide lane frames: shadow next to the stroke read as a second outline. */
+[data-structure-lift-frame='lane'] { box-shadow: none; }
 [data-structure-landing] { z-index: 1; border: var(--structure-highlight-stroke, 1px) dashed var(--border-primary); background: var(--wash-primary); }
+/*
+  One chrome during reorder. Selected / hover content-band rings on the lane
+  header would sit inside the lift frame and read as a double line; the axis
+  wash would stack under the landing slot. Steps avoid this because their
+  header box IS the frame's top — lanes use a separate inset wash.
+*/
+[data-structure-reordering][data-axis-highlight]::after { opacity: 0; }
+[data-structure-reordering] [data-structure-highlight='label']::before,
+[data-structure-reordering] [data-structure-header-cell]::before,
+[data-structure-reordering] [data-structure-header-cell]::after {
+  opacity: 0 !important;
+}
+[data-structure-reordering] [data-structure-header-cell][data-open],
+[data-structure-reordering] [data-blueprint-column-header][data-open] {
+  background-color: transparent;
+  box-shadow: none;
+}
+/* Past a fixed semantic line: ban cursor, muted landing, no new seat. */
+[data-structure-reordering][data-structure-ban],
+[data-structure-reordering][data-structure-ban] [data-structure-lift] {
+  cursor: not-allowed;
+}
+[data-structure-landing][data-structure-landing-ban] {
+  border-color: var(--destructive, #b42318);
+  background: color-mix(in srgb, var(--destructive, #b42318) 10%, transparent);
+  opacity: 0.35;
+}
+/* Foreign sections dim only after the drag has lifted. */
+[data-structure-reordering] [data-structure-foreign] {
+  opacity: 0.4;
+  filter: grayscale(0.35);
+}
 
 /* Route once after structural motion rather than blocking every frame with obstacle routing. */
 [data-blueprint-arrows] { transition: opacity var(--motion-micro) var(--ease-move); }
@@ -1376,7 +1460,7 @@
 [data-canvas-reorder-global] [data-blueprint-column-header]:is(:hover, :focus-within) [data-structure-grip],
 [data-canvas-reorder] [data-structure-highlight='label'] [data-structure-grip] { display: block; }
 [data-structure-reordering] [data-blueprint-arrows] { opacity: 0; }
-/* Corridors decorate the derived boundary; they must not ride a translated lane. */
+/* Corridors decorate the derived boundary; collapse so they do not ride a translated lane. */
 [data-structure-reordering] :is(
   [data-blueprint-wrap-corridor],
   [data-blueprint-rail-corridor],

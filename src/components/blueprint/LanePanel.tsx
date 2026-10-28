@@ -5,7 +5,7 @@ import {
   useStructureCreatePaths,
   NEW_STRUCTURE_ITEM,
 } from '@/hooks/useStructureCreatePaths'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,6 +33,7 @@ import {
   updateLaneWithDetails,
 } from '@/lib/authoringRpc'
 import { OptionSelect } from './OptionSelect'
+import { laneInsertSectionForOrder } from './laneInsertSection'
 import { CANONICAL_LANE_ROLES } from '@/lib/laneRoles'
 import { describeLaneRole, getLaneRole, labelLaneRole } from '@/lib/laneRoles'
 import { getBlueprintLaneStyle } from '@/lib/blueprintTheme'
@@ -188,6 +189,36 @@ function LanePanelBody({
   } | null>(null)
   const paths = useStructureCreatePaths(draft, form.name, form.laneRole)
   const footerHost = usePanelFooterHost(LANE_PANEL_FOOTER_ID)
+  const clickedOrder =
+    paths.value.find((entry) => entry.pathId === paths.clickedPathId)?.order ??
+    paths.value[0]?.order
+  const clickedPath =
+    paths.paths.find((path) => path.id === paths.clickedPathId) ??
+    paths.paths[0]
+  const insertSection = useMemo(() => {
+    if (!draft || !clickedOrder || !clickedPath) return null
+    const roleById = new Map(
+      clickedPath.items.map((row) => [row.id, row.role ?? null] as const),
+    )
+    return laneInsertSectionForOrder(
+      clickedOrder,
+      roleById,
+      NEW_STRUCTURE_ITEM,
+    )
+  }, [draft, clickedOrder, clickedPath])
+  const roleOptions = insertSection?.allowedRoles ?? CANONICAL_LANE_ROLES
+  useEffect(() => {
+    if (!draft || !insertSection?.allowedRoles.length) return
+    const allowed = insertSection.allowedRoles
+    // Only auto-pick inside a known band. An undivided / empty draft still
+    // asks the author to choose — the full vocabulary is not a default.
+    if (allowed.length >= CANONICAL_LANE_ROLES.length) return
+    setForm((current) => {
+      if (current.laneRole && allowed.includes(current.laneRole as never))
+        return current
+      return { ...current, laneRole: allowed[0]! }
+    })
+  }, [draft, insertSection])
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((current) => ({ ...current, [key]: value }))
@@ -346,7 +377,7 @@ function LanePanelBody({
                 onChange={(value) => set('laneRole', value)}
                 options={[
                   { value: '', label: 'Choose a role' },
-                  ...CANONICAL_LANE_ROLES.map((role) => ({
+                  ...roleOptions.map((role) => ({
                     value: role,
                     label: labelLaneRole(role),
                     meaning: describeLaneRole(role),
@@ -373,6 +404,26 @@ function LanePanelBody({
               value={paths.value}
               onChange={paths.onChange}
               defaultOrder={paths.defaultOrder}
+              sectionForOrder={
+                insertSection
+                  ? (order) => {
+                      const roleById = new Map(
+                        (
+                          paths.paths.find(
+                            (path) => path.id === paths.clickedPathId,
+                          ) ?? paths.paths[0]
+                        )?.items.map(
+                          (row) => [row.id, row.role ?? null] as const,
+                        ) ?? [],
+                      )
+                      return laneInsertSectionForOrder(
+                        order,
+                        roleById,
+                        NEW_STRUCTURE_ITEM,
+                      )
+                    }
+                  : undefined
+              }
               item={{
                 id: NEW_STRUCTURE_ITEM,
                 name: form.name.trim() || 'New lane',

@@ -6,9 +6,23 @@ import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 import { EASE_POINTS, MOTION_MICRO_MS } from '@/lib/motion'
 
-export type OrderItem = { id: string; name: string; position?: number }
+export type OrderItem = {
+  id: string
+  name: string
+  position?: number
+  /** Semantic lane role when this rail is a lane create draft. */
+  role?: string | null
+}
 export type OrderPath = { id: string; name: string; items: OrderItem[] }
 export type PathOrder = { pathId: string; order: string[]; moved: string[] }
+
+/** Bounding lines + visible slice for a section-scoped lane create rail. */
+export type PathOrderSectionRail = {
+  start: number
+  end: number
+  lineAbove: string | null
+  lineBelow: string | null
+}
 
 /** One controlled path membership and order editor, shared by structure panels. */
 export function PathOrderSection({
@@ -20,6 +34,11 @@ export function PathOrderSection({
   unavailable = {},
   label = 'Add to paths',
   required = false,
+  /**
+   * When set (lane create), the rail shows only this section of `order`, with
+   * the bounding division lines labelled — not the whole path stack.
+   */
+  sectionForOrder,
 }: {
   paths: OrderPath[]
   value: PathOrder[]
@@ -29,6 +48,7 @@ export function PathOrderSection({
   unavailable?: Record<string, string>
   label?: string
   required?: boolean
+  sectionForOrder?: (order: string[]) => PathOrderSectionRail | null
 }) {
   const requirementId=useId()
   const unticked = useRef(new Map<string, PathOrder>())
@@ -164,44 +184,89 @@ export function PathOrderSection({
             <CollapsibleContent className="duration-(--motion-fade) ease-arrive">
               {entry ? (
                 <div id={`path-order-${path.id}`} className="px-1 pb-3">
-                  <Reorder.Group
-                    axis="y"
-                    values={entry.order}
-                    onReorder={(order) => {
-                      changeOrder(path.id, order, dragging.current)
-                    }}
-                    className="relative ml-1 space-y-1 before:absolute before:bottom-3 before:left-2 before:top-3 before:w-px before:bg-border"
-                  >
-                    {entry.order.map((id, index) => (
-                      <RailRow
-                        key={id}
-                        id={id}
-                        name={
-                          id === item.id
-                            ? item.name
-                            : path.items.find((row) => row.id === id)?.name ??
-                              ''
-                        }
-                        pathName={path.name}
-                        current={id === item.id}
-                        moved={entry.moved.includes(id)}
-                        onDrag={() => {
-                          dragging.current = id
-                        }}
-                        onDragEnd={() => {
-                          dragging.current = undefined
-                        }}
-                        onMove={(direction) => {
-                          const target = index + direction
-                          if (target < 0 || target >= entry.order.length) return
-                          const next = [...entry.order]
-                          next.splice(index, 1)
-                          next.splice(target, 0, id)
-                          changeOrder(path.id, next, id)
-                        }}
-                      />
-                    ))}
-                  </Reorder.Group>
+                  {(() => {
+                    const rail = sectionForOrder?.(entry.order) ?? null
+                    const visible = rail
+                      ? entry.order.slice(rail.start, rail.end + 1)
+                      : entry.order
+                    return (
+                      <>
+                        {rail?.lineAbove ? (
+                          <p className="mb-2 pl-6 text-[10px] uppercase tracking-wide text-muted-foreground">
+                            {rail.lineAbove}
+                          </p>
+                        ) : null}
+                        <Reorder.Group
+                          axis="y"
+                          values={visible}
+                          onReorder={(nextVisible) => {
+                            if (!rail) {
+                              changeOrder(
+                                path.id,
+                                nextVisible,
+                                dragging.current,
+                              )
+                              return
+                            }
+                            const next = [...entry.order]
+                            next.splice(
+                              rail.start,
+                              rail.end - rail.start + 1,
+                              ...nextVisible,
+                            )
+                            changeOrder(path.id, next, dragging.current)
+                          }}
+                          className="relative ml-1 space-y-1 before:absolute before:bottom-3 before:left-2 before:top-3 before:w-px before:bg-border"
+                        >
+                          {visible.map((id, index) => (
+                            <RailRow
+                              key={id}
+                              id={id}
+                              name={
+                                id === item.id
+                                  ? item.name
+                                  : path.items.find((row) => row.id === id)
+                                      ?.name ?? ''
+                              }
+                              pathName={path.name}
+                              current={id === item.id}
+                              moved={entry.moved.includes(id)}
+                              onDrag={() => {
+                                dragging.current = id
+                              }}
+                              onDragEnd={() => {
+                                dragging.current = undefined
+                              }}
+                              onMove={(direction) => {
+                                const target = index + direction
+                                if (target < 0 || target >= visible.length)
+                                  return
+                                const nextVisible = [...visible]
+                                nextVisible.splice(index, 1)
+                                nextVisible.splice(target, 0, id)
+                                if (!rail) {
+                                  changeOrder(path.id, nextVisible, id)
+                                  return
+                                }
+                                const next = [...entry.order]
+                                next.splice(
+                                  rail.start,
+                                  rail.end - rail.start + 1,
+                                  ...nextVisible,
+                                )
+                                changeOrder(path.id, next, id)
+                              }}
+                            />
+                          ))}
+                        </Reorder.Group>
+                        {rail?.lineBelow ? (
+                          <p className="mt-2 pl-6 text-[10px] uppercase tracking-wide text-muted-foreground">
+                            {rail.lineBelow}
+                          </p>
+                        ) : null}
+                      </>
+                    )
+                  })()}
                   {entry.moved.length ? (
                     <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                       <span>{entry.moved.length} moved</span>

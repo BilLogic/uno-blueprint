@@ -34,7 +34,6 @@ import {
   BLUEPRINT_SLOT_INSET_COMPACT,
   CANVAS_HEADER_TEXT,
 } from '@/lib/canvasHeaderStyle'
-import { getLaneRole, STORYBOARD_ROLE } from '@/lib/laneRoles'
 import { cn } from '@/lib/utils'
 import type { BlueprintLane } from '@/types/blueprint'
 import type { CSSProperties } from 'react'
@@ -362,6 +361,7 @@ export function BlueprintLabelRow({
       {corridorAbove > 0 && (
         <div
           aria-hidden
+          data-blueprint-rail-corridor="above"
           className="shrink-0"
           style={{ height: corridorAbove }}
         />
@@ -369,6 +369,7 @@ export function BlueprintLabelRow({
       {inLaneLoopCorridorAbove > 0 && (
         <div
           aria-hidden
+          data-blueprint-loop-corridor="above"
           className="shrink-0"
           style={{ height: inLaneLoopCorridorAbove }}
         />
@@ -397,14 +398,10 @@ export function BlueprintLabelRow({
             onClick={selectLane}
             data-structure-header-title=""
             data-open={selection?.kind === 'lane' && selection.id === laneId ? '' : undefined}
-            // Storyboard is structural artwork for the strip — it stays put.
-            // Actor / service lanes reorder around it.
-            {...(getLaneRole(row.lane!) === STORYBOARD_ROLE
-              ? {}
-              : {
-                  'data-structure-reorder': 'lane' as const,
-                  'data-structure-id': row.lane!.id,
-                })}
+            // Every lane header reorders inside its section (between fixed
+            // semantic lines), including the storyboard strip.
+            data-structure-reorder="lane"
+            data-structure-id={row.lane!.id}
             data-blueprint-row-header=""
             className={cn(
               CANVAS_HEADER_TEXT,
@@ -461,6 +458,7 @@ export function BlueprintLabelRow({
       {corridorBelow > 0 && (
         <div
           aria-hidden
+          data-blueprint-wrap-corridor="below"
           className="shrink-0"
           style={{ height: corridorBelow }}
         />

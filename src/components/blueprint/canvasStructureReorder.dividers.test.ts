@@ -1,7 +1,5 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
-import { animate } from 'framer-motion'
-import * as motion from '@/lib/motion'
 import {
   CUSTOMER_ACTIONS_ROLE,
   FRONTSTAGE_ACTIONS_ROLE,
@@ -104,14 +102,14 @@ it('keeps both lines fixed when two recipient lanes swap', () => {
     scale: () => 1,
     save: vi.fn(),
   })
-  items[1].parts[0].dispatchEvent(pointer('pointerdown', 150))
+  items[1]!.parts[0]!.dispatchEvent(pointer('pointerdown', 150))
   document.dispatchEvent(pointer('pointermove', 250))
-  expect(nodes[0].style.translate).toBe('0px 0px')
-  expect(nodes[1].style.translate).toBe('0px 0px')
+  expect(nodes[0]!.style.translate).toBe('0px 0px')
+  expect(nodes[1]!.style.translate).toBe('0px 0px')
   dispose()
 })
 
-it('moves the line of interaction by one lane height when a lane crosses it', () => {
+it('keeps the line fixed when the pointer tries to cross it', () => {
   const { body, items, nodes } = mountBoard(
     [
       { id: 'r1', role: CUSTOMER_ACTIONS_ROLE, top: 0, height: 100 },
@@ -121,23 +119,28 @@ it('moves the line of interaction by one lane height when a lane crosses it', ()
     ],
     [{ kind: 'interaction', top: 300 }],
   )
+  const save = vi.fn()
   const dispose = registerCanvasStructureReorder(body, {
     items: () => items,
     scale: () => 1,
-    save: vi.fn(),
+    save,
   })
-  items[2].parts[0].dispatchEvent(pointer('pointerdown', 250))
+  items[2]!.parts[0]!.dispatchEvent(pointer('pointerdown', 250))
   document.dispatchEvent(pointer('pointermove', 380))
-  // One lane extent: the divider gap travels with the line under the last
-  // recipient instead of leaving a hole between frontstage and that lane.
-  expect(nodes[0].style.translate).toBe('0px 100px')
-  const glide = vi
-    .mocked(animate)
-    .mock.calls.find(([node]) => node === nodes[0])
-  expect(glide?.[2]).toEqual({
-    duration: motion.MOTION_STRUCTURAL_MS / 1000,
-    ease: motion.EASE_POINTS.move,
-  })
+  expect(nodes[0]!.style.translate).toBe('')
+  expect(body.dataset.structureBan).toBe('')
+  expect(
+    items[3]!.parts.some((part) => part.dataset.structureForeign !== undefined),
+  ).toBe(true)
+  // Lift follows the pointer past the line (grill); refuse is ban + no save.
+  const liftTranslate = items[2]!.parts[0]!.style.translate
+  const liftY = Number.parseFloat(liftTranslate.replace(/^0px\s+/, '')) || 0
+  expect(liftY).toBeGreaterThan(100)
+  const landing = body.querySelector<HTMLElement>('[data-structure-landing]')
+  expect(landing?.dataset.structureLandingBan).toBe('')
+  expect(landing?.style.opacity).not.toBe('0')
+  document.dispatchEvent(pointer('pointerup', 380))
+  expect(save).not.toHaveBeenCalled()
   dispose()
 })
 
@@ -156,9 +159,10 @@ it('leaves the line fixed when the last recipient lane moves up within its band'
     scale: () => 1,
     save: vi.fn(),
   })
-  items[2].parts[0].dispatchEvent(pointer('pointerdown', 250))
+  items[2]!.parts[0]!.dispatchEvent(pointer('pointerdown', 250))
   document.dispatchEvent(pointer('pointermove', 150))
-  expect(nodes[0].style.translate).toBe('0px 0px')
+  expect(nodes[0]!.style.translate).toBe('0px 0px')
+  expect(body.dataset.structureBan).toBeUndefined()
   dispose()
 })
 
@@ -177,13 +181,13 @@ it('restores divider start positions on cancel', () => {
     scale: () => 1,
     save: vi.fn(),
   })
-  items[2].parts[0].dispatchEvent(pointer('pointerdown', 250))
-  document.dispatchEvent(pointer('pointermove', 380))
-  expect(nodes[0].style.translate).toBe('0px 100px')
-  items[2].parts[0].dispatchEvent(
+  items[2]!.parts[0]!.dispatchEvent(pointer('pointerdown', 250))
+  document.dispatchEvent(pointer('pointermove', 150))
+  expect(nodes[0]!.style.translate).toBe('0px 0px')
+  items[2]!.parts[0]!.dispatchEvent(
     new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
   )
-  expect(nodes[0].style.translate).toBe('')
+  expect(nodes[0]!.style.translate).toBe('')
   dispose()
 })
 
@@ -200,36 +204,42 @@ it('does not move divider nodes when reordering steps', () => {
     const header = document.createElement('button')
     header.dataset.structureReorder = 'step'
     header.dataset.structureId = id
-    body.append(header)
-    vi.spyOn(header, 'getBoundingClientRect').mockReturnValue(
-      new DOMRect(index * 100, 0, 100, 100),
-    )
-    return { id, name: id, parts: [header] }
+    const column = document.createElement('div')
+    body.append(header, column)
+    const box = new DOMRect(index * 100, 0, 100, 80)
+    vi.spyOn(header, 'getBoundingClientRect').mockReturnValue(box)
+    vi.spyOn(column, 'getBoundingClientRect').mockReturnValue(box)
+    return { id, name: id, parts: [header, column] }
   })
   const dispose = registerCanvasStructureReorder(body, {
-    items: () => items,
+    items: (kind) => (kind === 'step' ? items : []),
     scale: () => 1,
     save: vi.fn(),
   })
-  const down = new MouseEvent('pointerdown', {
-    bubbles: true,
-    button: 0,
-    clientX: 50,
-    clientY: 20,
-  })
-  Object.defineProperty(down, 'pointerId', { value: 1 })
-  items[0].parts[0].dispatchEvent(down)
-  const move = new MouseEvent('pointermove', {
-    bubbles: true,
-    button: 0,
-    clientX: 150,
-    clientY: 20,
-  })
-  Object.defineProperty(move, 'pointerId', { value: 1 })
-  document.dispatchEvent(move)
+  items[0]!.parts[0]!.dispatchEvent(
+    (() => {
+      const event = new MouseEvent('pointerdown', {
+        bubbles: true,
+        button: 0,
+        clientX: 40,
+        clientY: 20,
+      })
+      Object.defineProperty(event, 'pointerId', { value: 1 })
+      return event
+    })(),
+  )
+  document.dispatchEvent(
+    (() => {
+      const event = new MouseEvent('pointermove', {
+        bubbles: true,
+        button: 0,
+        clientX: 140,
+        clientY: 20,
+      })
+      Object.defineProperty(event, 'pointerId', { value: 1 })
+      return event
+    })(),
+  )
   expect(divider.style.translate).toBe('')
-  expect(
-    vi.mocked(animate).mock.calls.every(([node]) => node !== divider),
-  ).toBe(true)
   dispose()
 })

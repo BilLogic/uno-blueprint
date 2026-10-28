@@ -4,10 +4,12 @@ import {
   MOTION_STRUCTURAL_MS,
   prefersReducedMotion,
 } from '@/lib/motion'
-import { getLaneRole, STORYBOARD_ROLE } from '@/lib/laneRoles'
+import { getLaneRole } from '@/lib/laneRoles'
 import {
   measureStructureParts,
-  projectLaneDragPreview,
+  orderWithinSection,
+  sectionRangeForIndex,
+  type LaneSectionRange,
   type StructureDividerKind,
   type StructureLaneRole,
 } from './canvasStructureDividerGeometry'
@@ -21,63 +23,26 @@ export type ReorderItem = {
   role?: StructureLaneRole
 }
 
-/** Structural artwork rows stay put while neighbours reorder around them. */
-export function isStructureReorderFixedLane(
-  role: StructureLaneRole,
-): boolean {
-  return getLaneRole({ name: '', role }) === STORYBOARD_ROLE
-}
-
 /**
- * Splice `from` → `to`, then reseat every fixed index so storyboard (and any
- * other locked seat) never leaves its slot — even when the drop target was
- * nudged off that seat.
+ * Re-export section splice for callers and tests that reorder without a gesture.
  */
-export function orderKeepingFixed(
-  ids: readonly string[],
-  from: number,
-  to: number,
-  fixed: ReadonlySet<number>,
-): string[] {
-  if (from === to || fixed.has(from)) return [...ids]
-  let target = to
-  if (fixed.has(target)) {
-    if (from < target) {
-      while (target < ids.length - 1 && fixed.has(target)) target += 1
-      if (fixed.has(target)) {
-        while (target > 0 && fixed.has(target)) target -= 1
-      }
-    } else {
-      while (target > 0 && fixed.has(target)) target -= 1
-      if (fixed.has(target)) {
-        while (target < ids.length - 1 && fixed.has(target)) target += 1
-      }
-    }
-  }
-  if (fixed.has(target) || target === from) return [...ids]
+export { orderWithinSection }
 
-  const next = [...ids]
-  next.splice(target, 0, ...next.splice(from, 1))
-  if (fixed.size === 0) return next
+/** Longest wait before a stuck settle preview is forced clear. */
+const SETTLE_FALLBACK_MS = 5_000
 
-  const locked = new Map(
-    [...fixed].map((index) => [ids[index]!, index] as const),
-  )
-  const floating = next.filter((id) => !locked.has(id))
-  const result: string[] = Array.from({ length: ids.length })
-  for (const [id, index] of locked) result[index] = id
-  let cursor = 0
-  for (let index = 0; index < result.length; index++) {
-    if (result[index] === undefined) result[index] = floating[cursor++]!
-  }
-  return result
-}
 type Options = {
   busy?: () => boolean
   root?: HTMLElement
   items: (kind: Kind) => ReorderItem[]
   scale: () => number
   save: (kind: Kind, id: string, order: string[], expected: string[]) => void
+  /**
+   * Hold for the drop settle. `release` is written here so the React tree can
+   * clear parked translates in `useLayoutEffect` once the board order matches
+   * the drop — a fixed timer races the refetch and flashes the old seats.
+   */
+  settle?: { release: (() => void) | null }
 }
 
 type AxisGeometry = {
@@ -104,12 +69,64 @@ const AXES: Record<Kind, AxisGeometry> = {
   },
 }
 
+/** Roles in display order for section math. */
+function rolesForItems(items: ReorderItem[]): StructureLaneRole[] {
+  return items.map((item) =>
+    getLaneRole({ name: item.name, role: item.role }),
+  )
+}
+
+/**
+ * Pack preview order into the measured slots of one section, preserving each
+ * original gap. Same math for steps (whole axis) and lanes (one band between
+ * fixed dividers). Outside the section, offsets stay 0.
+ */
+export function packAxisOffsets(options: {
+  ids: readonly string[]
+  previewIds: readonly string[]
+  starts: readonly number[]
+  extents: readonly number[]
+  section: LaneSectionRange
+}): Map<string, number> {
+  const { ids, previewIds, starts, extents, section } = options
+  const indexById = new Map(ids.map((id, index) => [id, index]))
+  const offsets = new Map<string, number>()
+  for (const id of ids) offsets.set(id, 0)
+  if (section.end < section.start) return offsets
+
+  const previewInSection = previewIds.filter((id) => {
+    const original = indexById.get(id)
+    return (
+      original !== undefined &&
+      original >= section.start &&
+      original <= section.end
+    )
+  })
+
+  let cursor = starts[section.start]!
+  for (let index = 0; index < previewInSection.length; index++) {
+    const id = previewInSection[index]!
+    const original = indexById.get(id)!
+    offsets.set(id, cursor - starts[original]!)
+    const slot = section.start + index
+    const gap =
+      slot < section.end
+        ? starts[slot + 1]! - starts[slot]! - extents[slot]!
+        : 0
+    cursor += extents[original]! + gap
+  }
+  return offsets
+}
+
 /** Pointer intent belongs to the header; the whole measured axis travels with it. */
 export function registerCanvasStructureReorder(
   body: HTMLElement,
   options: Options,
 ) {
   const root = options.root ?? body
+  /** Positioned ancestor for absolute lift/landing chrome. */
+  const board =
+    body.closest<HTMLElement>('[data-structure-board]') ?? body
   let gesture: {
     source: HTMLElement
     kind: Kind
@@ -123,11 +140,14 @@ export function registerCanvasStructureReorder(
     ids: string[]
     indexById: Map<string, number>
     offsets: Map<string, number>
-    /** Measured divider tops at lift; lane previews share this with row offsets. */
     dividerStarts: Map<StructureDividerKind, number>
+    section: LaneSectionRange
+    legalStart: number
+    legalEnd: number
     index: number
     target: number
     lifted: boolean
+    banned: boolean
   } | null = null
   let suppressClick = false
   let clickReset: ReturnType<typeof setTimeout> | undefined
@@ -135,50 +155,107 @@ export function registerCanvasStructureReorder(
   const moves = new Map<HTMLElement, AnimationPlaybackControls>()
   let frame: HTMLDivElement | null = null
   let slot: HTMLDivElement | null = null
-  const reset = () => {
-    const captured = gesture
-    gesture = null
-    if (captured?.source.hasPointerCapture?.(captured.pointerId))
-      captured.source.releasePointerCapture(captured.pointerId)
-    for (const playback of moves.values()) playback.cancel()
-    moves.clear()
-    for (const [node, value] of original) {
-      node.style.translate = value
-      node.removeAttribute('data-structure-lift')
-    }
-    original.clear()
+  let settleTimer: ReturnType<typeof setTimeout> | undefined
+  let settling = false
+  const clearChrome = () => {
     delete body.dataset.structureReordering
+    delete board.dataset.structureReordering
+    delete body.dataset.structureBan
+    delete board.dataset.structureBan
+    if (slot) delete slot.dataset.structureLandingBan
     frame?.remove()
     slot?.remove()
     frame = null
     slot = null
+  }
+  const clearTranslates = () => {
+    for (const playback of moves.values()) playback.cancel()
+    moves.clear()
+    // Always clear to empty — restoring a pre-lift value races a board that
+    // already painted the dropped order and can leave a 0px translate ghost.
+    for (const node of original.keys()) {
+      node.style.translate = ''
+      node.removeAttribute('data-structure-lift')
+      node.removeAttribute('data-structure-foreign')
+    }
+    original.clear()
+  }
+  /**
+   * End a parked post-drop preview once the board owns the new order (or the
+   * write failed). Safe to call when nothing is settling.
+   */
+  const releaseSettle = () => {
+    if (!settling) return
+    settling = false
+    clearTimeout(settleTimer)
+    settleTimer = undefined
+    clearTranslates()
+    delete body.dataset.structureSettling
+    delete board.dataset.structureSettling
+    delete document.documentElement.dataset.structureMotion
+    document.dispatchEvent(new Event('structure-motion-end'))
+  }
+  if (options.settle) options.settle.release = releaseSettle
+  const reset = () => {
+    const captured = gesture
+    gesture = null
+    if (settling) releaseSettle()
+    else {
+      clearTimeout(settleTimer)
+      clearTranslates()
+    }
+    if (captured?.source.hasPointerCapture?.(captured.pointerId))
+      captured.source.releasePointerCapture(captured.pointerId)
+    clearChrome()
     gesture = null
   }
-  const fixedIndexes = (items: ReorderItem[], kind: Kind) => {
-    if (kind !== 'lane') return new Set<number>()
-    return new Set(
-      items.flatMap((item, index) =>
-        isStructureReorderFixedLane(item.role) ? [index] : [],
-      ),
-    )
+  /** Landing stays visible for every seat — including home — once lifted. */
+  const showLanding = () => {
+    if (slot) slot.style.opacity = ''
   }
   const order = (
     ids: string[],
     from: number,
     to: number,
-    fixed: ReadonlySet<number> = new Set(),
-  ) => orderKeepingFixed(ids, from, to, fixed)
+    section: LaneSectionRange,
+  ) => orderWithinSection(ids, from, to, section)
   const bounds = (parts: HTMLElement[], kind: Kind) =>
     measureStructureParts(parts, kind)
-  /** Semantic lines only — not the light swimlane hairlines between rows. */
   const dividerNodes = () =>
     Array.from(
-      body.querySelectorAll<HTMLElement>('[data-blueprint-divider]'),
+      board.querySelectorAll<HTMLElement>('[data-blueprint-divider]'),
     )
   const header = (event: Event) =>
     (event.target as Element).closest<HTMLElement>(
       '[data-structure-reorder][data-structure-id]',
     )
+  const markForeign = (g: NonNullable<typeof gesture>) => {
+    for (const [index, item] of g.items.entries()) {
+      const foreign =
+        g.kind === 'lane' &&
+        (index < g.section.start || index > g.section.end)
+      for (const part of item.parts) {
+        if (foreign) part.dataset.structureForeign = ''
+        else delete part.dataset.structureForeign
+      }
+    }
+  }
+  const setBanned = (banned: boolean) => {
+    const g = gesture
+    if (g) g.banned = banned
+    if (banned) {
+      body.dataset.structureBan = ''
+      board.dataset.structureBan = ''
+      if (slot) slot.dataset.structureLandingBan = ''
+    } else {
+      delete body.dataset.structureBan
+      delete board.dataset.structureBan
+      if (slot) delete slot.dataset.structureLandingBan
+    }
+    // Home seat and refused seats both keep the landing visible — the settle
+    // preview is the feedback, including "back where you started".
+    if (g?.lifted) showLanding()
+  }
   const down = (event: PointerEvent) => {
     const source = header(event)
     if (!source || event.button !== 0 || gesture || options.busy?.()) return
@@ -187,24 +264,52 @@ export function registerCanvasStructureReorder(
     const items = options.items(kind),
       index = items.findIndex((item) => item.id === source.dataset.structureId)
     if (index < 0 || items.length < 2) return
+    const roles = rolesForItems(items)
+    const section =
+      kind === 'lane'
+        ? sectionRangeForIndex(roles, index)
+        : { start: 0, end: items.length - 1 }
+    const boxes = items.map((item) => bounds(item.parts, kind))
+    const axis = AXES[kind]
+    let legalStart = axis.start(boxes[section.start]!)
+    let legalEnd =
+      axis.start(boxes[section.end]!) + axis.extent(boxes[section.end]!)
+    // Prefer divider edges when present so the ban zone is the line itself,
+    // not a fuzzy band past the last lane's content.
+    if (kind === 'lane') {
+      for (const node of dividerNodes()) {
+        const top = axis.start(node.getBoundingClientRect())
+        const bottom = top + axis.extent(node.getBoundingClientRect())
+        if (top >= legalEnd - 1 && top <= legalEnd + 80) {
+          legalEnd = Math.min(legalEnd, top)
+        }
+        if (bottom <= legalStart + 1 && bottom >= legalStart - 80) {
+          legalStart = Math.max(legalStart, bottom)
+        }
+      }
+    }
     suppressClick = false
     gesture = {
       source,
       kind,
-      id: items[index].id,
+      id: items[index]!.id,
       pointerId: event.pointerId,
       x: event.clientX,
       y: event.clientY,
       items,
-      boxes: items.map((item) => bounds(item.parts, kind)),
-      axis: AXES[kind],
+      boxes,
+      axis,
       ids: items.map((item) => item.id),
-      indexById: new Map(items.map((item, index) => [item.id, index])),
+      indexById: new Map(items.map((item, i) => [item.id, i])),
       offsets: new Map(items.map((item) => [item.id, 0])),
       dividerStarts: new Map(),
+      section,
+      legalStart,
+      legalEnd,
       index,
       target: index,
       lifted: false,
+      banned: false,
     }
     try {
       source.setPointerCapture?.(event.pointerId)
@@ -218,14 +323,14 @@ export function registerCanvasStructureReorder(
     const g = gesture
     if (!g || event.pointerId !== g.pointerId) return
     const axis = g.axis
-    const delta = axis.coordinate(event.clientX - g.x, event.clientY - g.y)
-    if (!g.lifted && Math.abs(delta) <= 5) return
+    const rawDelta = axis.coordinate(event.clientX - g.x, event.clientY - g.y)
+    if (!g.lifted && Math.abs(rawDelta) <= 5) return
     event.preventDefault()
     event.stopPropagation()
     g.lifted = true
     const scale = options.scale(),
-      box = g.boxes[g.index]
-    const origin = body.getBoundingClientRect()
+      box = g.boxes[g.index]!
+    const origin = board.getBoundingClientRect()
     const motion = {
       duration: prefersReducedMotion() ? 0 : MOTION_STRUCTURAL_MS / 1000,
       ease: EASE_POINTS.move,
@@ -260,89 +365,75 @@ export function registerCanvasStructureReorder(
         }
       }
       frame = document.createElement('div')
-      frame.dataset.structureLiftFrame = ''
+      frame.dataset.structureLiftFrame = g.kind
       slot = document.createElement('div')
-      slot.dataset.structureLanding = ''
-      body.append(slot, frame)
+      slot.dataset.structureLanding = g.kind
+      board.append(slot, frame)
       place(slot, 0)
+      showLanding()
       body.dataset.structureReordering = ''
-      for (const part of g.items[g.index].parts) part.dataset.structureLift = ''
+      board.dataset.structureReordering = ''
+      for (const part of g.items[g.index]!.parts) part.dataset.structureLift = ''
+      markForeign(g)
     }
+
+    const pointer = axis.coordinate(event.clientX, event.clientY)
+    const outside =
+      g.kind === 'lane' &&
+      (pointer < g.legalStart - 4 || pointer > g.legalEnd + 4)
+    setBanned(outside)
+
+    // Lift follows the pointer even past a divider (grill). Ban cursor + bad
+    // landing mark the refuse; preview packing stops until the pointer returns.
+    const delta = rawDelta
+    for (const part of g.items[g.index]!.parts)
+      part.style.translate = axis.translate(delta / scale)
+    place(frame, delta)
+
+    if (outside) return
+
     const center = axis.start(box) + axis.extent(box) / 2 + delta
     const distance = (rect: DOMRect) =>
       Math.abs(axis.start(rect) + axis.extent(rect) / 2 - center)
-    const fixed = fixedIndexes(g.items, g.kind)
-    const seed =
-      [...g.boxes.keys()].find((index) => !fixed.has(index)) ?? g.index
-    const target = g.boxes.reduce(
-      (best, rect, index) => {
-        if (fixed.has(index)) return best
-        return distance(rect) < distance(g.boxes[best]) ? index : best
-      },
-      seed,
-    )
-    place(frame, delta)
-    for (const part of g.items[g.index].parts)
-      part.style.translate = axis.translate(delta / scale)
+    const seed = g.section.start
+    const target = g.boxes.reduce((best, rect, index) => {
+      if (index < g.section.start || index > g.section.end) return best
+      return distance(rect) < distance(g.boxes[best]!) ? index : best
+    }, seed)
     if (g.target !== target) {
       g.target = target
-      // A target change projects once. Pointer movement within that slot
-      // reuses these offsets and never restarts the neighbour motion.
-      const ids = order(g.ids, g.index, target, fixed)
-      let dividerTranslates = new Map<StructureDividerKind, number>()
-      if (g.kind === 'lane') {
-        // Lanes and semantic lines share one projected stack so a divider
-        // gap cannot stay glued to a slot while the line glides (or reverse).
-        const rolesById = new Map(
-          g.items.map((item) => [
-            item.id,
-            getLaneRole({ name: item.name, role: item.role }),
-          ]),
-        )
-        const preview = projectLaneDragPreview({
-          ids: g.ids,
-          previewIds: ids,
-          rolesById,
-          starts: g.boxes.map((entry) => axis.start(entry)),
-          extents: g.boxes.map((entry) => axis.extent(entry)),
-          dividerStarts: g.dividerStarts,
-        })
-        for (const [id, offset] of preview.laneOffsets) g.offsets.set(id, offset)
-        dividerTranslates = preview.dividerTranslates
-      } else {
-        let cursor = axis.start(g.boxes[0])
-        for (const [index, id] of ids.entries()) {
-          const originalIndex = g.indexById.get(id)!
-          g.offsets.set(id, cursor - axis.start(g.boxes[originalIndex]))
-          const gap =
-            index < ids.length - 1
-              ? axis.start(g.boxes[index + 1]) -
-                axis.start(g.boxes[index]) -
-                axis.extent(g.boxes[index])
-              : 0
-          cursor += axis.extent(g.boxes[originalIndex]) + gap
-        }
-      }
-      place(slot!, g.offsets.get(g.id)!, true)
-      for (const [index, item] of g.items.entries()) {
-        if (index === g.index) continue
-        const translate = axis.translate(g.offsets.get(item.id)! / scale)
-        for (const part of item.parts) {
-          moves.get(part)?.stop()
-          moves.set(part, animate(part, { translate }, motion))
-        }
-      }
+      const ids = order(g.ids, g.index, target, g.section)
+      const packed = packAxisOffsets({
+        ids: g.ids,
+        previewIds: ids,
+        starts: g.boxes.map((entry) => axis.start(entry)),
+        extents: g.boxes.map((entry) => axis.extent(entry)),
+        section: g.section,
+      })
+      for (const [id, offset] of packed) g.offsets.set(id, offset)
       if (g.kind === 'lane') {
         for (const node of dividerNodes()) {
           const kind = node.dataset.blueprintDivider as
             | StructureDividerKind
             | undefined
-          if (!kind || !dividerTranslates.has(kind)) continue
-          const translate = axis.translate(
-            dividerTranslates.get(kind)! / scale,
-          )
+          if (!kind || !g.dividerStarts.has(kind)) continue
           moves.get(node)?.stop()
-          moves.set(node, animate(node, { translate }, motion))
+          node.style.translate = axis.translate(0)
+        }
+      }
+      place(slot!, g.offsets.get(g.id)!, true)
+      showLanding()
+      for (const [index, item] of g.items.entries()) {
+        if (index === g.index) continue
+        // Write translate directly — same path as the lifted item. Framer's
+        // `{ translate }` target is not reliable for neighbour slides.
+        const translate = axis.translate(g.offsets.get(item.id)! / scale)
+        for (const part of item.parts) {
+          moves.get(part)?.stop()
+          part.style.translate = translate
+          if (!prefersReducedMotion()) {
+            moves.set(part, animate(part, { translate }, motion))
+          }
         }
       }
     }
@@ -359,7 +450,31 @@ export function registerCanvasStructureReorder(
       clickReset = setTimeout(() => {
         suppressClick = false
       }, 0)
-      if (g.index !== g.target)
+      const commit = !g.banned && g.index !== g.target
+      if (commit) {
+        // Freeze CSS translate transitions, drop chrome, then hand off to save
+        // which flushSyncs the new order and clears parked offsets in one turn.
+        // Parking under a live transition races the board rewrite and eases
+        // through the old seats (the post-drop back-and-forth).
+        body.dataset.structureSettling = ''
+        board.dataset.structureSettling = ''
+        for (const part of g.items[g.index]!.parts)
+          delete part.dataset.structureLift
+        for (const part of board.querySelectorAll<HTMLElement>(
+          '[data-structure-foreign]',
+        ))
+          delete part.dataset.structureForeign
+        if (g.source.hasPointerCapture?.(g.pointerId))
+          g.source.releasePointerCapture(g.pointerId)
+        clearChrome()
+        gesture = null
+        settling = true
+        document.documentElement.dataset.structureMotion = ''
+        clearTimeout(settleTimer)
+        settleTimer = setTimeout(
+          releaseSettle,
+          prefersReducedMotion() ? 0 : SETTLE_FALLBACK_MS,
+        )
         options.save(
           g.kind,
           g.id,
@@ -367,10 +482,12 @@ export function registerCanvasStructureReorder(
             g.items.map((item) => item.id),
             g.index,
             g.target,
-            fixedIndexes(g.items, g.kind),
+            g.section,
           ),
           g.items.map((item) => item.id),
         )
+        return
+      }
     }
     reset()
   }
@@ -416,19 +533,25 @@ export function registerCanvasStructureReorder(
     event.stopPropagation()
     if (options.busy?.()) return
     const items = options.items(kind),
-      index = items.findIndex((item) => item.id === source.dataset.structureId),
-      target = index + (direction === 0 ? -1 : 1)
-    if (index >= 0 && target >= 0 && target < items.length)
-      options.save(
-        kind,
-        items[index].id,
-        order(
-          items.map((item) => item.id),
-          index,
-          target,
-        ),
+      index = items.findIndex((item) => item.id === source.dataset.structureId)
+    if (index < 0) return
+    const section =
+      kind === 'lane'
+        ? sectionRangeForIndex(rolesForItems(items), index)
+        : { start: 0, end: items.length - 1 }
+    const target = index + (direction === 0 ? -1 : 1)
+    if (target < section.start || target > section.end) return
+    options.save(
+      kind,
+      items[index]!.id,
+      order(
         items.map((item) => item.id),
-      )
+        index,
+        target,
+        section,
+      ),
+      items.map((item) => item.id),
+    )
   }
   const view = body.ownerDocument.defaultView
   const hidden = () => {
@@ -452,6 +575,8 @@ export function registerCanvasStructureReorder(
   document.addEventListener('pointerup', up, true)
   document.addEventListener('pointercancel', cancel)
   return () => {
+    clearTimeout(settleTimer)
+    delete document.documentElement.dataset.structureMotion
     reset()
     document.removeEventListener('pointerdown', freshPointer, true)
     root.removeEventListener('lostpointercapture', cancel)

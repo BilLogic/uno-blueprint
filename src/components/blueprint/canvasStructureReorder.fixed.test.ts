@@ -1,26 +1,38 @@
 import { expect, it } from 'vitest'
+import { orderWithinSection } from './canvasStructureReorder'
 import {
-  isStructureReorderFixedLane,
-  orderKeepingFixed,
-} from './canvasStructureReorder'
-import { STORYBOARD_ROLE, CUSTOMER_ACTIONS_ROLE } from '@/lib/laneRoles'
+  CUSTOMER_ACTIONS_ROLE,
+  FRONTSTAGE_ACTIONS_ROLE,
+  STORYBOARD_ROLE,
+} from '@/lib/laneRoles'
+import {
+  laneSectionBounds,
+  sectionRangeForIndex,
+} from './canvasStructureDividerGeometry'
 
-it('treats only the storyboard role as a fixed lane seat', () => {
-  expect(isStructureReorderFixedLane(STORYBOARD_ROLE)).toBe(true)
-  expect(isStructureReorderFixedLane(CUSTOMER_ACTIONS_ROLE)).toBe(false)
-  expect(isStructureReorderFixedLane(null)).toBe(false)
+it('treats storyboard as a movable seat inside the recipient section', () => {
+  const roles = [
+    STORYBOARD_ROLE,
+    CUSTOMER_ACTIONS_ROLE,
+    CUSTOMER_ACTIONS_ROLE,
+    FRONTSTAGE_ACTIONS_ROLE,
+  ]
+  expect(sectionRangeForIndex(roles, 0)).toEqual({ start: 0, end: 2 })
+  expect(laneSectionBounds(roles)).toEqual([
+    { start: 0, end: 2 },
+    { start: 3, end: 3 },
+  ])
 })
 
-it('keeps the storyboard index fixed while neighbours permute', () => {
-  const ids = ['sb', 'a', 'b', 'c']
-  const fixed = new Set([0])
-  expect(orderKeepingFixed(ids, 3, 1, fixed)).toEqual(['sb', 'c', 'a', 'b'])
-  expect(orderKeepingFixed(ids, 1, 3, fixed)).toEqual(['sb', 'b', 'c', 'a'])
+it('reorders within a section and clamps past the boundary', () => {
+  const ids = ['sb', 'a', 'b', 'f']
+  const section = { start: 0, end: 2 }
+  expect(orderWithinSection(ids, 0, 2, section)).toEqual(['a', 'b', 'sb', 'f'])
+  expect(orderWithinSection(ids, 2, 3, section)).toEqual(['sb', 'a', 'b', 'f'])
+  expect(orderWithinSection(ids, 1, 0, section)).toEqual(['a', 'sb', 'b', 'f'])
 })
 
-it('refuses to lift a fixed seat or drop into one', () => {
+it('refuses to lift from outside the named section', () => {
   const ids = ['sb', 'a', 'b']
-  const fixed = new Set([0])
-  expect(orderKeepingFixed(ids, 0, 2, fixed)).toEqual(ids)
-  expect(orderKeepingFixed(ids, 2, 0, fixed)).toEqual(['sb', 'b', 'a'])
+  expect(orderWithinSection(ids, 0, 2, { start: 1, end: 2 })).toEqual(ids)
 })

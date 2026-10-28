@@ -123,6 +123,36 @@ it('opens the clicked path when its membership arrives after loading', () => {
   ).toBeTruthy()
 })
 
+it('scopes the order rail to a section window with divider labels', () => {
+  render(
+    <PathOrderSection
+      paths={[paths[0]]}
+      value={[
+        {
+          pathId: 'online',
+          order: ['start', 'new', 'finish', 'extra'],
+          moved: [],
+        },
+      ]}
+      onChange={() => {}}
+      item={{ id: 'new', name: 'Review' }}
+      defaultOrder={() => []}
+      sectionForOrder={() => ({
+        start: 1,
+        end: 2,
+        lineAbove: 'Line of interaction',
+        lineBelow: 'Line of visibility',
+      })}
+    />,
+  )
+  expect(screen.getByText('Line of interaction')).toBeTruthy()
+  expect(screen.getByText('Line of visibility')).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Move Review in Online' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Move Finish in Online' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Move Start in Online' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Move Extra in Online' })).toBeNull()
+})
+
 it('clears one item’s moved tag when it returns, while another remains moved', () => {
   const path={id:'one',name:'One',items:[{id:'a',name:'A'},{id:'b',name:'B'},{id:'c',name:'C'},{id:'d',name:'D'}]}
   function Order() {

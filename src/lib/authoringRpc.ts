@@ -243,6 +243,10 @@ async function invoke<T>(
  * the forward write.
  */
 const FRESHNESS: Record<string, (args: Record<string, unknown>) => void> = {
+  // Canvas order is patched optimistically before these return. A structure
+  // refetch here races the settle preview and flashes the pre-drop seats.
+  reorder_lanes: (_args) => {},
+  reorder_steps: (_args) => {},
   upsert_cell: (args) => {
     invalidateQueries(queryKeys.servicePhases.prefix)
     if (typeof args.path_id === 'string') invalidateCanvasBlueprintsForPath(args.path_id)

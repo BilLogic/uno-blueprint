@@ -16,7 +16,8 @@ import { StructureRenameEditor } from './StructureRenameEditor'
 const reads = vi.hoisted(() => ({
   empty: false,
   selectedPath: 'path',
-  items: [] as Array<{ id: string; name: string }>,
+  items: [] as Array<{ id: string; name: string; role?: string | null }>,
+  order: null as string[] | null,
 }))
 const writes = vi.hoisted(() => ({
   step: vi.fn(async () => ({id:'created-step',entry:recordChange('add_step_with_details', {})})),
@@ -32,14 +33,26 @@ vi.mock('@/lib/authoringRpc', () => ({
 }))
 vi.mock('@/hooks/useStructureCreatePaths', () => ({
   NEW_STRUCTURE_ITEM: 'new',
-  useStructureCreatePaths: () => ({
-    status: 'ready',
-    clickedPathId: 'path',
-    paths: [{ id: 'path', name: 'Default', items: reads.items }, ...(reads.selectedPath === 'path' ? [] : [{ id: reads.selectedPath, name: 'Other', items: [] }])],
-    value: reads.empty ? [] : [{ pathId: reads.selectedPath, order: ['new'], moved: [] }],
-    onChange: vi.fn(),
-    defaultOrder: () => ['new'],
-  }),
+  useStructureCreatePaths: () => {
+    const order =
+      reads.order ??
+      (reads.empty ? [] : ['new', ...reads.items.map((item) => item.id)])
+    return {
+      status: 'ready',
+      clickedPathId: 'path',
+      paths: [
+        { id: 'path', name: 'Default', items: reads.items },
+        ...(reads.selectedPath === 'path'
+          ? []
+          : [{ id: reads.selectedPath, name: 'Other', items: [] }]),
+      ],
+      value: reads.empty
+        ? []
+        : [{ pathId: reads.selectedPath, order, moved: [] }],
+      onChange: vi.fn(),
+      defaultOrder: () => order,
+    }
+  },
 }))
 vi.mock('@/hooks/useStepSpec', () => ({
   useStepSpec: () => ({ status: 'ready', data: null }),
@@ -63,6 +76,7 @@ afterEach(() => {
   reads.selectedPath = 'path'
   reads.empty = false
   reads.items = []
+  reads.order = null
   vi.clearAllMocks()
 })
 
@@ -303,4 +317,36 @@ it('creates a step using a selected path when its original path is unchecked',as
   fireEvent.change(await screen.findByRole('textbox',{name:'Name'}),{target:{value:'Review'}})
   fireEvent.click(screen.getByRole('button',{name:'Add step'}))
   await waitFor(()=>expect(writes.step).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({pathId:'other',pathOrders:{other:['new']}})))
+})
+
+it('scopes Add-to-paths to the insert band and auto-picks a band role', async () => {
+  reads.items = [
+    { id: 'story', name: 'Journey figures', role: 'storyboard' },
+    { id: 'owner', name: 'Blueprint owner', role: 'customer_actions' },
+    { id: 'touch', name: 'App & skill surface', role: 'frontstage_touchpoints' },
+    { id: 'front', name: 'Claude in the IDE', role: 'frontstage_actions' },
+    { id: 'back', name: 'Subagent fleet', role: 'backstage_actions' },
+  ]
+  // New sits between LoI and LoV (after owner/customer, before backstage).
+  reads.order = ['story', 'owner', 'new', 'touch', 'front', 'back']
+  render(
+    <Drawer open>
+      <LanePanel
+        laneId=""
+        draft={{ kind: 'lane', scenarioId: 'scenario', pathId: 'path' }}
+        onClose={() => {}}
+      />
+    </Drawer>,
+  )
+  expect(await screen.findByText('Line of interaction')).toBeTruthy()
+  expect(screen.getByText('Line of visibility')).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Move New lane in Default' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Move App & skill surface in Default' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Move Claude in the IDE in Default' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Move Journey figures in Default' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Move Subagent fleet in Default' })).toBeNull()
+  // Narrow frontstage band auto-defaults the role.
+  expect(screen.getByRole('combobox', { name: 'Role' }).textContent).toMatch(
+    /Frontstage touchpoints|Frontstage/,
+  )
 })

@@ -1392,7 +1392,8 @@
   [data-blueprint-row],
   [data-structure-lane-label],
   [data-blueprint-column-header],
-  [data-step-index]
+  [data-step-index],
+  [data-blueprint-divider]
 ) {
   transition: none !important;
 }

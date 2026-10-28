@@ -173,7 +173,10 @@ export function registerCanvasStructureReorder(
     moves.clear()
     // Always clear to empty — restoring a pre-lift value races a board that
     // already painted the dropped order and can leave a 0px translate ghost.
+    // Inline transition:none so a mid-flight CSS glide cannot outlive the
+    // structureSettling attribute when nodes remount under a new order.
     for (const node of original.keys()) {
+      node.style.transition = 'none'
       node.style.translate = ''
       node.removeAttribute('data-structure-lift')
       node.removeAttribute('data-structure-foreign')

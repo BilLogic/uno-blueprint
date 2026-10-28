@@ -329,6 +329,7 @@ function RailRow({
   return (
     <Reorder.Item
       data-order-row=""
+      data-order-current={current ? '' : undefined}
       style={{ outline: 'none' }}
       value={id}
       draggable={false}
@@ -340,16 +341,13 @@ function RailRow({
         duration: reduced ? 0 : MOTION_MICRO_MS / 1000,
         ease: EASE_POINTS.move,
       }}
-      className="group/order relative flex cursor-grab touch-none items-center gap-2 rounded-md active:cursor-grabbing"
+      className="group/order relative flex cursor-grab touch-none items-center gap-2 py-1.5 active:cursor-grabbing"
       onPointerDown={(event) => controls.start(event)}
     >
       <button
         type="button"
         aria-label={`Move ${name} in ${pathName}`}
-        className={cn(
-          'relative grid size-4 shrink-0 place-items-center outline-none',
-          'text-muted-foreground',
-        )}
+        className="relative grid size-4 shrink-0 place-items-center text-muted-foreground outline-none"
         onKeyDown={(event) => {
           if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
           event.preventDefault()
@@ -358,27 +356,26 @@ function RailRow({
       >
         <span
           className={cn(
-            'size-2.5 rounded-full border border-current bg-background group-hover/order:hidden group-focus-within/order:hidden [@media(hover:none)]:hidden',
-            current && 'border-primary bg-primary',
+            'size-2 rounded-full border bg-background group-hover/order:hidden group-focus-within/order:hidden [@media(hover:none)]:hidden',
+            current ? 'border-foreground' : 'border-current',
           )}
         />
         <span className="hidden group-hover/order:block group-focus-within/order:block [@media(hover:none)]:block">
-          <span className={current ? 'text-primary' : undefined}>
-            <GripVertical className="size-3.5" aria-hidden />
-          </span>
+          <GripVertical className="size-3.5" aria-hidden />
         </span>
       </button>
       <span
         data-order-card=""
         className={cn(
-          'min-w-0 flex-1 rounded-md px-2 py-2 text-sm',
-          current && 'border border-border-primary bg-wash-primary',
-          !current && !moved && 'text-muted-foreground',
+          'min-w-0 flex-1 text-sm',
+          current ? 'font-medium text-foreground' : 'text-muted-foreground',
         )}
       >
         <span>{name}</span>
         {moved ? (
-          <span className="ml-2 text-xs text-muted-foreground">Moved</span>
+          <span className="ml-2 text-xs font-normal text-muted-foreground">
+            Moved
+          </span>
         ) : null}
       </span>
     </Reorder.Item>

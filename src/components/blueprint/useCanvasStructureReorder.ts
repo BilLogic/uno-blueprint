@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
 import { flushSync } from 'react-dom'
+import { notifyManager } from '@tanstack/react-query'
 import { useCanvasScale } from '@/contexts/CanvasScaleContext'
 import { useCanvasModeValue } from '@/contexts/canvasModeContext'
 import { useEntityDetailOptional } from '@/contexts/EntityDetailContext'
@@ -196,11 +197,13 @@ export function useCanvasStructureReorder(
             ? latest.current.blueprint.steps
             : latest.current.blueprint.lanes
           ).find((item) => item.id === id)?.name ?? kind
-        // Commit the dropped order and clear parked translates before paint —
-        // a scheduled cache write + layout release still flashes one frame of
-        // double-offset when the board rewrites under live translates.
+        // setQueryData notifies on a microtask by default — outside flushSync
+        // — so the board kept the old seats under parked translates for a
+        // frame (the post-drop back-and-forth). Batch forces a sync notify.
         flushSync(() => {
-          applyOptimisticStructureOrder(pathId, kind, ids)
+          notifyManager.batch(() => {
+            applyOptimisticStructureOrder(pathId, kind, ids)
+          })
         })
         settle.current.release?.()
         void (kind === 'step' ? reorderSteps : reorderLanes)(
@@ -222,7 +225,9 @@ export function useCanvasStructureReorder(
           })
           .catch((error) => {
             flushSync(() => {
-              applyOptimisticStructureOrder(pathId, kind, expected)
+              notifyManager.batch(() => {
+                applyOptimisticStructureOrder(pathId, kind, expected)
+              })
             })
             settle.current.release?.()
             reportWriteFailure(`The ${kind} was not moved`, error)

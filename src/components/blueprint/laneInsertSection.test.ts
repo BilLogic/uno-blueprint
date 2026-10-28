@@ -8,11 +8,24 @@ import {
   STORYBOARD_ROLE,
   SUPPORT_ACTIONS_ROLE,
 } from '@/lib/laneRoles'
+
 import {
   INTERACTION_LINE_LABEL,
   INTERNAL_INTERACTION_LINE_LABEL,
   VISIBILITY_LINE_LABEL,
 } from '@/lib/blueprintLayout'
+
+it('offers support below visibility when no internal line exists yet', () => {
+  const roles = new Map([
+    ['customer', CUSTOMER_ACTIONS_ROLE],
+    ['front', FRONTSTAGE_ACTIONS_ROLE],
+    ['back', BACKSTAGE_ACTIONS_ROLE],
+  ])
+  const section = laneInsertSectionForOrder(['customer', 'front', 'back', 'new'], roles, 'new')
+  expect(section.lineAbove).toBe(VISIBILITY_LINE_LABEL)
+  expect(section.lineBelow).toBeNull()
+  expect(section.allowedRoles).toContain(SUPPORT_ACTIONS_ROLE)
+})
 
 const BOARD = () => {
   const order = [
@@ -37,7 +50,7 @@ const BOARD = () => {
 }
 
 it('scopes a frontstage insert to LoI–LoV with the full frontstage role band', () => {
-  const { order: base, roles } = BOARD()
+  const { roles } = BOARD()
   const order = ['story', 'customer', 'new', 'touch', 'front', 'backTouch', 'back', 'support']
   const section = laneInsertSectionForOrder(order, roles, 'new')
   expect(order.slice(section.start, section.end + 1)).toEqual([

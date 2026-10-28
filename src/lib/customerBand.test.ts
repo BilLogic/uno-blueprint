@@ -161,6 +161,21 @@ function railInteractionRowsAfter(lanes: BlueprintLane[]): string[] {
 }
 
 describe('the rail beside a deep customer side', () => {
+  it.each(['structure-seam', 'structure-placeholder'])(
+    'keeps the saved boundary corridor while %s opens above the line',
+    (id) => {
+      const lanes = [...ONE_DEEP]
+      lanes.splice(2, 0, {
+        id,
+        name: '',
+        role: null,
+        position: 2,
+        ...(id === 'structure-seam' ? { seamSize: 18 } : {}),
+      })
+      expect(corridorsBelow(lanes)).toEqual(corridorsBelow(ONE_DEEP))
+    },
+  )
+
   it('opens a corridor under the row it draws the line after, and no other', () => {
     // Asserted against the rail's own interaction row rather than a lane
     // index: these are the same fact, and the defect was that they disagreed.

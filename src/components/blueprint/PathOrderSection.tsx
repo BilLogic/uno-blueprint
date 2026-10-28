@@ -319,7 +319,7 @@ function RailDivider({ label }: { label: string }) {
       className="flex items-center gap-2 py-2 pl-1 text-muted-foreground"
     >
       <span aria-hidden className="h-px min-w-2 flex-1 bg-border" />
-      <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide">
+      <span className="shrink-0 text-xs font-medium">
         {label}
       </span>
       <span aria-hidden className="h-px min-w-2 flex-1 bg-border" />
@@ -363,7 +363,7 @@ function RailRow({
         duration: reduced ? 0 : MOTION_MICRO_MS / 1000,
         ease: EASE_POINTS.move,
       }}
-      className="group/order relative flex cursor-grab touch-none items-center gap-2 py-1.5 active:cursor-grabbing"
+      className="group/order relative flex cursor-grab touch-none items-center gap-2 py-2 active:cursor-grabbing"
       onPointerDown={(event) => controls.start(event)}
     >
       <button

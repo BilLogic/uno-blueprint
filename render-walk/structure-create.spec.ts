@@ -349,13 +349,13 @@ for (const camera of ['overview', '100%'] as const) {
               { steps: 12 },
             )
             await expect(
-              path.locator('[data-structure-landing]'),
+              board.locator('[data-structure-landing]'),
               `the ${kind} drag keeps its landing slot`,
             ).toBeVisible()
             expect(
               await path.locator('[data-structure-lift]').count(),
             ).toBeGreaterThan(1)
-            const landingPaint = await path.locator('[data-structure-landing]').evaluate(el => {
+            const landingPaint = await board.locator('[data-structure-landing]').evaluate(el => {
               const view = el.ownerDocument.defaultView!
               const probe = el.ownerDocument.createElement('span')
               probe.style.cssText = 'position:absolute;visibility:hidden;border:1px solid var(--border-primary)'
@@ -473,9 +473,11 @@ for (const camera of ['overview', '100%'] as const) {
                 else resolve({ sizes: samples, drift })
               }
               element.ownerDocument.defaultView!.requestAnimationFrame(sample)
+              element.setAttribute('data-motion-sampling', 'track')
             }),
           motionBox!.y + motionBox!.height / 2,
         )
+        await expect(motionSeam).toHaveAttribute('data-motion-sampling', 'track')
         await page.mouse.move(
           motionBox!.x + motionBox!.width / 2,
           motionBox!.y + motionBox!.height / 2,
@@ -505,7 +507,7 @@ for (const camera of ['overview', '100%'] as const) {
             exact: kind === 'lane',
           }).first()
           const probe = await animated.locator('[data-structure-hint]').boundingBox()
-          const observe = () => animated.evaluate((element, axis) => new Promise<{overlap:number[]; mismatch:number[]; earlyIcon:number[]}>((resolve) => {
+          const observe = (phase: string) => animated.evaluate((element, { axis, phase }) => new Promise<{overlap:number[]; mismatch:number[]; earlyIcon:number[]}>((resolve) => {
             const overlap:number[] = [], mismatch:number[] = [], earlyIcon:number[] = []
             const start = performance.now()
             const frame = () => {
@@ -528,15 +530,18 @@ for (const camera of ['overview', '100%'] as const) {
               else resolve({overlap,mismatch,earlyIcon})
             }
             element.ownerDocument.defaultView!.requestAnimationFrame(frame)
-          }), kind)
-          const opening = observe()
+            element.setAttribute('data-motion-sampling', phase)
+          }), { axis: kind, phase })
+          const opening = observe('opening')
+          await expect(animated).toHaveAttribute('data-motion-sampling', 'opening')
           await page.mouse.move(probe!.x+probe!.width/2, probe!.y+probe!.height/2)
           const sequence = await opening
           expect(sequence.overlap.length, `${kind} opening was sampled`).toBeGreaterThan(4)
           expect(Math.max(...sequence.overlap), `${kind} header block fits the space on every frame`).toBeLessThan(1)
           expect(Math.max(...sequence.mismatch), `${kind} preview follows the actual track on every frame`).toBeLessThan(1)
           expect(Math.max(0,...sequence.earlyIcon), `${kind} plus waits for room`).toBe(0)
-          const closing = observe()
+          const closing = observe('closing')
+          await expect(animated).toHaveAttribute('data-motion-sampling', 'closing')
           await page.mouse.move(24,24)
           const reverse = await closing
           expect(reverse.overlap.length, `${kind} closing was sampled`).toBeGreaterThan(4)
@@ -908,9 +913,12 @@ for (const camera of ['overview', '100%'] as const) {
             await page.keyboard.press('Tab')
             await expect(role).toBeFocused()
             await role.click()
+            await expect(page.getByRole('option').filter({
+              hasText: /^Frontstage\s*Staff actions/,
+            })).toHaveCount(0)
             await page
               .getByRole('option')
-              .filter({ hasText: /^Frontstage\s*Staff actions/ })
+              .filter({ hasText: /^Customer actions/ })
               .click()
           }
           expect(
@@ -1097,10 +1105,13 @@ for (const camera of ['overview', '100%'] as const) {
             const view = el.ownerDocument.defaultView!
             const cell = el.closest('[data-structure-header-cell]')!
             const style = view.getComputedStyle(cell)
+            const ring = view.getComputedStyle(cell, '::after')
             return (
               el.matches(':focus-visible') &&
-              style.outlineStyle === 'solid' &&
-              parseFloat(style.outlineWidth) > 0 &&
+              style.outlineStyle === 'none' &&
+              ring.boxShadow.includes('inset') &&
+              parseFloat(ring.left) > 0 &&
+              parseFloat(ring.top) > 0 &&
               view.getComputedStyle(el).boxShadow === 'none'
             )
           }),

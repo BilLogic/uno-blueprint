@@ -1,6 +1,4 @@
 import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
-import { flushSync } from 'react-dom'
-import { notifyManager } from '@tanstack/react-query'
 import { useCanvasScale } from '@/contexts/CanvasScaleContext'
 import { useCanvasModeValue } from '@/contexts/canvasModeContext'
 import { useEntityDetailOptional } from '@/contexts/EntityDetailContext'
@@ -197,15 +195,9 @@ export function useCanvasStructureReorder(
             ? latest.current.blueprint.steps
             : latest.current.blueprint.lanes
           ).find((item) => item.id === id)?.name ?? kind
-        // setQueryData notifies on a microtask by default — outside flushSync
-        // — so the board kept the old seats under parked translates for a
-        // frame (the post-drop back-and-forth). Batch forces a sync notify.
-        flushSync(() => {
-          notifyManager.batch(() => {
-            applyOptimisticStructureOrder(pathId, kind, ids)
-          })
-        })
-        settle.current.release?.()
+        // Query observers notify asynchronously. Keep the destination preview
+        // until the orderKey layout effect acknowledges the rendered seats.
+        applyOptimisticStructureOrder(pathId, kind, ids)
         void (kind === 'step' ? reorderSteps : reorderLanes)(
           client,
           pathId,
@@ -224,12 +216,14 @@ export function useCanvasStructureReorder(
               )
           })
           .catch((error) => {
-            flushSync(() => {
-              notifyManager.batch(() => {
-                applyOptimisticStructureOrder(pathId, kind, expected)
-              })
-            })
-            settle.current.release?.()
+            applyOptimisticStructureOrder(pathId, kind, expected)
+            // A fast refusal can beat the observer's first notification. In
+            // that case there will be no order change for the layout effect.
+            const current = kind === 'step'
+              ? latest.current.blueprint.steps
+              : latest.current.blueprint.lanes
+            if (current.map((item) => item.id).join(',') === expected.join(','))
+              settle.current.release?.()
             reportWriteFailure(`The ${kind} was not moved`, error)
           })
           .finally(() => setBusy(false))

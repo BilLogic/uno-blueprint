@@ -7,10 +7,8 @@
  * Crossing a line is refused (ban cursor, no new landing); foreign sections
  * dim after lift. Same-section swaps slide neighbours; divider translates stay 0.
  */
-import { interactionLineAnchorIndex } from '@/lib/blueprintLayout'
+import { interactionLineAnchorIndex, visibilityLineAnchorIndex } from '@/lib/blueprintLayout'
 import {
-  FRONTSTAGE_ACTIONS_ROLE,
-  FRONTSTAGE_TOUCHPOINTS_ROLE,
   BACKSTAGE_ACTIONS_ROLE,
   SUPPORT_ACTIONS_ROLE,
 } from '@/lib/laneRoles'
@@ -50,16 +48,7 @@ export function dividerAnchorIndex(
     )
   }
   if (kind === 'visibility') {
-    let last = -1
-    for (let index = 0; index < roles.length; index++) {
-      const role = roles[index]
-      if (role === FRONTSTAGE_ACTIONS_ROLE) last = index
-      else if (role === FRONTSTAGE_TOUCHPOINTS_ROLE) {
-        const next = roles[index + 1]
-        if (next !== FRONTSTAGE_ACTIONS_ROLE) last = index
-      }
-    }
-    return last
+    return visibilityLineAnchorIndex(roles.map((role, index) => ({ name: `lane-${index}`, role })))
   }
   for (let index = 0; index < roles.length; index++) {
     if (
@@ -236,7 +225,8 @@ export const STRUCTURE_LANE_CORRIDOR_SELECTOR = [
  * Lanes and steps use the same full measured box — the grid track the reader
  * sees. Trimming arrow corridors made the lane landing shorter than the row
  * (steps never had that trim, which is why their projector looked right).
- * Mid-drag, corridors collapse to height 0 so the track and the chrome match.
+ * Routing corridors keep their layout space during the gesture. The reorder
+ * projector assigns that space to its destination seat, not to its lane.
  */
 export function measureStructureParts(
   parts: HTMLElement[],

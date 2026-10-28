@@ -1,9 +1,13 @@
+---
+summary: Reproduction, review findings and verification for the canvas reorder drop handoff and section-scoped lane creation.
+---
+
 # Handoff: structure reorder settle + lane-create rail
 
 **For:** Codex (or any agent picking up `codex/canvas-header-reorder`)  
 **Branch:** `codex/canvas-header-reorder`  
 **Tracker:** https://github.com/BilLogic/uno-blueprint/issues/1238  
-**Author context:** Cursor session landed section-scoped new-lane create + several settle attempts; the **post-drop flash is still live**. Do not mark the glitch fixed without a recorded drop on the sample board.
+**Original handoff at `6fe07379`:** Cursor session landed section-scoped new-lane create + several settle attempts; the **post-drop flash was still live**. Follow-up findings and verification are recorded below. Do not mark the glitch fixed without a recorded drop on the sample board.
 
 ## 1. Fix the post-drop reorder glitch (priority)
 
@@ -67,3 +71,19 @@ Call out remaining bugs, overfit, or dead paths. Prefer findings over praise.
 
 - Redesigning the whole Add-to-paths chrome beyond section bounds  
 - Force-push / amend of shared history  
+
+## Follow-up findings and verification
+
+- **Settle:** clearing translates before the asynchronous query-observer notification painted the old seat. A completed drop's later lost-capture event also cancelled its own parked preview. The preview now stays at its destination until the new order's layout effect clears offsets before paint.
+- **Visibility:** the saved layout drew a line after every frontstage action and some touchpoint lanes. A frontstage swap therefore inserted another divider row. Rendering and preview now share one last-frontstage anchor.
+- **Geometry:** routing insets were packed as lane content, although boundary routing space belongs to the destination seat. Moving Journey figures below the recipient left a 36-board-pixel mismatch. The projector now preserves seat insets. Corridors no longer collapse after measurement.
+- **Preview ownership:** reorder cleanup cleared the insertion clock's shared motion flag. It now clears only its own settling flag. Insertion previews also retain the saved lane's boundary corridor instead of letting an unrole'd placeholder take it away; this removed a separate seven-screen-pixel boundary shift.
+- **Section lock:** a render-time ref was reset by a post-render effect. The opening section now derives from each path's default insertion order, including the above-divider hint, without a mutable lock.
+- **Missing bounds:** when an internal line did not exist yet, the role filter excluded Support, preventing its first lane from being created. Absent lines now combine the role bands between the visible bounds.
+- **Standards:** the handed-off rail introduced a sub-floor text size, uppercase labels, half-step padding, raw motion fallbacks and a stale fill-mark exemption. These were corrected; the new section helper and this handoff now carry their required documentation metadata. Two handed-off TypeScript errors were also corrected.
+- **Live create check:** the top band shows Top of the board / Line of interaction and its three roles; the frontstage band shows Line of interaction / Line of visibility and its two roles. A disposable fixture with an internal boundary shows Line of internal interaction / Bottom of the board and Support only. Fixture roles were restored after verification.
+- **Toast check:** in a 1413px viewport, the notice and control bar share centre 850.5px with the 288px sidebar, and 706.5px collapsed.
+- **Drop proof:** the new local authoring walk records Journey figures, frontstage and step drops, samples 40 consecutive paint frames, compares them to the saved layout, and restores each order through its own Undo. Before: 76px lane and 97px step excursions. After the settle and routing fixes: all six cases (three moves in each theme) pass with zero variation and their own Undo.
+
+- **Final native check:** lane and step drops and Undo at measured 99% zoom in light and dark; Merged withholds reorder in both themes. Top and frontstage create rails were rechecked with their filtered role lists. The branch and approved prototype remain open beside each other.
+- **Checks:** forced TypeScript, 4,751 tests in 429 files, lint, build and the requested source/database/documentation gates pass. The fresh paired authoring walks retain the shared Name-autofocus and intermediate-frame-count failures; their thresholds were not reduced. Full per-case results and declined baseline failures are in the PR report.

@@ -1,10 +1,38 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
-import { registerCanvasStructureReorder } from './canvasStructureReorder'
+import { packAxisOffsets, registerCanvasStructureReorder } from './canvasStructureReorder'
+
+it('keeps boundary routing space at its seat when the storyboard moves down', () => {
+  // The second seat has 36px of routing space below its 192px content.
+  const offsets = packAxisOffsets({
+    ids: ['storyboard', 'recipient'],
+    previewIds: ['recipient', 'storyboard'],
+    starts: [0, 208],
+    extents: [208, 228],
+    seatInsets: [0, 36],
+    section: { start: 0, end: 1 },
+  })
+  expect(offsets.get('recipient')).toBe(-208)
+  expect(offsets.get('storyboard')).toBe(192)
+})
+
+it('keeps frontstage content seated when the next row has an overhead corridor', () => {
+  const offsets = packAxisOffsets({
+    ids: ['app', 'staff'], previewIds: ['staff', 'app'],
+    starts: [0, 200], extents: [200, 232],
+    seatInsets: [0, 0],
+    section: { start: 0, end: 1 },
+  })
+  expect(offsets.get('staff')).toBe(-200)
+  expect(offsets.get('app')).toBe(232)
+})
 
 afterEach(() => {
   document.body.replaceChildren()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
+  delete document.documentElement.dataset.structureMotion
 })
 for (const kind of ['lane', 'step'] as const) {
   it(`lifts the complete ${kind} only after intent, then saves one drop`, () => {
@@ -72,15 +100,15 @@ for (const kind of ['lane', 'step'] as const) {
     document.dispatchEvent(pointer('pointerup', 150, 150))
     expect(save).toHaveBeenCalledExactlyOnceWith(kind, 'one', ['two', 'one'], ['one','two'])
     expect(body.querySelector('[data-structure-lift]')).toBeNull()
-    // Parked offsets clear on drop so the board rewrite is not double-offset.
-    expect(items[0].parts[0].style.translate).toBe('')
+    // Destination preview remains until the consumer acknowledges the new seats.
+    expect(items[0].parts[0].style.translate).not.toBe('')
     items[1].parts[0].dispatchEvent(new MouseEvent('click',{bubbles:true,detail:1}))
     expect(insert).not.toHaveBeenCalled()
     dispose()
   })
 }
 
-it('clears parked translates on drop before save runs', () => {
+it('parks the destination until the rendered order acknowledges the drop', () => {
   const body = document.createElement('div')
   document.body.append(body)
   const boxes = [new DOMRect(0, 0, 100, 100), new DOMRect(0, 100, 100, 100)]
@@ -100,7 +128,6 @@ it('clears parked translates on drop before save runs', () => {
     items: () => items,
     save: () => {
       translateAtSave = items[0]!.parts[0]!.style.translate
-      settle.release?.()
     },
     scale: () => 1,
     settle,
@@ -117,15 +144,24 @@ it('clears parked translates on drop before save runs', () => {
   }
   items[0]!.parts[0]!.dispatchEvent(pointer('pointerdown', 50))
   document.dispatchEvent(pointer('pointermove', 150))
+  // A closing insertion still owns the shared structure-motion clock.
+  document.documentElement.dataset.structureMotion = ''
   document.dispatchEvent(pointer('pointerup', 150))
-  expect(translateAtSave).toBe('')
+  expect(translateAtSave).toBe('0px 100px')
+  // Browser capture is released by the completed gesture, not a cancellation
+  // of the parked preview while the query observer still holds the old order.
+  items[0]!.parts[0]!.dispatchEvent(new Event('lostpointercapture', { bubbles: true }))
+  expect(items[0]!.parts[0]!.style.translate).toBe('0px 100px')
+  settle.release?.()
   expect(items[0]!.parts[0]!.style.translate).toBe('')
-  expect(document.documentElement.dataset.structureMotion).toBeUndefined()
+  expect(document.documentElement.dataset.structureMotion).toBe('')
   expect(body.dataset.structureSettling).toBeUndefined()
   dispose()
 })
 
-it('keeps settling chrome until settle.release after a drop', () => {
+it.each([false, true])('keeps settling chrome until the order renders, reduced motion: %s', (reduced) => {
+  vi.useFakeTimers()
+  vi.stubGlobal('matchMedia', () => ({ matches: reduced }))
   const body = document.createElement('div')
   document.body.append(body)
   const boxes = [new DOMRect(0, 0, 100, 100), new DOMRect(0, 100, 100, 100)]
@@ -159,9 +195,9 @@ it('keeps settling chrome until settle.release after a drop', () => {
   items[0]!.parts[0]!.dispatchEvent(pointer('pointerdown', 50))
   document.dispatchEvent(pointer('pointermove', 150))
   document.dispatchEvent(pointer('pointerup', 150))
-  // Offsets clear on drop; settling flags wait for release after the board rewrite.
-  expect(items[0]!.parts[0]!.style.translate).toBe('')
-  expect(document.documentElement.dataset.structureMotion).toBe('')
+  vi.advanceTimersByTime(0)
+  expect(items[0]!.parts[0]!.style.translate).toBe('0px 100px')
+  expect(document.documentElement.dataset.structureMotion).toBeUndefined()
   expect(body.dataset.structureSettling).toBe('')
   settle.release?.()
   expect(document.documentElement.dataset.structureMotion).toBeUndefined()

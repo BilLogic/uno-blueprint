@@ -1382,7 +1382,7 @@
   [data-blueprint-column-header],
   [data-step-index]
 ):not([data-structure-lift]) {
-  transition: translate var(--motion-structural, 320ms) var(--ease-move, ease);
+  transition: translate var(--motion-structural) var(--ease-move);
 }
 /*
   Post-drop commit: kill every glide under the board so clearing parked
@@ -1391,7 +1391,6 @@
 [data-structure-settling],
 [data-structure-settling] * {
   transition: none !important;
-  animation: none !important;
 }
 @media (prefers-reduced-motion: reduce) {
   [data-structure-reordering] :is(
@@ -1457,15 +1456,8 @@
 [data-canvas-reorder-global] [data-blueprint-column-header]:is(:hover, :focus-within) [data-structure-grip],
 [data-canvas-reorder] [data-structure-highlight='label'] [data-structure-grip] { display: block; }
 [data-structure-reordering] [data-blueprint-arrows] { opacity: 0; }
-/* Corridors decorate the derived boundary; collapse so they do not ride a translated lane. */
-[data-structure-reordering] :is(
-  [data-blueprint-wrap-corridor],
-  [data-blueprint-rail-corridor],
-  [data-blueprint-loop-corridor]
-) {
-  height: 0 !important;
-  overflow: hidden;
-}
+/* Keep routing space in layout while arrows are hidden. Collapsing it after
+   gesture measurement changes the seats, then expands them again on drop. */
 
 /* Header triggers and their canvas previews share one interaction state. */
 [data-structure-seam]:is(:hover, :focus-visible) > :is([data-structure-slot], [data-structure-trigger]) {

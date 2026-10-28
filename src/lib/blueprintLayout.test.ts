@@ -260,6 +260,12 @@ test('a frontstage tech lane above frontstage actions does not take the line', (
   assert.equal(shouldShowVisibilityLineAfter(lanes[1]!, lanes), false)
 })
 
+test('reordering several frontstage lanes keeps exactly one visibility boundary', () => {
+  const lanes = customerBand(FRONTSTAGE_ACTIONS_ROLE, FRONTSTAGE_TOUCHPOINTS_ROLE, FRONTSTAGE_ACTIONS_ROLE, FRONTSTAGE_TOUCHPOINTS_ROLE, BACKSTAGE_ACTIONS_ROLE)
+  assert.deepEqual(lanes.map(lane => shouldShowVisibilityLineAfter(lane, lanes)), [false, false, false, true, false])
+  assert.equal(countBlueprintDividerRows(lanes), 1)
+})
+
 test('the internal interaction line draws before a support lane', () => {
   const lanes = board()
   assert.equal(shouldShowInternalInteractionLineAfter(lanes[3]!, lanes), true)

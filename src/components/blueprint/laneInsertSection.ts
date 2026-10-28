@@ -97,24 +97,19 @@ function rolesForBand(
   above: StructureDividerKind | null,
   below: StructureDividerKind | null,
 ): readonly CanonicalLaneRole[] {
-  if (above === null && below === 'interaction') return BAND_ROLES.aboveInteraction
-  if (above === 'interaction' && below === 'visibility') return BAND_ROLES.frontstage
-  if (above === 'visibility' && below === 'internal-interaction')
-    return BAND_ROLES.backstage
-  if (above === 'internal-interaction' && below === null) return BAND_ROLES.support
-  if (above === null && below === null) {
-    return [
-      ...BAND_ROLES.aboveInteraction,
-      ...BAND_ROLES.frontstage,
-      ...BAND_ROLES.backstage,
-      ...BAND_ROLES.support,
-    ]
+  const boundaries: Record<StructureDividerKind, number> = {
+    interaction: 1,
+    visibility: 2,
+    'internal-interaction': 3,
   }
-  if (below === 'interaction' || above === null) return BAND_ROLES.aboveInteraction
-  if (below === 'visibility' || above === 'interaction') return BAND_ROLES.frontstage
-  if (below === 'internal-interaction' || above === 'visibility')
-    return BAND_ROLES.backstage
-  return BAND_ROLES.support
+  // Missing lines leave a larger section. Offer every role in that interval
+  // so an author can introduce its first support or frontstage lane.
+  return [
+    BAND_ROLES.aboveInteraction,
+    BAND_ROLES.frontstage,
+    BAND_ROLES.backstage,
+    BAND_ROLES.support,
+  ].slice(above ? boundaries[above] : 0, below ? boundaries[below] : 4).flat()
 }
 
 /**

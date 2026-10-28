@@ -5,7 +5,7 @@ import {
   useStructureCreatePaths,
   NEW_STRUCTURE_ITEM,
 } from '@/hooks/useStructureCreatePaths'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -195,48 +195,33 @@ function LanePanelBody({
   const clickedPath =
     paths.paths.find((path) => path.id === paths.clickedPathId) ??
     paths.paths[0]
-  const bandLock = useRef<{
-    lineAbove: string | null
-    lineBelow: string | null
-  } | null>(null)
-  useEffect(() => {
-    bandLock.current = null
-  }, [draft?.scenarioId, draft?.pathId, draft?.atPosition, draft?.beforeDivider])
-  const insertSection = useMemo(() => {
-    if (!draft || !clickedOrder || !clickedPath) return null
+  const sectionForOrder = (path: (typeof paths.paths)[number], order: string[]) => {
+    if (!draft) return null
     const roleById = new Map(
-      clickedPath.items.map((row) => [row.id, row.role ?? null] as const),
+      path.items.map((row) => [row.id, row.role ?? null] as const),
     )
-    const section = laneInsertSectionForOrder(
-      clickedOrder,
+    // The opening seat is stable, unlike a render-time ref that an effect
+    // resets after its first use. Each path derives its own opening band.
+    const opening = laneInsertSectionForOrder(
+      paths.defaultOrder(path),
       roleById,
       NEW_STRUCTURE_ITEM,
-      {
-        beforeDivider: draft.beforeDivider,
-        lock: bandLock.current ?? undefined,
-      },
+      { beforeDivider: draft.beforeDivider },
     )
-    if (!bandLock.current) {
-      bandLock.current = {
-        lineAbove: section.lineAbove,
-        lineBelow: section.lineBelow,
-      }
-    }
-    return section
-  }, [draft, clickedOrder, clickedPath])
-  const roleOptions = insertSection?.allowedRoles ?? CANONICAL_LANE_ROLES
-  useEffect(() => {
-    if (!draft || !insertSection?.allowedRoles.length) return
-    const allowed = insertSection.allowedRoles
-    // Only auto-pick inside a known band. An undivided / empty draft still
-    // asks the author to choose — the full vocabulary is not a default.
-    if (allowed.length >= CANONICAL_LANE_ROLES.length) return
-    setForm((current) => {
-      if (current.laneRole && allowed.includes(current.laneRole as never))
-        return current
-      return { ...current, laneRole: allowed[0]! }
+    return laneInsertSectionForOrder(order, roleById, NEW_STRUCTURE_ITEM, {
+      beforeDivider: draft.beforeDivider,
+      lock: opening,
     })
-  }, [draft, insertSection])
+  }
+  const insertSection = clickedPath && clickedOrder
+    ? sectionForOrder(clickedPath, clickedOrder)
+    : null
+  const roleOptions = insertSection?.allowedRoles ?? CANONICAL_LANE_ROLES
+  // Adopt a newly loaded band's default before rendering its form or preview.
+  // An undivided board still asks the author to choose from the full vocabulary.
+  if (draft && roleOptions.length > 0 && roleOptions.length < CANONICAL_LANE_ROLES.length && !roleOptions.some((role) => role === form.laneRole)) {
+    setForm({ ...form, laneRole: roleOptions[0]! })
+  }
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((current) => ({ ...current, [key]: value }))
@@ -422,24 +407,7 @@ function LanePanelBody({
               value={paths.value}
               onChange={paths.onChange}
               defaultOrder={paths.defaultOrder}
-              sectionForOrder={
-                insertSection
-                  ? (path, order) =>
-                      laneInsertSectionForOrder(
-                        order,
-                        new Map(
-                          path.items.map(
-                            (row) => [row.id, row.role ?? null] as const,
-                          ),
-                        ),
-                        NEW_STRUCTURE_ITEM,
-                        {
-                          beforeDivider: draft?.beforeDivider,
-                          lock: bandLock.current ?? undefined,
-                        },
-                      )
-                  : undefined
-              }
+              sectionForOrder={insertSection ? sectionForOrder : undefined}
               item={{
                 id: NEW_STRUCTURE_ITEM,
                 name: form.name.trim() || 'New lane',

@@ -318,7 +318,7 @@ export function buildSideBySideLabelRowSpecs(
       // variant's lane of that name does.
       wrapCorridorAbove:
         !collapsed && laneHasOverheadArrowCorridor(lane, blueprints),
-      wrapCorridorBelow: !collapsed && laneHasWrapCorridorBelow(lane, lanes),
+      wrapCorridorBelow: !collapsed && laneHasWrapCorridorBelow(lane, savedLanes),
       inLaneLoopCorridorAbove:
         !collapsed && laneHasInLaneLoopCorridor(lane, blueprints),
       showDividerBelow: shouldShowLaneDividerAfter(lane, savedLanes.indexOf(lane), savedLanes),

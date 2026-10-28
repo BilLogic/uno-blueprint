@@ -175,7 +175,17 @@ export function shouldShowInteractionLineAfter(
   return anchor >= 0 && lanes[anchor]?.id === lane.id
 }
 
-/** The visibility line is drawn after frontstage lanes (above backstage lanes). */
+/** The last customer-facing lane owns the single visibility boundary. */
+export function visibilityLineAnchorIndex(lanes: readonly LaneRoleSource[]): number {
+  let anchor = -1
+  for (let index = 0; index < lanes.length; index++) {
+    const role = getLaneRole(lanes[index]!)
+    if (role === FRONTSTAGE_ACTIONS_ROLE || role === FRONTSTAGE_TOUCHPOINTS_ROLE) anchor = index
+  }
+  return anchor
+}
+
+/** The visibility line is drawn once, below the complete frontstage band. */
 export function shouldShowVisibilityLineAfter(
   lane: BlueprintLane,
   lanes?: BlueprintLane[],
@@ -185,17 +195,8 @@ export function shouldShowVisibilityLineAfter(
     return false
   }
 
-  // A frontstage-touchpoints lane can sit above frontstage actions — the
-  // visibility line follows the actions lane, not the touchpoints lane.
-  if (role === FRONTSTAGE_TOUCHPOINTS_ROLE && lanes) {
-    const index = lanes.findIndex((entry) => entry.id === lane.id)
-    const next = lanes[index + 1]
-    if (next && getLaneRole(next) === FRONTSTAGE_ACTIONS_ROLE) {
-      return false
-    }
-  }
-
-  return true
+  if (!lanes) return true
+  return lanes[visibilityLineAnchorIndex(lanes)]?.id === lane.id
 }
 
 /**

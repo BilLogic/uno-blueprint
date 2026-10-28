@@ -472,7 +472,7 @@ function LaneSelectionName({
   name,
   children,
   ...props
-}: React.ComponentProps<'button'> & { id: string; name: string }) {
+}: React.ComponentProps<'button'> & { id: string; name: string; 'data-structure-reorder'?: string }) {
   const rename = useStructureRename('lane', id, name)
   const reorderable = props['data-structure-reorder'] != null
   return rename.editing ? (

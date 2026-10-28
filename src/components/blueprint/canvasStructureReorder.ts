@@ -86,9 +86,11 @@ export function packAxisOffsets(options: {
   previewIds: readonly string[]
   starts: readonly number[]
   extents: readonly number[]
+  /** The interaction boundary's lower corridor belongs to the seat. */
+  seatInsets?: readonly number[]
   section: LaneSectionRange
 }): Map<string, number> {
-  const { ids, previewIds, starts, extents, section } = options
+  const { ids, previewIds, starts, extents, section, seatInsets } = options
   const indexById = new Map(ids.map((id, index) => [id, index]))
   const offsets = new Map<string, number>()
   for (const id of ids) offsets.set(id, 0)
@@ -107,13 +109,15 @@ export function packAxisOffsets(options: {
   for (let index = 0; index < previewInSection.length; index++) {
     const id = previewInSection[index]!
     const original = indexById.get(id)!
-    offsets.set(id, cursor - starts[original]!)
     const slot = section.start + index
+    const from = seatInsets?.[original] ?? 0
+    const to = seatInsets?.[slot] ?? 0
+    offsets.set(id, cursor - starts[original]!)
     const gap =
       slot < section.end
         ? starts[slot + 1]! - starts[slot]! - extents[slot]!
         : 0
-    cursor += extents[original]! + gap
+    cursor += extents[original]! - from + to + gap
   }
   return offsets
 }
@@ -136,6 +140,7 @@ export function registerCanvasStructureReorder(
     y: number
     items: ReorderItem[]
     boxes: DOMRect[]
+    seatInsets: number[]
     axis: AxisGeometry
     ids: string[]
     indexById: Map<string, number>
@@ -173,10 +178,9 @@ export function registerCanvasStructureReorder(
     moves.clear()
     // Always clear to empty — restoring a pre-lift value races a board that
     // already painted the dropped order and can leave a 0px translate ghost.
-    // Inline transition:none so a mid-flight CSS glide cannot outlive the
-    // structureSettling attribute when nodes remount under a new order.
+    // The settling attribute suppresses CSS glides during the DOM handoff;
+    // do not leave an inline transition override on the reusable headers.
     for (const node of original.keys()) {
-      node.style.transition = 'none'
       node.style.translate = ''
       node.removeAttribute('data-structure-lift')
       node.removeAttribute('data-structure-foreign')
@@ -196,7 +200,6 @@ export function registerCanvasStructureReorder(
     delete body.dataset.structureSettling
     delete board.dataset.structureSettling
     delete document.documentElement.dataset.structureSettling
-    delete document.documentElement.dataset.structureMotion
     document.dispatchEvent(new Event('structure-motion-end'))
   }
   if (options.settle) options.settle.release = releaseSettle
@@ -302,6 +305,15 @@ export function registerCanvasStructureReorder(
       y: event.clientY,
       items,
       boxes,
+      seatInsets: items.map((item) => {
+        if (kind !== 'lane') return 0
+        const label = item.parts.find((part) => part.hasAttribute('data-structure-lane-label'))
+        if (!label) return 0
+        const style = getComputedStyle(label)
+        // Overhead and in-lane loop corridors belong to the lane. Only the
+        // gap below the interaction boundary belongs to its destination seat.
+        return options.scale() * (parseFloat(style.getPropertyValue('--structure-row-inset-bottom')) || 0)
+      }),
       axis,
       ids: items.map((item) => item.id),
       indexById: new Map(items.map((item, i) => [item.id, i])),
@@ -412,6 +424,7 @@ export function registerCanvasStructureReorder(
         previewIds: ids,
         starts: g.boxes.map((entry) => axis.start(entry)),
         extents: g.boxes.map((entry) => axis.extent(entry)),
+        seatInsets: g.seatInsets,
         section: g.section,
       })
       for (const [id, offset] of packed) g.offsets.set(id, offset)
@@ -425,7 +438,12 @@ export function registerCanvasStructureReorder(
           node.style.translate = axis.translate(0)
         }
       }
+      const fromInset = g.seatInsets[g.index]!
+      const toInset = g.seatInsets[target]!
       place(slot!, g.offsets.get(g.id)!, true)
+      if (g.kind === 'lane') {
+        slot!.style.height = `${(box.height - fromInset + toInset) / scale}px`
+      }
       showLanding()
       for (const [index, item] of g.items.entries()) {
         if (index === g.index) continue
@@ -456,10 +474,9 @@ export function registerCanvasStructureReorder(
       }, 0)
       const commit = !g.banned && g.index !== g.target
       if (commit) {
-        // Kill glide, drop chrome, clear parked offsets, THEN hand off to
-        // save which flushSyncs the new order — all before paint. Leaving
-        // translates up through the rewrite double-offsets the new seats
-        // for a frame (the post-drop back-and-forth).
+        // Keep the preview in its destination while the query notification
+        // is queued. The consumer releases these offsets in a layout effect
+        // after the new DOM seats commit, before that frame can paint.
         body.dataset.structureSettling = ''
         board.dataset.structureSettling = ''
         document.documentElement.dataset.structureSettling = ''
@@ -469,17 +486,22 @@ export function registerCanvasStructureReorder(
           '[data-structure-foreign]',
         ))
           delete part.dataset.structureForeign
-        if (g.source.hasPointerCapture?.(g.pointerId))
-          g.source.releasePointerCapture(g.pointerId)
+        for (const playback of moves.values()) playback.cancel()
+        moves.clear()
+        for (const item of g.items) {
+          for (const part of item.parts) {
+            part.style.translate = g.axis.translate(g.offsets.get(item.id)! / options.scale())
+          }
+        }
         clearChrome()
-        clearTranslates()
         gesture = null
         settling = true
-        document.documentElement.dataset.structureMotion = ''
+        if (g.source.hasPointerCapture?.(g.pointerId))
+          g.source.releasePointerCapture(g.pointerId)
         clearTimeout(settleTimer)
         settleTimer = setTimeout(
           releaseSettle,
-          prefersReducedMotion() ? 0 : SETTLE_FALLBACK_MS,
+          SETTLE_FALLBACK_MS,
         )
         options.save(
           g.kind,
@@ -498,6 +520,9 @@ export function registerCanvasStructureReorder(
     reset()
   }
   const cancel = () => {
+    // Completing a drop releases capture too. Its later lost-capture event
+    // must not tear down a preview waiting for the committed DOM order.
+    if (!gesture) return
     if (gesture?.lifted) {
       suppressClick = true
       clearTimeout(clickReset)
@@ -582,7 +607,6 @@ export function registerCanvasStructureReorder(
   document.addEventListener('pointercancel', cancel)
   return () => {
     clearTimeout(settleTimer)
-    delete document.documentElement.dataset.structureMotion
     reset()
     document.removeEventListener('pointerdown', freshPointer, true)
     root.removeEventListener('lostpointercapture', cancel)

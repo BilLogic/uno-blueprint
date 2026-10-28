@@ -195,8 +195,10 @@ export function PathOrderSection({
                       : entry.order
                     return (
                       <>
-                        {rail?.lineAbove ? (
-                          <RailDivider label={rail.lineAbove} />
+                        {rail ? (
+                          <RailDivider
+                            label={rail.lineAbove ?? 'Top of the board'}
+                          />
                         ) : null}
                         <Reorder.Group
                           axis="y"
@@ -261,8 +263,10 @@ export function PathOrderSection({
                             />
                           ))}
                         </Reorder.Group>
-                        {rail?.lineBelow ? (
-                          <RailDivider label={rail.lineBelow} />
+                        {rail ? (
+                          <RailDivider
+                            label={rail.lineBelow ?? 'Bottom of the board'}
+                          />
                         ) : null}
                       </>
                     )

@@ -157,6 +157,36 @@ it('scopes the order rail to a section window with divider labels', () => {
   expect(screen.queryByRole('button', { name: 'Move Extra in Online' })).toBeNull()
 })
 
+it('bounds an open section end with top/bottom of the board', () => {
+  render(
+    <PathOrderSection
+      paths={[paths[0]]}
+      value={[
+        {
+          pathId: 'online',
+          order: ['new', 'start', 'finish'],
+          moved: [],
+        },
+      ]}
+      onChange={() => {}}
+      item={{ id: 'new', name: 'Review' }}
+      defaultOrder={() => []}
+      sectionForOrder={() => ({
+        start: 0,
+        end: 2,
+        lineAbove: null,
+        lineBelow: 'Line of interaction',
+      })}
+    />,
+  )
+  expect(
+    screen.getByRole('separator', { name: 'Top of the board' }),
+  ).toBeTruthy()
+  expect(
+    screen.getByRole('separator', { name: 'Line of interaction' }),
+  ).toBeTruthy()
+})
+
 it('clears one item’s moved tag when it returns, while another remains moved', () => {
   const path={id:'one',name:'One',items:[{id:'a',name:'A'},{id:'b',name:'B'},{id:'c',name:'C'},{id:'d',name:'D'}]}
   function Order() {

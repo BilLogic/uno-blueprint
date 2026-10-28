@@ -195,6 +195,7 @@ export function registerCanvasStructureReorder(
     clearTranslates()
     delete body.dataset.structureSettling
     delete board.dataset.structureSettling
+    delete document.documentElement.dataset.structureSettling
     delete document.documentElement.dataset.structureMotion
     document.dispatchEvent(new Event('structure-motion-end'))
   }
@@ -455,12 +456,13 @@ export function registerCanvasStructureReorder(
       }, 0)
       const commit = !g.banned && g.index !== g.target
       if (commit) {
-        // Freeze CSS translate transitions, drop chrome, then hand off to save
-        // which flushSyncs the new order and clears parked offsets in one turn.
-        // Parking under a live transition races the board rewrite and eases
-        // through the old seats (the post-drop back-and-forth).
+        // Kill glide, drop chrome, clear parked offsets, THEN hand off to
+        // save which flushSyncs the new order — all before paint. Leaving
+        // translates up through the rewrite double-offsets the new seats
+        // for a frame (the post-drop back-and-forth).
         body.dataset.structureSettling = ''
         board.dataset.structureSettling = ''
+        document.documentElement.dataset.structureSettling = ''
         for (const part of g.items[g.index]!.parts)
           delete part.dataset.structureLift
         for (const part of board.querySelectorAll<HTMLElement>(
@@ -470,6 +472,7 @@ export function registerCanvasStructureReorder(
         if (g.source.hasPointerCapture?.(g.pointerId))
           g.source.releasePointerCapture(g.pointerId)
         clearChrome()
+        clearTranslates()
         gesture = null
         settling = true
         document.documentElement.dataset.structureMotion = ''

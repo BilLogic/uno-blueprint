@@ -1385,17 +1385,13 @@
   transition: translate var(--motion-structural, 320ms) var(--ease-move, ease);
 }
 /*
-  Post-drop commit: kill the glide so clearing parked translates cannot ease
-  back through the old seats while React rewrites the order (the back-and-forth).
+  Post-drop commit: kill every glide under the board so clearing parked
+  translates cannot ease through the old seats while React rewrites order.
 */
-[data-structure-settling] :is(
-  [data-blueprint-row],
-  [data-structure-lane-label],
-  [data-blueprint-column-header],
-  [data-step-index],
-  [data-blueprint-divider]
-) {
+[data-structure-settling],
+[data-structure-settling] * {
   transition: none !important;
+  animation: none !important;
 }
 @media (prefers-reduced-motion: reduce) {
   [data-structure-reordering] :is(

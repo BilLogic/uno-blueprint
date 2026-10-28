@@ -145,8 +145,12 @@ it('scopes the order rail to a section window with divider labels', () => {
       })}
     />,
   )
-  expect(screen.getByText('Line of interaction')).toBeTruthy()
-  expect(screen.getByText('Line of visibility')).toBeTruthy()
+  expect(
+    screen.getByRole('separator', { name: 'Line of interaction' }),
+  ).toBeTruthy()
+  expect(
+    screen.getByRole('separator', { name: 'Line of visibility' }),
+  ).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Move Review in Online' })).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Move Finish in Online' })).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Move Start in Online' })).toBeNull()

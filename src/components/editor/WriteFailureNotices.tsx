@@ -37,7 +37,16 @@ export function WriteFailureNotices() {
   return (
     <div
       data-write-failures=""
-      className="pointer-events-none fixed inset-x-0 bottom-20 z-50 mx-auto flex w-[min(32rem,calc(100vw-2rem))] flex-col gap-2"
+      /*
+        Centre on the canvas column (right of the editor aside), not the
+        full viewport — otherwise the toast sits left of the bottom control
+        bar, which is itself centred in the main pane.
+      */
+      className="pointer-events-none fixed bottom-20 z-50 flex w-[min(32rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] flex-col gap-2"
+      style={{
+        left: 'calc((100vw + var(--editor-aside-width, 0px)) / 2)',
+        transform: 'translateX(-50%)',
+      }}
     >
       {failures.map((failure) => (
         <Alert

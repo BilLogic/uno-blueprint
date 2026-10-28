@@ -196,9 +196,7 @@ export function PathOrderSection({
                     return (
                       <>
                         {rail?.lineAbove ? (
-                          <p className="mb-2 pl-6 text-[10px] uppercase tracking-wide text-muted-foreground">
-                            {rail.lineAbove}
-                          </p>
+                          <RailDivider label={rail.lineAbove} />
                         ) : null}
                         <Reorder.Group
                           axis="y"
@@ -264,9 +262,7 @@ export function PathOrderSection({
                           ))}
                         </Reorder.Group>
                         {rail?.lineBelow ? (
-                          <p className="mt-2 pl-6 text-[10px] uppercase tracking-wide text-muted-foreground">
-                            {rail.lineBelow}
-                          </p>
+                          <RailDivider label={rail.lineBelow} />
                         ) : null}
                       </>
                     )
@@ -305,6 +301,28 @@ export function PathOrderSection({
     </section>
   )
 }
+/**
+ * Read-only band boundary — a caption between rules, matching the board’s
+ * divider grammar rather than a sortable row label.
+ *
+ * @param label - Line of interaction / visibility / internal interaction.
+ */
+function RailDivider({ label }: { label: string }) {
+  return (
+    <div
+      role="separator"
+      aria-label={label}
+      className="flex items-center gap-2 py-2 pl-1 text-muted-foreground"
+    >
+      <span aria-hidden className="h-px min-w-2 flex-1 bg-border" />
+      <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide">
+        {label}
+      </span>
+      <span aria-hidden className="h-px min-w-2 flex-1 bg-border" />
+    </div>
+  )
+}
+
 function RailRow({
   id,
   name,

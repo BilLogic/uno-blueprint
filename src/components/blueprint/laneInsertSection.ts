@@ -50,6 +50,28 @@ export type LaneInsertSection = {
   lineAbove: string | null
   lineBelow: string | null
   allowedRoles: readonly CanonicalLaneRole[]
+  /** Roles already used by neighbours in this section (not the draft seat). */
+  occupiedRoles: readonly CanonicalLaneRole[]
+}
+
+/**
+ * Default create role: first unused band option, never Storyboard while any
+ * other allowed role exists — Storyboard paints a shared walkthrough strip,
+ * so auto-picking it clones Journey figures instead of seating an empty row.
+ *
+ * @param allowedRoles - Band vocabulary for the insert section.
+ * @param occupiedRoles - Roles already present on neighbours in that section.
+ */
+export function preferredCreateRole(
+  allowedRoles: readonly CanonicalLaneRole[],
+  occupiedRoles: readonly string[] = [],
+): CanonicalLaneRole | undefined {
+  const taken = new Set(occupiedRoles)
+  const unused = allowedRoles.filter((role) => !taken.has(role))
+  const pool = unused.length > 0 ? unused : allowedRoles
+  return (
+    pool.find((role) => role !== STORYBOARD_ROLE) ?? pool[0]
+  )
 }
 
 /** Optional seating hints for an ambiguous gap between two bands. */
@@ -193,6 +215,7 @@ export function laneInsertSectionForOrder(
       lineAbove: null,
       lineBelow: null,
       allowedRoles: rolesForBand(null, null),
+      occupiedRoles: [],
     }
   }
 
@@ -243,12 +266,13 @@ export function laneInsertSectionForOrder(
     const role = roleById.get(id)
     if (role) present.add(role as CanonicalLaneRole)
   }
+  const occupiedRoles = [...present]
   const band = rolesForBand(aboveKind, belowKind)
   // Full band vocabulary — a frontstage with only touchpoints must still
   // offer frontstage actions. Out-of-band present roles stay available too.
   const allowedRoles = [
     ...band,
-    ...[...present].filter((role) => !band.includes(role)),
+    ...occupiedRoles.filter((role) => !band.includes(role)),
   ]
 
   return {
@@ -257,5 +281,6 @@ export function laneInsertSectionForOrder(
     lineAbove: aboveKind ? DIVIDER_LABEL[aboveKind] : null,
     lineBelow: belowKind ? DIVIDER_LABEL[belowKind] : null,
     allowedRoles,
+    occupiedRoles,
   }
 }

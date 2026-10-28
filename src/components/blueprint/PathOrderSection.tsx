@@ -319,7 +319,8 @@ function RailDivider({ label }: { label: string }) {
       className="flex items-center gap-2 py-2 pl-1 text-muted-foreground"
     >
       <span aria-hidden className="h-px min-w-2 flex-1 bg-border" />
-      <span className="shrink-0 text-xs font-medium">
+      {/* Normal weight keeps the bound read-only beside sortable row labels. */}
+      <span className="shrink-0 text-xs font-normal">
         {label}
       </span>
       <span aria-hidden className="h-px min-w-2 flex-1 bg-border" />

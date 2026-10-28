@@ -27,7 +27,12 @@ import {
   shouldShowInternalInteractionLineAfter,
   shouldShowLaneDividerAfter,
   shouldShowVisibilityLineAfter,
+  shouldUseStoryboardContent,
 } from '@/lib/blueprintLayout'
+import {
+  STRUCTURE_PLACEHOLDER_ID,
+  STRUCTURE_SEAM_ID,
+} from '@/lib/structureDraftPreview'
 import {
   BACKSTAGE_ACTIONS_ROLE,
   BACKSTAGE_TOUCHPOINTS_ROLE,
@@ -339,4 +344,31 @@ test('the cell inner padding class is the layout constant on the 4px grid', () =
   assert.equal(BLUEPRINT_CELL_INNER_Y, 12)
   assert.equal(BLUEPRINT_CELL_INNER_X_CLASS, 'px-4')
   assert.equal(BLUEPRINT_CELL_INNER_Y_CLASS, 'py-3')
+})
+
+test('draft and seam seats never paint the shared storyboard strip', () => {
+  assert.equal(
+    shouldUseStoryboardContent({
+      id: STRUCTURE_PLACEHOLDER_ID,
+      name: 'New lane',
+      role: STORYBOARD_ROLE,
+    }),
+    false,
+  )
+  assert.equal(
+    shouldUseStoryboardContent({
+      id: STRUCTURE_SEAM_ID,
+      name: 'Insertion seam',
+      role: STORYBOARD_ROLE,
+    }),
+    false,
+  )
+  assert.equal(
+    shouldUseStoryboardContent({
+      id: 'saved',
+      name: 'Journey figures',
+      role: STORYBOARD_ROLE,
+    }),
+    true,
+  )
 })

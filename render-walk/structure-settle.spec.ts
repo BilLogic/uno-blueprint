@@ -46,7 +46,15 @@ for (const theme of ['light', 'dark'] as const) {
       await page.mouse.move(kind === 'step' ? to!.x + to!.width / 2 : from!.x + from!.width / 2, kind === 'lane' ? to!.y + to!.height / 2 : from!.y + from!.height / 2, { steps: 12 })
       const slot = board.locator('[data-structure-landing]')
       await expect(slot).toBeVisible()
-      await page.waitForTimeout(400)
+      // Lift chrome is ready once the dragged parts are marked and the landing
+      // track has a painted size — not after an arbitrary sleep.
+      await expect(board.locator('[data-structure-lift]').first()).toBeVisible()
+      await expect
+        .poll(async () => {
+          const box = await slot.boundingBox()
+          return box ? Math.max(box.width, box.height) : 0
+        })
+        .toBeGreaterThan(4)
       await page.screenshot({ path: info.outputPath(`${kind}-lifted.png`) })
       // Start sampling inside pointerup, before the application handles it.
       const samples = board.evaluate((el, { id, kind }) => new Promise<number[]>(resolve => {

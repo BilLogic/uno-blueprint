@@ -19,6 +19,10 @@ import {
   rowTrackHeight,
 } from '@/lib/laneCorridor'
 import type { BlueprintData, BlueprintLane } from '@/types/blueprint'
+import {
+  STRUCTURE_PLACEHOLDER_ID,
+  STRUCTURE_SEAM_ID,
+} from '@/lib/structureDraftPreview'
 
 /**
  * The corridor rule lives in `laneCorridor`; its margins are re-exported
@@ -32,7 +36,7 @@ export {
 }
 
 /** Minimal lane shape for role-driven layout checks. */
-type LaneRoleSource = { name: string; role?: string | null }
+type LaneRoleSource = { id?: string; name: string; role?: string | null }
 
 /** Roles rendered as storyboard frame rows instead of text cells. */
 export const STORYBOARD_LANE_ROLES = [STORYBOARD_ROLE] as const
@@ -96,7 +100,17 @@ export function hasBlueprintCellContent(
   return true
 }
 
+/**
+ * Whether a lane paints the step-scoped storyboard walkthrough strip.
+ * Draft and seam seats stay empty — that strip is shared projection, so a
+ * storyboard-role placeholder would clone Journey figures instead of a blank row.
+ *
+ * @param lane - Lane name/role, optionally with structure draft/seam id.
+ */
 export function shouldUseStoryboardContent(lane: LaneRoleSource): boolean {
+  if (lane.id === STRUCTURE_PLACEHOLDER_ID || lane.id === STRUCTURE_SEAM_ID) {
+    return false
+  }
   const role = getLaneRole(lane)
   return (
     role !== null && (STORYBOARD_LANE_ROLES as readonly string[]).includes(role)

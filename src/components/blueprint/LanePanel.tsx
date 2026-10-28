@@ -33,7 +33,10 @@ import {
   updateLaneWithDetails,
 } from '@/lib/authoringRpc'
 import { OptionSelect } from './OptionSelect'
-import { laneInsertSectionForOrder } from './laneInsertSection'
+import {
+  laneInsertSectionForOrder,
+  preferredCreateRole,
+} from './laneInsertSection'
 import { CANONICAL_LANE_ROLES } from '@/lib/laneRoles'
 import { describeLaneRole, getLaneRole, labelLaneRole } from '@/lib/laneRoles'
 import { getBlueprintLaneStyle } from '@/lib/blueprintTheme'
@@ -218,9 +221,21 @@ function LanePanelBody({
     : null
   const roleOptions = insertSection?.allowedRoles ?? CANONICAL_LANE_ROLES
   // Adopt a newly loaded band's default before rendering its form or preview.
+  // Prefer a role the section does not already use — auto-picking storyboard
+  // beside Journey figures cloned that strip into the draft row.
   // An undivided board still asks the author to choose from the full vocabulary.
-  if (draft && roleOptions.length > 0 && roleOptions.length < CANONICAL_LANE_ROLES.length && !roleOptions.some((role) => role === form.laneRole)) {
-    setForm({ ...form, laneRole: roleOptions[0]! })
+  const defaultRole = preferredCreateRole(
+    roleOptions,
+    insertSection?.occupiedRoles ?? [],
+  )
+  if (
+    draft &&
+    defaultRole &&
+    roleOptions.length > 0 &&
+    roleOptions.length < CANONICAL_LANE_ROLES.length &&
+    !roleOptions.some((role) => role === form.laneRole)
+  ) {
+    setForm({ ...form, laneRole: defaultRole })
   }
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>

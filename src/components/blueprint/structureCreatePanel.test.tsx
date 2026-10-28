@@ -345,9 +345,13 @@ it('scopes Add-to-paths to the insert band and auto-picks a band role', async ()
   expect(screen.getByRole('button', { name: 'Move Claude in the IDE in Default' })).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Move Journey figures in Default' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Move Subagent fleet in Default' })).toBeNull()
-  // Narrow frontstage band auto-defaults the role (full band, not intersected).
+  // Narrow frontstage band auto-defaults an unused role (touchpoints already
+  // seats App & skill surface, so Frontstage actions wins).
   expect(screen.getByRole('combobox', { name: 'Role' }).textContent).toMatch(
-    /Frontstage touchpoints|Frontstage/,
+    /Frontstage/,
+  )
+  expect(screen.getByRole('combobox', { name: 'Role' }).textContent).not.toMatch(
+    /Storyboard/,
   )
   fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Role' }), {
     button: 0,
@@ -355,4 +359,35 @@ it('scopes Add-to-paths to the insert band and auto-picks a band role', async ()
   expect(
     await screen.findAllByRole('option', { name: /Frontstage/ }),
   ).toHaveLength(2)
+})
+
+it('auto-picks a free customer-band role instead of cloning storyboard', async () => {
+  reads.items = [
+    { id: 'story', name: 'Journey figures', role: 'storyboard' },
+    { id: 'owner', name: 'Blueprint owner', role: 'customer_actions' },
+    { id: 'touch', name: 'App & skill surface', role: 'frontstage_touchpoints' },
+  ]
+  reads.order = ['new', 'story', 'owner', 'touch']
+  render(
+    <Drawer open>
+      <LanePanel
+        laneId=""
+        draft={{
+          kind: 'lane',
+          scenarioId: 'scenario',
+          pathId: 'path',
+          beforeDivider: true,
+        }}
+        onClose={() => {}}
+      />
+    </Drawer>,
+  )
+  expect(await screen.findByText('Top of the board')).toBeTruthy()
+  expect(screen.getByText('Line of interaction')).toBeTruthy()
+  expect(screen.getByRole('combobox', { name: 'Role' }).textContent).toMatch(
+    /Partner/,
+  )
+  expect(screen.getByRole('combobox', { name: 'Role' }).textContent).not.toMatch(
+    /Storyboard/,
+  )
 })

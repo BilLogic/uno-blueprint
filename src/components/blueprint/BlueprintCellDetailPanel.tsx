@@ -442,6 +442,14 @@ function BlueprintCellDetailPanelBody() {
     })
   }
 
+  // The step number belongs to the selected path, even when this step also
+  // appears elsewhere. The selection supplies a fallback for an unloaded board.
+  const storyboardStepIndex = selectedBlueprint?.steps.findIndex(
+    (step) => step.id === selection.stepId,
+  ) ?? -1
+  const storyboardStepNumber =
+    (storyboardStepIndex >= 0 ? storyboardStepIndex : selection.stepIndex) + 1
+
   return (
     <PanelDrawerShell
       open={drawerOpen}
@@ -476,12 +484,11 @@ function BlueprintCellDetailPanelBody() {
 
         {isStoryboardLane ? (
           <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-4 blueprint-scroll">
-            {/*
-              A storyboard cell titles itself with the STEP, not the lane: the
-              frames below belong to the moment, not to the row they were
-              drawn on.
-            */}
-            <PanelIdentity badge={laneBadge} title={selection.stepName} meta="" />
+            <PanelIdentity
+              badge={<PanelKindBadge label="Storyboard" laneRole={laneResolution?.style.lane} />}
+              title={`Step ${storyboardStepNumber} · ${selection.stepName}`}
+              meta=""
+            />
             <StoryboardStepDetailStack entries={storyboardStepEntries} />
           </div>
         ) : (

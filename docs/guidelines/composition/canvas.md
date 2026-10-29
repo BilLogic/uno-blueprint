@@ -250,6 +250,13 @@ same `closePanel`; nothing else holds an "is it open" fact. Any new
 affordance that opens or closes the panel calls the owner — a second source
 of truth here is the bug class this rule killed.
 
+The step header opens the step panel: Name and Summary, with no storyboard
+picture row. A storyboard cell opens its own read-only picture panel, identified
+by a **Storyboard** badge and **Step N · step name** in the selected path's
+order. It offers no step editing. The pictures come from the featured images
+of that step's cells in the walkthrough lanes and are edited on those cells;
+the storyboard cell holds nothing of its own.
+
 ## The selected phase
 
 A phase the reader has opened is **selected**, and its frame says so: a

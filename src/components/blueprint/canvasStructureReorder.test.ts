@@ -351,3 +351,41 @@ it.each(['blur','lostpointercapture','visibilitychange'])('resets a lifted gestu
   expect(save).not.toHaveBeenCalled()
   dispose()
 })
+
+it.each([['lane', false], ['step', false], ['lane', true], ['step', true]] as const)('resists and refuses an outside %s drop, reduced motion: %s', (kind, reduced) => {
+  vi.stubGlobal('matchMedia', () => ({ matches: reduced }))
+  const body = document.createElement('div')
+  document.body.append(body)
+  const items = ['one', 'two'].map((id, index) => {
+    const node = document.createElement('button')
+    node.dataset.structureReorder = kind
+    node.dataset.structureId = id
+    body.append(node)
+    vi.spyOn(node, 'getBoundingClientRect').mockReturnValue(
+      new DOMRect(kind === 'step' ? index * 100 : 0, kind === 'lane' ? index * 100 : 0, 100, 100),
+    )
+    return { id, name: id, parts: [node] }
+  })
+  const save = vi.fn()
+  const dispose = registerCanvasStructureReorder(body, { items: () => items, scale: () => 1, save })
+  const pointer = (type: string, at: number) => {
+    const event = new MouseEvent(type, { bubbles: true, button: 0, clientX: kind === 'step' ? at : 25, clientY: kind === 'lane' ? at : 25 })
+    Object.defineProperty(event, 'pointerId', { value: 1 })
+    return event
+  }
+  items[0].parts[0].dispatchEvent(pointer('pointerdown', 25))
+  document.dispatchEvent(pointer('pointermove', 1000))
+  const delta = items[0].parts[0].style.translate.split(' ').map(parseFloat)[kind === 'step' ? 0 : 1]
+  expect(delta).toBeGreaterThan(100)
+  expect(delta).toBeLessThan(116)
+  document.dispatchEvent(pointer('pointerup', 1000))
+  expect(save).not.toHaveBeenCalled()
+  expect(body.dataset.structureSettling).toBe(reduced ? undefined : '')
+  items[1].parts[0].dispatchEvent(pointer('pointerdown', 125))
+  expect(body.dataset.structureSettling).toBeUndefined()
+  document.dispatchEvent(pointer('pointermove', 25))
+  expect(items[1].parts[0].hasAttribute('data-structure-lift')).toBe(true)
+  document.dispatchEvent(new Event('pointercancel'))
+  expect(body.dataset.structureSettling).toBeUndefined()
+  dispose()
+})

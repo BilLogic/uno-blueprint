@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { orderWithinSection } from './canvasStructureReorder'
+import { dampenStructureDrag, orderWithinSection } from './canvasStructureReorder'
 import {
   CUSTOMER_ACTIONS_ROLE,
   FRONTSTAGE_ACTIONS_ROLE,
@@ -35,4 +35,20 @@ it('reorders within a section and clamps past the boundary', () => {
 it('refuses to lift from outside the named section', () => {
   const ids = ['sb', 'a', 'b']
   expect(orderWithinSection(ids, 0, 2, { start: 1, end: 2 })).toEqual(ids)
+})
+
+
+it('tracks legal movement and progressively resists both edges without escaping the elastic cap', () => {
+  expect(dampenStructureDrag(40, -100, 100, 16)).toBe(40)
+  for (const sign of [-1, 1]) {
+    const near = Math.abs(dampenStructureDrag(sign * 104, -100, 100, 16))
+    const far = Math.abs(dampenStructureDrag(sign * 200, -100, 100, 16))
+    const extreme = Math.abs(dampenStructureDrag(sign * 100000, -100, 100, 16))
+    expect(near).toBeGreaterThan(100)
+    expect(far).toBeGreaterThan(near)
+    expect(extreme).toBeLessThan(116)
+    expect((far - near) / 96).toBeLessThan((near - 100) / 4)
+  }
+  // Coordinates scale with the board: zoom changes no world-space elasticity.
+  expect(dampenStructureDrag(100, -50, 50, 8) * 2).toBe(dampenStructureDrag(200, -100, 100, 16))
 })

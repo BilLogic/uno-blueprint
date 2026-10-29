@@ -2,6 +2,7 @@ import { animate, type AnimationPlaybackControls } from 'framer-motion'
 import {
   EASE_POINTS,
   MOTION_STRUCTURAL_MS,
+  STRUCTURE_RETURN_SPRING,
   prefersReducedMotion,
 } from '@/lib/motion'
 import { getLaneRole } from '@/lib/laneRoles'
@@ -30,6 +31,18 @@ export { orderWithinSection }
 
 /** Longest wait before a stuck settle preview is forced clear. */
 const SETTLE_FALLBACK_MS = 5_000
+
+/** Continuous at the boundary, with increasing resistance and a board-scaled elastic cap. */
+export function dampenStructureDrag(
+  value: number,
+  min: number,
+  max: number,
+  limit: number,
+): number {
+  const edge = Math.max(min, Math.min(max, value))
+  const extra = value - edge
+  return edge + (Math.sign(extra) * limit * Math.abs(extra)) / (limit + Math.abs(extra))
+}
 
 type Options = {
   busy?: () => boolean
@@ -258,6 +271,7 @@ export function registerCanvasStructureReorder(
   const down = (event: PointerEvent) => {
     const source = header(event)
     if (!source || event.button !== 0 || gesture || options.busy?.()) return
+    if (settling) releaseSettle()
     if ((event.target as Element).closest('[data-canvas-header-info]')) return
     const kind = source.dataset.structureReorder as Kind
     const items = options.items(kind),
@@ -386,14 +400,17 @@ export function registerCanvasStructureReorder(
     }
 
     const pointer = axis.coordinate(event.clientX, event.clientY)
-    const outside =
-      g.kind === 'lane' &&
-      (pointer < g.legalStart - 4 || pointer > g.legalEnd + 4)
+    const outside = pointer < g.legalStart - 4 || pointer > g.legalEnd + 4
     setBanned(outside)
 
-    // Lift follows the pointer even past a divider (grill). Ban cursor + bad
-    // landing mark the refuse; preview packing stops until the pointer returns.
-    const delta = rawDelta
+    // Rest → finger-locked → resistant edge → spring home on invalid release.
+    // Use untransformed seats and board-scaled elasticity, never moved nodes.
+    const delta = dampenStructureDrag(
+      rawDelta,
+      Math.min(0, g.legalStart - axis.start(box)),
+      Math.max(0, g.legalEnd - axis.start(box) - axis.extent(box)),
+      16 * scale,
+    )
     for (const part of g.items[g.index]!.parts)
       part.style.translate = axis.translate(delta / scale)
     place(frame, delta)
@@ -464,7 +481,9 @@ export function registerCanvasStructureReorder(
       clickReset = setTimeout(() => {
         suppressClick = false
       }, 0)
-      const commit = !g.banned && g.index !== g.target
+      const release = g.axis.coordinate(event.clientX, event.clientY)
+      const outside = release < g.legalStart - 4 || release > g.legalEnd + 4
+      const commit = !outside && !g.banned && g.index !== g.target
       if (commit) {
         // Keep the preview in its destination while the query notification
         // is queued. The consumer releases these offsets in a layout effect
@@ -509,7 +528,33 @@ export function registerCanvasStructureReorder(
         return
       }
     }
-    reset()
+    if (!g.lifted || prefersReducedMotion()) {
+      reset()
+      return
+    }
+    // Invalid/no-op drop: one spring clock returns the lift and neighbours.
+    // Clearing capture must not route its lost-capture event through cancel.
+    gesture = null
+    settling = true
+    body.dataset.structureSettling = ''
+    board.dataset.structureSettling = ''
+    document.documentElement.dataset.structureSettling = ''
+    if (g.source.hasPointerCapture?.(g.pointerId))
+      g.source.releasePointerCapture(g.pointerId)
+    clearChrome()
+    for (const playback of moves.values()) playback.cancel()
+    moves.clear()
+    let remaining = original.size
+    for (const part of original.keys()) {
+      moves.set(part, animate(part, { translate: g.axis.translate(0) }, {
+        ...STRUCTURE_RETURN_SPRING,
+        onComplete: () => {
+          if (--remaining === 0) releaseSettle()
+        },
+      }))
+    }
+    clearTimeout(settleTimer)
+    settleTimer = setTimeout(releaseSettle, SETTLE_FALLBACK_MS)
   }
   const cancel = () => {
     // Completing a drop releases capture too. Its later lost-capture event

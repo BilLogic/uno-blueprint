@@ -3309,7 +3309,7 @@ begin
    uploaded_ids := array_append(uploaded_ids,uploaded_id);
    next_position := next_position+1;
  end loop;
- perform public.sync_cell_touchpoints(p_cell_id, array(select btrim(part) from regexp_split_to_table(p_content,E'\\r?\\n|,') with ordinality as parts(part,ord) where btrim(part)<>'' order by ord));
+ perform public.sync_cell_touchpoints(p_cell_id, array(select name from (select regexp_replace(part,'^[[:space:]]+|[[:space:]]+$','','g') as name,ord from regexp_split_to_table(p_content,E'\\r?\\n|,') with ordinality as parts(part,ord)) names where name<>'' order by ord));
  -- Explicit choice follows synchronization, which may fill an empty frame.
  update public.cells set content=p_content,summary=nullif(regexp_replace(p_summary,'^[[:space:]]+|[[:space:]]+$','','g'),''),frame=next_frame where id=p_cell_id;
  after_state := public.read_cell_storyboard(p_cell_id);

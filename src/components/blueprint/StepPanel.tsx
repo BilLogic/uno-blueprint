@@ -192,7 +192,7 @@ function StepPanelBody({
       <PanelIdentity
         badge={<PanelKindBadge label="Step" />}
         title={step.name}
-
+        meta={null}
       />
 
       {canEdit ? (

@@ -30,6 +30,7 @@ claims:
   - src/components/blueprint/EntityPropertiesButton.tsx
   - src/components/blueprint/EntityTitleAffordance.tsx
   - src/components/blueprint/Eyebrow.tsx
+  - src/components/blueprint/FeaturedImageControl.tsx
   - src/components/blueprint/FeaturedResources.tsx
   - src/components/blueprint/RegistryLink.tsx
   - src/components/blueprint/LaneHeaderAffordance.tsx
@@ -276,6 +277,18 @@ as its host and a file as its own filename, and the rename is a second,
 optional act. The upload is on screen the whole way — the row present and
 dimmed while the bucket is written, and a `Retry` in its place if the write is
 refused.
+
+**The featured image has one reusable control.** `FeaturedImageControl.tsx`
+exports `FeaturedImageField`, a controlled choice over the cell's image
+attachments, inherited touchpoint logos and saved frame, including a saved
+storyboard illustration. Its host supplies the draft frame and receives a
+choice; an upload uses the existing attachment bucket and hands the full
+attachment back for that host to stage. It performs no authoring save.
+`CellResourcesTab` embeds it through the existing list and logo controls, so
+the panel keeps its unsaved count and one Save. `FeaturedImageControl` adds a
+standalone frozen draft and Save/Cancel around the same field, saving through
+`resourceDraftStore`; changing the cell opens a fresh draft. A surface composing
+picture and text edits uses the controlled field and owns their combined save.
 
 **None of it writes until the panel's Save.** The tabs sit beside the form,
 not inside it, so the draft is held above both: `ResourceDraftsProvider`

@@ -1329,6 +1329,8 @@
   inset: 4px;
 }
 [data-blueprint-column-header] [data-structure-grip] { @apply left-3; }
+/* Lane buttons fill the row; align the grip with its first text line. */
+[data-blueprint-row-header] [data-structure-grip] { @apply top-0 translate-y-0; }
 /* The row's content band is the only paint owner, including definition hover. */
 [data-structure-header-cell],
 [data-structure-header-cell] [data-blueprint-row-header] {

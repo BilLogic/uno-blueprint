@@ -1,6 +1,20 @@
-import { PathOrderSection, type OrderItem } from './PathOrderSection'
+import {
+  PathOrderSection,
+  type OrderItem,
+  type OrderPath,
+  type PathOrderSectionRail,
+} from './PathOrderSection'
 import { useStructureEditPaths } from '@/hooks/useStructureEditPaths'
 import { Button } from '@/components/ui/button'
+import {
+  laneSectionBounds,
+  dividerAnchorIndex,
+} from './canvasStructureDividerGeometry'
+import {
+  INTERACTION_LINE_LABEL,
+  VISIBILITY_LINE_LABEL,
+  INTERNAL_INTERACTION_LINE_LABEL,
+} from '@/lib/blueprintLayout'
 import {
   Dialog,
   DialogContent,
@@ -60,6 +74,11 @@ export function StructurePathsSection({
         onChange={paths.onChange}
         onCommit={editable ? paths.commit : undefined}
         onDragStateChange={paths.setPreviewing}
+        sectionForOrder={
+          kind === 'lane'
+            ? (path, order) => laneOrderSection(path, order, item.id)
+            : undefined
+        }
       />
       <Dialog
         open={Boolean(paths.pending)}
@@ -102,4 +121,40 @@ export function StructurePathsSection({
       </Dialog>
     </div>
   )
+}
+
+/** Keep the saved lane rail inside the same fixed section as its canvas header. */
+function laneOrderSection(
+  path: OrderPath,
+  order: string[],
+  id: string,
+): PathOrderSectionRail | null {
+  const roles = path.items.map((row) => row.role)
+  const index = path.items.findIndex((row) => row.id === id)
+  const section = laneSectionBounds(roles).find(
+    (range) => index >= range.start && index <= range.end,
+  )
+  if (!section) return null
+  const ids = new Set(
+    path.items.slice(section.start, section.end + 1).map((row) => row.id),
+  )
+  const positions = order.flatMap((row, at) => (ids.has(row) ? [at] : []))
+  if (positions.length !== ids.size) return null
+  const labelAfter = (at: number) => {
+    for (const [kind, label] of [
+      ['interaction', INTERACTION_LINE_LABEL],
+      ['visibility', VISIBILITY_LINE_LABEL],
+      ['internal-interaction', INTERNAL_INTERACTION_LINE_LABEL],
+    ] as const) {
+      if (dividerAnchorIndex(kind, roles) === at) return label
+    }
+    return null
+  }
+  return {
+    start: Math.min(...positions),
+    end: Math.max(...positions),
+    lineAbove: section.start > 0 ? labelAfter(section.start - 1) : null,
+    lineBelow:
+      section.end < path.items.length - 1 ? labelAfter(section.end) : null,
+  }
 }

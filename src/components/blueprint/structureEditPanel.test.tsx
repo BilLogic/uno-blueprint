@@ -416,3 +416,29 @@ it('appends when the panel has no opened-path context, even when another path ha
   await waitFor(() => expect(writes.membership).toHaveBeenCalledOnce())
   expect(writes.membership.mock.calls[0][1].atPosition).toBe(2)
 })
+
+it('bounds a saved lane rail by its semantic lines and cannot keyboard-drop across them', async () => {
+  state.paths = [{
+    id: 'a', name: 'Online', items: [
+      { ...item('journey', 'Journey figures'), role: 'storyboard' },
+      { ...item('recipient', 'Recipient'), role: 'customer_actions' },
+      { ...item('actor', 'Actor'), role: 'customer_actions' },
+      { ...item('front', 'Front desk'), role: 'frontstage_actions' },
+      { ...item('back', 'Back office'), role: 'backstage_actions' },
+    ],
+  }]
+  mount('lane')
+  const paths = screen.getByRole('group', { name: 'Paths' })
+  expect(within(paths).getByRole('separator', { name: 'Top of the board' })).toBeTruthy()
+  expect(within(paths).getByRole('separator', { name: 'Line of interaction' })).toBeTruthy()
+  expect(within(paths).queryByText('Front desk')).toBeNull()
+  expect(within(paths).queryByText('Back office')).toBeNull()
+  fireEvent.keyDown(within(paths).getByRole('button', { name: 'Move Actor in Online' }), { key: 'ArrowDown' })
+  expect(writes.lane).not.toHaveBeenCalled()
+  fireEvent.keyDown(within(paths).getByRole('button', { name: 'Move Actor in Online' }), { key: 'ArrowUp' })
+  await waitFor(() => expect(writes.lane).toHaveBeenCalledOnce())
+  expect(writes.lane.mock.calls[0].slice(1)).toEqual([
+    'a', ['journey', 'actor', 'recipient', 'front', 'back'],
+    ['journey', 'recipient', 'actor', 'front', 'back'],
+  ])
+})

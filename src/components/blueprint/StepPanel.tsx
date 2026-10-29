@@ -183,24 +183,6 @@ function StepPanelBody({
     }
   }
 
-  /*
-    The meta line says only what a reader could not already see.
-    "1st of 1 path" is both of those things — the position is on screen and
-    the path is in the breadcrumb — so a step that sits where you would expect
-    reports its cell count and nothing else. A step that sits at DIFFERENT
-    positions on different paths is the one case worth a sentence, and it gets
-    the list below as well.
-  */
-  const distinct = new Set(step.positions.map((entry) => entry.position))
-  const positionLabel =
-    step.positions.length === 0
-      ? 'in no path yet'
-      : distinct.size > 1
-      ? `different positions on ${step.positions.length} paths`
-      : step.positions.length > 1
-      ? `${step.positions.length} paths`
-      : null
-
   return (
     <div
       className="flex flex-col gap-4"
@@ -210,10 +192,7 @@ function StepPanelBody({
       <PanelIdentity
         badge={<PanelKindBadge label="Step" />}
         title={step.name}
-        // Only the surprise: a step that sits at a DIFFERENT position depending
-        // on the path. A cell count is bookkeeping, not something a reader of
-        // this panel came for.
-        meta={draft ? '' : positionLabel ?? ''}
+
       />
 
       {canEdit ? (

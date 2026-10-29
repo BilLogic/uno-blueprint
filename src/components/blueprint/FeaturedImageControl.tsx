@@ -6,6 +6,14 @@ import {
   type ReactNode,
 } from 'react'
 import { Button } from '@/components/ui/button'
+import { ImagePlus, MoreHorizontal } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 import { useSupabase } from '@/contexts/SupabaseProvider'
 import {
   uploadAttachment,
@@ -121,27 +129,144 @@ export function FeaturedImageField({
     choices.set(logo.url, `${logo.name} logo`)
   if (savedFrame && !choices.has(savedFrame))
     choices.set(savedFrame, 'saved image')
+  if (figure) {
+    const alternatives = Array.from(choices).filter(([url]) => url !== frame)
+    const disabled = uploading || !client || !canWrite
+    const sourceItems = alternatives.map(([url, name]) => (
+      <DropdownMenuItem
+        key={url}
+        disabled={disabled}
+        onClick={() => choose(url)}
+      >{`Use ${
+        name === 'saved image' ? 'saved picture' : name
+      }`}</DropdownMenuItem>
+    ))
+    const picker = (
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size={frame ? 'icon-sm' : 'sm'}
+              disabled={disabled}
+              aria-label={frame ? 'Picture options' : 'Choose existing picture'}
+            />
+          }
+        >
+          {frame ? <MoreHorizontal aria-hidden /> : 'Choose existing picture'}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          data-panel-dialog=""
+          className="min-w-44"
+        >
+          {sourceItems}
+          {frame && alternatives.length ? <DropdownMenuSeparator /> : null}
+          {frame ? (
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={disabled}
+              onClick={() => choose(null)}
+            >
+              Remove picture
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+    return (
+      <div
+        ref={field}
+        role="group"
+        aria-label="Picture"
+        className="flex flex-col gap-2"
+      >
+        <input
+          ref={fileInput}
+          type="file"
+          accept="image/*"
+          aria-label="Picture file"
+          className="sr-only"
+          tabIndex={-1}
+          disabled={disabled || !onUploaded}
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            event.target.value = ''
+            if (file) void upload(file)
+          }}
+        />
+        {frame ? (
+          <div className="overflow-hidden rounded-lg bg-muted/20">
+            <img
+              src={servedUrl(frame)}
+              alt="Picture"
+              className="block max-h-48 w-full object-contain"
+            />
+            <div className="flex items-center justify-end gap-1 p-1">
+              {onUploaded ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={disabled}
+                  onClick={() => fileInput.current?.click()}
+                >
+                  {uploading ? 'Uploading…' : 'Change picture'}
+                </Button>
+              ) : null}
+              {picker}
+            </div>
+          </div>
+        ) : (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={disabled || !onUploaded}
+              aria-label="Add picture"
+              onClick={() => fileInput.current?.click()}
+              className="aspect-[4/3] h-auto w-full flex-col gap-2 rounded-lg border-dashed bg-muted/20 p-6"
+            >
+              <ImagePlus aria-hidden className="size-6 text-muted-foreground" />
+              <span>{uploading ? 'Uploading…' : 'Add a picture'}</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                Choose an image to upload
+              </span>
+            </Button>
+            {alternatives.length ? (
+              <div className="flex justify-center">{picker}</div>
+            ) : null}
+          </>
+        )}
+        {problem ? (
+          <p role="alert" className="text-xs text-destructive">
+            {problem}
+          </p>
+        ) : null}
+      </div>
+    )
+  }
   return (
     <div
       ref={field}
       className="flex flex-col gap-2"
       role="group"
-      aria-label={figure ? 'Picture' : 'Featured image'}
+      aria-label="Featured image"
     >
       {frame ? (
         <>
           <img
             src={servedUrl(frame)}
-            alt={figure ? 'Picture' : 'Featured image'}
+            alt="Featured image"
             className="max-h-48 object-contain"
           />
           <Button type="button" variant="ghost" onClick={() => choose(null)}>
-            {figure ? 'Remove picture' : 'Remove featured image'}
+            Remove featured image
           </Button>
         </>
       ) : null}
       {Array.from(choices)
-        .filter(([url]) => !figure || url !== frame)
         .map(([url, name]) => (
           <Button
             key={url}
@@ -151,9 +276,7 @@ export function FeaturedImageField({
             disabled={url === frame}
             onClick={() => choose(url)}
           >
-            {figure
-              ? `Use ${name === 'saved image' ? 'saved picture' : name}`
-              : `Set ${name} as the featured image`}
+            {`Set ${name} as the featured image`}
           </Button>
         ))}
       {onUploaded ? (
@@ -162,7 +285,7 @@ export function FeaturedImageField({
             ref={fileInput}
             type="file"
             accept="image/*"
-            aria-label={figure ? 'Upload picture' : 'Upload featured image'}
+            aria-label="Upload featured image"
             className="sr-only"
             tabIndex={-1}
             disabled={uploading || !client || !canWrite}
@@ -178,13 +301,7 @@ export function FeaturedImageField({
             disabled={uploading || !client || !canWrite}
             onClick={() => fileInput.current?.click()}
           >
-            {uploading
-              ? 'Uploading…'
-              : figure
-              ? frame
-                ? 'Replace picture'
-                : 'Upload picture'
-              : 'Upload an image'}
+            {uploading ? 'Uploading…' : 'Upload an image'}
           </Button>
         </>
       ) : null}

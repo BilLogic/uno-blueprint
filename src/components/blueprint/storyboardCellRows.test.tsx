@@ -197,7 +197,8 @@ it('saves picture and caption without changing action text in one cell change an
   fireEvent.change(within(form).getByRole('textbox', { name: 'Caption' }), {
     target: { value: 'Saved summary' },
   })
-  fireEvent.click(within(form).getByRole('button', { name: 'Remove picture' }))
+  fireEvent.click(within(form).getByRole('button', {name:'Picture options'}))
+  fireEvent.click(screen.getByRole('menuitem', {name:'Remove picture'}))
   fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
   await screen.findByText('Saved the cell')
   editor.unmount()
@@ -322,7 +323,7 @@ it('keeps every staged upload selectable before the one Save', async () => {
   )
   render(<StoryboardCellRows rows={rows} canEdit />)
   const form = await readyForm()
-  fireEvent.change(within(form).getByLabelText('Upload picture'), {
+  fireEvent.change(within(form).getByLabelText('Picture file'), {
     target: { files: [new File(['A'], 'first.png', { type: 'image/png' })] },
   })
   await waitFor(() =>
@@ -331,7 +332,7 @@ it('keeps every staged upload selectable before the one Save', async () => {
     ),
   )
   const firstUrl = within(form).getByAltText('Picture').getAttribute('src')
-  fireEvent.change(within(form).getByLabelText('Upload picture'), {
+  fireEvent.change(within(form).getByLabelText('Picture file'), {
     target: { files: [new File(['B'], 'second.png', { type: 'image/png' })] },
   })
   await waitFor(() =>
@@ -339,7 +340,8 @@ it('keeps every staged upload selectable before the one Save', async () => {
       firstUrl,
     ),
   )
-  fireEvent.click(within(form).getByRole('button', { name: 'Use first' }))
+  fireEvent.click(within(form).getByRole('button', {name:'Picture options'}))
+  fireEvent.click(screen.getByRole('menuitem', {name:'Use first'}))
   expect(within(form).getByAltText('Picture').getAttribute('src')).toBe(
     firstUrl,
   )
@@ -550,7 +552,7 @@ it('Save leaves the fields open with the saved baseline for the next edit', asyn
   ).toBe(false)
 })
 
-it('limits the direct editor to picture controls and the stored Caption', async () => {
+it('shows distinct filled and empty picture controls, with only a stored Caption field', async () => {
   session.client = createClient<Database>(
     'https://example.supabase.co',
     'key',
@@ -583,8 +585,14 @@ it('limits the direct editor to picture controls and the stored Caption', async 
     }),
   ).toBeNull()
   expect(
-    screen.getByRole('button', { name: 'Replace picture' }),
+    screen.getByRole('button', { name: 'Change picture' }),
   ).toBeTruthy()
+  expect(screen.queryByRole('button', {name:'Remove picture'})).toBeNull()
+  fireEvent.click(screen.getByRole('button', {name:'Picture options'}))
+  fireEvent.click(screen.getByRole('menuitem', {name:'Remove picture'}))
+  expect(screen.queryByAltText('Picture')).toBeNull()
+  expect(screen.getByRole('button', {name:'Add picture'})).toBeTruthy()
+  expect(screen.queryByRole('button', {name:'Change picture'})).toBeNull()
 })
 
 it('offers Reload when Undo succeeds but refreshing the visible caption fails', async () => {

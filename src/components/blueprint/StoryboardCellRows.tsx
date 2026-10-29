@@ -54,11 +54,16 @@ const fromSnapshot = (expected: CellStoryboardState): Draft => ({
 export function StoryboardCellRows({
   rows,
   canEdit,
+  draftCellId,
 }: {
   rows: StoryboardCellRow[]
   canEdit: boolean
+  /** An explicitly chosen existing cell may receive its first picture. */
+  draftCellId?: string
 }) {
-  const pictures = rows.filter((row) => row.frame && row.cell.content.trim())
+  const pictures = rows.filter((row) =>
+    (row.frame || row.cell.id === draftCellId) && row.cell.content.trim(),
+  )
   const editors = useRef(new Map<string, EditorState>())
   const pendingAction = useRef<(() => void) | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -97,7 +102,7 @@ export function StoryboardCellRows({
           className="flex flex-col gap-2"
         >
           {canEdit ? (
-            <StoryboardCellEditor row={row} reportEditor={reportEditor} />
+            <StoryboardCellEditor row={row} reportEditor={reportEditor} showLabel={!draftCellId} />
           ) : (
             <StoryboardStepDetailStack
               entries={[{ ...row, summary: row.cell.summary?.trim() || '' }]}
@@ -154,9 +159,11 @@ export function StoryboardCellRows({
 function StoryboardCellEditor({
   row,
   reportEditor,
+  showLabel,
 }: {
   row: StoryboardCellRow
   reportEditor: ReportEditor
+  showLabel: boolean
 }) {
   const { client, canWrite } = useSupabase()
   const cellId = row.cell.id
@@ -301,7 +308,7 @@ function StoryboardCellEditor({
         void save()
       }}
     >
-      <p className="mb-2 text-xs font-medium text-foreground">{row.label}</p>
+      {showLabel ? <p className="mb-2 text-xs font-medium text-foreground">{row.label}</p> : null}
       <fieldset
         disabled={
           busy || needsReload || !draft.expected || !canWrite || !client

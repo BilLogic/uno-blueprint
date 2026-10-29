@@ -262,7 +262,12 @@ panel and never fills a missing caption. View mode is read-only. An existing
 picture offers Change picture and a quiet options menu for Remove picture;
 removing it reveals an Add picture upload tile and any existing image choices.
 Cancel restores the saved picture. Unpictured cells do not add unrelated rows
-to this panel.
+to this panel. Clicking an empty storyboard slot opens Add picture with a
+Picture for selector over the step's existing walkthrough cells, followed by
+Picture and optional Caption. It never opens the generic new-cell form or
+creates a cell in the storyboard lane. Switching the chosen cell protects any
+unsaved picture draft; a step without eligible cells explains that one must be
+added in another lane first.
 
 ## The selected phase
 

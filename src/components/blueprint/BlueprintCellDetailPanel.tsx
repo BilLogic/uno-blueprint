@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { CellInSlicesFooter } from '@/components/blueprint/CellInSlicesFooter'
 import { CellDetailDifferencesSurface } from '@/components/blueprint/CellDetailDifferencesSurface'
+import { StoryboardPictureDraftSurface } from '@/components/blueprint/StoryboardPictureDraftSurface'
 import { CellDetailDraftSurface } from '@/components/blueprint/CellDetailDraftSurface'
 import { CellDetailEmptySurface } from '@/components/blueprint/CellDetailEmptySurface'
 import { CellDetailOverview } from '@/components/blueprint/CellDetailOverview'
@@ -347,12 +348,22 @@ function BlueprintCellDetailPanelBody() {
         onCloseRequest={clearSelection}
         onClosed={handleClosed}
       >
-        <CellDetailDraftSurface
-          draft={draft}
-          laneBadge={laneBadge}
-          surfaceSwitcher={surfaceSwitcher}
-          onClose={clearSelection}
-        />
+        {shouldUseStoryboardContent({ name: draft.laneName, role: draft.laneRole }) ? (
+          <StoryboardPictureDraftSurface
+            key={`${draft.pathId}:${draft.stepId}`}
+            draft={draft}
+            rows={selectedBlueprint ? resolveStoryboardCellRows(selectedBlueprint, draft.stepId) : []}
+            canEdit={canEdit}
+            onClose={clearSelection}
+          />
+        ) : (
+          <CellDetailDraftSurface
+            draft={draft}
+            laneBadge={laneBadge}
+            surfaceSwitcher={surfaceSwitcher}
+            onClose={clearSelection}
+          />
+        )}
         {/* The editor portals Create/Cancel here — panel-level footing. */}
         <PanelFooterHost id={CELL_PANEL_FOOTER_ID} />
       </PanelDrawerShell>

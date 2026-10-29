@@ -274,12 +274,12 @@ export function readerFacingStrings(files = applicationComponents()) {
 
 /**
  * These upload controls name the picture a person is choosing, not the retired
- * cells.picture column. Keep the exception to this component and exact copy;
+ * cells.picture column. Keep the exception to these components and exact copy;
  * domain prose and every other retired spelling remain covered.
  */
 const PICTURE_CONTROL_COPY = new Set([
   'Picture', 'Picture file', 'Picture options', 'Add picture', 'Add a picture',
-  'Change picture', 'Remove picture', 'Choose existing picture',
+  'Change picture', 'Remove picture', 'Choose existing picture', 'Picture for',
 ])
 
 /** Reader-facing strings carrying a retired spelling. */
@@ -288,7 +288,8 @@ export function offenders(strings = readerFacingStrings()) {
     const hit = PATTERNS.find(({ word, pattern }) =>
       pattern.test(entry.value) && !(
         word === 'picture' &&
-        entry.file === 'src/components/blueprint/FeaturedImageControl.tsx' &&
+        ['src/components/blueprint/FeaturedImageControl.tsx',
+          'src/components/blueprint/StoryboardPictureDraftSurface.tsx'].includes(entry.file) &&
         PICTURE_CONTROL_COPY.has(entry.value)
       ),
     )

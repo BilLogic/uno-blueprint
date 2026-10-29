@@ -10,6 +10,8 @@ import {
 } from '@testing-library/react'
 import { createClient } from '@supabase/supabase-js'
 import { StoryboardCellRows } from './StoryboardCellRows'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { StoryboardPictureDraftSurface } from './StoryboardPictureDraftSurface'
 import { WriteFailureNotices } from '@/components/editor/WriteFailureNotices'
 import { resetWriteFailures } from '@/lib/writeFailures'
 import { requestPanelTransition } from '@/lib/openPanelStore'
@@ -684,4 +686,80 @@ it('does not present action text as a caption when no caption is stored', () => 
   expect(screen.getByRole('button', { name: 'Expand: Actor' })).toBeTruthy()
   expect(screen.queryByText('Original text')).toBeNull()
   expect(screen.queryByText('No summary')).toBeNull()
+})
+
+const pictureTarget = {
+  pathId: 'path', laneId: 'storyboard', laneName: 'Figures', laneRole: 'storyboard',
+  stepId: 'step', stepName: 'Begin', stepIndex: 0,
+}
+const emptyPictureRows = [
+  { ...rows[0], frame: '', cell: { ...rows[0].cell, frame: null } },
+  { ...rows[0], label: 'Other actor', laneName: 'Other actor', frame: '',
+    cell: { ...rows[0].cell, id: 'other-cell', lane_id: 'other-lane', frame: null } },
+]
+async function choosePictureCell(name: string) {
+  fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Picture for' }), { button: 0 })
+  const option = await screen.findByRole('option', { name: new RegExp(`^${name}`) })
+  fireEvent.pointerDown(option, { pointerType: 'mouse', button: 0 })
+  fireEvent.click(option)
+}
+it('the empty storyboard chooses an existing cell, then saves only its picture fields', async () => {
+  const calls: Array<{ fn: string; body: Record<string, unknown> }> = []
+  const token = '33333333-3333-4333-8333-333333333333'
+  let stored = { ...state, cell_id: 'other-cell', lane_id: 'other-lane', frame: null as string | null }
+  session.client = createClient<Database>('https://example.supabase.co', 'key', {
+    auth: { persistSession: false },
+    global: { fetch: async (input, init) => {
+      const fn = String(input).split('/').pop()!
+      const body = JSON.parse(String(init?.body ?? '{}'))
+      calls.push({ fn, body })
+      let result: unknown = stored
+      if (fn === 'update_cell_storyboard') {
+        const before = stored
+        stored = { ...stored, summary: body.p_summary, frame: body.p_frame }
+        result = { cell_id: 'other-cell', receipt_id: token, before, after: stored }
+      } else if (fn === 'record_authoring_change') result = token
+      return new Response(JSON.stringify(result), { headers: { 'Content-Type': 'application/json' } })
+    } },
+  })
+  render(<Dialog open><DialogContent><StoryboardPictureDraftSurface draft={pictureTarget} rows={emptyPictureRows} canEdit onClose={vi.fn()} /></DialogContent></Dialog>)
+  expect(screen.queryByRole('textbox')).toBeNull()
+  expect(calls).toHaveLength(0)
+  await choosePictureCell('Other actor')
+  const form = await readyForm('Other actor')
+  expect(within(form).getByRole('button', { name: 'Add picture' })).toBeTruthy()
+  expect(screen.queryByRole('textbox', { name: 'Content' })).toBeNull()
+  expect(screen.queryByRole('textbox', { name: 'Summary' })).toBeNull()
+  fireEvent.change(within(form).getByRole('textbox', { name: 'Caption' }), { target: { value: 'Caption for this cell' } })
+  fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(calls.some((call) => call.fn === 'update_cell_storyboard')).toBe(true))
+  const write = calls.find((call) => call.fn === 'update_cell_storyboard')!
+  expect(write.body).toMatchObject({ p_cell_id: 'other-cell', p_content: 'Original text', p_summary: 'Caption for this cell' })
+  expect(calls.some((call) => call.fn === 'upsert_cell')).toBe(false)
+})
+it('changing the picture owner protects an unsaved draft', async () => {
+  session.client = createClient<Database>('https://example.supabase.co', 'key', {
+    auth: { persistSession: false },
+    global: { fetch: async (_input, init) => {
+      const body = JSON.parse(String(init?.body ?? '{}'))
+      return new Response(JSON.stringify({ ...state, cell_id: body.p_cell_id, frame: null }), { headers: { 'Content-Type': 'application/json' } })
+    } },
+  })
+  render(<Dialog open><DialogContent><StoryboardPictureDraftSurface draft={pictureTarget} rows={emptyPictureRows} canEdit onClose={vi.fn()} /></DialogContent></Dialog>)
+  await choosePictureCell('Actor')
+  const form = await readyForm()
+  fireEvent.change(within(form).getByRole('textbox', { name: 'Caption' }), { target: { value: 'Unsaved caption' } })
+  await choosePictureCell('Other actor')
+  expect(await screen.findByRole('alertdialog')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }))
+  expect((within(form).getByRole('textbox', { name: 'Caption' }) as HTMLTextAreaElement).value).toBe('Unsaved caption')
+  await choosePictureCell('Other actor')
+  fireEvent.click(await screen.findByRole('button', { name: 'Discard changes' }))
+  await readyForm('Other actor')
+})
+it('an empty storyboard with no eligible cells never offers generic cell creation', () => {
+  render(<Dialog open><DialogContent><StoryboardPictureDraftSurface draft={pictureTarget} rows={[]} canEdit onClose={vi.fn()} /></DialogContent></Dialog>)
+  expect(screen.getByText('Add a cell in another lane at this step first.')).toBeTruthy()
+  expect(screen.queryByRole('textbox')).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Create cell' })).toBeNull()
 })

@@ -48,6 +48,7 @@ it('normal cell and lane clicks open panels; Make slice explicitly takes over ce
   expect(screen.getByLabelText('Picked cells').textContent).toBe('none')
   fireEvent.click(screen.getByRole('button', { name: 'Actor' }))
   expect(mocks.lane).toHaveBeenLastCalledWith({ kind: 'lane', id: 'lane' })
+  expect(screen.queryByRole('button', { name: 'Lane properties: Actor' })).toBeNull()
   expect(screen.getByLabelText('Picked cells').textContent).toBe('none')
   fireEvent.click(screen.getByRole('button', { name: 'Make a slice — click cells to add them' }))
   fireEvent.click(screen.getByRole('button', { name: 'Action A' }))

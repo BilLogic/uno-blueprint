@@ -212,7 +212,6 @@ export function BlueprintDividerRow({
   )
 }
 
-import { EntityPropertiesButton } from '@/components/blueprint/EntityPropertiesButton'
 import { LaneHeaderAffordance } from '@/components/blueprint/LaneHeaderAffordance'
 import { useCanvasModeValue } from '@/contexts/canvasModeContext'
 import { useCellPick } from '@/contexts/cellPickContext'
@@ -413,16 +412,6 @@ export function BlueprintLabelRow({
             {row.label}
           </span>
         )}
-        {/* Edit mode keeps a separately labelled properties button.
-            In View mode the block itself opens the panel, so a second control
-            would be a duplicate. */}
-        {laneEditable && row.lane ? (
-          <EntityPropertiesButton
-            kind="lane"
-            id={row.lane.id}
-            name={row.label}
-          />
-        ) : null}
         {BLUEPRINT_LANE_COLLAPSE_ENABLED &&
           row.kind === 'lane' &&
           row.lane &&

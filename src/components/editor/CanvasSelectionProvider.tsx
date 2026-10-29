@@ -1,3 +1,4 @@
+import { useCanvasAnnotationToolOptional } from '@/contexts/canvasAnnotationContext'
 import {
   useCallback,
   useEffect,
@@ -56,7 +57,11 @@ export function CanvasSelectionProvider({ children }: { children: ReactNode }) {
   const detail = useBlueprintCellDetailOptional()
   const [picked, setPicked] = useState<string[]>([])
   const [picking, setPicking] = useState(false)
-  const startPicking = useCallback(() => setPicking(true), [])
+  const setAnnotationTool = useCanvasAnnotationToolOptional()?.setTool
+  const startPicking = useCallback(() => {
+    setAnnotationTool?.('select')
+    setPicking(true)
+  }, [setAnnotationTool])
   // Where a shift-range reaches *from*. Held separately from `picked` because
   // the anchor is the last cell touched, which is not always the last entry —
   // toggling a cell out leaves the anchor where it was.

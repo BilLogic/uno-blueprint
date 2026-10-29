@@ -9,7 +9,10 @@ import { BlueprintLabelRow } from '@/components/blueprint/BlueprintLabelRail'
 import { StepHeaderAffordance } from '@/components/blueprint/StepHeaderAffordance'
 import { useCellPick } from '@/contexts/cellPickContext'
 import type { BlueprintCellSelection } from '@/types/blueprintCellDetail'
-const mocks = vi.hoisted(() => ({ open: vi.fn(), lane: vi.fn(), close: vi.fn() }))
+const mocks = vi.hoisted(() => ({ open: vi.fn(), lane: vi.fn(), close: vi.fn(), tool: 'select', setTool: vi.fn() }))
+vi.mock('@/contexts/canvasAnnotationContext', () => ({
+  useCanvasAnnotationToolOptional: () => ({ tool: mocks.tool, setTool: (tool: string) => { mocks.tool = tool; mocks.setTool(tool) } }),
+}))
 vi.mock('@/contexts/canvasModeContext', () => ({ useCanvasModeValue: () => 'design', getSharedCanvasMode: () => 'design' }))
 vi.mock('@/contexts/SupabaseProvider', () => ({ useSupabase: () => ({ canWrite: true, client: null }) }))
 vi.mock('@/contexts/BlueprintCellDetailContext', () => ({
@@ -37,7 +40,7 @@ function mount() {
     <StepHeaderAffordance stepId="step" name="Begin" />
   </CanvasSelectionProvider>)
 }
-afterEach(() => { cleanup(); vi.clearAllMocks() })
+afterEach(() => { cleanup(); vi.clearAllMocks(); mocks.tool = 'select' })
 it('normal cell and lane clicks open panels; Make slice explicitly takes over cell clicks', () => {
   mount()
   fireEvent.click(screen.getByRole('button', { name: 'Action A' }))
@@ -73,4 +76,14 @@ it('Escape leaves Make slice, and Shift-click outside it does not gather', () =>
   fireEvent.click(screen.getByRole('button', { name: 'Action A' }), { shiftKey: true })
   expect(mocks.open).toHaveBeenCalledTimes(1)
   expect(screen.getByLabelText('Picked cells').textContent).toBe('none')
+})
+
+it('Make slice switches from Hand to Select so the next cell click gathers', () => {
+  mocks.tool = 'hand'
+  mount()
+  fireEvent.click(screen.getByRole('button', { name: 'Make a slice — click cells to add them' }))
+  expect(mocks.setTool).toHaveBeenCalledWith('select')
+  fireEvent.click(screen.getByRole('button', { name: 'Action A' }))
+  expect(screen.getByLabelText('Picked cells').textContent).toBe('cell-a')
+  expect(mocks.open).not.toHaveBeenCalled()
 })

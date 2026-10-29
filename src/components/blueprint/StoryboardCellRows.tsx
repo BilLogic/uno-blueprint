@@ -55,7 +55,6 @@ export function StoryboardCellRows({
   const picturedRows = rows.filter(
     (row) => row.frame && row.cell.content.trim(),
   )
-  const visibleRows = canEdit ? rows : picturedRows
   const [draft, setDraft] = useState<Draft | null>(null)
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
@@ -176,7 +175,7 @@ export function StoryboardCellRows({
   }
   return (
     <div className="flex flex-col gap-5">
-      {visibleRows.map((row) => (
+      {picturedRows.map((row) => (
         <section
           key={row.cell.id}
           aria-label={row.label}
@@ -192,14 +191,15 @@ export function StoryboardCellRows({
                 void save()
               }}
             >
-              <p className="mb-2 text-xs font-medium text-foreground">{row.label}</p>
+              <p className="mb-2 text-xs font-medium text-foreground">
+                {row.label}
+              </p>
               <fieldset
                 disabled={busy || !draft.expected || !canEdit || !canWrite}
                 className="flex flex-col gap-3"
               >
                 <FeaturedImageField
                   cellId={row.cell.id}
-                  autoFocus={Boolean(draft.expected && !row.frame)}
                   frame={draft.frame}
                   savedFrame={draft.expected?.frame ?? row.cell.frame ?? null}
                   resources={row.cell.resources ?? []}
@@ -273,26 +273,18 @@ export function StoryboardCellRows({
             </form>
           ) : (
             <>
-              {row.frame ? (
-                <StoryboardStepDetailStack
-                  entries={[row]}
-                  galleryEntries={picturedRows}
-                />
-              ) : (
-                <p className="text-xs font-medium text-foreground">
-                  {row.label}
-                </p>
-              )}
+              <StoryboardStepDetailStack
+                entries={[row]}
+                galleryEntries={picturedRows}
+              />
               {canEdit ? (
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => open(row)}
-                  aria-label={`${row.frame ? 'Edit' : 'Add picture for'} ${
-                    row.label
-                  }`}
+                  aria-label={`Edit ${row.label}`}
                 >
-                  {row.frame ? 'Edit' : 'Add picture'}
+                  Edit
                 </Button>
               ) : null}
             </>

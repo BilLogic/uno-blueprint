@@ -279,6 +279,10 @@ optional act. The upload is on screen the whole way — the row present and
 dimmed while the bucket is written, and a `Retry` in its place if the write is
 refused.
 
+The storyboard panel lists only the pictured cells already represented in the
+step's strip, in both View and Edit. Unpictured cells do not add empty rows to
+this panel; their featured images are managed from their own cell panels.
+
 **The featured image has one reusable control.** `FeaturedImageControl.tsx`
 exports `FeaturedImageField`, a controlled choice over the cell's image
 attachments, inherited touchpoint logos and saved frame, including a saved

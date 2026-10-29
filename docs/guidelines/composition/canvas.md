@@ -251,11 +251,18 @@ affordance that opens or closes the panel calls the owner — a second source
 of truth here is the bug class this rule killed.
 
 The step header opens the step panel: Name and Summary, with no storyboard
-picture row. A storyboard cell opens its own read-only picture panel, identified
+picture row. A storyboard cell opens its own picture panel, identified
 by a **Storyboard** badge and **Step N · step name** in the selected path's
 order. It offers no step editing. The pictures come from the featured images
 of that step's cells in the walkthrough lanes and are edited on those cells;
-the storyboard cell holds nothing of its own.
+the storyboard cell holds nothing of its own. In canvas Edit mode, each existing
+picture opens directly to Picture and optional Caption fields, with its own
+Save and Cancel. Caption stores the cell summary; action text stays in the cell
+panel and never fills a missing caption. View mode is read-only. An existing
+picture offers Change picture and a quiet options menu for Remove picture;
+removing it reveals an Add picture upload tile and any existing image choices.
+Cancel restores the saved picture. Unpictured cells do not add unrelated rows
+to this panel.
 
 ## The selected phase
 

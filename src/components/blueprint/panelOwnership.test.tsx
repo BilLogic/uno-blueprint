@@ -92,17 +92,23 @@ function StoryboardPanel() {
   }}>Open storyboard</button><BlueprintCellDetailPanel /></>
 }
 
-it.each(['view', 'design'] as const)('identifies the storyboard independently of its lane label and keeps its selected-path step and pictures read-only in %s mode', async (mode) => {
+it.each(['view', 'design'] as const)('identifies the storyboard independently of its lane label and keeps its step identity read-only and follows %s mode for picture fields', async (mode) => {
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false, addEventListener() {}, removeEventListener() {} })))
   mount(mode, <BlueprintCellDetailProvider blueprints={[board]}><StoryboardPanel /></BlueprintCellDetailProvider>)
   fireEvent.click(screen.getByRole('button', { name: 'Open storyboard' }))
   expect(await screen.findByText('Storyboard', { exact: true })).toBeTruthy()
   expect(screen.getByText('Step 2 · Review request', { exact: true })).toBeTruthy()
-  expect(screen.getByRole('button', { name: 'Expand: Reviewer' })).toBeTruthy()
-  expect(screen.getByText('Checks the supplied details.')).toBeTruthy()
   expect(screen.queryByText('Step summary stays on the step.')).toBeNull()
-  expect(screen.queryByRole('textbox')).toBeNull()
-  expect(screen.queryByRole('button', { name: /Save|Add step|Rename step/ })).toBeNull()
+  if (mode === 'view') {
+    expect(screen.getByRole('button', {name:'Expand: Reviewer'})).toBeTruthy()
+    expect(screen.getByText('Checks the supplied details.')).toBeTruthy()
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(screen.queryByRole('button', {name:/Save|Add step|Rename step/})).toBeNull()
+  } else {
+    const form = await screen.findByRole('form', {name:'Edit Reviewer'})
+    await waitFor(() => expect((within(form).getByRole('textbox', {name:'Caption'}) as HTMLTextAreaElement).value).toBe('Checks the supplied details.'))
+    expect(screen.queryByRole('button', {name:'Edit Reviewer'})).toBeNull()
+  }
 })
 
 it.each([
@@ -126,26 +132,24 @@ function TransitionControls() {
   const entity=useEntityDetail()
   return <><button onClick={detail.closePanel}>Context close</button><button onClick={()=>detail.selectCell(buildBlueprintCellSelectionForId(board,'review','Review','Intake')!)}>Select another cell</button><button onClick={()=>entity.openEntity({kind:'step',id:'step'})}>Open step entity</button></>
 }
-it('guards actual panel close, Escape, canvas selection, full-cell opening and entity ownership before mutations',async()=>{
+it('guards actual panel close, Escape, canvas selection and entity ownership before mutations',async()=>{
  vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false, addEventListener() {}, removeEventListener() {} })))
  mount('design', <EntityDetailProvider><BlueprintCellDetailProvider enabled blueprints={[board]}><StoryboardPanel/><TransitionControls/></BlueprintCellDetailProvider></EntityDetailProvider>)
  fireEvent.click(screen.getByRole('button',{name:'Open storyboard'}))
- fireEvent.click(await screen.findByRole('button',{name:'Edit Reviewer'}))
  const form=await screen.findByRole('form',{name:'Edit Reviewer'})
  await waitFor(()=>expect(form.querySelector('fieldset')?.disabled).toBe(false))
- fireEvent.change(within(form).getByRole('textbox',{name:'Text'}),{target:{value:'Keep this draft'}})
+ fireEvent.change(within(form).getByRole('textbox',{name:'Caption'}),{target:{value:'Keep this draft'}})
  for (const action of [
   ()=>fireEvent.click(screen.getByRole('button',{name:'Context close'})),
   ()=>fireEvent.keyDown(window,{key:'Escape'}),
   ()=>fireEvent.click(screen.getByRole('button',{name:'Select another cell'})),
-  ()=>fireEvent.click(within(form).getByRole('button',{name:'Open full cell'})),
   ()=>fireEvent.click(screen.getByRole('button',{name:'Open step entity'})),
  ]) {
   action()
   const prompt=await screen.findByRole('alertdialog')
   expect(getPanelOwner()).toBe('cell')
   fireEvent.click(within(prompt).getByRole('button',{name:'Keep editing'}))
-  expect((within(form).getByRole('textbox',{name:'Text'}) as HTMLTextAreaElement).value).toBe('Keep this draft')
+  expect((within(form).getByRole('textbox',{name:'Caption'}) as HTMLTextAreaElement).value).toBe('Keep this draft')
  }
  fireEvent.click(screen.getByRole('button',{name:'Open step entity'}))
  fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button',{name:'Discard changes'}))

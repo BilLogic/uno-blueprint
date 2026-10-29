@@ -217,8 +217,10 @@ by ID. Save compares that state under locks; a mismatch raises `This cell
 changed. Reopen it before saving.` It requires nonempty Text (`Text is required`),
 an HTTPS or site-relative image address, and staged attachments owned by this cell. HTTP is accepted only for a loopback Storage bucket address for local development. Attachments
 carry `{kind: 'attachment', name, url, objectKey}`; client resource IDs and
-placement ownership are refused. Content synchronization, picture, summary and
-new attachment rows commit together.
+placement ownership are refused. When action content changes, its synchronization,
+picture, summary and new attachment rows commit together. Picture/caption-only edits
+forward unchanged action content and preserve its placements and resources. The
+storyboard panel labels `cells.summary` as Caption.
 
 The inverse consumes a private server receipt owned by the same author. It
 refuses a missing, consumed or foreign receipt with `This edit receipt is

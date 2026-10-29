@@ -51,7 +51,10 @@ begin
    uploaded_ids := array_append(uploaded_ids,uploaded_id);
    next_position := next_position+1;
  end loop;
+ -- Picture/caption-only edits preserve action text and all placements as-is.
+ if p_content is distinct from before_state->>'content' then
  perform public.sync_cell_touchpoints(p_cell_id, array(select name from (select regexp_replace(part,'^[[:space:]]+|[[:space:]]+$','','g') as name,ord from regexp_split_to_table(p_content,E'\\r?\\n|,') with ordinality as parts(part,ord)) names where name<>'' order by ord));
+ end if;
  -- Explicit choice follows synchronization, which may fill an empty frame.
  update public.cells set content=p_content,summary=nullif(regexp_replace(p_summary,'^[[:space:]]+|[[:space:]]+$','','g'),''),frame=next_frame where id=p_cell_id;
  after_state := public.read_cell_storyboard(p_cell_id);
@@ -130,11 +133,17 @@ begin
  if not refused or public.read_cell_storyboard(c)<>before_state then raise exception 'invalid % did not roll back the aggregate',bad; end if;
  end loop;
  -- Existing placements on actor cells still follow full-cell content rules.
+ update public.cells set content='Action text stays here' where id=c;
  insert into public.touchpoints(name,origin) values('Original tool','app') returning id into tp;
  insert into public.cell_touchpoints(cell_id,touchpoint_id,position,origin,summary) values(c,tp,0,'app','Keep placement writing') returning id into placement;
  insert into public.resources(cell_id,kind,name,url,position,origin,featured) values(c,'link','Original link','https://example.test/link',0,'app',true) returning id into resource;
  insert into public.resources(cell_id,cell_touchpoint_id,kind,name,url,position,origin) values(c,placement,'link','Placement link','https://example.test/placement',0,'app');
  before_state := public.read_cell_storyboard(c); original_resources:=before_state->'resources';
+ receipt:=public.update_cell_storyboard(c,before_state->>'content','Picture caption','/caption.png',before_state,'[]');
+ after_state:=public.read_cell_storyboard(c);
+ if after_state->'placements'<>before_state->'placements' or after_state->'resources'<>before_state->'resources' or after_state->>'content'<>before_state->>'content' then raise exception 'picture/caption edit changed action text or placements'; end if;
+ perform public.restore_cell_storyboard((receipt->>'receipt_id')::uuid);
+ if public.read_cell_storyboard(c)<>before_state then raise exception 'picture/caption inverse changed the aggregate'; end if;
  uploaded:=jsonb_build_array(jsonb_build_object('kind','attachment','name','Uploaded image','objectKey','cells/'||c||'/image.png','url','http://127.0.0.1:58080/storage/v1/object/public/cell-attachments/cells/'||c||'/image.png'));
  receipt := public.update_cell_storyboard(c,E' \tNew tool\t, \n ,\t,\tAnother tool\t  ','Updated','http://127.0.0.1:58080/storage/v1/object/public/cell-attachments/cells/'||c||'/image.png',before_state,uploaded);
  after_state:=public.read_cell_storyboard(c);

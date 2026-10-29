@@ -1,7 +1,16 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react'
 import { Button } from '@/components/ui/button'
 import { useSupabase } from '@/contexts/SupabaseProvider'
-import { uploadAttachment, type UploadedAttachment } from '@/lib/attachmentUpload'
+import {
+  uploadAttachment,
+  type UploadedAttachment,
+} from '@/lib/attachmentUpload'
 import { servedUrl } from '@/lib/basePath'
 import { createResourceDraftStore } from '@/lib/resourceDraftStore'
 import {
@@ -26,6 +35,7 @@ export type FeaturedImageFieldProps = {
   cellId: string
   /** Focus the first picture choice once the enclosing editor is ready. */
   autoFocus?: boolean
+  variant?: 'default' | 'figure'
   frame: string | null
   savedFrame: string | null
   resources: readonly CellResource[]
@@ -44,6 +54,7 @@ export type FeaturedImageFieldProps = {
 export function FeaturedImageField({
   cellId,
   autoFocus = false,
+  variant = 'default',
   frame,
   savedFrame,
   resources,
@@ -59,13 +70,18 @@ export function FeaturedImageField({
   const [problem, setProblem] = useState<string | null>(null)
   const field = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (autoFocus) field.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus()
+    if (autoFocus)
+      field.current
+        ?.querySelector<HTMLButtonElement>('button:not(:disabled)')
+        ?.focus()
   }, [autoFocus])
   const fileInput = useRef<HTMLInputElement>(null)
   const alive = useRef(true)
   useEffect(() => {
     alive.current = true
-    return () => { alive.current = false }
+    return () => {
+      alive.current = false
+    }
   }, [])
   const upload = async (file: File) => {
     if (!client || !canWrite || uploading || !onUploaded) return
@@ -88,46 +104,65 @@ export function FeaturedImageField({
       onUploadingChange?.(false)
     }
   }
+  const figure = variant === 'figure'
   const choose = (url: string | null) => onChange(url?.trim() || null)
   const draft = { frame, savedFrame, choose }
   if (children) return children(draft)
   const pictures = resources.filter(
-    (row) => row.kind === 'attachment' && row.url && attachmentMedium(row.url) === 'image',
+    (row) =>
+      row.kind === 'attachment' &&
+      row.url &&
+      attachmentMedium(row.url) === 'image',
   )
   const choices = new Map<string, string>()
   for (const row of pictures) choices.set(row.url!, row.name)
   for (const row of stagedAttachments) choices.set(row.url, row.name)
-  for (const logo of touchpointLogos(touchpoints)) choices.set(logo.url, `${logo.name} logo`)
-  if (savedFrame && !choices.has(savedFrame)) choices.set(savedFrame, 'saved image')
+  for (const logo of touchpointLogos(touchpoints))
+    choices.set(logo.url, `${logo.name} logo`)
+  if (savedFrame && !choices.has(savedFrame))
+    choices.set(savedFrame, 'saved image')
   return (
-    <div ref={field} className="flex flex-col gap-2" role="group" aria-label="Featured image">
+    <div
+      ref={field}
+      className="flex flex-col gap-2"
+      role="group"
+      aria-label={figure ? 'Picture' : 'Featured image'}
+    >
       {frame ? (
         <>
-          <img src={servedUrl(frame)} alt="Featured image" className="max-h-48 object-contain" />
+          <img
+            src={servedUrl(frame)}
+            alt={figure ? 'Picture' : 'Featured image'}
+            className="max-h-48 object-contain"
+          />
           <Button type="button" variant="ghost" onClick={() => choose(null)}>
-            Remove featured image
+            {figure ? 'Remove picture' : 'Remove featured image'}
           </Button>
         </>
       ) : null}
-      {Array.from(choices, ([url, name]) => (
-        <Button
-          key={url}
-          type="button"
-          variant="outline"
-          aria-pressed={url === frame}
-          disabled={url === frame}
-          onClick={() => choose(url)}
-        >
-          {`Set ${name} as the featured image`}
-        </Button>
-      ))}
+      {Array.from(choices)
+        .filter(([url]) => !figure || url !== frame)
+        .map(([url, name]) => (
+          <Button
+            key={url}
+            type="button"
+            variant="outline"
+            aria-pressed={url === frame}
+            disabled={url === frame}
+            onClick={() => choose(url)}
+          >
+            {figure
+              ? `Use ${name === 'saved image' ? 'saved picture' : name}`
+              : `Set ${name} as the featured image`}
+          </Button>
+        ))}
       {onUploaded ? (
         <>
           <input
             ref={fileInput}
             type="file"
             accept="image/*"
-            aria-label="Upload featured image"
+            aria-label={figure ? 'Upload picture' : 'Upload featured image'}
             className="sr-only"
             tabIndex={-1}
             disabled={uploading || !client || !canWrite}
@@ -143,11 +178,21 @@ export function FeaturedImageField({
             disabled={uploading || !client || !canWrite}
             onClick={() => fileInput.current?.click()}
           >
-            {uploading ? 'Uploading…' : 'Upload an image'}
+            {uploading
+              ? 'Uploading…'
+              : figure
+              ? frame
+                ? 'Replace picture'
+                : 'Upload picture'
+              : 'Upload an image'}
           </Button>
         </>
       ) : null}
-      {problem ? <p role="alert" className="text-xs text-destructive">{problem}</p> : null}
+      {problem ? (
+        <p role="alert" className="text-xs text-destructive">
+          {problem}
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -175,7 +220,9 @@ function StandaloneFeaturedImage({
   onCancel,
 }: FeaturedImageControlProps) {
   const { client, canWrite } = useSupabase()
-  const [store, setStore] = useState(() => createResourceDraftStore(draftsFromResources(resources, frame)))
+  const [store, setStore] = useState(() =>
+    createResourceDraftStore(draftsFromResources(resources, frame)),
+  )
   const [revision, setRevision] = useState(0)
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot)
   const [busy, setBusy] = useState(false)
@@ -188,7 +235,8 @@ function StandaloneFeaturedImage({
       alive.current = false
     }
   }, [])
-  const changed = resourceChangeCount(planResourceSave(state.baseline, state.drafts)) > 0
+  const changed =
+    resourceChangeCount(planResourceSave(state.baseline, state.drafts)) > 0
   const save = async () => {
     if (!client || !canWrite || busy || uploading) return
     setBusy(true)
@@ -204,7 +252,10 @@ function StandaloneFeaturedImage({
   }
   return (
     <div className="flex flex-col gap-2">
-      <fieldset disabled={busy || !client || !canWrite} className="flex flex-col gap-2">
+      <fieldset
+        disabled={busy || !client || !canWrite}
+        className="flex flex-col gap-2"
+      >
         <FeaturedImageField
           key={revision}
           cellId={cellId}
@@ -212,18 +263,28 @@ function StandaloneFeaturedImage({
           savedFrame={state.baseline.frame}
           resources={resourcesFromDrafts(state.drafts)}
           touchpoints={touchpoints}
-          onChange={(url) => store.edit((draft) => setFeaturedImage(draft, url ?? ''))}
+          onChange={(url) =>
+            store.edit((draft) => setFeaturedImage(draft, url ?? ''))
+          }
           onUploadingChange={setUploading}
-          onUploaded={(attachment) => store.edit((draft) => addResource(draft, {
-            key: `new:${attachment.objectKey}`,
-            owner: null,
-            kind: 'attachment',
-            name: attachment.name,
-            url: attachment.url,
-          }))}
+          onUploaded={(attachment) =>
+            store.edit((draft) =>
+              addResource(draft, {
+                key: `new:${attachment.objectKey}`,
+                owner: null,
+                kind: 'attachment',
+                name: attachment.name,
+                url: attachment.url,
+              }),
+            )
+          }
         />
         <div className="flex gap-2">
-          <Button type="button" disabled={!changed || uploading} onClick={() => void save()}>
+          <Button
+            type="button"
+            disabled={!changed || uploading}
+            onClick={() => void save()}
+          >
             {busy ? 'Saving…' : 'Save'}
           </Button>
           <Button
@@ -241,7 +302,11 @@ function StandaloneFeaturedImage({
           </Button>
         </div>
       </fieldset>
-      {problem ? <p role="alert" className="text-xs text-destructive">{problem}</p> : null}
+      {problem ? (
+        <p role="alert" className="text-xs text-destructive">
+          {problem}
+        </p>
+      ) : null}
     </div>
   )
 }

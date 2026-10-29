@@ -281,7 +281,11 @@ refused.
 
 The storyboard panel lists only the pictured cells already represented in the
 step's strip, in both View and Edit. Unpictured cells do not add empty rows to
-this panel; their featured images are managed from their own cell panels.
+this panel; their featured images are managed from their own cell panels. Edit mode
+opens picture controls and the optional Caption field directly. Caption maps to
+`cells.summary`; action Text and other cell properties stay in the cell's own panel.
+Save and Cancel keep the picture fields open. A single close guard covers every pictured
+cell's unsaved draft; each Save records only that cell's picture and caption.
 
 **The featured image has one reusable control.** `FeaturedImageControl.tsx`
 exports `FeaturedImageField`, a controlled choice over the cell's image

@@ -146,11 +146,7 @@ export function StoryboardStepDetailStack({
           <p className="text-xs font-medium text-foreground">
             {entry.label}
           </p>
-          <p className="text-sm whitespace-pre-wrap text-foreground">
-            {entry.summary || (
-              <span className="text-muted-foreground">No summary</span>
-            )}
-          </p>
+          {entry.summary ? <p className="text-sm whitespace-pre-wrap text-foreground">{entry.summary}</p> : null}
         </div>
       ))}
     </div>

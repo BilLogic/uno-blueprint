@@ -491,10 +491,7 @@ function BlueprintCellDetailPanelBody() {
               title={`Step ${storyboardStepNumber} · ${selection.stepName}`}
               meta=""
             />
-            {canEdit && selectedBlueprint ? <StoryboardCellRows rows={resolveStoryboardCellRows(selectedBlueprint, selection.stepId)} canEdit onOpenFullCell={cellId => {
-              const next = buildBlueprintCellSelectionForId(selectedBlueprint, cellId, selection.scenarioName, selection.phaseName)
-              if (next) selectCell(next)
-            }} /> : <StoryboardStepDetailStack entries={storyboardStepEntries} />}
+            {selectedBlueprint ? <StoryboardCellRows rows={resolveStoryboardCellRows(selectedBlueprint, selection.stepId)} canEdit={canEdit} /> : <StoryboardStepDetailStack entries={storyboardStepEntries} />}
           </div>
         ) : (
           <>

@@ -1,5 +1,4 @@
 import { StructureDragGrip } from './StructureDragGrip'
-import { useCanvasScale } from '@/contexts/CanvasScaleContext'
 import { useEntityDetailOptional } from '@/contexts/EntityDetailContext'
 import { highlightStructure } from './structureHighlight'
 import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
@@ -33,7 +32,6 @@ import {
   BLUEPRINT_SLOT_INSET,
   BLUEPRINT_SLOT_INSET_COMPACT,
   CANVAS_HEADER_TEXT,
-  CANVAS_HEADER_STATE,
 } from '@/lib/canvasHeaderStyle'
 import { cn } from '@/lib/utils'
 import type { BlueprintLane } from '@/types/blueprint'
@@ -218,7 +216,7 @@ import { EntityPropertiesButton } from '@/components/blueprint/EntityPropertiesB
 import { LaneHeaderAffordance } from '@/components/blueprint/LaneHeaderAffordance'
 import { useCanvasModeValue } from '@/contexts/canvasModeContext'
 import { useCellPick } from '@/contexts/cellPickContext'
-import { cellsInLane } from '@/lib/canvasCellQuery'
+import { clickOpensDetail } from '@/lib/cellPickGrammar'
 
 /** One row of the left label column — a lane name plus its collapse toggle. */
 export function BlueprintLabelRow({
@@ -237,27 +235,24 @@ export function BlueprintLabelRow({
   // Hooks first: this component returns early for divider rows, and a hook
   // after that return would run in a different order between row kinds.
   //
-  // In Design mode the lane label becomes a selection handle — clicking takes
-  // the whole lane, shift-clicking adds it to what is already picked. Inert in
-  // View, so reading the blueprint is untouched.
-  const selection = useEntityDetailOptional()?.selection
+  // Edit keeps the drag/rename target, while clicks use the same panel grammar
+  // as step headers. Lane headers never gather a row of cells.
+  const entity = useEntityDetailOptional()
+  const selection = entity?.selection
   const canvasMode = useCanvasModeValue()
   const pick = useCellPick()
   const laneId = row.kind === 'lane' ? row.lane?.id ?? null : null
-  const cameraScale = useCanvasScale()
-  const laneSelectable =
+  const laneEditable =
     canvasMode === 'design' &&
     pick !== null &&
     laneId !== null &&
     laneId !== STRUCTURE_PLACEHOLDER_ID
-  const selectLane = (event: ReactMouseEvent<HTMLElement>) => {
-    if (!laneSelectable || laneId === null) return
-    const cells = cellsInLane(laneId)
-    if (cells.length === 0) return
+  const openLane = (event: ReactMouseEvent<HTMLElement>) => {
+    if (!laneEditable || laneId === null) return
     event.stopPropagation()
-    // Add, not toggle: a lane that is already half-picked should end up wholly
-    // picked. Shift takes the lane back out.
-    pick.pickMany(cells, event.shiftKey ? 'toggle' : 'add')
+    if (pick?.plainClick && !clickOpensDetail(event)) return
+    if (clickOpensDetail(event)) entity?.openEntity({ kind: 'lane', id: laneId })
+    else entity?.toggleEntity({ kind: 'lane', id: laneId })
   }
 
   const isDivider =
@@ -287,7 +282,7 @@ export function BlueprintLabelRow({
         data-structure-header-cell=""
         data-open={selection?.kind === 'lane' && selection.id === laneId ? '' : undefined}
         onPointerEnter={(event) => {
-          if (laneSelectable)
+          if (laneEditable)
             highlightStructure(event.currentTarget, 'lane', laneId!, true)
         }}
         onPointerLeave={(event) => {
@@ -298,18 +293,18 @@ export function BlueprintLabelRow({
               event.clientX >= box.left && event.clientX <= box.right &&
               event.clientY >= box.top && event.clientY <= box.bottom) return
           if (
-            laneSelectable &&
+            laneEditable &&
             !event.currentTarget.querySelector('[data-structure-header-title]:focus-visible')
           )
             highlightStructure(event.currentTarget, 'lane', laneId!, false)
         }}
         onFocusCapture={(event) => {
-          if (laneSelectable)
+          if (laneEditable)
             highlightStructure(event.currentTarget, 'lane', laneId!, true)
         }}
         onBlurCapture={(event) => {
           if (
-            laneSelectable &&
+            laneEditable &&
             !event.currentTarget.contains(event.relatedTarget as Node)
           )
             highlightStructure(event.currentTarget, 'lane', laneId!, false)
@@ -328,7 +323,6 @@ export function BlueprintLabelRow({
         // its fill, and the hairline landed a few pixels from the path
         // section's own outline — two vertical lines describing one edge.
         'z-40 rounded-md',
-        CANVAS_HEADER_STATE,
       )}
       /*
         NO BACKGROUND HERE.
@@ -379,13 +373,13 @@ export function BlueprintLabelRow({
           compact ? 'pt-3 pb-3' : 'pt-4 pb-4',
         )}
       >
-        {laneSelectable ? <span aria-hidden className="pointer-events-auto absolute inset-x-0" style={{top:`min(${22 / cameraScale}px, 25%)`,bottom:`min(${22 / cameraScale}px, 25%)`}} /> : null}
-        {laneSelectable ? (
-          <LaneSelectionName
+        
+        {laneEditable ? (
+          <LaneHeaderName
             id={row.lane!.id}
             name={row.label}
             type="button"
-            onClick={selectLane}
+            onClick={openLane}
             data-structure-header-title=""
             data-open={selection?.kind === 'lane' && selection.id === laneId ? '' : undefined}
             data-structure-reorder="lane"
@@ -393,12 +387,12 @@ export function BlueprintLabelRow({
             data-blueprint-row-header=""
             className={cn(
               CANVAS_HEADER_TEXT,
-              'group/lane relative min-w-0 flex-1 cursor-pointer rounded-md text-left whitespace-normal break-words',
+              'group/lane relative flex min-w-0 flex-1 self-stretch items-start cursor-pointer rounded-md text-left whitespace-normal break-words',
             )}
             style={{ color: labelColor }}
           >
             {row.label}
-          </LaneSelectionName>
+          </LaneHeaderName>
         ) : row.kind === 'lane' && row.lane ? (
           // View mode: the label is inert prose, so the whole block becomes
           // the way into the lane's properties.
@@ -419,12 +413,10 @@ export function BlueprintLabelRow({
             {row.label}
           </span>
         )}
-        {/* Design mode only, and beside the selection handle rather than
-            inside it: there the label already means "select every cell in
-            this lane", and the two readings have to stay visibly separate.
+        {/* Edit mode keeps a separately labelled properties button.
             In View mode the block itself opens the panel, so a second control
             would be a duplicate. */}
-        {laneSelectable && row.lane ? (
+        {laneEditable && row.lane ? (
           <EntityPropertiesButton
             kind="lane"
             id={row.lane.id}
@@ -454,7 +446,7 @@ export function BlueprintLabelRow({
   )
 }
 
-function LaneSelectionName({
+function LaneHeaderName({
   id,
   name,
   children,

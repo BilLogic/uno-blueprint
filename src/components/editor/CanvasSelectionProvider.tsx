@@ -36,30 +36,10 @@ function toggleInto(current: string[], cellIds: readonly string[]): string[] {
 }
 
 /**
- * The Design-mode selection.
- *
- * Selection is an **ordered list**, not a set, because a slice made from it is
- * ordered. Individual clicks append in click order — picking a journey by hand
- * keeps the order you walked it — while bulk gestures (lane, column, marquee)
- * append in grid reading order, which their callers supply.
- *
- * The grammar used to be Figma's — plain click replaces, shift toggles — on the
- * reasoning that it is the vocabulary most people already have in their hands.
- * That was wrong, and the symptom was that a slice could not be built by
- * clicking: every click threw the previous one away, so the only way to gather
- * four cells was to hold shift for three of them, which nothing said.
- *
- * Figma's grammar fits a selection that is **the subject of the next verb**,
- * where verbs are frequent and each one acts on whatever is currently held.
- * This selection is **a set being assembled**, and there is exactly one verb at
- * the end: make a slice. So the grammar here is a file list's, not a canvas
- * editor's — click gathers, shift reaches, Escape clears.
- *
- * The full table of what each modifier means, and every place it departs from
- * Figma, is in `cellPickGrammar` — one file, so no two gestures can disagree.
- *
- * Editing a single cell is not lost to this: double-click, or right-click →
- * View cell detail. Both leave the selection exactly as it was.
+ * The explicit Make slice tool, independent of canvas Edit mode. Ordinary
+ * clicks read cells until the tool is armed. Pick order becomes slice order;
+ * clearing, Escape or leaving Edit mode exits the tool without remounting the
+ * canvas. An existing slice edit session keeps its own picker.
  */
 export function CanvasSelectionProvider({ children }: { children: ReactNode }) {
   const mode = useCanvasModeValue()
@@ -75,6 +55,8 @@ export function CanvasSelectionProvider({ children }: { children: ReactNode }) {
   const outer = useCellPick()
   const detail = useBlueprintCellDetailOptional()
   const [picked, setPicked] = useState<string[]>([])
+  const [picking, setPicking] = useState(false)
+  const startPicking = useCallback(() => setPicking(true), [])
   // Where a shift-range reaches *from*. Held separately from `picked` because
   // the anchor is the last cell touched, which is not always the last entry —
   // toggling a cell out leaves the anchor where it was.
@@ -87,11 +69,15 @@ export function CanvasSelectionProvider({ children }: { children: ReactNode }) {
   const [lastMode, setLastMode] = useState(mode)
   if (lastMode !== mode) {
     setLastMode(mode)
-    if (mode !== 'design' && picked.length > 0) setPicked([])
+    if (mode !== 'design') {
+      if (picked.length > 0) setPicked([])
+      if (picking) setPicking(false)
+    }
   }
 
   const pickMany = useCallback(
     (cellIds: readonly string[], mode: PickMode = 'toggle') => {
+      setPicking(true)
       setPicked((current) => {
         if (mode === 'replace') return [...new Set(cellIds)]
 
@@ -139,6 +125,7 @@ export function CanvasSelectionProvider({ children }: { children: ReactNode }) {
   )
 
   const clear = useCallback(() => {
+    setPicking(false)
     setPicked([])
     anchor.current = null
   }, [])
@@ -243,9 +230,10 @@ export function CanvasSelectionProvider({ children }: { children: ReactNode }) {
         ) {
           return
         }
-        setPicked([])
+        clear()
         return
       }
+      if (!picking) return
       // Cmd/Ctrl-A takes the whole grid, in reading order. Guarded on the
       // event target so it never steals the shortcut from a text field.
       if (
@@ -263,12 +251,13 @@ export function CanvasSelectionProvider({ children }: { children: ReactNode }) {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [mode])
+  }, [mode, picking, clear])
 
   const api = useMemo<CellPickApi>(() => {
     const order = new Map(picked.map((cellId, index) => [cellId, index + 1]))
     return {
-      plainClick: mode === 'design',
+      plainClick: mode === 'design' && picking,
+      startPicking,
       gathers: true,
       picked,
       isPicked: (cellId) => order.has(cellId),
@@ -277,7 +266,7 @@ export function CanvasSelectionProvider({ children }: { children: ReactNode }) {
       pickMany,
       clear,
     }
-  }, [clear, mode, pick, pickMany, picked])
+  }, [clear, mode, pick, pickMany, picked, picking, startPicking])
 
   /*
     One tree shape in both modes.
@@ -294,7 +283,7 @@ export function CanvasSelectionProvider({ children }: { children: ReactNode }) {
     Outside Design the *value* is null instead, which is exactly what
     consumers already expect from `useCellPick` when there is no picker.
   */
-  const gatherHere = outer === null && mode === 'design'
+  const gatherHere = outer === null && mode === 'design' && picking
 
   return (
     <CellPickContext.Provider value={outer ?? (mode === 'design' ? api : null)}>

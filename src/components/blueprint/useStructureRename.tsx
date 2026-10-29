@@ -37,7 +37,7 @@ export function useStructureRename(
     click: (event: MouseEvent<HTMLElement>, open: () => void) => {
       event.stopPropagation()
       clearTimeout(clickTimer.current)
-      if (event.detail === 0 || mode !== 'design') open()
+      if (event.metaKey || event.ctrlKey || event.detail === 0 || mode !== 'design') open()
       else if (event.detail === 1) clickTimer.current = setTimeout(open, 300)
     },
     editing: opener !== null,

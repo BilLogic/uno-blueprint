@@ -1,3 +1,5 @@
+import { useCellPick } from '@/contexts/cellPickContext'
+import { clickOpensDetail } from '@/lib/cellPickGrammar'
 import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
 import { highlightStructure } from './structureHighlight'
 import { useStructureRename } from './useStructureRename'
@@ -60,10 +62,8 @@ function InfoGlyph() {
  * Top-left aligned, because a lane label reads down a tall row — the only
  * thing it does differently from the column header it shares a treatment with.
  *
- * NOT used where the label already means something else. In the compare rail's
- * Design mode the label is a *selection* handle — clicking takes every cell in
- * the lane — and a second meaning on the same word would make both ambiguous.
- * There the ⓘ stays a button of its own, beside it (`EntityPropertiesButton`).
+ * The compare rail retains its own drag/rename target in Edit mode. Both
+ * targets open lane properties; neither bulk-selects a row of cells.
  */
 export function LaneHeaderAffordance({
   laneId,
@@ -77,8 +77,9 @@ export function LaneHeaderAffordance({
   color?: string
   className?: string
 }) {
+  const pick = useCellPick()
   const rename = useStructureRename('lane', laneId, laneName)
-  const { toggleEntity, selection } = useEntityDetail()
+  const { toggleEntity, openEntity, selection } = useEntityDetail()
   const detail = useBlueprintCellDetailOptional()
   const boardInScope = useScenarioBoardInScope()
   /*
@@ -182,13 +183,15 @@ export function LaneHeaderAffordance({
     )
   }
 
-  const openPanel = (event: React.SyntheticEvent) => {
+  const openPanel = (event: React.MouseEvent<HTMLElement>) => {
     // The canvas pans on pointer-down anywhere it does not recognise; opening a
     // panel is neither a pan nor a selection. Close any open definition so the
     // click reads as one action.
     event.stopPropagation()
+    if (pick?.plainClick && !clickOpensDetail(event)) return
     setDefOpen(false)
-    toggleEntity({ kind: 'lane', id: laneId })
+    if (clickOpensDetail(event)) openEntity({ kind: 'lane', id: laneId })
+    else toggleEntity({ kind: 'lane', id: laneId })
   }
 
   return (

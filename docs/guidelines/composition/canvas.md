@@ -138,9 +138,13 @@ One grammar for cells, everywhere (the authoritative comment lives in
 - **⌘/Ctrl-click opens the cell detail panel.** Always, on every surface.
   Right-click → "View cell detail" is the discoverable route to the same
   place.
-- **A bare click picks, when a picker is armed** (slice membership, compare
-  selection). No picker armed → a bare click opens the panel — or closes it,
-  when the panel already shows that exact cell (click-in, click-out).
+- **Make slice explicitly arms cell picking.** A bare click toggles a cell
+  into the slice; Shift extends a range. Cmd/Ctrl-click opens cell, lane or
+  step panels without changing the slice. Clear or Escape leaves the tool.
+- **Outside Make slice, a bare click opens the panel** — or closes it,
+  when the panel already shows that exact cell (click-in, click-out). Lane
+  and step headers follow the same panel grammar; lane headers never select
+  a whole row.
 - **Double-click deliberately does nothing.** In a toggle grammar, click-in
   click-out _is_ a fast double-click — indistinguishable by construction —
   and every attempt to give the pair its own meaning turned reading a cell
@@ -268,6 +272,10 @@ Picture and optional Caption. It never opens the generic new-cell form or
 creates a cell in the storyboard lane. Switching the chosen cell protects any
 unsaved picture draft; a step without eligible cells explains that one must be
 added in another lane first.
+
+Row headers paint a single neutral content-band wash. Nested name/opening
+controls are transparent, including while their definition is hovered; focus
+and the selected ring use that same padded band.
 
 ## The selected phase
 

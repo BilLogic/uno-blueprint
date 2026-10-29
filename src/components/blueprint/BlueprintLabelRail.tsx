@@ -373,7 +373,7 @@ export function BlueprintLabelRow({
           compact ? 'pt-3 pb-3' : 'pt-4 pb-4',
         )}
       >
-        
+
         {laneEditable ? (
           <LaneHeaderName
             id={row.lane!.id}

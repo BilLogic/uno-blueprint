@@ -33,7 +33,7 @@ function mount() {
     <CanvasDesignTools /><Count />
     <BlueprintCellButton fill="actor" cellId="cell-a" selection={selection}>Action A</BlueprintCellButton>
     <BlueprintCellButton fill="actor" cellId="cell-b" selection={{ ...selection, stepId: 'next' }}>Action B</BlueprintCellButton>
-    <BlueprintLabelRow row={{ kind: 'lane', label: 'Actor', lane, collapsed: false }} lanes={[lane]} />
+    <BlueprintLabelRow row={{ kind: 'lane', key: 'lane', height: 160, label: 'Actor', lane, collapsed: false }} lanes={[lane]} />
     <StepHeaderAffordance stepId="step" name="Begin" />
   </CanvasSelectionProvider>)
 }

@@ -170,9 +170,8 @@ export function resolveStoryboardCellRows(
     const lane = laneByName.get(name)
     if (!lane) return []
     const cell = getCellAt(cellLookup, lane.id, stepId)
-    if (!cell?.content.trim()) return []
-    const frame = cell.frame?.trim()
-    if (!frame || isBlueprintStepStoryboardPlaceholder(frame)) return []
+    if (!cell) return []
+    const frame = isBlueprintStepStoryboardPlaceholder(cell.frame) ? '' : cell.frame!.trim()
     return [
       {
         cell,
@@ -186,7 +185,7 @@ export function resolveStoryboardCellRows(
 }
 
 export function resolveStoryboardStripEntries(blueprint: StoryboardBlueprint, stepId: string): StoryboardFrameEntry[] {
-  return resolveStoryboardCellRows(blueprint, stepId).map(({ laneName, label, frame, summary }) => ({ laneName, label, frame, summary }))
+  return resolveStoryboardCellRows(blueprint, stepId).filter(row => row.frame && row.cell.content.trim()).map(({ laneName, label, frame, summary }) => ({ laneName, label, frame, summary }))
 }
 
 /** True when any walkthrough lane has a cell in this step. */

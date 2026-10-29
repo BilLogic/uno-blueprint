@@ -273,3 +273,98 @@ it('View offers pictures without Edit, while Cancel and blank Text cannot write'
   expect(screen.queryByRole('form')).toBeNull()
   expect(writes).not.toHaveBeenCalled()
 })
+
+it('Add picture opens the same editor focused on its picture control, and Save joins the strip', async () => {
+  const before = { ...state, frame: null }
+  const unpictured = [
+    {
+      ...rows[0],
+      frame: '',
+      cell: {
+        ...rows[0].cell,
+        frame: null,
+        resources: [
+          {
+            id: 'image',
+            kind: 'attachment' as const,
+            name: 'Diagram',
+            url: 'https://example.test/diagram.png',
+            position: 0,
+          },
+        ],
+      },
+    },
+  ]
+  const calls: string[] = []
+  session.client = createClient<Database>(
+    'https://example.supabase.co',
+    'key',
+    {
+      auth: { persistSession: false },
+      global: {
+        fetch: async (input, init) => {
+          const fn = String(input).split('/').pop()!
+          calls.push(fn)
+          const body = JSON.parse(String(init?.body ?? '{}'))
+          const result =
+            fn === 'read_cell_storyboard'
+              ? before
+              : fn === 'record_authoring_change'
+              ? '22222222-2222-4222-8222-222222222222'
+              : {
+                  cell_id: 'cell',
+                  receipt_id: '22222222-2222-4222-8222-222222222222',
+                  before,
+                  after: { ...before, frame: body.p_frame },
+                }
+          return new Response(JSON.stringify(result), {
+            headers: { 'Content-Type': 'application/json' },
+          })
+        },
+      },
+    },
+  )
+  const editor = render(
+    <StoryboardCellRows
+      rows={unpictured}
+      canEdit={false}
+      onOpenFullCell={() => {}}
+    />,
+  )
+  expect(screen.queryByText('Actor')).toBeNull()
+  editor.rerender(
+    <StoryboardCellRows rows={unpictured} canEdit onOpenFullCell={() => {}} />,
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Add picture for Actor' }))
+  const form = await screen.findByRole('form', { name: 'Edit Actor' })
+  const choose = within(form).getByRole('button', {
+    name: 'Set Diagram as the featured image',
+  })
+  await vi.waitFor(() => expect(document.activeElement).toBe(choose))
+  fireEvent.click(choose)
+  fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
+  await vi.waitFor(() => expect(screen.queryByRole('form')).toBeNull())
+  editor.rerender(
+    <StoryboardCellRows
+      rows={[
+        {
+          ...unpictured[0],
+          frame: 'https://example.test/diagram.png',
+          cell: {
+            ...unpictured[0].cell,
+            frame: 'https://example.test/diagram.png',
+          },
+        },
+      ]}
+      canEdit
+      onOpenFullCell={() => {}}
+    />,
+  )
+  expect(screen.getByRole('button', { name: 'Edit Actor' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Expand: Actor' })).toBeTruthy()
+  expect(calls).toEqual([
+    'read_cell_storyboard',
+    'update_cell_storyboard',
+    'record_authoring_change',
+  ])
+})

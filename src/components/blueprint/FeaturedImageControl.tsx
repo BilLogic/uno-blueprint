@@ -24,6 +24,8 @@ export type FeaturedImageDraft = {
 
 export type FeaturedImageFieldProps = {
   cellId: string
+  /** Focus the first picture choice once the enclosing editor is ready. */
+  autoFocus?: boolean
   frame: string | null
   savedFrame: string | null
   resources: readonly CellResource[]
@@ -40,6 +42,7 @@ export type FeaturedImageFieldProps = {
 /** A controlled picture choice. Its host owns the draft and when it is written. */
 export function FeaturedImageField({
   cellId,
+  autoFocus = false,
   frame,
   savedFrame,
   resources,
@@ -52,6 +55,10 @@ export function FeaturedImageField({
   const { client, canWrite } = useSupabase()
   const [uploading, setUploading] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
+  const field = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (autoFocus) field.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus()
+  }, [autoFocus])
   const fileInput = useRef<HTMLInputElement>(null)
   const alive = useRef(true)
   useEffect(() => {
@@ -90,7 +97,7 @@ export function FeaturedImageField({
   for (const logo of touchpointLogos(touchpoints)) choices.set(logo.url, `${logo.name} logo`)
   if (savedFrame && !choices.has(savedFrame)) choices.set(savedFrame, 'saved image')
   return (
-    <div className="flex flex-col gap-2" aria-label="Featured image">
+    <div ref={field} className="flex flex-col gap-2" role="group" aria-label="Featured image">
       {frame ? (
         <>
           <img src={servedUrl(frame)} alt="Featured image" className="max-h-48 object-contain" />

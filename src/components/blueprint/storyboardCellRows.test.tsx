@@ -286,6 +286,8 @@ it('Add picture opens the same editor focused on its picture control, and Save j
         resources: [
           {
             id: 'image',
+            placementId: null,
+            featured: false,
             kind: 'attachment' as const,
             name: 'Diagram',
             url: 'https://example.test/diagram.png',

@@ -566,16 +566,16 @@ it('limits the direct editor to picture controls and the stored Caption', async 
   )
   render(<StoryboardCellRows rows={rows} canEdit />)
   expect(
-    await screen.findByRole('textbox', { name: 'Caption', exact: true }),
+    await screen.findByRole('textbox', { name: 'Caption' }),
   ).toBeTruthy()
   expect(
-    screen.queryByRole('textbox', { name: 'Text', exact: true }),
+    screen.queryByRole('textbox', { name: 'Text' }),
   ).toBeNull()
   expect(
-    screen.queryByRole('textbox', { name: 'Summary', exact: true }),
+    screen.queryByRole('textbox', { name: 'Summary' }),
   ).toBeNull()
   expect(
-    screen.queryByRole('button', { name: 'Open full cell', exact: true }),
+    screen.queryByRole('button', { name: 'Open full cell' }),
   ).toBeNull()
   expect(
     screen.queryByRole('button', {
@@ -583,7 +583,7 @@ it('limits the direct editor to picture controls and the stored Caption', async 
     }),
   ).toBeNull()
   expect(
-    screen.getByRole('button', { name: 'Replace picture', exact: true }),
+    screen.getByRole('button', { name: 'Replace picture' }),
   ).toBeTruthy()
 })
 

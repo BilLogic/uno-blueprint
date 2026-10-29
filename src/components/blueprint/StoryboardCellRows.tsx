@@ -192,6 +192,7 @@ export function StoryboardCellRows({
                 void save()
               }}
             >
+              <p className="mb-2 text-xs font-medium text-foreground">{row.label}</p>
               <fieldset
                 disabled={busy || !draft.expected || !canEdit || !canWrite}
                 className="flex flex-col gap-3"

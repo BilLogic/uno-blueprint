@@ -32,6 +32,7 @@ claims:
   - src/components/blueprint/Eyebrow.tsx
   - src/components/blueprint/FeaturedImageControl.tsx
   - src/components/blueprint/StoryboardCellRows.tsx
+  - src/components/blueprint/StoryboardPictureDraftSurface.tsx
   - src/components/blueprint/FeaturedResources.tsx
   - src/components/blueprint/RegistryLink.tsx
   - src/components/blueprint/LaneHeaderAffordance.tsx

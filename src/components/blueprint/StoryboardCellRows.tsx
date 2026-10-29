@@ -1,5 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { AlertDialog } from '@base-ui/react/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { FeaturedImageField } from './FeaturedImageControl'
@@ -298,7 +303,7 @@ export function StoryboardCellRows({
           {problem}
         </p>
       ) : null}
-      <AlertDialog.Root
+      <Dialog
         open={Boolean(pending)}
         onOpenChange={(open) => {
           if (!open) {
@@ -307,47 +312,46 @@ export function StoryboardCellRows({
           }
         }}
       >
-        <AlertDialog.Portal>
-          <AlertDialog.Backdrop className="fixed inset-0 z-50 bg-black/50" />
-          <AlertDialog.Popup
-            data-panel-dialog=""
-            className="fixed top-1/2 left-1/2 z-50 flex w-[min(28rem,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-xl bg-background p-6 text-foreground shadow-lg ring-1 ring-border-overlay"
-          >
-            <AlertDialog.Title className="text-lg font-semibold">
-              Discard unsaved changes?
-            </AlertDialog.Title>
-            <AlertDialog.Description className="text-sm text-muted-foreground">
-              Your changes to this cell have not been saved.
-            </AlertDialog.Description>
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  live.current.pending = null
-                  setPending(null)
-                }}
-              >
-                Keep editing
-              </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={() => {
-                  const action = pending
-                  live.current.dirty = false
-                  live.current.pending = null
-                  setPending(null)
-                  setDraft(null)
-                  action?.()
-                }}
-              >
-                Discard changes
-              </Button>
-            </div>
-          </AlertDialog.Popup>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>
+        <DialogContent
+          role="alertdialog"
+          showCloseButton={false}
+          data-panel-dialog=""
+          className="fixed top-1/2 left-1/2 z-50 flex w-[min(28rem,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-xl bg-background p-6 text-foreground shadow-lg ring-1 ring-border-overlay"
+        >
+          <DialogTitle className="text-lg font-semibold">
+            Discard unsaved changes?
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            Your changes to this cell have not been saved.
+          </DialogDescription>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                live.current.pending = null
+                setPending(null)
+              }}
+            >
+              Keep editing
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                const action = pending
+                live.current.dirty = false
+                live.current.pending = null
+                setPending(null)
+                setDraft(null)
+                action?.()
+              }}
+            >
+              Discard changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -29,6 +29,8 @@ import {
 } from '@/components/blueprint/panelShell'
 import { IconTooltip } from '@/components/editor/IconTooltip'
 import { StoryboardStepDetailStack } from '@/components/blueprint/StoryboardStepDetailStack'
+import { StoryboardCellRows } from '@/components/blueprint/StoryboardCellRows'
+import { resolveStoryboardCellRows } from '@/lib/storyboardWalkthrough'
 import { Button } from '@/components/ui/button'
 import {
   useBlueprintCellDetail,
@@ -489,7 +491,10 @@ function BlueprintCellDetailPanelBody() {
               title={`Step ${storyboardStepNumber} · ${selection.stepName}`}
               meta=""
             />
-            <StoryboardStepDetailStack entries={storyboardStepEntries} />
+            {canEdit && selectedBlueprint ? <StoryboardCellRows rows={resolveStoryboardCellRows(selectedBlueprint, selection.stepId)} canEdit onOpenFullCell={cellId => {
+              const next = buildBlueprintCellSelectionForId(selectedBlueprint, cellId, selection.scenarioName, selection.phaseName)
+              if (next) selectCell(next)
+            }} /> : <StoryboardStepDetailStack entries={storyboardStepEntries} />}
           </div>
         ) : (
           <>

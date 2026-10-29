@@ -1,3 +1,4 @@
+import { requestPanelTransition } from '@/lib/openPanelStore'
 import { resolveActiveFocusCells } from '@/lib/canvasFocusCells'
 import {
   awaitPublishedJump,
@@ -195,9 +196,9 @@ export async function agentOpenCellPanel(cellId: string): Promise<string> {
   // ⌘-click is the grammar's "open detail, touch nothing" gesture — it works
   // identically in view and design mode (a bare click PICKS when a picker is
   // armed, and dblclick deliberately does nothing).
-  el.dispatchEvent(
+  if (!requestPanelTransition(() => el.dispatchEvent(
     new MouseEvent('click', { bubbles: true, cancelable: true, metaKey: true }),
-  )
+  ))) return 'Panel transition is awaiting a draft decision or the editor is busy.'
   // Verify instead of assuming: the cell-detail context registers its
   // selection-scoped `cell-panel` UI-context contributor only while a cell
   // is actually selected, so its presence IS "the panel opened on a cell".

@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createClient } from '@supabase/supabase-js'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import { StepPanel } from './StepPanel'
 import { Drawer } from '@/components/ui/drawer'
+import { EntityDetailProvider, useEntityDetail } from '@/contexts/EntityDetailContext'
+import { getPanelOwner } from '@/lib/openPanelStore'
 import { CanvasModeContext } from '@/contexts/canvasModeContext'
 
 import { BlueprintCellDetailPanel } from './BlueprintCellDetailPanel'
@@ -24,7 +26,9 @@ function mount(mode: 'view' | 'design', children: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const wire = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input)
-    const data = url.includes('/steps?')
+    const data = url.includes('/rpc/read_cell_storyboard')
+      ? {cell_id:'review',path_id:'path',lane_id:'reviewer',step_id:'step',content:'Review request',summary:'Checks the supplied details.',frame:'/reviewer.png',resources:[],placements:[]}
+      : url.includes('/steps?')
       ? { id: 'step', name: 'Review request', summary: 'The reviewer checks the request.', scenario_id: 'scenario', scenarios: { name: 'Review', phases: { name: 'Intake' } } }
       : url.includes('/path_steps?')
       ? [{ position: 0, paths: { name: 'Default', created_at: '2026-01-01' } }, { position: 2, paths: { name: 'Exception', created_at: '2026-01-02' } }]
@@ -114,4 +118,37 @@ it.each([
   expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
   expect(screen.queryByText('Storyboard', { exact: true })).toBeNull()
   expect(screen.queryByText('Position', { exact: true })).toBeNull()
+})
+
+
+function TransitionControls() {
+  const detail=useBlueprintCellDetail()
+  const entity=useEntityDetail()
+  return <><button onClick={detail.closePanel}>Context close</button><button onClick={()=>detail.selectCell(buildBlueprintCellSelectionForId(board,'review','Review','Intake')!)}>Select another cell</button><button onClick={()=>entity.openEntity({kind:'step',id:'step'})}>Open step entity</button></>
+}
+it('guards actual panel close, Escape, canvas selection, full-cell opening and entity ownership before mutations',async()=>{
+ vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false, addEventListener() {}, removeEventListener() {} })))
+ mount('design', <EntityDetailProvider><BlueprintCellDetailProvider enabled blueprints={[board]}><StoryboardPanel/><TransitionControls/></BlueprintCellDetailProvider></EntityDetailProvider>)
+ fireEvent.click(screen.getByRole('button',{name:'Open storyboard'}))
+ fireEvent.click(await screen.findByRole('button',{name:'Edit Reviewer'}))
+ const form=await screen.findByRole('form',{name:'Edit Reviewer'})
+ await waitFor(()=>expect(form.querySelector('fieldset')?.disabled).toBe(false))
+ fireEvent.change(within(form).getByRole('textbox',{name:'Text'}),{target:{value:'Keep this draft'}})
+ for (const action of [
+  ()=>fireEvent.click(screen.getByRole('button',{name:'Context close'})),
+  ()=>fireEvent.keyDown(window,{key:'Escape'}),
+  ()=>fireEvent.click(screen.getByRole('button',{name:'Select another cell'})),
+  ()=>fireEvent.click(within(form).getByRole('button',{name:'Open full cell'})),
+  ()=>fireEvent.click(screen.getByRole('button',{name:'Open step entity'})),
+ ]) {
+  action()
+  const prompt=await screen.findByRole('alertdialog')
+  expect(getPanelOwner()).toBe('cell')
+  fireEvent.click(within(prompt).getByRole('button',{name:'Keep editing'}))
+  expect((within(form).getByRole('textbox',{name:'Text'}) as HTMLTextAreaElement).value).toBe('Keep this draft')
+ }
+ fireEvent.click(screen.getByRole('button',{name:'Open step entity'}))
+ fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button',{name:'Discard changes'}))
+ expect(getPanelOwner()).toBe('entity')
+ expect(screen.queryByRole('form',{name:'Edit Reviewer'})).toBeNull()
 })

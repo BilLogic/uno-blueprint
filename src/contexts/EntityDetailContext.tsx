@@ -16,6 +16,7 @@ import {
 } from 'react'
 import {
   claimPanel,
+  requestPanelTransition,
   getPanelOwner,
   releasePanel,
   subscribePanelOwner,
@@ -127,14 +128,17 @@ export function EntityDetailProvider({
   }, [resetKey])
 
   const openEntity = useCallback((next: EntityDetailSelection) => {
+      return requestPanelTransition(() => {
     openerRef.current = null
     setSeam(null)
     claimPanel('entity')
     setSelection(next)
+      })
   }, [])
 
   const openCreate = useCallback(
     (draft: StructureDraft, opener: HTMLButtonElement) => {
+      return requestPanelTransition(() => {
       const scope=opener.closest<HTMLElement>('[data-focus-slide-id]')
       const progress=parseFloat(getComputedStyle(opener).getPropertyValue('--structure-seam-progress')) || 0
       scope?.style.setProperty('--structure-draft-from',`${36 * progress}px`)
@@ -158,11 +162,13 @@ export function EntityDetailProvider({
         draft,
         draftKey: ++draftSequence.current,
       })
+      })
     },
     [],
   )
 
   const toggleEntity = useCallback((next: EntityDetailSelection) => {
+      return requestPanelTransition(() => {
     setSelection((current) => {
       if (current && current.kind === next.kind && current.id === next.id) {
         releasePanel('entity')
@@ -171,6 +177,7 @@ export function EntityDetailProvider({
       claimPanel('entity')
       return next
     })
+      })
   }, [])
 
   const closeEntity = useCallback(() => {

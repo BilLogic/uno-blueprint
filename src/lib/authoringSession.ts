@@ -86,6 +86,7 @@ export type WriteFn =
   | 'add_lane'
   | 'upsert_cell'
   | 'update_cell_content'
+  | 'update_cell_storyboard'
   | 'update_cell_status'
   | 'update_cell_resources'
   | 'update_placement_resources'
@@ -308,6 +309,13 @@ export async function recordRequiredChange(
   }
 }
 
+/** A required UI save retains its own entry, including when only the append fails. */
+export async function recordRequiredEntry(fn: WriteFn, args: Record<string, unknown>, revert: RevertSpec, writer: AuthoringLogWriter): Promise<SessionEntry> {
+  const entry = captureChange(fn, args, revert)
+  try { await appendRequiredAuthoringLog(entry, writer); return entry }
+  catch (cause) { throw new PartialAuthoringWriteError(entry, cause) }
+}
+
 /** Save: the changes are wanted, so stop tracking them. Writes nothing. */
 export function clearSession(): void {
   if (entries.length === 0) return
@@ -417,6 +425,7 @@ const DESCRIBERS: Record<WriteFn, (entry: ChangeEntry) => string> = {
     entry.revert?.fn === 'delete_cell'
       ? 'Added a cell'
       : 'Edited a cell’s text',
+  update_cell_storyboard: () => 'Edited a storyboard cell',
   update_cell_content: () => 'Edited a cell’s text',
   update_cell_status: () => 'Changed a cell’s status',
   update_cell_resources: () => 'Edited a cell’s resources',

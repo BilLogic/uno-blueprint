@@ -370,3 +370,42 @@ it('Add picture opens the same editor focused on its picture control, and Save j
     'record_authoring_change',
   ])
 })
+
+it('keeps every staged upload selectable before the one Save', async () => {
+  session.client = createClient<Database>(
+    'https://example.supabase.co',
+    'key',
+    {
+      auth: { persistSession: false },
+      global: {
+        fetch: async (input) =>
+          new Response(
+            JSON.stringify(
+              String(input).includes('/storage/v1/object/')
+                ? { Key: 'image', Id: 'image' }
+                : state,
+            ),
+            { headers: { 'Content-Type': 'application/json' } },
+          ),
+      },
+    },
+  )
+  render(<StoryboardCellRows rows={rows} canEdit onOpenFullCell={() => {}} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Actor' }))
+  const form = await screen.findByRole('form', { name: 'Edit Actor' })
+  fireEvent.change(within(form).getByLabelText('Upload featured image'), {
+    target: { files: [new File(['A'], 'first.png', { type: 'image/png' })] },
+  })
+  const first = await within(form).findByRole('button', {
+    name: 'Set first as the featured image',
+  })
+  fireEvent.change(within(form).getByLabelText('Upload featured image'), {
+    target: { files: [new File(['B'], 'second.png', { type: 'image/png' })] },
+  })
+  await within(form).findByRole('button', {
+    name: 'Set second as the featured image',
+  })
+  expect((first as HTMLButtonElement).disabled).toBe(false)
+  fireEvent.click(first)
+  expect((first as HTMLButtonElement).disabled).toBe(true)
+})

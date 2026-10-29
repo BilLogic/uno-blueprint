@@ -310,12 +310,20 @@ export async function recordRequiredChange(
 }
 
 /** A required UI save retains its own entry, including when only the append fails. */
-export async function recordRequiredEntry(fn: WriteFn, args: Record<string, unknown>, revert: RevertSpec, writer: AuthoringLogWriter): Promise<SessionEntry> {
+export async function recordRequiredEntry(
+  fn: WriteFn,
+  args: Record<string, unknown>,
+  revert: RevertSpec,
+  writer: AuthoringLogWriter,
+): Promise<SessionEntry> {
   const entry = captureChange(fn, args, revert)
-  try { await appendRequiredAuthoringLog(entry, writer); return entry }
-  catch (cause) { throw new PartialAuthoringWriteError(entry, cause) }
+  try {
+    await appendRequiredAuthoringLog(entry, writer)
+    return entry
+  } catch (cause) {
+    throw new PartialAuthoringWriteError(entry, cause)
+  }
 }
-
 /** Save: the changes are wanted, so stop tracking them. Writes nothing. */
 export function clearSession(): void {
   if (entries.length === 0) return

@@ -3287,7 +3287,7 @@ $$;
 CREATE FUNCTION public.update_cell_storyboard(p_cell_id uuid, p_content text, p_summary text, p_frame text, p_expected jsonb, p_attachments jsonb DEFAULT '[]'::jsonb) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
-    AS $$
+    AS $_$
 declare before_state jsonb; after_state jsonb; receipt_id uuid; attachment jsonb; next_position int; next_frame text; uploaded_id uuid; uploaded_ids uuid[] := array[]::uuid[];
 begin
  perform public.require_structure_author();
@@ -3296,27 +3296,27 @@ begin
  perform 1 from public.resources where cell_id=p_cell_id for update;
  before_state := public.read_cell_storyboard(p_cell_id);
  if p_expected is null or before_state <> p_expected then raise exception 'This cell changed. Reopen it before saving.' using errcode='40001'; end if;
- if coalesce(btrim(p_content),'')='' then raise exception 'Text is required'; end if;
+ if coalesce(p_content,'') ~ '^[[:space:]]*$' then raise exception 'Text is required'; end if;
  next_frame := nullif(btrim(p_frame),'');
- if next_frame is not null and next_frame !~ '^(https://|/[^/\\])' then raise exception 'A featured image is an https address or a path on this site'; end if;
+ if next_frame is not null and next_frame !~ '^(https://|/[^/\\])' and next_frame !~ '^http://(127\.0\.0\.1|localhost|\[::1\])(:[0-9]+)?/storage/v1/object/public/cell-attachments/' then raise exception 'A featured image is an https address or a path on this site'; end if;
  if jsonb_typeof(p_attachments) is distinct from 'array' then raise exception 'Attachments must be an array'; end if;
  select coalesce(max(position),-1)+1 into next_position from public.resources where cell_id=p_cell_id and cell_touchpoint_id is null;
  for attachment in select value from jsonb_array_elements(p_attachments) loop
-   if attachment->>'kind' is distinct from 'attachment' or coalesce(btrim(attachment->>'name'),'')='' or coalesce(attachment->>'url','') !~ '^https://' or coalesce(attachment->>'objectKey','')='' or attachment->>'objectKey' not like 'cells/'||p_cell_id::text||'/%' or right(attachment->>'url',length('/cell-attachments/'|| (attachment->>'objectKey'))) <> '/cell-attachments/'||(attachment->>'objectKey') or attachment ? 'id' or attachment ? 'cell_touchpoint_id' then
+   if attachment->>'kind' is distinct from 'attachment' or coalesce(btrim(attachment->>'name'),'')='' or (coalesce(attachment->>'url','') !~ '^https://' and coalesce(attachment->>'url','') !~ '^http://(127\.0\.0\.1|localhost|\[::1\])(:[0-9]+)?/storage/v1/object/public/cell-attachments/') or coalesce(attachment->>'objectKey','')='' or attachment->>'objectKey' not like 'cells/'||p_cell_id::text||'/%' or right(attachment->>'url',length('/cell-attachments/'|| (attachment->>'objectKey'))) <> '/cell-attachments/'||(attachment->>'objectKey') or attachment ? 'id' or attachment ? 'cell_touchpoint_id' then
      raise exception 'Invalid staged attachment';
    end if;
    insert into public.resources(cell_id,kind,name,url,position,origin) values(p_cell_id,'attachment',attachment->>'name',attachment->>'url',next_position,'app') returning id into uploaded_id;
    uploaded_ids := array_append(uploaded_ids,uploaded_id);
    next_position := next_position+1;
  end loop;
- perform public.sync_cell_touchpoints(p_cell_id, regexp_split_to_array(p_content,E'\\r?\\n|,'));
+ perform public.sync_cell_touchpoints(p_cell_id, array(select btrim(part) from regexp_split_to_table(p_content,E'\\r?\\n|,') with ordinality as parts(part,ord) where btrim(part)<>'' order by ord));
  -- Explicit choice follows synchronization, which may fill an empty frame.
- update public.cells set content=p_content,summary=nullif(btrim(p_summary),''),frame=next_frame where id=p_cell_id;
+ update public.cells set content=p_content,summary=nullif(regexp_replace(p_summary,'^[[:space:]]+|[[:space:]]+$','','g'),''),frame=next_frame where id=p_cell_id;
  after_state := public.read_cell_storyboard(p_cell_id);
  insert into public.cell_storyboard_receipts(cell_id,actor,uploaded_ids,before_state,after_state)
  values(p_cell_id,coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub',''),uploaded_ids,before_state,after_state) returning id into receipt_id;
  return jsonb_build_object('cell_id',p_cell_id,'receipt_id',receipt_id,'before',before_state,'after',after_state);
-end $$;
+end $_$;
 
 --
 -- Name: update_lane_with_details(uuid, uuid[], text, jsonb); Type: FUNCTION; Schema: public; Owner: -
@@ -5072,6 +5072,12 @@ CREATE INDEX cell_dependencies_source_cell_id_idx ON public.cell_dependencies US
 --
 
 CREATE INDEX cell_dependencies_target_cell_id_idx ON public.cell_dependencies USING btree (target_cell_id);
+
+--
+-- Name: cell_storyboard_receipts_cell_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX cell_storyboard_receipts_cell_idx ON public.cell_storyboard_receipts USING btree (cell_id);
 
 --
 -- Name: cell_touchpoints_cell_name_key; Type: INDEX; Schema: public; Owner: -

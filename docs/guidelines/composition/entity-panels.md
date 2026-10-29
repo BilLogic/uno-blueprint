@@ -158,7 +158,7 @@ should change, it changes in the shell, once.
 | Phase | Hints lifted verbatim from the column comments, so the panel and the schema cannot drift. |
 | Lane | No evidence, resources or dependency tabs: those all key on a **cell**, and a lane has no link to any of them. The only panel with `PanelEmpty` gating and the fan-out alert. |
 | Scenario | A paths accordion opening `multiple`, first path open — comparing two routes is the reason to read this panel, and an accordion that closes one to open the next makes that impossible. |
-| Step | The one panel whose save invalidates the canvas grid, because `summary` is also the storyboard caption. |
+| Step | Owns the Step name and summary. Storyboard pictures and captions belong to the picture’s cell and are edited in the storyboard panel. |
 | Cell | Tabs, two surfaces, an expand toggle, agent commands and the in-slices footer. |
 
 ### The lane panel's fan-out

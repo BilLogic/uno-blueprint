@@ -197,6 +197,7 @@ export function StoryboardCellRows({
                   frame={draft.frame}
                   savedFrame={draft.expected?.frame ?? row.cell.frame ?? null}
                   resources={row.cell.resources ?? []}
+                  stagedAttachments={draft.attachments}
                   touchpoints={row.cell.touchpoints}
                   onChange={(frame) => change({ frame })}
                   onUploaded={(attachment) =>
@@ -260,7 +261,7 @@ export function StoryboardCellRows({
                     !draft.content.trim()
                   }
                 >
-                  {busy ? 'Saving…' : 'Save'}
+                  {!draft.expected ? 'Loading…' : busy ? 'Saving…' : 'Save'}
                 </Button>
               </div>
             </form>

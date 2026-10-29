@@ -1246,44 +1246,121 @@ export function updateLaneWithDetails(
 
 
 export type CellStoryboardState = {
-  cell_id: string; path_id: string; lane_id: string; step_id: string
-  content: string; summary: string | null; frame: string | null
-  placements: Array<Record<string, unknown>>; resources: Array<Record<string, unknown>>
+  cell_id: string
+  path_id: string
+  lane_id: string
+  step_id: string
+  content: string
+  summary: string | null
+  frame: string | null
+  placements: Array<Record<string, unknown>>
+  resources: Array<Record<string, unknown>>
 }
 function storyboardState(value: unknown, cellId: string): CellStoryboardState {
   const state = value as CellStoryboardState | null
-  if (!state || state.cell_id !== cellId || !state.path_id || !state.lane_id || !state.step_id
-      || typeof state.content !== 'string'
-      || (state.summary !== null && typeof state.summary !== 'string')
-      || (state.frame !== null && typeof state.frame !== 'string')
-      || !Array.isArray(state.resources) || !Array.isArray(state.placements)
-      || [...state.resources, ...state.placements].some(row => !row || typeof row.id !== 'string' || row.cell_id !== cellId)) {
-    throw new Error('The cell returned no matching canonical state. Read back before retrying.')
+  if (
+    !state ||
+    state.cell_id !== cellId ||
+    !state.path_id ||
+    !state.lane_id ||
+    !state.step_id ||
+    typeof state.content !== 'string' ||
+    (state.summary !== null && typeof state.summary !== 'string') ||
+    (state.frame !== null && typeof state.frame !== 'string') ||
+    !Array.isArray(state.resources) ||
+    !Array.isArray(state.placements) ||
+    [...state.resources, ...state.placements].some(
+      (row) => !row || typeof row.id !== 'string' || row.cell_id !== cellId,
+    )
+  ) {
+    throw new Error(
+      'The cell returned no matching canonical state. Read back before retrying.',
+    )
   }
   return state
 }
-export async function readCellStoryboard(client: Client, cellId: string): Promise<CellStoryboardState> {
-  return storyboardState(await read(client, 'read_cell_storyboard', { p_cell_id: cellId }), cellId)
+export async function readCellStoryboard(
+  client: Client,
+  cellId: string,
+): Promise<CellStoryboardState> {
+  return storyboardState(
+    await read(client, 'read_cell_storyboard', { p_cell_id: cellId }),
+    cellId,
+  )
 }
 /** One aggregate write returns the exact minted session entry for its own Undo. */
-export async function updateCellStoryboard(client: Client, input: {
-  cellId: string; content: string; summary: string; frame: string | null
-  expected: CellStoryboardState; attachments: readonly { kind: 'attachment'; name: string; url: string; objectKey: string }[]
-}): Promise<SessionEntry> {
-  const args = { p_cell_id: input.cellId, p_content: input.content, p_summary: input.summary, p_frame: input.frame, p_expected: input.expected, p_attachments: input.attachments }
+export async function updateCellStoryboard(
+  client: Client,
+  input: {
+    cellId: string
+    content: string
+    summary: string
+    frame: string | null
+    expected: CellStoryboardState
+    attachments: readonly {
+      kind: 'attachment'
+      name: string
+      url: string
+      objectKey: string
+    }[]
+  },
+): Promise<SessionEntry> {
+  const args = {
+    p_cell_id: input.cellId,
+    p_content: input.content,
+    p_summary: input.summary,
+    p_frame: input.frame,
+    p_expected: input.expected,
+    p_attachments: input.attachments,
+  }
   const result = await invoke<unknown>(client, 'update_cell_storyboard', args)
-  const receipt = result as { cell_id?: unknown; receipt_id?: unknown; before?: unknown; after?: unknown } | null
-  if (!receipt || receipt.cell_id !== input.cellId || typeof receipt.receipt_id !== 'string'
-      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(receipt.receipt_id)) {
-    throw new Error('The write returned no matching edit receipt. Read back before retrying.')
+  const receipt = result as {
+    cell_id?: unknown
+    receipt_id?: unknown
+    before?: unknown
+    after?: unknown
+  } | null
+  if (
+    !receipt ||
+    receipt.cell_id !== input.cellId ||
+    typeof receipt.receipt_id !== 'string' ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      receipt.receipt_id,
+    )
+  ) {
+    throw new Error(
+      'The write returned no matching edit receipt. Read back before retrying.',
+    )
   }
   const before = storyboardState(receipt.before, input.cellId)
   const after = storyboardState(receipt.after, input.cellId)
-  if (['path_id', 'lane_id', 'step_id', 'content', 'summary', 'frame'].some(key => before[key as keyof CellStoryboardState] !== input.expected[key as keyof CellStoryboardState])
-      || ['path_id', 'lane_id', 'step_id'].some(key => after[key as keyof CellStoryboardState] !== before[key as keyof CellStoryboardState])
-      || after.content !== input.content || after.summary !== (input.summary.trim() || null) || after.frame !== (input.frame?.trim() || null)) {
-    throw new Error('The write returned a mismatched cell receipt. Read back before retrying.')
+  if (
+    ['path_id', 'lane_id', 'step_id', 'content', 'summary', 'frame'].some(
+      (key) =>
+        before[key as keyof CellStoryboardState] !==
+        input.expected[key as keyof CellStoryboardState],
+    ) ||
+    ['path_id', 'lane_id', 'step_id'].some(
+      (key) =>
+        after[key as keyof CellStoryboardState] !==
+        before[key as keyof CellStoryboardState],
+    ) ||
+    after.content !== input.content ||
+    after.summary !== (input.summary.trim() || null) ||
+    after.frame !== (input.frame?.trim() || null)
+  ) {
+    throw new Error(
+      'The write returned a mismatched cell receipt. Read back before retrying.',
+    )
   }
   invalidateAfterRpc('update_cell_storyboard', args)
-  return recordRequiredEntry('update_cell_storyboard', args, { fn: 'restore_cell_storyboard', args: { p_receipt_id: receipt.receipt_id } }, supabaseAuthoringLogWriter(client))
+  return recordRequiredEntry(
+    'update_cell_storyboard',
+    args,
+    {
+      fn: 'restore_cell_storyboard',
+      args: { p_receipt_id: receipt.receipt_id },
+    },
+    supabaseAuthoringLogWriter(client),
+  )
 }

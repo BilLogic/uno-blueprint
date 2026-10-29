@@ -215,7 +215,7 @@ canonical state contains `cell_id`, `path_id`, `lane_id`, `step_id`, `content`,
 `summary`, `frame`, and the complete `placements` and `resources` rows, ordered
 by ID. Save compares that state under locks; a mismatch raises `This cell
 changed. Reopen it before saving.` It requires nonempty Text (`Text is required`),
-a safe image address, and staged attachments owned by this cell. Attachments
+an HTTPS or site-relative image address, and staged attachments owned by this cell. HTTP is accepted only for a loopback Storage bucket address for local development. Attachments
 carry `{kind: 'attachment', name, url, objectKey}`; client resource IDs and
 placement ownership are refused. Content synchronization, picture, summary and
 new attachment rows commit together.

@@ -29,6 +29,7 @@ export type FeaturedImageFieldProps = {
   frame: string | null
   savedFrame: string | null
   resources: readonly CellResource[]
+  stagedAttachments?: readonly UploadedAttachment[]
   touchpoints?: readonly CellTouchpoint[]
   onChange: (url: string | null) => void
   /** Stage the uploaded attachment in the host's draft; no resource row is written here. */
@@ -46,6 +47,7 @@ export function FeaturedImageField({
   frame,
   savedFrame,
   resources,
+  stagedAttachments = [],
   touchpoints = [],
   onChange,
   onUploaded,
@@ -94,6 +96,7 @@ export function FeaturedImageField({
   )
   const choices = new Map<string, string>()
   for (const row of pictures) choices.set(row.url!, row.name)
+  for (const row of stagedAttachments) choices.set(row.url, row.name)
   for (const logo of touchpointLogos(touchpoints)) choices.set(logo.url, `${logo.name} logo`)
   if (savedFrame && !choices.has(savedFrame)) choices.set(savedFrame, 'saved image')
   return (

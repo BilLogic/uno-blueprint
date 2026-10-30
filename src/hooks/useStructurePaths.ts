@@ -40,7 +40,7 @@ export function useStructurePaths(source: StructurePathSource | null) {
       const { data, error } = await client
         .from('paths')
         .select(
-          'id,name,lanes(id,name,position),path_steps(position,steps(id,name))',
+          'id,name,lanes(id,name,position,lane_role),path_steps(position,steps(id,name))',
         )
         .eq(
           source.onlyPath ? 'id' : 'scenario_id',
@@ -54,7 +54,9 @@ export function useStructurePaths(source: StructurePathSource | null) {
         name: path.name,
         items:
           source.kind === 'lane'
-            ? [...path.lanes].sort((a, b) => a.position - b.position)
+            ? [...path.lanes]
+                .sort((a, b) => a.position - b.position)
+                .map((lane) => ({ ...lane, role: lane.lane_role ?? null }))
             : [...path.path_steps]
                 .sort((a, b) => a.position - b.position)
                 .map((row) => ({ ...row.steps, position: row.position })),

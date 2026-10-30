@@ -32,6 +32,7 @@ export { orderWithinSection }
 /** Longest wait before a stuck settle preview is forced clear. */
 const SETTLE_FALLBACK_MS = 5_000
 const MAX_OVERDRAG = 24
+const EDGE_COMPLIANCE = 1.25
 
 /** Finger-locked in range; smooth square-root rubber band outside it. */
 export function dampenStructureDrag(
@@ -44,7 +45,7 @@ export function dampenStructureDrag(
   const extra = (value - edge) / scale
   // Offset the root so its slope joins normal dragging at 1, rather than
   // jumping at the edge. The soft ceiling never becomes a hard clamp.
-  const stretch = 2 * (Math.sqrt(1 + Math.abs(extra)) - 1)
+  const stretch = 2 * EDGE_COMPLIANCE * (Math.sqrt(1 + Math.abs(extra) / EDGE_COMPLIANCE) - 1)
   return edge + Math.sign(extra) * MAX_OVERDRAG * Math.tanh(stretch / MAX_OVERDRAG) * scale
 }
 

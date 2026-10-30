@@ -120,10 +120,10 @@ export function createServerToolContext(options: {
       if (!admission.admitted) return admission.refusal
       if (!tool) return noSuchToolRefusal(name)
       return runTool(tool, args, { ...context,
-        serverWrite: (toolName, parsed) => executeServerWrite(client, toolName, parsed, {
+        serverWrite: (toolName, parsed, callContext) => executeServerWrite(client, toolName, parsed, {
           sessionId: options.sessionId,
           serviceId: typeof args.service_id === 'string' ? args.service_id : undefined,
-          confirmed: args.confirmed === true,
+          confirmed: callContext.confirmed === true,
         }),
       })
     },

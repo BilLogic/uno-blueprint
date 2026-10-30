@@ -275,6 +275,7 @@ export function MergedCompareGrid({
       style={getCompareBoardWrapperPadding()}
     >
       <div
+        data-structure-grid=""
         className="relative grid w-max"
         style={{
           gridTemplateColumns,

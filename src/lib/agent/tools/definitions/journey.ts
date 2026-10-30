@@ -2,7 +2,6 @@ import { z } from 'zod'
 import { arg, defineWriteTool, requireActiveService } from '@/lib/agent/tools/definition'
 import {
   addLane,
-  addStep,
   createPath,
   createPhase,
   duplicatePath,
@@ -42,20 +41,20 @@ export const createPhaseTool = defineWriteTool({
   },
 })
 
-export const createScenarioTool = defineWriteTool({
+export const createScenarioTool = structureWrite({
   name: 'create_scenario',
   description:
     'Create a new scenario in a phase, with its first path and empty steps. lane_source_path_id copies an existing path\'s lane stack (STRONGLY preferred — lane labels must match across scenarios). Propose as text and get a nod first.',
   args: z.object({
     phase_id: arg.text('Phase id from list_blueprint'),
-    name: arg.text('Scenario name'),
+    name: arg.text('Short stage label; put the explanation in summary'),
+    summary: z.string().describe('Explanation of this scenario; an empty string leaves it blank; omit for none').optional(),
     path_name: arg.optionalText('First path name; defaults to "Happy Path"'),
     step_count: arg.number('Initial step columns (default 5, or the number of step_names)').optional(),
     step_names: z.array(arg.name('Step name')).min(1).describe('Initial step names in order; step_count must match when supplied').optional(),
     lane_source_path_id: arg.optionalText('Path id whose lanes to copy; omit for none'),
   }),
   confirmation: true,
-  run: structureWrite('create_scenario'),
 })
 
 export const createPathTool = defineWriteTool({
@@ -114,19 +113,17 @@ export const duplicateScenarioTool = defineWriteTool({
   },
 })
 
-export const createStepTool = defineWriteTool({
+export const createStepTool = structureWrite({
   name: 'create_step',
   description:
     'Add a step (column) to a path. Read sibling paths first — step names align across paths BY NAME, so reuse the exact name when the step exists elsewhere.',
   args: z.object({
     path_id: arg.text('Path id'),
-    name: arg.text('Step name'),
+    name: arg.text('Short label for what happens; put the explanation in summary'),
+    summary: z.string().describe('Explanation of this step; an empty string leaves it blank; omit for none').optional(),
     at_position: arg.number('Insert position (1-based); omit to append').optional(),
   }),
-  run: async ({ path_id, name, at_position }, { client }) => {
-    const id = await addStep(client, { pathId: path_id, name, atPosition: at_position })
-    return `Added step (${id}).`
-  },
+  confirmation: true,
 })
 
 export const createLaneTool = defineWriteTool({
@@ -165,34 +162,30 @@ export const updatePathTool = defineWriteTool({
   },
 })
 
-export const updatePhaseTool = defineWriteTool({
+export const updatePhaseTool = structureWrite({
   name: 'update_phase',
   description: 'Rename a phase. Ask someone who may confirm for a yes; other callers record a proposal.',
-  args: z.object({ phase_id: arg.text('Phase id'), name: arg.name('New name') }),
+  args: z.object({ phase_id: arg.text('Phase id'), name: arg.name('Short label; put the explanation in summary'), summary: z.string().describe('Explanation; an empty string clears it; omit to keep').optional() }),
   confirmation: true,
-  run: structureWrite('update_phase'),
 })
 
-export const updateScenarioTool = defineWriteTool({
+export const updateScenarioTool = structureWrite({
   name: 'update_scenario',
   description: 'Rename a scenario. Ask someone who may confirm for a yes; other callers record a proposal.',
-  args: z.object({ scenario_id: arg.text('Scenario id'), name: arg.name('New name') }),
+  args: z.object({ scenario_id: arg.text('Scenario id'), name: arg.name('Short label; put the explanation in summary'), summary: z.string().describe('Explanation; an empty string clears it; omit to keep').optional() }),
   confirmation: true,
-  run: structureWrite('update_scenario'),
 })
 
-export const updateStepTool = defineWriteTool({
+export const updateStepTool = structureWrite({
   name: 'update_step',
   description: 'Rename a step. Ask someone who may confirm for a yes; other callers record a proposal.',
-  args: z.object({ step_id: arg.text('Step id'), name: arg.name('New name') }),
+  args: z.object({ step_id: arg.text('Step id'), name: arg.name('Short label; put the explanation in summary'), summary: z.string().describe('Explanation; an empty string clears it; omit to keep').optional() }),
   confirmation: true,
-  run: structureWrite('update_step'),
 })
 
-export const updateLaneTool = defineWriteTool({
+export const updateLaneTool = structureWrite({
   name: 'update_lane',
   description: 'Rename a lane. Ask someone who may confirm for a yes; other callers record a proposal.',
   args: z.object({ lane_id: arg.text('Lane id'), name: arg.name('New name') }),
   confirmation: true,
-  run: structureWrite('update_lane'),
 })

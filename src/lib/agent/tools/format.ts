@@ -81,6 +81,7 @@ export type JourneyTree = {
     id: string
     scenarioId: string
     name: string
+    summary?: string | null
     placements: ReadonlyArray<{ pathId: string; position: number }>
   }>
   lanes: ReadonlyArray<{
@@ -230,12 +231,12 @@ function stepRows(
     for (const { step } of placed) {
       if (listed.has(step.id)) continue
       listed.add(step.id)
-      rows.push({ kind: 'step', id: step.id, name: step.name, ...above, path: path.name, step: step.name })
+      rows.push({ kind: 'step', id: step.id, name: step.name, detail: step.summary, ...above, path: path.name, step: step.name })
     }
   }
   if (!kindFiltered) {
     for (const step of steps.filter((entry) => !listed.has(entry.id)).sort(byName))
-      rows.push({ kind: 'step', id: step.id, name: step.name, ...above, step: step.name })
+      rows.push({ kind: 'step', id: step.id, name: step.name, detail: step.summary, ...above, step: step.name })
   }
   return rows
 }
@@ -388,7 +389,7 @@ export function formatBlueprints(blueprints: readonly BlueprintData[]): string {
     const lines: string[] = [
       `Path "${path.name}" (${path.id}, type ${path.kind})`,
       `Steps: ${steps
-        .map((step) => `${step.position}. "${step.name}" (${step.id})`)
+        .map((step) => `${step.position}. "${step.name}" (${step.id})${step.summary?.trim() ? ` — ${step.summary}` : ''}`)
         .join(' | ')}`,
     ]
     for (const lane of lanes) {

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { validateService } from '@/lib/agent/validation/service'
 import { SERVICE_REQUIRED } from '@/lib/agent/tools/serviceRefusal'
-import { arg, defineTool, defineWriteTool, requireClient, requireScope } from '@/lib/agent/tools/definition'
+import { arg, defineTool, requireClient, requireScope } from '@/lib/agent/tools/definition'
 import { structureWrite } from '@/lib/agent/tools/structureWrite'
 import { getBusinessModel } from '@/lib/agent/tools/read'
 
@@ -35,12 +35,11 @@ export const listServicesTool = defineTool({
   },
 })
 
-export const createServiceTool = defineWriteTool({
+export const createServiceTool = structureWrite({
   name: 'create_service',
   description: 'Start a new service when a topic fits none of this business’s services. Propose its name and get a yes from someone who may confirm first. Other callers record a proposal. Returns the service id for creating its first phase.',
   args: z.object({ name: arg.text('Service name'), summary: arg.optionalText('What this service offers; omit for none') }),
   confirmation: true,
-  run: structureWrite('create_service'),
 })
 
 export const validateBlueprintTool = defineTool({

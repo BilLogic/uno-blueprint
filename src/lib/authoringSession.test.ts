@@ -68,6 +68,7 @@ const EVERY_WRITE = Object.keys({
   add_lane: true,
   upsert_cell: true,
   update_cell_content: true,
+  update_cell_storyboard: true,
   update_cell_status: true,
   update_cell_resources: true,
   update_placement_resources: true,

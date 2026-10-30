@@ -416,7 +416,7 @@ test('saved structure Paths attach, detach with confirmation, reorder and Undo',
     .click()
   const laneQuery = `lanes?path_id=eq.${origin.id}&select=id,name,position&order=position`
   const lanesBefore = await read(laneQuery)
-  await board.getByRole('button', { name: 'Lane properties: Stakeholders', exact: true }).click()
+  await board.getByRole('button', { name: 'Stakeholders', exact: true }).click()
   group = page.getByRole('group', { name: 'Paths', exact: true })
   await expect(group.getByRole('checkbox')).toHaveCount(0)
   const laneRail = group.getByRole('button', {

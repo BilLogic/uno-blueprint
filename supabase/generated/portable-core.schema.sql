@@ -1262,6 +1262,26 @@ begin
 end $$;
 
 --
+-- Name: read_cell_storyboard(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.read_cell_storyboard(p_cell_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare result jsonb;
+begin
+ perform public.require_structure_author();
+ select jsonb_build_object('cell_id', c.id, 'path_id',c.path_id,'lane_id',c.lane_id,'step_id',c.step_id,
+   'content',c.content,'summary',c.summary,'frame',c.frame,
+   'placements',coalesce((select jsonb_agg(to_jsonb(t) order by t.id) from public.cell_touchpoints t where t.cell_id=c.id),'[]'::jsonb),
+   'resources',coalesce((select jsonb_agg(to_jsonb(r) order by r.id) from public.resources r where r.cell_id=c.id),'[]'::jsonb))
+ into result from public.cells c where c.id=p_cell_id;
+ if result is null then raise exception 'That cell no longer exists'; end if;
+ return result;
+end $$;
+
+--
 -- Name: record_authoring_change(text, jsonb, jsonb, text, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2070,6 +2090,37 @@ begin
   end if;
 end;
 $$;
+
+--
+-- Name: restore_cell_storyboard(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.restore_cell_storyboard(p_receipt_id uuid) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare receipt public.cell_storyboard_receipts; current_state jsonb;
+begin
+ perform public.require_structure_author();
+ select * into receipt from public.cell_storyboard_receipts where id=p_receipt_id for update;
+ if receipt.id is null or receipt.actor <> coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub','') then raise exception 'This edit receipt is unavailable'; end if;
+ perform 1 from public.cells where id=receipt.cell_id for update;
+ perform 1 from public.cell_touchpoints where cell_id=receipt.cell_id for update;
+ perform 1 from public.resources where cell_id=receipt.cell_id for update;
+ current_state := public.read_cell_storyboard(receipt.cell_id);
+ if current_state <> receipt.after_state then raise exception 'This cell changed after this edit. Undo refused.' using errcode='40001'; end if;
+ -- Only this transaction's captured upload IDs may be removed by Undo.
+ -- Retained resources are untouched; sync-removed rows recover their own IDs.
+ if exists(select 1 from jsonb_populate_recordset(null::public.cell_touchpoints,receipt.before_state->'placements') b join public.cell_touchpoints t on t.id=b.id where t.cell_id<>receipt.cell_id)
+ or exists(select 1 from jsonb_populate_recordset(null::public.resources,receipt.before_state->'resources') b join public.resources r on r.id=b.id where r.cell_id<>receipt.cell_id) then raise exception 'A captured identity is now owned elsewhere'; end if;
+ delete from public.resources where cell_id=receipt.cell_id and id=any(receipt.uploaded_ids);
+ delete from public.cell_touchpoints t where t.cell_id=receipt.cell_id and not exists(select 1 from jsonb_array_elements(receipt.before_state->'placements') b where b->>'id'=t.id::text);
+ insert into public.cell_touchpoints select * from jsonb_populate_recordset(null::public.cell_touchpoints,receipt.before_state->'placements')
+ on conflict(id) do update set name=excluded.name,position=excluded.position,summary=excluded.summary,role=excluded.role,touchpoint_id=excluded.touchpoint_id;
+ insert into public.resources select * from jsonb_populate_recordset(null::public.resources,receipt.before_state->'resources') on conflict(id) do nothing;
+ update public.cells set content=receipt.before_state->>'content', summary=receipt.before_state->>'summary',frame=receipt.before_state->>'frame' where id=receipt.cell_id;
+ delete from public.cell_storyboard_receipts where id=p_receipt_id;
+end $$;
 
 --
 -- Name: restore_cell_touchpoints(uuid, jsonb); Type: FUNCTION; Schema: public; Owner: -
@@ -3386,6 +3437,47 @@ end;
 $$;
 
 --
+-- Name: update_cell_storyboard(uuid, text, text, text, jsonb, jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_cell_storyboard(p_cell_id uuid, p_content text, p_summary text, p_frame text, p_expected jsonb, p_attachments jsonb DEFAULT '[]'::jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $_$
+declare before_state jsonb; after_state jsonb; receipt_id uuid; attachment jsonb; next_position int; next_frame text; uploaded_id uuid; uploaded_ids uuid[] := array[]::uuid[];
+begin
+ perform public.require_structure_author();
+ perform 1 from public.cells where id=p_cell_id for update;
+ perform 1 from public.cell_touchpoints where cell_id=p_cell_id for update;
+ perform 1 from public.resources where cell_id=p_cell_id for update;
+ before_state := public.read_cell_storyboard(p_cell_id);
+ if p_expected is null or before_state <> p_expected then raise exception 'This cell changed. Reopen it before saving.' using errcode='40001'; end if;
+ if coalesce(p_content,'') ~ '^[[:space:]]*$' then raise exception 'Text is required'; end if;
+ next_frame := nullif(btrim(p_frame),'');
+ if next_frame is not null and next_frame !~ '^(https://|/[^/\\])' and next_frame !~ '^http://(127\.0\.0\.1|localhost|\[::1\])(:[0-9]+)?/storage/v1/object/public/cell-attachments/' then raise exception 'A featured image is an https address or a path on this site'; end if;
+ if jsonb_typeof(p_attachments) is distinct from 'array' then raise exception 'Attachments must be an array'; end if;
+ select coalesce(max(position),-1)+1 into next_position from public.resources where cell_id=p_cell_id and cell_touchpoint_id is null;
+ for attachment in select value from jsonb_array_elements(p_attachments) loop
+   if attachment->>'kind' is distinct from 'attachment' or coalesce(btrim(attachment->>'name'),'')='' or (coalesce(attachment->>'url','') !~ '^https://' and coalesce(attachment->>'url','') !~ '^http://(127\.0\.0\.1|localhost|\[::1\])(:[0-9]+)?/storage/v1/object/public/cell-attachments/') or coalesce(attachment->>'objectKey','')='' or attachment->>'objectKey' not like 'cells/'||p_cell_id::text||'/%' or right(attachment->>'url',length('/cell-attachments/'|| (attachment->>'objectKey'))) <> '/cell-attachments/'||(attachment->>'objectKey') or attachment ? 'id' or attachment ? 'cell_touchpoint_id' then
+     raise exception 'Invalid staged attachment';
+   end if;
+   insert into public.resources(cell_id,kind,name,url,position,origin) values(p_cell_id,'attachment',attachment->>'name',attachment->>'url',next_position,'app') returning id into uploaded_id;
+   uploaded_ids := array_append(uploaded_ids,uploaded_id);
+   next_position := next_position+1;
+ end loop;
+ -- Picture/caption-only edits preserve action text and all placements as-is.
+ if p_content is distinct from before_state->>'content' then
+ perform public.sync_cell_touchpoints(p_cell_id, array(select name from (select regexp_replace(part,'^[[:space:]]+|[[:space:]]+$','','g') as name,ord from regexp_split_to_table(p_content,E'\\r?\\n|,') with ordinality as parts(part,ord)) names where name<>'' order by ord));
+ end if;
+ -- Explicit choice follows synchronization, which may fill an empty frame.
+ update public.cells set content=p_content,summary=nullif(regexp_replace(p_summary,'^[[:space:]]+|[[:space:]]+$','','g'),''),frame=next_frame where id=p_cell_id;
+ after_state := public.read_cell_storyboard(p_cell_id);
+ insert into public.cell_storyboard_receipts(cell_id,actor,uploaded_ids,before_state,after_state)
+ values(p_cell_id,coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub',''),uploaded_ids,before_state,after_state) returning id into receipt_id;
+ return jsonb_build_object('cell_id',p_cell_id,'receipt_id',receipt_id,'before',before_state,'after',after_state);
+end $_$;
+
+--
 -- Name: update_lane_with_details(uuid, uuid[], text, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3898,6 +3990,19 @@ COMMENT ON COLUMN public.cell_dependencies.name IS 'What this edge is called on 
 --
 
 COMMENT ON COLUMN public.cell_dependencies.note IS 'The why-line shown in the cell panel dependencies tab.';
+
+--
+-- Name: cell_storyboard_receipts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.cell_storyboard_receipts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    cell_id uuid NOT NULL,
+    actor text NOT NULL,
+    uploaded_ids uuid[] NOT NULL,
+    before_state jsonb NOT NULL,
+    after_state jsonb NOT NULL
+);
 
 --
 -- Name: cell_touchpoints; Type: TABLE; Schema: public; Owner: -
@@ -4848,6 +4953,13 @@ ALTER TABLE ONLY public.cell_dependencies
     ADD CONSTRAINT cell_dependencies_source_target_kind_unique UNIQUE (source_cell_id, target_cell_id, kind);
 
 --
+-- Name: cell_storyboard_receipts cell_storyboard_receipts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cell_storyboard_receipts
+    ADD CONSTRAINT cell_storyboard_receipts_pkey PRIMARY KEY (id);
+
+--
 -- Name: cell_touchpoints cell_touchpoints_cell_id_touchpoint_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5142,6 +5254,12 @@ CREATE INDEX cell_dependencies_source_cell_id_idx ON public.cell_dependencies US
 --
 
 CREATE INDEX cell_dependencies_target_cell_id_idx ON public.cell_dependencies USING btree (target_cell_id);
+
+--
+-- Name: cell_storyboard_receipts_cell_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX cell_storyboard_receipts_cell_idx ON public.cell_storyboard_receipts USING btree (cell_id);
 
 --
 -- Name: cell_touchpoints_cell_name_key; Type: INDEX; Schema: public; Owner: -
@@ -5473,6 +5591,13 @@ ALTER TABLE ONLY public.cell_dependencies
     ADD CONSTRAINT cell_dependencies_target_cell_id_fkey FOREIGN KEY (target_cell_id) REFERENCES public.cells(id) ON DELETE CASCADE;
 
 --
+-- Name: cell_storyboard_receipts cell_storyboard_receipts_cell_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cell_storyboard_receipts
+    ADD CONSTRAINT cell_storyboard_receipts_cell_id_fkey FOREIGN KEY (cell_id) REFERENCES public.cells(id) ON DELETE CASCADE;
+
+--
 -- Name: cell_touchpoints cell_touchpoints_cell_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5639,6 +5764,12 @@ ALTER TABLE ONLY public.steps
 
 ALTER TABLE ONLY public.touchpoints
     ADD CONSTRAINT touchpoints_stakeholder_id_fkey FOREIGN KEY (stakeholder_id) REFERENCES public.stakeholders(id) ON DELETE SET NULL;
+
+--
+-- Name: cell_storyboard_receipts; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.cell_storyboard_receipts ENABLE ROW LEVEL SECURITY;
 
 --
 -- PostgreSQL database dump complete

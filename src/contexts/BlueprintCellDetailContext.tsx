@@ -33,6 +33,7 @@ import { resolveBlueprintCellId } from '@/lib/resolveBlueprintCellId'
 import { setOpenCellId } from '@/lib/openCellStore'
 import {
   claimPanel,
+  requestPanelTransition,
   getPanelOwner,
   releasePanel,
   subscribePanelOwner,
@@ -61,8 +62,8 @@ type BlueprintCellDetailContextValue = {
   scenarioId: string | null
   blueprints: BlueprintData[]
   selection: BlueprintCellSelection | null
-  selectCell: (selection: BlueprintCellSelection) => void
-  clearSelection: () => void
+  selectCell: (selection: BlueprintCellSelection) => boolean
+  clearSelection: () => boolean
   /**
    * A cell being *created*: the panel opens on this target with an empty
    * form, and nothing is written until Save. Mutually exclusive with
@@ -81,7 +82,7 @@ type BlueprintCellDetailContextValue = {
   /** Swap surfaces inside the open drawer — content swap, never close-reopen. */
   setPanelSurface: (surface: BlueprintPanelSurface) => void
   /** Close the panel: clears panelState + selection + draft atomically. */
-  closePanel: () => void
+  closePanel: () => boolean
   isOpen: boolean
   selectedCellIds: ReadonlySet<string>
   directlyConnectedCellIds: ReadonlySet<string>
@@ -187,19 +188,23 @@ export function BlueprintCellDetailProvider({
   }, [selection])
 
   const selectCell = useCallback((next: BlueprintCellSelection) => {
+    return requestPanelTransition(() => {
     claimPanel('cell')
     setSelection(next)
     setDraftCell(null)
     setPanelState({ surface: 'details' })
     setPreviewHover(null)
+    })
   }, [])
 
   const openDraftCell = useCallback((next: DraftCellTarget) => {
+    return requestPanelTransition(() => {
     claimPanel('cell')
     setDraftCell(next)
     setSelection(null)
     setPanelState({ surface: 'details' })
     setPreviewHover(null)
+    })
   }, [])
 
   /**
@@ -208,20 +213,26 @@ export function BlueprintCellDetailProvider({
    * means "close the panel" by it.
    */
   const clearSelection = useCallback(() => {
+    return requestPanelTransition(() => {
     setSelection(null)
     setDraftCell(null)
     setPanelState(null)
     setPreviewHover(null)
     releasePanel('cell')
+    })
   }, [])
 
   const openDifferences = useCallback(() => {
+    return requestPanelTransition(() => {
     claimPanel('cell')
     setPanelState({ surface: 'differences' })
+    })
   }, [])
 
   const setPanelSurface = useCallback((surface: BlueprintPanelSurface) => {
+    return requestPanelTransition(() => {
     setPanelState({ surface })
+    })
   }, [])
 
   // Latest panel facts for the agent commands below — the commands register
@@ -252,7 +263,7 @@ export function BlueprintCellDetailProvider({
             getCompareReviewState().registration === null
           )
             return 'No comparison is active — the Differences surface needs 2+ selected paths in a focused scenario.'
-          setPanelState({ surface })
+          if (!setPanelSurface(surface)) return 'Panel transition is awaiting a draft decision or the editor is busy.'
           return `Panel is on the ${surface} surface${
             surface === 'details' && !liveSelection ? ' (no cell selected)' : ''
           }.`
@@ -266,7 +277,7 @@ export function BlueprintCellDetailProvider({
           summary:
             'Open the difference ledger (the Differences surface of the floating panel) enumerating every difference between the compared paths.',
           run: () => {
-            setPanelState({ surface: 'differences' })
+            if (!openDifferences()) return 'Panel transition is awaiting a draft decision or the editor is busy.'
             return 'Difference ledger is open.'
           },
         }),
@@ -280,17 +291,17 @@ export function BlueprintCellDetailProvider({
             if (current?.surface !== 'differences')
               return 'The difference ledger is not open.'
             if (liveSelection) {
-              setPanelState({ surface: 'details' })
+              if (!setPanelSurface('details')) return 'Panel transition is awaiting a draft decision or the editor is busy.'
               return "Ledger closed — back on the selected cell's details."
             }
-            setPanelState(null)
+            if (!clearSelection()) return 'Panel transition is awaiting a draft decision or the editor is busy.'
             return 'Ledger closed.'
           },
         }),
       )
     }
     return () => unregister.forEach((fn) => fn())
-  }, [enabled, compareActive])
+  }, [enabled, compareActive, setPanelSurface, openDifferences, clearSelection])
 
   const cellEmphasis = useMemo(() => {
     const selectedCellIds = new Set<string>()

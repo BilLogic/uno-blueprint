@@ -18,10 +18,6 @@ import {
 } from '@/components/blueprint/panelShell'
 import { StepPanelLoading } from '@/components/blueprint/panelLoading'
 import { PanelTextareaField } from '@/components/blueprint/PanelTextareaField'
-import { PanelSectionLabel } from '@/components/blueprint/PanelSectionLabel'
-import { ZoomableImage } from '@/components/blueprint/ZoomableImage'
-import { servedUrl } from '@/lib/basePath'
-import { PANEL_TERMS } from '@/lib/panelTerms'
 import { useStepSpec, type StepSpec } from '@/hooks/useStepSpec'
 import { usePanelFooterHost } from '@/hooks/usePanelFooterHost'
 import { useSupabase } from '@/contexts/SupabaseProvider'
@@ -34,14 +30,9 @@ import {
 } from '@/lib/authoringRpc'
 
 /**
- * The step: one moment, read across every lane.
- *
- * `summary` is the only editable field, and it is the one the storyboard row
- * has always needed — the sentence that makes a step legible without
- * reading five cells. The storyboard row itself stays pictures only, so this
- * panel is where that sentence is read and written, and it is why a
- * storyboard cell opens here rather than into a cell panel describing some
- * other lane's text.
+ * The step header opens this panel to read and edit Name and Summary.
+ * Storyboard pictures belong to the step's cells in walkthrough lanes and
+ * are edited on those cells; their read-only collection has its own panel.
  */
 export function StepPanel({
   stepId,
@@ -198,43 +189,6 @@ function StepPanelBody({
     }
   }
 
-  /*
-    The meta line says only what a reader could not already see.
-    "1st of 1 path" is both of those things — the position is on screen and
-    the path is in the breadcrumb — so a step that sits where you would expect
-    reports its cell count and nothing else. A step that sits at DIFFERENT
-    positions on different paths is the one case worth a sentence, and it gets
-    the list below as well.
-  */
-  const distinct = new Set(step.positions.map((entry) => entry.position))
-  const positionLabel =
-    step.positions.length === 0
-      ? 'in no path yet'
-      : distinct.size > 1
-      ? `different positions on ${step.positions.length} paths`
-      : step.positions.length > 1
-      ? `${step.positions.length} paths`
-      : null
-
-  /*
-    The row's frames open, and step to one another.
-
-    One group, in the order the row draws it — lane order, the same moment
-    as each actor saw it, which is the whole reason the row is worth
-    comparing. Handed to the viewer rather than discovered by scanning the
-    row: a scan would reproduce that order today and only by accident,
-    until a wrapper element or a CSS reorder quietly broke it.
-
-    Each frame's name is its lane's, the caption already printed under it.
-    A frame carries no caption anywhere in the schema and is not getting
-    one for the sake of a label — what the picture shows is this moment,
-    and the lane says whose view of it this is.
-  */
-  const frameSiblings = step.frames.map((frame) => ({
-    src: frame.src,
-    alt: frame.laneName,
-  }))
-
   return (
     <div
       className="flex flex-col gap-4"
@@ -244,10 +198,7 @@ function StepPanelBody({
       <PanelIdentity
         badge={<PanelKindBadge label="Step" />}
         title={step.name}
-        // Only the surprise: a step that sits at a DIFFERENT position depending
-        // on the path. A cell count is bookkeeping, not something a reader of
-        // this panel came for.
-        meta={draft ? '' : positionLabel ?? ''}
+        meta={null}
       />
 
       {canEdit ? (
@@ -311,72 +262,6 @@ function StepPanelBody({
         disabled={!canEdit}
         onChange={setSummary}
       />
-
-      {step.frames.length > 0 ? (
-        // A LABELLED field: "Storyboard" reads as plain text beside Summary,
-        // not an outline badge. Its definition rides the label's hint
-        // popover, the touch/press affordance every other field label uses.
-        <Field label="Storyboard" hint={PANEL_TERMS.storyboard}>
-          {/*
-            A ROW of frames, not a stack of full-width ones. A step is drawn
-            once per actor lane, so three frames stacked at 4:3 pushed the
-            sentence this panel exists for below the fold. Side by side they
-            read as what they are — the same moment from each lane — and the
-            row scrolls rather than the page.
-          */}
-          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 blueprint-scroll">
-            {step.frames.map((frame, index) => (
-              <figure
-                key={frame.src}
-                className="flex w-32 shrink-0 flex-col gap-1"
-              >
-                <div className="relative aspect-[4/3] w-full overflow-hidden rounded-md bg-muted/20">
-                  <ZoomableImage
-                    src={frame.src}
-                    alt={frame.laneName}
-                    triggerLabel={`Expand: ${frame.laneName}`}
-                    siblings={frameSiblings}
-                    siblingIndex={index}
-                    triggerClassName="absolute inset-0 block cursor-pointer"
-                  >
-                    <img
-                      src={servedUrl(frame.src)}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      className="absolute inset-0 h-full w-full object-contain object-center"
-                    />
-                  </ZoomableImage>
-                </div>
-                {/* Provenance, quietly: which lane drew this frame. The
-                    frame's MEANING is the summary above it. */}
-                <figcaption className="truncate text-xs font-normal text-muted-foreground">
-                  {frame.laneName}
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        </Field>
-      ) : null}
-
-      {distinct.size > 1 ? (
-        <div className="flex flex-col gap-1">
-          <PanelSectionLabel>Position</PanelSectionLabel>
-          <ul className="flex flex-col gap-1">
-            {step.positions.map((entry) => (
-              <li
-                key={`${entry.pathName}-${entry.position}`}
-                className="text-sm font-normal text-foreground"
-              >
-                <span className="font-medium text-foreground">
-                  {entry.pathName}
-                </span>{' '}
-                · position {entry.position + 1}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
 
       {canEdit ? (
         <PanelFooterControls

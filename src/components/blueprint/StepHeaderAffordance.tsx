@@ -1,3 +1,5 @@
+import { useCellPick } from '@/contexts/cellPickContext'
+import { clickOpensDetail } from '@/lib/cellPickGrammar'
 import { StructureDragGrip } from './StructureDragGrip'
 import { highlightStructure } from './structureHighlight'
 import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
@@ -67,8 +69,9 @@ export function StepHeaderAffordance({
   className?: string
   style?: React.CSSProperties
 }) {
+  const pick = useCellPick()
   const rename = useStructureRename('step', stepId, name)
-  const { toggleEntity, selection } = useEntityDetail()
+  const { toggleEntity, openEntity, selection } = useEntityDetail()
   const detail = useBlueprintCellDetailOptional()
   const boardInScope = useScenarioBoardInScope()
   /*
@@ -168,10 +171,12 @@ export function StepHeaderAffordance({
     )
   }
 
-  const openPanel = (event: React.SyntheticEvent) => {
+  const openPanel = (event: React.MouseEvent<HTMLElement>) => {
     event.stopPropagation()
+    if (pick?.plainClick && !clickOpensDetail(event)) return
     setDefOpen(false)
-    toggleEntity({ kind: 'step', id: stepId, pathId })
+    if (clickOpensDetail(event)) openEntity({ kind: 'step', id: stepId, pathId })
+    else toggleEntity({ kind: 'step', id: stepId, pathId })
   }
 
   return (

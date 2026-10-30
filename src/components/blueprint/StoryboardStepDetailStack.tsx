@@ -16,6 +16,8 @@ type StoryboardStepDetailStackProps = {
   entries: StoryboardFrameEntry[]
   /** Side panel stacks vertically; presentation view lays cards out in a row. */
   orientation?: 'vertical' | 'horizontal'
+  /** The full picture group when an editor renders one row at a time. */
+  galleryEntries?: StoryboardFrameEntry[]
   className?: string
 }
 
@@ -23,6 +25,7 @@ type StoryboardStepDetailStackProps = {
 export function StoryboardStepDetailStack({
   entries,
   orientation = 'vertical',
+  galleryEntries = entries,
   className,
 }: StoryboardStepDetailStackProps) {
   if (entries.length === 0) {
@@ -110,14 +113,14 @@ export function StoryboardStepDetailStack({
 
     Each frame's name is its lane's label, which is already printed under it.
   */
-  const siblings = entries.map((entry) => ({
+  const siblings = galleryEntries.map((entry) => ({
     src: entry.frame,
     alt: entry.label,
   }))
 
   return (
     <div className={cn('flex flex-col gap-5', className)}>
-      {entries.map((entry, index) => (
+      {entries.map((entry) => (
         <div key={entry.laneName} className="flex flex-col gap-2">
           <div className={PICTURE_FRAME_CLASS}>
             <ZoomableImage
@@ -125,7 +128,7 @@ export function StoryboardStepDetailStack({
               alt={entry.label}
               triggerLabel={`Expand: ${entry.label}`}
               siblings={siblings}
-              siblingIndex={index}
+              siblingIndex={galleryEntries.findIndex((picture) => picture.laneName === entry.laneName)}
               triggerClassName="absolute inset-0 block cursor-pointer"
             >
               <img
@@ -143,11 +146,7 @@ export function StoryboardStepDetailStack({
           <p className="text-xs font-medium text-foreground">
             {entry.label}
           </p>
-          <p className="text-sm whitespace-pre-wrap text-foreground">
-            {entry.summary || (
-              <span className="text-muted-foreground">No summary</span>
-            )}
-          </p>
+          {entry.summary ? <p className="text-sm whitespace-pre-wrap text-foreground">{entry.summary}</p> : null}
         </div>
       ))}
     </div>

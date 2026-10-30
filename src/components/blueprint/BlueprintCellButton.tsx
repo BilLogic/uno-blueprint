@@ -162,18 +162,10 @@ export function BlueprintCellButton({
         ? preview?.techItem === touchpointLabel
         : !preview?.techItem),
   )
-  /*
-    While gathering (Edit's canvas), the detail selection paints nothing.
-
-    The emphasis system is View's vocabulary: opening a cell rings it, rings
-    its dependency chain, and dims everything else. In a service blueprint
-    dependencies run vertically within a step, so ⌘-clicking one cell ringed
-    a column of them — on a canvas where rings mean *picked*, that read as
-    "⌘-click selected the whole column". Two ring vocabularies cannot share
-    one canvas; in Edit, picking owns it and the panel is just a panel.
-  */
+  // An active slice picker owns selection rings. Ordinary reading uses the
+  // panel's cell emphasis, just as it does in View mode.
   const emphasis =
-    pick?.gathers || !detail?.selection
+    pick?.plainClick || !detail?.selection
       ? undefined
       : isActive
         ? 'active'
@@ -186,27 +178,9 @@ export function BlueprintCellButton({
     // Focus mode: ignore cells in dimmed (inactive) phases/scenarios.
     if (event.currentTarget.closest('[data-canvas-focus-dimmed]')) return
     event.stopPropagation()
-    // Picking a cell for a slice takes precedence over opening the panel:
-    // in edit mode every click picks, elsewhere only cmd/shift-click does,
-    // so ordinary reading of the blueprint is unaffected.
-    // Hand means the canvas is being moved, not read: a click that lands at
-    // the end of a pan must not also change the selection.
+    // Make slice explicitly owns ordinary cell clicks while active. Cmd/Ctrl
+    // reads a cell without changing membership; outside that tool, clicks read.
     if (annotationTool === 'hand') return
-    /*
-      The grammar lives in one place — `cellPickGrammar` — and the branch
-      order here is the whole of it: ⌘/ctrl reads, everything else picks
-      (when there is a picker), and a bare click on a canvas with no picker
-      opens the panel — or closes it, when the panel is already showing this
-      exact cell.
-
-      Double-click deliberately does nothing special. In a toggle grammar,
-      click-in click-out *is* a fast double-click — the two are
-      indistinguishable by construction, and every attempt to give the pair
-      its own meaning turned reading a cell into flipping its membership. A
-      held modifier cannot be produced by clicking fast; that is why the
-      open gesture is a modifier, with right-click → "View cell detail" as
-      the discoverable route to the same place.
-    */
     if (clickOpensDetail(event)) {
       detail!.selectCell(selection!)
       return

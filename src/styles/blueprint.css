@@ -1263,11 +1263,6 @@
   position: relative;
   isolation: isolate;
 }
-/* The row header owns focus; its name is one target inside that cell. */
-[data-structure-header-cell] [data-structure-header-title]:focus-visible {
-  outline: none;
-  box-shadow: none;
-}
 /*
   Hover, selected, and keyboard focus share one content-band box: the arrow
   corridors above/below the label are NOT part of the chrome. Painting the
@@ -1283,7 +1278,7 @@
   );
   --structure-header-chrome-inline: var(--structure-highlight-inset, 8px);
 }
-[data-structure-header-cell]:has([data-structure-header-title]:focus-visible)::after,
+[data-structure-header-cell]:has([data-structure-header-title]:focus-visible, [data-canvas-header-opener]:focus-visible)::after,
 [data-structure-highlight='label']:not([data-open])::before,
 [data-structure-header-cell][data-open]::before {
   content: '';
@@ -1295,11 +1290,11 @@
   border-radius: inherit;
   pointer-events: none;
 }
-[data-structure-header-cell]:has([data-structure-header-title]:focus-visible) {
+[data-structure-header-cell]:has([data-structure-header-title]:focus-visible, [data-canvas-header-opener]:focus-visible) {
   outline: none;
   @apply rounded-md;
 }
-[data-structure-header-cell]:has([data-structure-header-title]:focus-visible)::after {
+[data-structure-header-cell]:has([data-structure-header-title]:focus-visible, [data-canvas-header-opener]:focus-visible)::after {
   box-shadow: inset 0 0 0 var(--structure-highlight-stroke, 1px) var(--primary);
   z-index: 1;
 }
@@ -1334,6 +1329,14 @@
   inset: 4px;
 }
 [data-blueprint-column-header] [data-structure-grip] { @apply left-3; }
+/* Lane buttons fill the row; align the grip with its first text line. */
+[data-blueprint-row-header] [data-structure-grip] { @apply top-0 translate-y-0; }
+/* The row's content band is the only paint owner, including definition hover. */
+[data-structure-header-cell],
+[data-structure-header-cell] [data-blueprint-row-header] {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
 [data-blueprint-empty-slot]:focus-visible [data-blueprint-empty-preview] {
   outline: 2px solid var(--ring);
   outline-offset: -2px;

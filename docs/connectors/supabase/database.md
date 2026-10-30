@@ -440,6 +440,8 @@ as a durable audit of successful recovery, without retaining removed content;
 `reverted` makes an old Undo request refuse. There is no scheduled expiry job.
 
 
+| `21000313000000_a_storyboard_row_saves_its_cell_atomically.sql` | One guarded storyboard cell save and a private, author-owned inverse receipt; restores resource and placement identities and refuses newer edits |
+
 Apply 309–311 together with the matching app; drag reordering does not work
 between those migrations. Regenerate database types afterwards. Reorder callers,
 including custom and host callers, must send `expected_ids`, the complete order
@@ -462,6 +464,16 @@ after-values. `undo_structure_order` similarly refuses a newer order. Undo
 history captured before this upgrade lacks the required guarded receipt and is
 refused; reload rather than replaying an old inverse. Exact signatures and
 refusals are in [the backend contract](../backend-contract.md#structure-authoring-signatures).
+
+
+Storyboard editing requires migration 313 with the matching app and regenerated
+database types. It adds the guarded aggregate operations in [the backend
+contract](../backend-contract.md#storyboard-cell-authoring-signatures). Private
+`cell_storyboard_receipts` rows are inaccessible to client table queries. They
+remain for the cell's lifetime so a change-sheet Undo has no arbitrary expiry;
+successful Undo consumes its receipt and cell deletion cascades it. Uploaded
+Storage objects are retained on Cancel and Undo, matching the existing
+attachment lifecycle. No deployment data backfill is required.
 
 
 ## Reserved migration timestamp band

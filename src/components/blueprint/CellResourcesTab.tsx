@@ -1,4 +1,5 @@
 import { Check, ExternalLink, FileText, ImageIcon } from 'lucide-react'
+import { FeaturedImageField } from '@/components/blueprint/FeaturedImageControl'
 import { ResourcesList } from '@/components/blueprint/ResourcesList'
 import { IconTooltip } from '@/components/editor/IconTooltip'
 import { Button } from '@/components/ui/button'
@@ -119,22 +120,34 @@ export function CellResourcesTab({
   if (mode === 'design' && canWrite && cellId !== null && client !== null && drafts) {
     const { store, owners, defaultOwner, state } = drafts
     return (
-      <ResourcesList
+      <FeaturedImageField
         cellId={cellId}
-        owners={owners}
-        defaultOwner={defaultOwner}
-        baseline={state.baseline}
-        value={state.drafts}
-        onChange={store.edit}
-        aside={
-          <InheritedLogos
-            touchpoints={touchpoints}
-            frame={state.drafts.frame}
-            savedFrame={state.baseline.frame}
-            onSetFeaturedImage={(url) => store.edit((current) => setFeaturedImage(current, url))}
+        frame={state.drafts.frame}
+        savedFrame={state.baseline.frame}
+        resources={resources}
+        touchpoints={touchpoints}
+        onChange={(url) => store.edit((current) => setFeaturedImage(current, url ?? ''))}
+      >
+        {({ frame, savedFrame, choose }) => (
+          <ResourcesList
+            cellId={cellId}
+            owners={owners}
+            defaultOwner={defaultOwner}
+            baseline={state.baseline}
+            value={state.drafts}
+            onChange={store.edit}
+            onSetFeaturedImage={choose}
+            aside={
+              <InheritedLogos
+                touchpoints={touchpoints}
+                frame={frame}
+                savedFrame={savedFrame}
+                onSetFeaturedImage={choose}
+              />
+            }
           />
-        }
-      />
+        )}
+      </FeaturedImageField>
     )
   }
 

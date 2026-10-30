@@ -31,6 +31,9 @@ claims:
   - src/components/blueprint/EntityPropertiesButton.tsx
   - src/components/blueprint/EntityTitleAffordance.tsx
   - src/components/blueprint/Eyebrow.tsx
+  - src/components/blueprint/FeaturedImageControl.tsx
+  - src/components/blueprint/StoryboardCellRows.tsx
+  - src/components/blueprint/StoryboardPictureDraftSurface.tsx
   - src/components/blueprint/FeaturedResources.tsx
   - src/components/blueprint/RegistryLink.tsx
   - src/components/blueprint/LaneHeaderAffordance.tsx
@@ -157,7 +160,7 @@ should change, it changes in the shell, once.
 | Phase | Hints lifted verbatim from the column comments, so the panel and the schema cannot drift. |
 | Lane | No evidence, resources or dependency tabs: those all key on a **cell**, and a lane has no link to any of them. The only panel with `PanelEmpty` gating and the fan-out alert. |
 | Scenario | A paths accordion opening `multiple`, first path open — comparing two routes is the reason to read this panel, and an accordion that closes one to open the next makes that impossible. |
-| Step | The one panel whose save invalidates the canvas grid, because `summary` is also the storyboard caption. |
+| Step | Owns the Step name and summary. Storyboard pictures and captions belong to the picture’s cell and are edited in the storyboard panel. |
 | Cell | Tabs, two surfaces, an expand toggle, agent commands and the in-slices footer. |
 
 ### The lane panel's fan-out
@@ -277,6 +280,26 @@ as its host and a file as its own filename, and the rename is a second,
 optional act. The upload is on screen the whole way — the row present and
 dimmed while the bucket is written, and a `Retry` in its place if the write is
 refused.
+
+The storyboard panel lists only the pictured cells already represented in the
+step's strip, in both View and Edit. Unpictured cells do not add empty rows to
+this panel; their featured images are managed from their own cell panels. Edit mode
+opens picture controls and the optional Caption field directly. Caption maps to
+`cells.summary`; action Text and other cell properties stay in the cell's own panel.
+Save and Cancel keep the picture fields open. A single close guard covers every pictured
+cell's unsaved draft; each Save records only that cell's picture and caption.
+
+**The featured image has one reusable control.** `FeaturedImageControl.tsx`
+exports `FeaturedImageField`, a controlled choice over the cell's image
+attachments, inherited touchpoint logos and saved frame, including a saved
+storyboard illustration. Its host supplies the draft frame and receives a
+choice; an upload uses the existing attachment bucket and hands the full
+attachment back for that host to stage. It performs no authoring save.
+`CellResourcesTab` embeds it through the existing list and logo controls, so
+the panel keeps its unsaved count and one Save. `FeaturedImageControl` adds a
+standalone frozen draft and Save/Cancel around the same field, saving through
+`resourceDraftStore`; changing the cell opens a fresh draft. A surface composing
+picture and text edits uses the controlled field and owns their combined save.
 
 **None of it writes until the panel's Save.** The tabs sit beside the form,
 not inside it, so the draft is held above both: `ResourceDraftsProvider`

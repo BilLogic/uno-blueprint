@@ -310,6 +310,7 @@ export function ResourcesList({
   baseline,
   value,
   onChange,
+  onSetFeaturedImage,
   aside,
 }: {
   /** The cell a chosen file is filed under; null means no file can join. */
@@ -324,6 +325,8 @@ export function ResourcesList({
   value: ResourceDrafts
   /** Hand an edit up to whoever holds the draft. */
   onChange: (change: (drafts: ResourceDrafts) => ResourceDrafts) => void
+  /** The shared picture control owns the choice when the list is embedded. */
+  onSetFeaturedImage?: (url: string) => void
   /** Rows this list shows but does not hold, under the groups. */
   aside?: ReactNode
 }) {
@@ -461,7 +464,9 @@ export function ResourcesList({
                           onChange((drafts) => featureResource(drafts, row.key, featured))
                         }
                         onSetFeaturedImage={() =>
-                          onChange((drafts) => setFeaturedImage(drafts, row.url))
+                          onSetFeaturedImage
+                            ? onSetFeaturedImage(row.url)
+                            : onChange((drafts) => setFeaturedImage(drafts, row.url))
                         }
                         onRetag={(next) =>
                           onChange((drafts) =>

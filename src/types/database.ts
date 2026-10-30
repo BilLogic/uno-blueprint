@@ -281,6 +281,40 @@ export type Database = {
           },
         ]
       }
+      cell_storyboard_receipts: {
+        Row: {
+          actor: string
+          after_state: NonNullable<Json>
+          before_state: NonNullable<Json>
+          cell_id: string
+          id: string
+          uploaded_ids: string[]
+        }
+        Insert: {
+          actor: string
+          after_state: NonNullable<Json>
+          before_state: NonNullable<Json>
+          cell_id: string
+          id?: string
+          uploaded_ids: string[]
+        }
+        Update: {
+          actor?: string
+          after_state?: NonNullable<Json>
+          before_state?: NonNullable<Json>
+          cell_id?: string
+          id?: string
+          uploaded_ids?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cell_storyboard_receipts_cell_id_fkey"
+            columns: ["cell_id"]
+            referencedRelation: "cells"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cell_touchpoints: {
         Row: {
           cell_id: string
@@ -1308,6 +1342,7 @@ export type Database = {
         Args: { lane_id: string; path_id: string; step_id: string }
         Returns: string
       }
+      read_cell_storyboard: { Args: { p_cell_id: string }; Returns: Json }
       record_authoring_change: {
         Args: {
           agent_session_id?: string
@@ -1404,6 +1439,10 @@ export type Database = {
         Args: { dependency_id: string; name: string; note: string }
         Returns: undefined
       }
+      restore_cell_storyboard: {
+        Args: { p_receipt_id: string }
+        Returns: undefined
+      }
       restore_cell_touchpoints: {
         Args: { p_cell_id: string; p_rows: Json }
         Returns: undefined
@@ -1486,6 +1525,17 @@ export type Database = {
           kind: string
           note: string
           target_cell_id: string
+        }
+        Returns: Json
+      }
+      update_cell_storyboard: {
+        Args: {
+          p_attachments?: Json
+          p_cell_id: string
+          p_content: string
+          p_expected: Json
+          p_frame: string
+          p_summary: string
         }
         Returns: Json
       }

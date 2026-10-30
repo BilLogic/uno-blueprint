@@ -2901,3 +2901,27 @@ begin
   exception when insufficient_privilege then null;
   end;
 end $acl$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000313000000_a_storyboard_row_saves_its_cell_atomically.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+revoke all on public.cell_storyboard_receipts from anon,authenticated;
+revoke execute on function public.read_cell_storyboard(uuid), public.update_cell_storyboard(uuid,text,text,text,jsonb,jsonb),public.restore_cell_storyboard(uuid) from anon;
+grant execute on function public.read_cell_storyboard(uuid), public.update_cell_storyboard(uuid,text,text,text,jsonb,jsonb),public.restore_cell_storyboard(uuid) to authenticated;
+-- Final ACL and in-body denial proofs, after this migration's grants.
+-- Core replay builds every function before historical recipe proofs run. The
+-- shared require_structure_author gate has the same check as other aggregate
+-- operations; this final proof checks these names after their own ACLs land.
+do $storyboard_permissions$
+begin
+ perform set_config('request.jwt.claims','{}',true);
+ begin perform public.read_cell_storyboard(null); raise exception 'reader read accepted'; exception when insufficient_privilege then null; end;
+ begin perform public.update_cell_storyboard(null,'text','summary',null,'{}','[]'); raise exception 'reader save accepted'; exception when insufficient_privilege then null; end;
+ begin perform public.restore_cell_storyboard(null); raise exception 'reader undo accepted'; exception when insufficient_privilege then null; end;
+ if has_function_privilege('anon','public.read_cell_storyboard(uuid)','EXECUTE')
+ or has_function_privilege('anon','public.update_cell_storyboard(uuid,text,text,text,jsonb,jsonb)','EXECUTE')
+ or has_function_privilege('anon','public.restore_cell_storyboard(uuid)','EXECUTE')
+ or has_table_privilege('authenticated','public.cell_storyboard_receipts','SELECT')
+ or has_table_privilege('anon','public.cell_storyboard_receipts','SELECT') then raise exception 'storyboard grants are open'; end if;
+end $storyboard_permissions$;

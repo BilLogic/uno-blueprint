@@ -268,6 +268,35 @@ internal helper, not a host-facing entry point. The Supabase recipe uses RLS and
 explicit revokes to keep `structure_membership_receipts` server-only; another
 host must preserve that boundary.
 
+### Storyboard cell authoring signatures
+
+| RPC | Arguments | Return |
+| --- | --- | --- |
+| `read_cell_storyboard` | `p_cell_id uuid` | Canonical `jsonb` cell state |
+| `update_cell_storyboard` | `p_cell_id uuid`, `p_content text`, `p_summary text`, `p_frame text`, `p_expected jsonb`, `p_attachments jsonb default '[]'` | `{cell_id, receipt_id, before, after}` |
+| `restore_cell_storyboard` | `p_receipt_id uuid` | `void` |
+
+These operations require the author tier, including the snapshot read. The
+canonical state contains `cell_id`, `path_id`, `lane_id`, `step_id`, `content`,
+`summary`, `frame`, and the complete `placements` and `resources` rows, ordered
+by ID. Save compares that state under locks; a mismatch raises `This cell
+changed. Reopen it before saving.` It requires nonempty Text (`Text is required`),
+an HTTPS or site-relative image address, and staged attachments owned by this cell. HTTP is accepted only for a loopback Storage bucket address for local development. Attachments
+carry `{kind: 'attachment', name, url, objectKey}`; client resource IDs and
+placement ownership are refused. When action content changes, its synchronization,
+picture, summary and new attachment rows commit together. Picture/caption-only edits
+forward unchanged action content and preserve its placements and resources. The
+storyboard panel labels `cells.summary` as Caption.
+
+The inverse consumes a private server receipt owned by the same author. It
+refuses a missing, consumed or foreign receipt with `This edit receipt is
+unavailable`, and newer text, picture, summary, placement or resource edits
+with `This cell changed after this edit. Undo refused.` It restores the original
+resource and placement IDs without overwriting unrelated cell properties or
+removing objects from Storage. A deleted cell raises `That cell no longer exists`.
+Neither anonymous callers nor readers may call these operations. Hosts must
+provide the same guarded aggregate and receipt semantics before serving this UI.
+
 ### Optional host authoring operations
 
 A deployment may supply additional named RPCs under

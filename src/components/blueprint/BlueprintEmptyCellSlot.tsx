@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { HOVER_HINT_DELAY } from '@/lib/hoverIntent'
 import { structureDraftExtent } from '@/lib/structureDraftMotion'
-import { getCellShellInsetY } from '@/lib/blueprintLayout'
+import { getCellShellInsetY, shouldUseStoryboardContent } from '@/lib/blueprintLayout'
 import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
 import { Plus } from 'lucide-react'
 import { useBlueprintCellDetailOptional } from '@/contexts/BlueprintCellDetailContext'
@@ -103,7 +103,7 @@ export function BlueprintEmptyCellSlot({
   return (
     <button
       type="button"
-      aria-label="Add a cell here"
+      aria-label={shouldUseStoryboardContent({ name: laneName, role: laneRole }) ? 'Add picture' : 'Add a cell here'}
       onClick={(event) => {
         event.stopPropagation()
         detail.openDraftCell({

@@ -57,7 +57,7 @@ export const queryKeys = {
   phaseSpec: family('phase-spec'),
   scenarioSpec: family('scenario-spec'),
   laneSpec: family('lane-spec'),
-  structurePaths: family('structure-paths'),
+  structurePaths: family('structure-paths-v2'),
   stepSpec: family('step-spec'),
   evidence: family('evidence'),
   registryTouchpoints: family('registry-touchpoints'),

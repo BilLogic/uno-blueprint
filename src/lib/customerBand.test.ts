@@ -84,6 +84,12 @@ describe('the line of interaction closes the band, once', () => {
     expect(interactionLinesAfter(ONE_DEEP)).toEqual([1])
   })
 
+  it('keeps an unrole’d row under the spine above the line', () => {
+    // Sample board: Stakeholders (null) dragged below Blueprint owner.
+    const lanes = rows(CUSTOMER_ACTIONS_ROLE, null, FRONTSTAGE_ACTIONS_ROLE)
+    expect(interactionLinesAfter(lanes)).toEqual([1])
+  })
+
   it('draws no line on a board with no customer side at all', () => {
     const lanes = rows(FRONTSTAGE_ACTIONS_ROLE, BACKSTAGE_ACTIONS_ROLE)
     expect(interactionLinesAfter(lanes)).toEqual([])
@@ -155,6 +161,21 @@ function railInteractionRowsAfter(lanes: BlueprintLane[]): string[] {
 }
 
 describe('the rail beside a deep customer side', () => {
+  it.each(['structure-seam', 'structure-placeholder'])(
+    'keeps the saved boundary corridor while %s opens above the line',
+    (id) => {
+      const lanes = [...ONE_DEEP]
+      lanes.splice(2, 0, {
+        id,
+        name: '',
+        role: null,
+        position: 2,
+        ...(id === 'structure-seam' ? { seamSize: 18 } : {}),
+      })
+      expect(corridorsBelow(lanes)).toEqual(corridorsBelow(ONE_DEEP))
+    },
+  )
+
   it('opens a corridor under the row it draws the line after, and no other', () => {
     // Asserted against the rail's own interaction row rather than a lane
     // index: these are the same fact, and the defect was that they disagreed.

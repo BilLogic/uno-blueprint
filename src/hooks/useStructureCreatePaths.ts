@@ -17,7 +17,15 @@ export function useStructureCreatePaths(
   name = '',
   role?: string,
 ) {
-  const result = useStructurePaths(draft ? { kind: draft.kind, pathId: draft.pathId, scenarioId: draft.kind === 'lane' ? draft.scenarioId : undefined } : null)
+  const result = useStructurePaths(
+    draft
+      ? {
+          kind: draft.kind,
+          pathId: draft.pathId,
+          scenarioId: draft.kind === 'lane' ? draft.scenarioId : undefined,
+        }
+      : null,
+  )
   const paths = result.status === 'ready' ? result.data : []
   const [value, setValue] = useState<PathOrder[] | null>(null)
   const clicked = paths.find((path) => path.id === draft?.pathId) ?? paths[0]

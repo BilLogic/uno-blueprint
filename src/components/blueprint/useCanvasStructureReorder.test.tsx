@@ -1,5 +1,9 @@
 // @vitest-environment jsdom
 import { useRef } from 'react'
+import { QueryClientProvider, useQuery } from '@tanstack/react-query'
+import { queryClient } from '@/lib/queryClient'
+import { queryKeys } from '@/lib/queryKeys'
+import type { RawPath } from '@/lib/normalizeBlueprint'
 import {
   act,
   cleanup,
@@ -43,9 +47,51 @@ vi.mock('@/lib/authoringSession', () => ({
 
 afterEach(() => {
   cleanup()
+  queryClient.clear()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
   write.mockClear()
+})
+
+it('hands a parked drop to the actual query observer without clearing the old DOM seats first', async () => {
+  vi.stubGlobal('CSS', { escape: (s: string) => s })
+  const key = [queryKeys.canvasBlueprints.of('scenario')]
+  queryClient.setQueryData(key, [{
+    id: 'path',
+    lanes: ['one', 'two'].map((id, position) => ({ id, name: id, position })),
+  }])
+  function Board() {
+    const ref = useRef<HTMLDivElement>(null)
+    const { data } = useQuery<RawPath[]>({ queryKey: key, enabled: false })
+    const lanes = data![0]!.lanes!
+    useCanvasStructureReorder(ref, { path: { id: 'path' }, lanes, steps: [] } as unknown as BlueprintData, true, true)
+    return <div data-structure-board=""><div ref={ref}>{lanes.map((lane, index) =>
+      <div key={lane.id} data-structure-lane-label={lane.id} data-seat={index}>
+        <button data-structure-reorder="lane" data-structure-id={lane.id}>{lane.name}</button>
+      </div>,
+    )}</div></div>
+  }
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    return new DOMRect(0, Number(this.dataset.seat ?? 0) * 100, 100, 100)
+  })
+  const view = render(<QueryClientProvider client={queryClient}><Board /></QueryClientProvider>)
+  const source = view.getByText('one')
+  const part = source.parentElement!
+  const pointer = (type: string, y: number) => {
+    const event = new MouseEvent(type, { bubbles: true, button: 0, clientX: 20, clientY: y })
+    Object.defineProperty(event, 'pointerId', { value: 1 })
+    return event
+  }
+  act(() => {
+    source.dispatchEvent(pointer('pointerdown', 50))
+    document.dispatchEvent(pointer('pointermove', 150))
+    document.dispatchEvent(pointer('pointerup', 150))
+  })
+  expect(part.dataset.seat).toBe('0')
+  expect(part.style.translate).toBe('0px 100px')
+  await waitFor(() => expect(part.dataset.seat).toBe('1'))
+  expect(part.style.translate).toBe('')
+  expect(document.documentElement.hasAttribute('data-structure-settling')).toBe(false)
 })
 it.each([true, false])(
   'drops saved identities only with one stacked path shown: %s',

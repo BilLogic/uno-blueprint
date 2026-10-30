@@ -518,6 +518,19 @@ function DesktopEditorShell() {
   // easing against the pointer reads as lag, not motion.
   const [asideWidth, setAsideWidth] = useState(loadAsideWidth)
   const [resizing, setResizing] = useState(false)
+  // WriteFailureNotices mounts outside this shell (so it outlives a crashed
+  // boundary) but must centre on the canvas column — publish the aside
+  // width on :root where a fixed toast can read it.
+  useEffect(() => {
+    const root = document.documentElement
+    root.style.setProperty(
+      '--editor-aside-width',
+      `${asideHidden ? 0 : asideWidth}px`,
+    )
+    return () => {
+      root.style.removeProperty('--editor-aside-width')
+    }
+  }, [asideHidden, asideWidth])
   const startResize = (event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault()
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -716,6 +729,13 @@ function DesktopEditorShell() {
         // viewport units against a stale size after a resize.
         className="relative flex h-full flex-col overflow-hidden bg-background"
         data-editor-shell
+        style={
+          {
+            // Write notices centre on the canvas column, matching the
+            // bottom control bar (which is absolute-centred in that pane).
+            '--editor-aside-width': `${asideHidden ? 0 : asideWidth}px`,
+          } as CSSProperties
+        }
       >
         {/* Full-width top nav: workspace identity, Home, open tabs. */}
         <TabStrip

@@ -68,6 +68,8 @@ that repository's 0013 is the import decision, which lives here as 0020.
 | [0031](0031-a-description-is-always-loaded-and-budgeted.md) | A description is always loaded, and is budgeted like the router |
 | [0032](0032-the-owner-agent-stays-in-the-template-for-v0.md) | The owner agent stays in the template for v0 |
 
+| [0033](0033-the-server-validator-is-guarded-by-python-parity.md) | The server validator is guarded by Python parity |
+
 ## Moved here from BilLogic/plus-uno-blueprint (#551)
 
 Nine records moved, renumbered after 0012 (reserved for the type system).

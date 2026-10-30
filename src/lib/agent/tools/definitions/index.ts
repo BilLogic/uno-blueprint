@@ -53,7 +53,7 @@ import {
   uiCommandTool,
 } from '@/lib/agent/tools/definitions/interface'
 import { getReferenceTool, listReferencesTool } from '@/lib/agent/tools/definitions/references'
-import { createServiceTool, listServicesTool, getBusinessModelTool } from '@/lib/agent/tools/definitions/service'
+import { validateBlueprintTool, createServiceTool, listServicesTool, getBusinessModelTool } from '@/lib/agent/tools/definitions/service'
 import {
   getChangeHistoryTool,
   getSessionTool,
@@ -102,6 +102,7 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
   getEvidenceTool,
   getBusinessModelTool,
   listServicesTool,
+  validateBlueprintTool,
   listSessionsTool,
   getSessionTool,
   getUiStateTool,

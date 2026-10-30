@@ -38,17 +38,26 @@ it('refuses to lift from outside the named section', () => {
 })
 
 
-it('tracks legal movement and progressively resists both edges without escaping the elastic cap', () => {
+it('tracks legal movement and progressively resists both edges without ever leaving the legal range', () => {
   expect(dampenStructureDrag(40, -100, 100, 16)).toBe(40)
   for (const sign of [-1, 1]) {
     const near = Math.abs(dampenStructureDrag(sign * 104, -100, 100, 16))
     const far = Math.abs(dampenStructureDrag(sign * 200, -100, 100, 16))
     const extreme = Math.abs(dampenStructureDrag(sign * 100000, -100, 100, 16))
-    expect(near).toBeGreaterThan(100)
+    expect(near).toBeGreaterThan(84)
     expect(far).toBeGreaterThan(near)
-    expect(extreme).toBeLessThan(116)
-    expect((far - near) / 96).toBeLessThan((near - 100) / 4)
+    expect(extreme).toBeLessThanOrEqual(100)
+    expect((far - near) / 96).toBeLessThan((near - 84) / 20)
   }
   // Coordinates scale with the board: zoom changes no world-space elasticity.
   expect(dampenStructureDrag(100, -50, 50, 8) * 2).toBe(dampenStructureDrag(200, -100, 100, 16))
+})
+
+
+it('holds an item already at an edge inside it, including a one-row section', () => {
+  expect(dampenStructureDrag(-100000, 0, 200, 16)).toBe(0)
+  expect(dampenStructureDrag(100000, -200, 0, 16)).toBe(0)
+  expect(dampenStructureDrag(100000, 0, 0, 16)).toBe(0)
+  expect(dampenStructureDrag(-100000, 0, 0, 16)).toBe(0)
+  expect(dampenStructureDrag(0, 0, 200, 16)).toBe(0)
 })

@@ -70,6 +70,12 @@ it.each(
     const to = source === 0 ? 350 + gap * 2 : 100
     items[source].parts[0].dispatchEvent(pointer('pointerdown', from))
     document.dispatchEvent(pointer('pointermove', to))
+    const lifted = items[source].parts[0].style.translate.split(' ').map(parseFloat)
+    const displacement = lifted[kind === 'step' ? 0 : 1]
+    const liftedStart = starts[source] + displacement
+    const liftedEnd = liftedStart + (source === 0 ? 200 : 100)
+    expect(liftedStart).toBeGreaterThanOrEqual(0)
+    expect(liftedEnd).toBeLessThanOrEqual(400 + gap * 2)
     const landing = body.querySelector<HTMLElement>('[data-structure-landing]')!
     const position = kind === 'step' ? 'left' : 'top'
     const extent = kind === 'step' ? 'width' : 'height'

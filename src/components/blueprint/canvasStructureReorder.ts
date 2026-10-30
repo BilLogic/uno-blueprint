@@ -32,16 +32,26 @@ export { orderWithinSection }
 /** Longest wait before a stuck settle preview is forced clear. */
 const SETTLE_FALLBACK_MS = 5_000
 
-/** Continuous at the boundary, with increasing resistance and a board-scaled elastic cap. */
+/** Resist before either edge; the lifted box never crosses its legal range. */
 export function dampenStructureDrag(
   value: number,
   min: number,
   max: number,
   limit: number,
 ): number {
-  const edge = Math.max(min, Math.min(max, value))
-  const extra = value - edge
-  return edge + (Math.sign(extra) * limit * Math.abs(extra)) / (limit + Math.abs(extra))
+  const upperStart = Math.max(0, max - limit)
+  const lowerStart = Math.min(0, min + limit)
+  if (value > upperStart) {
+    const range = max - upperStart
+    const extra = value - upperStart
+    return range === 0 ? max : upperStart + (range * extra) / (range + extra)
+  }
+  if (value < lowerStart) {
+    const range = lowerStart - min
+    const extra = lowerStart - value
+    return range === 0 ? min : lowerStart - (range * extra) / (range + extra)
+  }
+  return value
 }
 
 type Options = {
@@ -417,7 +427,9 @@ export function registerCanvasStructureReorder(
 
     if (outside) return
 
-    const center = axis.start(box) + axis.extent(box) / 2 + delta
+    // Intent follows the legal pointer; resistance only constrains the lift.
+    // A tall row must still be able to choose the last, shorter seat.
+    const center = axis.start(box) + axis.extent(box) / 2 + rawDelta
     const distance = (rect: DOMRect) =>
       Math.abs(axis.start(rect) + axis.extent(rect) / 2 - center)
     const seed = g.section.start

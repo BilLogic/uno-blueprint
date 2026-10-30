@@ -57,7 +57,8 @@ export const queryKeys = {
   phaseSpec: family('phase-spec'),
   scenarioSpec: family('scenario-spec'),
   laneSpec: family('lane-spec'),
-  structureCreatePaths: family('structure-create-paths'),
+  // v2: select includes lane_role so create-panel section math can bound the rail.
+  structureCreatePaths: family('structure-create-paths-v2'),
   stepSpec: family('step-spec'),
   evidence: family('evidence'),
   registryTouchpoints: family('registry-touchpoints'),

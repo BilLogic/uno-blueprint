@@ -28,13 +28,17 @@ export function highlightStructure(
   const scope = source.closest('[data-structure-path]') ?? board
   // Inserting or removing a preview changes rendered column indexes. Follow
   // the hovered header's current index instead of retaining its old neighbour.
+  const stepIndex = CSS.escape(
+    source.closest('[data-step-index]')?.getAttribute('data-step-index') ??
+      String(key),
+  )
+  /**
+   * Step wash must cover every row track — empty slots and filled shells —
+   * not nested cell buttons (those are inset and punch visual holes).
+   */
   const selector = () =>
     kind === 'step'
-      ? `[data-step-index="${CSS.escape(
-          source
-            .closest('[data-step-index]')
-            ?.getAttribute('data-step-index') ?? String(key),
-        )}"]`
+      ? `[data-step-index="${stepIndex}"]:is([data-structure-column], [data-blueprint-empty-slot])`
       : `[data-blueprint-row][data-lane-id="${CSS.escape(String(key))}"]`
   const inset =
     getCellShellInsetY(board.dataset.structureDensity === 'compact') / 2
@@ -54,7 +58,15 @@ export function highlightStructure(
     const origin = board.getBoundingClientRect()
     const scale = board.offsetWidth ? origin.width / board.offsetWidth : 1
     const view = source.ownerDocument.defaultView!
-    const nodes = Array.from(scope.querySelectorAll<HTMLElement>(selector()))
+    let nodes = Array.from(scope.querySelectorAll<HTMLElement>(selector()))
+    // Fall back if a layout omits the track markers — still paint a column.
+    if (kind === 'step' && nodes.length === 0) {
+      nodes = Array.from(
+        scope.querySelectorAll<HTMLElement>(
+          `[data-step-index="${stepIndex}"]`,
+        ),
+      ).filter((node) => node !== source && !node.closest('[data-structure-lift-frame]'))
+    }
     for (const node of nodes) {
       if (!observed.has(node)) {
         observer?.observe(node)
@@ -68,7 +80,7 @@ export function highlightStructure(
       }
     }
     const boxes = nodes
-      .filter((node) => node !== source)
+      .filter((node) => (kind === 'step' ? true : node !== source))
       .map((node) => {
         const box = node.getBoundingClientRect()
         const style = view.getComputedStyle(node)
@@ -96,10 +108,17 @@ export function highlightStructure(
     if (!boxes.length) return
     board.style.setProperty('--structure-highlight-stroke', `${1 / scale}px`)
     source.style.setProperty('--structure-highlight-stroke', `${1 / scale}px`)
-    const left = Math.min(...boxes.map((box) => box.left))
+    let left = Math.min(...boxes.map((box) => box.left))
     const top = Math.min(...boxes.map((box) => box.top))
     const right = Math.max(...boxes.map((box) => box.right))
     const bottom = Math.max(...boxes.map((box) => box.bottom))
+    // Lane rows span under the sticky label rail. The rail already paints its
+    // own content-band ::before — if the axis wash starts under that
+    // transparent cell, the two 5% fills stack into the nested double wash.
+    if (kind === 'lane') {
+      const railRight = label.getBoundingClientRect().right
+      left = Math.max(left, railRight)
+    }
     for (const [name, value] of Object.entries({
       x: (left - origin.left) / scale + inset,
       y: (top - origin.top) / scale + inset,

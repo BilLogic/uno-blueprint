@@ -32,26 +32,19 @@ export { orderWithinSection }
 /** Longest wait before a stuck settle preview is forced clear. */
 const SETTLE_FALLBACK_MS = 5_000
 
-/** Resist before either edge; the lifted box never crosses its legal range. */
+/** Finger-locked in range; smooth square-root rubber band outside it. */
 export function dampenStructureDrag(
   value: number,
   min: number,
   max: number,
-  limit: number,
+  scale: number,
 ): number {
-  const upperStart = Math.max(0, max - limit)
-  const lowerStart = Math.min(0, min + limit)
-  if (value > upperStart) {
-    const range = max - upperStart
-    const extra = value - upperStart
-    return range === 0 ? max : upperStart + (range * extra) / (range + extra)
-  }
-  if (value < lowerStart) {
-    const range = lowerStart - min
-    const extra = lowerStart - value
-    return range === 0 ? min : lowerStart - (range * extra) / (range + extra)
-  }
-  return value
+  const edge = Math.max(min, Math.min(max, value))
+  const extra = (value - edge) / scale
+  // Offset the root so its slope joins normal dragging at 1, rather than
+  // jumping at the edge. The soft ceiling never becomes a hard clamp.
+  const stretch = 2 * (Math.sqrt(1 + Math.abs(extra)) - 1)
+  return edge + Math.sign(extra) * 24 * Math.tanh(stretch / 24) * scale
 }
 
 type Options = {
@@ -419,7 +412,7 @@ export function registerCanvasStructureReorder(
       rawDelta,
       Math.min(0, g.legalStart - axis.start(box)),
       Math.max(0, g.legalEnd - axis.start(box) - axis.extent(box)),
-      16 * scale,
+      scale,
     )
     for (const part of g.items[g.index]!.parts)
       part.style.translate = axis.translate(delta / scale)

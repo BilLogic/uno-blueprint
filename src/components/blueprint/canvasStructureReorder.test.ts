@@ -376,8 +376,8 @@ it.each([['lane', false], ['step', false], ['lane', true], ['step', true]] as co
   items[0].parts[0].dispatchEvent(pointer('pointerdown', 25))
   document.dispatchEvent(pointer('pointermove', 1000))
   const delta = items[0].parts[0].style.translate.split(' ').map(parseFloat)[kind === 'step' ? 0 : 1]
-  expect(delta).toBeGreaterThan(84)
-  expect(delta).toBeLessThanOrEqual(100)
+  expect(delta).toBeGreaterThan(100)
+  expect(delta).toBeLessThanOrEqual(124)
   document.dispatchEvent(pointer('pointerup', 1000))
   expect(save).not.toHaveBeenCalled()
   expect(body.dataset.structureSettling).toBe(reduced ? undefined : '')

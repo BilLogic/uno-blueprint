@@ -135,7 +135,8 @@ it('keeps the line fixed when the pointer tries to cross it', () => {
   // The row resists at the divider instead of following into another section.
   const liftTranslate = items[2]!.parts[0]!.style.translate
   const liftY = Number.parseFloat(liftTranslate.replace(/^0px\s+/, '')) || 0
-  expect(liftY).toBe(0)
+  expect(liftY).toBeGreaterThan(0)
+  expect(liftY).toBeLessThanOrEqual(24)
   const landing = body.querySelector<HTMLElement>('[data-structure-landing]')
   expect(landing?.dataset.structureLandingBan).toBe('')
   expect(landing?.style.opacity).not.toBe('0')

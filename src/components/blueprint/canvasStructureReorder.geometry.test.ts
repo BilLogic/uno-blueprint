@@ -74,8 +74,8 @@ it.each(
     const displacement = lifted[kind === 'step' ? 0 : 1]
     const liftedStart = starts[source] + displacement
     const liftedEnd = liftedStart + (source === 0 ? 200 : 100)
-    expect(liftedStart).toBeGreaterThanOrEqual(0)
-    expect(liftedEnd).toBeLessThanOrEqual(400 + gap * 2)
+    expect(liftedStart).toBeGreaterThanOrEqual(-24)
+    expect(liftedEnd).toBeLessThanOrEqual(424 + gap * 2)
     const landing = body.querySelector<HTMLElement>('[data-structure-landing]')!
     const position = kind === 'step' ? 'left' : 'top'
     const extent = kind === 'step' ? 'width' : 'height'

@@ -250,7 +250,8 @@
     "update_slice",
     "update_stakeholder",
     "update_step",
-    "upsert_cell"
+    "upsert_cell",
+    "validate_blueprint"
   ],
   "canvasReferenceNames": [
     "audit-playbook",

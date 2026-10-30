@@ -53,6 +53,7 @@ jobs:
       - run: npm run check:version
       # The two v1 adapters carry the same fields, and the IR round-trip
       # suite — which until now existed as a script nobody ran.
+      - run: npm run check:validation-rules
       - run: npm run check:parity
       - run: npm run check:portable-core
       # The instance's rename map, read from GitHub, against the schema the
@@ -501,6 +502,10 @@ jobs:
       - name: Every write and proposal approval crosses the MCP boundary
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:tool-writes:postgrest
       - run: npm run test:tool-writes:db
+      - name: Validate stored blueprints through MCP without writing
+        run: |
+          npm run test:validation:db
+          POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:validation:postgrest
       - name: Prove journey names and canvas refetch
         run: |
           npm run test:structure:db

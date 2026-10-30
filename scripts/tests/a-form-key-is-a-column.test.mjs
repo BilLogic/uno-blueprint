@@ -267,6 +267,10 @@ test('no column arrives in the app under a name the schema retired', () => {
     const source = app.read(rel)
     if (source === null) continue
     for (const finding of columnsArrivingUnderOldNames(source, pairs)) {
+      // This is the database-to-file-contract adapter, not an editor form.
+      // Python still calls the IR image picture; the database calls it frame.
+      // Exempt only this translation, leaving every other alias in this module swept.
+      if (rel === 'src/lib/agent/validation/service.ts' && finding.text === '`picture:` is filled from `.frame` — the column is called frame') continue
       found.push(`${rel}:${finding.line}  ${finding.text}`)
     }
   }

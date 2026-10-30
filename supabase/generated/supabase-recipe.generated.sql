@@ -2892,6 +2892,14 @@ end $$;
 revoke all on function public.capture_agent_prior_rows() from anon,authenticated;
 
 -- ─────────────────────────────────────────────────────────────────────────
+-- 21000315000000_a_service_can_be_read_for_validation.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- the export uses the caller's existing read grants and policies.
+revoke all on function public.read_service_blueprint(uuid) from anon,authenticated;
+grant execute on function public.read_service_blueprint(uuid) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────────
 -- 21000316000000_structure_writes_refuse_unapplied_changes.sql
 -- ─────────────────────────────────────────────────────────────────────────
 

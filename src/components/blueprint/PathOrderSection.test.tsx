@@ -96,6 +96,8 @@ it('shows only the order rail when a scenario has one path', () => {
   expect(screen.queryByRole('checkbox')).toBeNull()
   expect(screen.queryByText('Add to paths')).toBeNull()
   expect(screen.getByText('Order')).toBeTruthy()
+  expect(screen.getByRole('separator', { name: 'Beginning' })).toBeTruthy()
+  expect(screen.getByRole('separator', { name: 'End' })).toBeTruthy()
   expect(
     screen.getByRole('button', { name: 'Move Review in Online' }),
   ).toBeTruthy()

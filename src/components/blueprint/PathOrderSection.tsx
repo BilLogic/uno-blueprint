@@ -1,4 +1,4 @@
-import { useState, useRef, useId } from 'react'
+import { useState, useRef, useId, type ReactNode, type RefObject } from 'react'
 import { Reorder, useDragControls, useReducedMotion } from 'framer-motion'
 import { Check, ChevronDown, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -195,13 +195,11 @@ export function PathOrderSection({
                       : entry.order
                     return (
                       <>
-                        {rail ? (
-                          <RailDivider
-                            label={rail.lineAbove ?? 'Top of the board'}
-                          />
-                        ) : null}
-                        <Reorder.Group
-                          axis="y"
+                        <RailDivider
+                          label={rail ? rail.lineAbove ?? 'Top of the board' : 'Beginning'}
+                        />
+                        <OrderRail
+                          pathId={path.id}
                           values={visible}
                           onReorder={(nextVisible) => {
                             if (!rail) {
@@ -220,11 +218,11 @@ export function PathOrderSection({
                             )
                             changeOrder(path.id, next, dragging.current)
                           }}
-                          className="relative ml-1 space-y-1 before:absolute before:bottom-3 before:left-2 before:top-3 before:w-px before:bg-border"
                         >
-                          {visible.map((id, index) => (
+                          {(bounds) => visible.map((id, index) => (
                             <RailRow
                               key={id}
+                              bounds={bounds}
                               id={id}
                               name={
                                 id === item.id
@@ -262,12 +260,10 @@ export function PathOrderSection({
                               }}
                             />
                           ))}
-                        </Reorder.Group>
-                        {rail ? (
-                          <RailDivider
-                            label={rail.lineBelow ?? 'Bottom of the board'}
-                          />
-                        ) : null}
+                        </OrderRail>
+                        <RailDivider
+                          label={rail ? rail.lineBelow ?? 'Bottom of the board' : 'End'}
+                        />
                       </>
                     )
                   })()}
@@ -328,7 +324,35 @@ function RailDivider({ label }: { label: string }) {
   )
 }
 
+/** The flat rail ends before its read-only boundary labels. */
+function OrderRail({
+  pathId,
+  values,
+  onReorder,
+  children,
+}: {
+  pathId: string
+  values: string[]
+  onReorder: (order: string[]) => void
+  children: (bounds: RefObject<HTMLUListElement | null>) => ReactNode
+}) {
+  const bounds = useRef<HTMLUListElement>(null)
+  return (
+    <Reorder.Group
+      ref={bounds}
+      data-path-order={pathId}
+      axis="y"
+      values={values}
+      onReorder={onReorder}
+      className="relative ml-1 space-y-1 before:absolute before:bottom-3 before:left-2 before:top-3 before:w-px before:bg-border"
+    >
+      {children(bounds)}
+    </Reorder.Group>
+  )
+}
+
 function RailRow({
+  bounds,
   id,
   name,
   pathName,
@@ -338,6 +362,7 @@ function RailRow({
   onDrag,
   onDragEnd,
 }: {
+  bounds: RefObject<HTMLUListElement | null>
   id: string
   name: string
   pathName: string
@@ -357,6 +382,9 @@ function RailRow({
       value={id}
       draggable={false}
       dragListener={false}
+      dragConstraints={bounds}
+      dragElastic={0}
+      dragMomentum={false}
       dragControls={controls}
       onDragStart={onDrag}
       onDragEnd={onDragEnd}

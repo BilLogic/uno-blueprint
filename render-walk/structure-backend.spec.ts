@@ -419,12 +419,14 @@ test('saved structure Paths attach, detach with confirmation, reorder and Undo',
   await board.getByRole('button', { name: 'Lane properties: Stakeholders', exact: true }).click()
   group = page.getByRole('group', { name: 'Paths', exact: true })
   await expect(group.getByRole('checkbox')).toHaveCount(0)
-  await group
-    .getByRole('button', {
-      name: `Move Stakeholders in ${origin.name}`,
-      exact: true,
-    })
-    .press('ArrowDown')
+  const laneRail = group.getByRole('button', {
+    name: `Move Stakeholders in ${origin.name}`,
+    exact: true,
+  })
+  // Stakeholders ends the recipient section; crossing it must not write.
+  await laneRail.press('ArrowDown')
+  expect(await read(laneQuery)).toEqual(lanesBefore)
+  await laneRail.press('ArrowUp')
   await expect(
     page.locator('[data-write-failures]').getByText(/Saved the lane order on/)
   ).toBeVisible()

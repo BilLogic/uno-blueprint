@@ -1,10 +1,38 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
-import { registerCanvasStructureReorder } from './canvasStructureReorder'
+import { packAxisOffsets, registerCanvasStructureReorder } from './canvasStructureReorder'
+
+it('keeps boundary routing space at its seat when the storyboard moves down', () => {
+  // The second seat has 36px of routing space below its 192px content.
+  const offsets = packAxisOffsets({
+    ids: ['storyboard', 'recipient'],
+    previewIds: ['recipient', 'storyboard'],
+    starts: [0, 208],
+    extents: [208, 228],
+    seatInsets: [0, 36],
+    section: { start: 0, end: 1 },
+  })
+  expect(offsets.get('recipient')).toBe(-208)
+  expect(offsets.get('storyboard')).toBe(192)
+})
+
+it('keeps frontstage content seated when the next row has an overhead corridor', () => {
+  const offsets = packAxisOffsets({
+    ids: ['app', 'staff'], previewIds: ['staff', 'app'],
+    starts: [0, 200], extents: [200, 232],
+    seatInsets: [0, 0],
+    section: { start: 0, end: 1 },
+  })
+  expect(offsets.get('staff')).toBe(-200)
+  expect(offsets.get('app')).toBe(232)
+})
 
 afterEach(() => {
   document.body.replaceChildren()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
+  delete document.documentElement.dataset.structureMotion
 })
 for (const kind of ['lane', 'step'] as const) {
   it(`lifts the complete ${kind} only after intent, then saves one drop`, () => {
@@ -72,11 +100,110 @@ for (const kind of ['lane', 'step'] as const) {
     document.dispatchEvent(pointer('pointerup', 150, 150))
     expect(save).toHaveBeenCalledExactlyOnceWith(kind, 'one', ['two', 'one'], ['one','two'])
     expect(body.querySelector('[data-structure-lift]')).toBeNull()
+    // Destination preview remains until the consumer acknowledges the new seats.
+    expect(items[0].parts[0].style.translate).not.toBe('')
     items[1].parts[0].dispatchEvent(new MouseEvent('click',{bubbles:true,detail:1}))
     expect(insert).not.toHaveBeenCalled()
     dispose()
   })
 }
+
+it('parks the destination until the rendered order acknowledges the drop', () => {
+  const body = document.createElement('div')
+  document.body.append(body)
+  const boxes = [new DOMRect(0, 0, 100, 100), new DOMRect(0, 100, 100, 100)]
+  const items = ['one', 'two'].map((id, index) => {
+    const header = document.createElement('button')
+    header.dataset.structureReorder = 'lane'
+    header.dataset.structureId = id
+    const row = document.createElement('div')
+    body.append(header, row)
+    vi.spyOn(header, 'getBoundingClientRect').mockReturnValue(boxes[index]!)
+    vi.spyOn(row, 'getBoundingClientRect').mockReturnValue(boxes[index]!)
+    return { id, name: id, parts: [header, row] }
+  })
+  const settle = { release: null as (() => void) | null }
+  let translateAtSave = ''
+  const dispose = registerCanvasStructureReorder(body, {
+    items: () => items,
+    save: () => {
+      translateAtSave = items[0]!.parts[0]!.style.translate
+    },
+    scale: () => 1,
+    settle,
+  })
+  const pointer = (type: string, y: number) => {
+    const event = new MouseEvent(type, {
+      bubbles: true,
+      button: 0,
+      clientX: 20,
+      clientY: y,
+    })
+    Object.defineProperty(event, 'pointerId', { value: 1 })
+    return event
+  }
+  items[0]!.parts[0]!.dispatchEvent(pointer('pointerdown', 50))
+  document.dispatchEvent(pointer('pointermove', 150))
+  // A closing insertion still owns the shared structure-motion clock.
+  document.documentElement.dataset.structureMotion = ''
+  document.dispatchEvent(pointer('pointerup', 150))
+  expect(translateAtSave).toBe('0px 100px')
+  // Browser capture is released by the completed gesture, not a cancellation
+  // of the parked preview while the query observer still holds the old order.
+  items[0]!.parts[0]!.dispatchEvent(new Event('lostpointercapture', { bubbles: true }))
+  expect(items[0]!.parts[0]!.style.translate).toBe('0px 100px')
+  settle.release?.()
+  expect(items[0]!.parts[0]!.style.translate).toBe('')
+  expect(document.documentElement.dataset.structureMotion).toBe('')
+  expect(body.dataset.structureSettling).toBeUndefined()
+  dispose()
+})
+
+it.each([false, true])('keeps settling chrome until the order renders, reduced motion: %s', (reduced) => {
+  vi.useFakeTimers()
+  vi.stubGlobal('matchMedia', () => ({ matches: reduced }))
+  const body = document.createElement('div')
+  document.body.append(body)
+  const boxes = [new DOMRect(0, 0, 100, 100), new DOMRect(0, 100, 100, 100)]
+  const items = ['one', 'two'].map((id, index) => {
+    const header = document.createElement('button')
+    header.dataset.structureReorder = 'lane'
+    header.dataset.structureId = id
+    const row = document.createElement('div')
+    body.append(header, row)
+    vi.spyOn(header, 'getBoundingClientRect').mockReturnValue(boxes[index]!)
+    vi.spyOn(row, 'getBoundingClientRect').mockReturnValue(boxes[index]!)
+    return { id, name: id, parts: [header, row] }
+  })
+  const settle = { release: null as (() => void) | null }
+  const dispose = registerCanvasStructureReorder(body, {
+    items: () => items,
+    save: vi.fn(),
+    scale: () => 1,
+    settle,
+  })
+  const pointer = (type: string, y: number) => {
+    const event = new MouseEvent(type, {
+      bubbles: true,
+      button: 0,
+      clientX: 20,
+      clientY: y,
+    })
+    Object.defineProperty(event, 'pointerId', { value: 1 })
+    return event
+  }
+  items[0]!.parts[0]!.dispatchEvent(pointer('pointerdown', 50))
+  document.dispatchEvent(pointer('pointermove', 150))
+  document.dispatchEvent(pointer('pointerup', 150))
+  vi.advanceTimersByTime(0)
+  expect(items[0]!.parts[0]!.style.translate).toBe('0px 100px')
+  expect(document.documentElement.dataset.structureMotion).toBeUndefined()
+  expect(body.dataset.structureSettling).toBe('')
+  settle.release?.()
+  expect(document.documentElement.dataset.structureMotion).toBeUndefined()
+  expect(body.dataset.structureSettling).toBeUndefined()
+  dispose()
+})
 it('preserves click intent, cancels a drag, and supports Alt movement without plain-arrow writes', () => {
   const body = document.createElement('div')
   document.body.append(body)
@@ -155,7 +282,7 @@ it('keeps a click usable, ignores movement on the other axis and cancels a lifte
   expect(click).toHaveBeenCalledTimes(1)
   button.dispatchEvent(pointer('pointerdown', 25, 25))
   document.dispatchEvent(pointer('pointermove', 125, 100))
-  expect(content.style.translate).toBe('0 300px')
+  expect(content.style.translate).toBe('0px 300px')
   button.dispatchEvent(
     new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
   )
@@ -163,6 +290,46 @@ it('keeps a click usable, ignores movement on the other axis and cancels a lifte
   expect(save).not.toHaveBeenCalled()
   expect(content.style.translate).toBe('')
   expect(body.querySelector('[data-structure-landing]')).toBeNull()
+  dispose()
+})
+
+it('keeps the landing visible when the pointer returns to the home seat', () => {
+  const body = document.createElement('div')
+  document.body.append(body)
+  const boxes = [new DOMRect(0, 0, 100, 100), new DOMRect(0, 120, 100, 100)]
+  const items = ['one', 'two'].map((id, index) => {
+    const header = document.createElement('button')
+    header.dataset.structureReorder = 'lane'
+    header.dataset.structureId = id
+    const row = document.createElement('div')
+    body.append(header, row)
+    vi.spyOn(header, 'getBoundingClientRect').mockReturnValue(boxes[index]!)
+    vi.spyOn(row, 'getBoundingClientRect').mockReturnValue(boxes[index]!)
+    return { id, name: id, parts: [header, row] }
+  })
+  const dispose = registerCanvasStructureReorder(body, {
+    items: () => items,
+    save: vi.fn(),
+    scale: () => 1,
+  })
+  const pointer = (type: string, y: number) => {
+    const event = new MouseEvent(type, {
+      bubbles: true,
+      button: 0,
+      clientX: 20,
+      clientY: y,
+    })
+    Object.defineProperty(event, 'pointerId', { value: 1 })
+    return event
+  }
+  items[0]!.parts[0]!.dispatchEvent(pointer('pointerdown', 50))
+  document.dispatchEvent(pointer('pointermove', 170))
+  const landing = body.querySelector<HTMLElement>('[data-structure-landing]')
+  expect(landing?.style.opacity).not.toBe('0')
+  // Back over the original seat — projection must stay up.
+  document.dispatchEvent(pointer('pointermove', 50))
+  expect(landing?.style.opacity).not.toBe('0')
+  document.dispatchEvent(pointer('pointerup', 50))
   dispose()
 })
 
@@ -182,5 +349,43 @@ it.each(['blur','lostpointercapture','visibilitychange'])('resets a lifted gestu
   expect(body.querySelector('[data-structure-lift]')).toBeNull()
   expect(capture).toHaveBeenCalledWith(1)
   expect(save).not.toHaveBeenCalled()
+  dispose()
+})
+
+it.each([['lane', false], ['step', false], ['lane', true], ['step', true]] as const)('resists and refuses an outside %s drop, reduced motion: %s', (kind, reduced) => {
+  vi.stubGlobal('matchMedia', () => ({ matches: reduced }))
+  const body = document.createElement('div')
+  document.body.append(body)
+  const items = ['one', 'two'].map((id, index) => {
+    const node = document.createElement('button')
+    node.dataset.structureReorder = kind
+    node.dataset.structureId = id
+    body.append(node)
+    vi.spyOn(node, 'getBoundingClientRect').mockReturnValue(
+      new DOMRect(kind === 'step' ? index * 100 : 0, kind === 'lane' ? index * 100 : 0, 100, 100),
+    )
+    return { id, name: id, parts: [node] }
+  })
+  const save = vi.fn()
+  const dispose = registerCanvasStructureReorder(body, { items: () => items, scale: () => 1, save })
+  const pointer = (type: string, at: number) => {
+    const event = new MouseEvent(type, { bubbles: true, button: 0, clientX: kind === 'step' ? at : 25, clientY: kind === 'lane' ? at : 25 })
+    Object.defineProperty(event, 'pointerId', { value: 1 })
+    return event
+  }
+  items[0].parts[0].dispatchEvent(pointer('pointerdown', 25))
+  document.dispatchEvent(pointer('pointermove', 1000))
+  const delta = items[0].parts[0].style.translate.split(' ').map(parseFloat)[kind === 'step' ? 0 : 1]
+  expect(delta).toBeGreaterThan(100)
+  expect(delta).toBeLessThanOrEqual(124)
+  document.dispatchEvent(pointer('pointerup', 1000))
+  expect(save).not.toHaveBeenCalled()
+  expect(body.dataset.structureSettling).toBe(reduced ? undefined : '')
+  items[1].parts[0].dispatchEvent(pointer('pointerdown', 125))
+  expect(body.dataset.structureSettling).toBeUndefined()
+  document.dispatchEvent(pointer('pointermove', 25))
+  expect(items[1].parts[0].hasAttribute('data-structure-lift')).toBe(true)
+  document.dispatchEvent(new Event('pointercancel'))
+  expect(body.dataset.structureSettling).toBeUndefined()
   dispose()
 })

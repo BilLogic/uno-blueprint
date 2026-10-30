@@ -27,7 +27,12 @@ import {
   shouldShowInternalInteractionLineAfter,
   shouldShowLaneDividerAfter,
   shouldShowVisibilityLineAfter,
+  shouldUseStoryboardContent,
 } from '@/lib/blueprintLayout'
+import {
+  STRUCTURE_PLACEHOLDER_ID,
+  STRUCTURE_SEAM_ID,
+} from '@/lib/structureDraftPreview'
 import {
   BACKSTAGE_ACTIONS_ROLE,
   BACKSTAGE_TOUCHPOINTS_ROLE,
@@ -118,25 +123,24 @@ test('a board with no customer-side lane draws no line of interaction', () => {
   assert.deepEqual(interactionLinesAfter(lanes), [])
 })
 
-test('classifying the lane under the spine moves the line down to it', () => {
-  // An actor lane can sit above the spine or below it, and both orders are
-  // authored. Giving the one BELOW a customer-side role extends the band
-  // downwards, so the line follows it — the row does not move, the floor of
-  // the band does.
-  const before = customerBand(
+test('an unrole’d row below the spine still closes above frontstage', () => {
+  // Stakeholders and similar context rows carry no role. Parking one under
+  // the spine actor must not drop it through the line of interaction — the
+  // line follows past it until the first service-side lane.
+  const withNull = customerBand(
     STORYBOARD_ROLE,
     CUSTOMER_ACTIONS_ROLE,
     null,
     FRONTSTAGE_ACTIONS_ROLE,
   )
-  const after = customerBand(
+  const withSecondActor = customerBand(
     STORYBOARD_ROLE,
     CUSTOMER_ACTIONS_ROLE,
     CUSTOMER_ACTIONS_ROLE,
     FRONTSTAGE_ACTIONS_ROLE,
   )
-  assert.deepEqual(interactionLinesAfter(before), [1])
-  assert.deepEqual(interactionLinesAfter(after), [2])
+  assert.deepEqual(interactionLinesAfter(withNull), [2])
+  assert.deepEqual(interactionLinesAfter(withSecondActor), [2])
 })
 
 test('three customer-side lanes still draw one line', () => {
@@ -261,6 +265,12 @@ test('a frontstage tech lane above frontstage actions does not take the line', (
   assert.equal(shouldShowVisibilityLineAfter(lanes[1]!, lanes), false)
 })
 
+test('reordering several frontstage lanes keeps exactly one visibility boundary', () => {
+  const lanes = customerBand(FRONTSTAGE_ACTIONS_ROLE, FRONTSTAGE_TOUCHPOINTS_ROLE, FRONTSTAGE_ACTIONS_ROLE, FRONTSTAGE_TOUCHPOINTS_ROLE, BACKSTAGE_ACTIONS_ROLE)
+  assert.deepEqual(lanes.map(lane => shouldShowVisibilityLineAfter(lane, lanes)), [false, false, false, true, false])
+  assert.equal(countBlueprintDividerRows(lanes), 1)
+})
+
 test('the internal interaction line draws before a support lane', () => {
   const lanes = board()
   assert.equal(shouldShowInternalInteractionLineAfter(lanes[3]!, lanes), true)
@@ -334,4 +344,31 @@ test('the cell inner padding class is the layout constant on the 4px grid', () =
   assert.equal(BLUEPRINT_CELL_INNER_Y, 12)
   assert.equal(BLUEPRINT_CELL_INNER_X_CLASS, 'px-4')
   assert.equal(BLUEPRINT_CELL_INNER_Y_CLASS, 'py-3')
+})
+
+test('draft and seam seats never paint the shared storyboard strip', () => {
+  assert.equal(
+    shouldUseStoryboardContent({
+      id: STRUCTURE_PLACEHOLDER_ID,
+      name: 'New lane',
+      role: STORYBOARD_ROLE,
+    }),
+    false,
+  )
+  assert.equal(
+    shouldUseStoryboardContent({
+      id: STRUCTURE_SEAM_ID,
+      name: 'Insertion seam',
+      role: STORYBOARD_ROLE,
+    }),
+    false,
+  )
+  assert.equal(
+    shouldUseStoryboardContent({
+      id: 'saved',
+      name: 'Journey figures',
+      role: STORYBOARD_ROLE,
+    }),
+    true,
+  )
 })

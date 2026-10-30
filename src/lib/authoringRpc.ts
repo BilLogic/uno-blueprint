@@ -16,7 +16,7 @@ import {
   invalidateQueries,
   invalidateStructure,
 } from '@/lib/queryClient'
-import { queryKeys } from '@/lib/queryKeys'
+import { STRUCTURE_KEYS, queryKeys } from '@/lib/queryKeys'
 
 type Client = SupabaseClient<Database>
 
@@ -243,6 +243,21 @@ async function invoke<T>(
  * the forward write.
  */
 const FRESHNESS: Record<string, (args: Record<string, unknown>) => void> = {
+  // Canvas order is patched optimistically before these return. Refetching
+  // canvasBlueprints races the settle preview and flashes the pre-drop seats;
+  // every other structure key still needs a mark (staleTime: Infinity).
+  reorder_lanes: () => {
+    for (const prefix of STRUCTURE_KEYS) {
+      if (prefix === queryKeys.canvasBlueprints.prefix) continue
+      invalidateQueries(prefix)
+    }
+  },
+  reorder_steps: () => {
+    for (const prefix of STRUCTURE_KEYS) {
+      if (prefix === queryKeys.canvasBlueprints.prefix) continue
+      invalidateQueries(prefix)
+    }
+  },
   upsert_cell: (args) => {
     invalidateQueries(queryKeys.servicePhases.prefix)
     if (typeof args.path_id === 'string') invalidateCanvasBlueprintsForPath(args.path_id)

@@ -138,11 +138,13 @@ export function CompareCellBlock({
   const shellClassName = cn(
     'relative z-1 flex shrink-0 items-stretch',
     shellPadding,
-    isStoryboard && 'min-h-0 overflow-hidden',
+    // No clip here: the cell face bounds its pictures, and a picked cell's
+    // ring and pick badge draw outside that face.
+    isStoryboard && 'min-h-0',
   )
   const innerContent =
     variant === 'storyboard' ? (
-      <div className="relative flex h-full min-h-0 max-h-full w-full flex-1 overflow-hidden">
+      <div className="relative flex h-full min-h-0 max-h-full w-full flex-1">
         <BlueprintStepStoryboard
           compact={compact}
           fill={laneStyle.lane}

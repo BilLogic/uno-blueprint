@@ -1,4 +1,4 @@
-import { useState, useRef, useId } from 'react'
+import { useState, useRef, useId, type ReactNode, type RefObject } from 'react'
 import { Reorder, useDragControls, useReducedMotion } from 'framer-motion'
 import { Check, ChevronDown, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -6,9 +6,23 @@ import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 import { EASE_POINTS, MOTION_MICRO_MS } from '@/lib/motion'
 
-export type OrderItem = { id: string; name: string; position?: number }
+export type OrderItem = {
+  id: string
+  name: string
+  position?: number
+  /** Semantic lane role when this rail is a lane create draft. */
+  role?: string | null
+}
 export type OrderPath = { id: string; name: string; items: OrderItem[] }
 export type PathOrder = { pathId: string; order: string[]; moved: string[] }
+
+/** Bounding lines + visible slice for a section-scoped lane create rail. */
+export type PathOrderSectionRail = {
+  start: number
+  end: number
+  lineAbove: string | null
+  lineBelow: string | null
+}
 
 /** One controlled path membership and order editor, shared by structure panels. */
 export function PathOrderSection({
@@ -20,6 +34,11 @@ export function PathOrderSection({
   unavailable = {},
   label = 'Add to paths',
   required = false,
+  /**
+   * When set (lane create), the rail shows only this section of `order`, with
+   * the bounding division lines labelled — not the whole path stack.
+   */
+  sectionForOrder,
 }: {
   paths: OrderPath[]
   value: PathOrder[]
@@ -29,6 +48,10 @@ export function PathOrderSection({
   unavailable?: Record<string, string>
   label?: string
   required?: boolean
+  sectionForOrder?: (
+    path: OrderPath,
+    order: string[],
+  ) => PathOrderSectionRail | null
 }) {
   const requirementId=useId()
   const unticked = useRef(new Map<string, PathOrder>())
@@ -164,44 +187,86 @@ export function PathOrderSection({
             <CollapsibleContent className="duration-(--motion-fade) ease-arrive">
               {entry ? (
                 <div id={`path-order-${path.id}`} className="px-1 pb-3">
-                  <Reorder.Group
-                    axis="y"
-                    values={entry.order}
-                    onReorder={(order) => {
-                      changeOrder(path.id, order, dragging.current)
-                    }}
-                    className="relative ml-1 space-y-1 before:absolute before:bottom-3 before:left-2 before:top-3 before:w-px before:bg-border"
-                  >
-                    {entry.order.map((id, index) => (
-                      <RailRow
-                        key={id}
-                        id={id}
-                        name={
-                          id === item.id
-                            ? item.name
-                            : path.items.find((row) => row.id === id)?.name ??
-                              ''
-                        }
-                        pathName={path.name}
-                        current={id === item.id}
-                        moved={entry.moved.includes(id)}
-                        onDrag={() => {
-                          dragging.current = id
-                        }}
-                        onDragEnd={() => {
-                          dragging.current = undefined
-                        }}
-                        onMove={(direction) => {
-                          const target = index + direction
-                          if (target < 0 || target >= entry.order.length) return
-                          const next = [...entry.order]
-                          next.splice(index, 1)
-                          next.splice(target, 0, id)
-                          changeOrder(path.id, next, id)
-                        }}
-                      />
-                    ))}
-                  </Reorder.Group>
+                  {(() => {
+                    const rail =
+                      sectionForOrder?.(path, entry.order) ?? null
+                    const visible = rail
+                      ? entry.order.slice(rail.start, rail.end + 1)
+                      : entry.order
+                    return (
+                      <>
+                        <RailDivider
+                          label={rail ? rail.lineAbove ?? 'Top of the board' : 'Beginning'}
+                        />
+                        <OrderRail
+                          pathId={path.id}
+                          values={visible}
+                          onReorder={(nextVisible) => {
+                            if (!rail) {
+                              changeOrder(
+                                path.id,
+                                nextVisible,
+                                dragging.current,
+                              )
+                              return
+                            }
+                            const next = [...entry.order]
+                            next.splice(
+                              rail.start,
+                              rail.end - rail.start + 1,
+                              ...nextVisible,
+                            )
+                            changeOrder(path.id, next, dragging.current)
+                          }}
+                        >
+                          {(bounds) => visible.map((id, index) => (
+                            <RailRow
+                              key={id}
+                              bounds={bounds}
+                              id={id}
+                              name={
+                                id === item.id
+                                  ? item.name
+                                  : path.items.find((row) => row.id === id)
+                                      ?.name ?? ''
+                              }
+                              pathName={path.name}
+                              current={id === item.id}
+                              moved={entry.moved.includes(id)}
+                              onDrag={() => {
+                                dragging.current = id
+                              }}
+                              onDragEnd={() => {
+                                dragging.current = undefined
+                              }}
+                              onMove={(direction) => {
+                                const target = index + direction
+                                if (target < 0 || target >= visible.length)
+                                  return
+                                const nextVisible = [...visible]
+                                nextVisible.splice(index, 1)
+                                nextVisible.splice(target, 0, id)
+                                if (!rail) {
+                                  changeOrder(path.id, nextVisible, id)
+                                  return
+                                }
+                                const next = [...entry.order]
+                                next.splice(
+                                  rail.start,
+                                  rail.end - rail.start + 1,
+                                  ...nextVisible,
+                                )
+                                changeOrder(path.id, next, id)
+                              }}
+                            />
+                          ))}
+                        </OrderRail>
+                        <RailDivider
+                          label={rail ? rail.lineBelow ?? 'Bottom of the board' : 'End'}
+                        />
+                      </>
+                    )
+                  })()}
                   {entry.moved.length ? (
                     <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                       <span>{entry.moved.length} moved</span>
@@ -236,7 +301,58 @@ export function PathOrderSection({
     </section>
   )
 }
+/**
+ * Read-only band boundary — a caption between rules, matching the board’s
+ * divider grammar rather than a sortable row label.
+ *
+ * @param label - Line of interaction / visibility / internal interaction.
+ */
+function RailDivider({ label }: { label: string }) {
+  return (
+    <div
+      role="separator"
+      aria-label={label}
+      className="flex items-center gap-2 py-2 pl-1 text-muted-foreground"
+    >
+      <span aria-hidden className="h-px min-w-2 flex-1 bg-border" />
+      {/* Normal weight keeps the bound read-only beside sortable row labels. */}
+      <span className="shrink-0 text-xs font-normal">
+        {label}
+      </span>
+      <span aria-hidden className="h-px min-w-2 flex-1 bg-border" />
+    </div>
+  )
+}
+
+/** The flat rail ends before its read-only boundary labels. */
+function OrderRail({
+  pathId,
+  values,
+  onReorder,
+  children,
+}: {
+  pathId: string
+  values: string[]
+  onReorder: (order: string[]) => void
+  children: (bounds: RefObject<HTMLUListElement | null>) => ReactNode
+}) {
+  const bounds = useRef<HTMLUListElement>(null)
+  return (
+    <Reorder.Group
+      ref={bounds}
+      data-path-order={pathId}
+      axis="y"
+      values={values}
+      onReorder={onReorder}
+      className="relative ml-1 space-y-1 before:absolute before:bottom-3 before:left-2 before:top-3 before:w-px before:bg-border"
+    >
+      {children(bounds)}
+    </Reorder.Group>
+  )
+}
+
 function RailRow({
+  bounds,
   id,
   name,
   pathName,
@@ -246,6 +362,7 @@ function RailRow({
   onDrag,
   onDragEnd,
 }: {
+  bounds: RefObject<HTMLUListElement | null>
   id: string
   name: string
   pathName: string
@@ -260,10 +377,14 @@ function RailRow({
   return (
     <Reorder.Item
       data-order-row=""
+      data-order-current={current ? '' : undefined}
       style={{ outline: 'none' }}
       value={id}
       draggable={false}
       dragListener={false}
+      dragConstraints={bounds}
+      dragElastic={0}
+      dragMomentum={false}
       dragControls={controls}
       onDragStart={onDrag}
       onDragEnd={onDragEnd}
@@ -271,16 +392,13 @@ function RailRow({
         duration: reduced ? 0 : MOTION_MICRO_MS / 1000,
         ease: EASE_POINTS.move,
       }}
-      className="group/order relative flex cursor-grab touch-none items-center gap-2 rounded-md active:cursor-grabbing"
+      className="group/order relative flex cursor-grab touch-none items-center gap-2 py-2 active:cursor-grabbing"
       onPointerDown={(event) => controls.start(event)}
     >
       <button
         type="button"
         aria-label={`Move ${name} in ${pathName}`}
-        className={cn(
-          'relative grid size-4 shrink-0 place-items-center outline-none',
-          'text-muted-foreground',
-        )}
+        className="relative grid size-4 shrink-0 place-items-center text-muted-foreground outline-none"
         onKeyDown={(event) => {
           if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
           event.preventDefault()
@@ -289,27 +407,26 @@ function RailRow({
       >
         <span
           className={cn(
-            'size-2.5 rounded-full border border-current bg-background group-hover/order:hidden group-focus-within/order:hidden [@media(hover:none)]:hidden',
-            current && 'border-primary bg-primary',
+            'size-2 rounded-full border bg-background group-hover/order:hidden group-focus-within/order:hidden [@media(hover:none)]:hidden',
+            current ? 'border-foreground' : 'border-current',
           )}
         />
         <span className="hidden group-hover/order:block group-focus-within/order:block [@media(hover:none)]:block">
-          <span className={current ? 'text-primary' : undefined}>
-            <GripVertical className="size-3.5" aria-hidden />
-          </span>
+          <GripVertical className="size-3.5" aria-hidden />
         </span>
       </button>
       <span
         data-order-card=""
         className={cn(
-          'min-w-0 flex-1 rounded-md px-2 py-2 text-sm',
-          current && 'border border-border-primary bg-wash-primary',
-          !current && !moved && 'text-muted-foreground',
+          'min-w-0 flex-1 text-sm',
+          current ? 'font-medium text-foreground' : 'text-muted-foreground',
         )}
       >
         <span>{name}</span>
         {moved ? (
-          <span className="ml-2 text-xs text-muted-foreground">Moved</span>
+          <span className="ml-2 text-xs font-normal text-muted-foreground">
+            Moved
+          </span>
         ) : null}
       </span>
     </Reorder.Item>

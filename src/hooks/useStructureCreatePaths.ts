@@ -43,7 +43,7 @@ export function useStructureCreatePaths(
       const { data, error } = await client
         .from('paths')
         .select(
-          'id,name,lanes(id,name,position),path_steps(position,steps(id,name))',
+          'id,name,lanes(id,name,position,lane_role),path_steps(position,steps(id,name))',
         )
         .eq('scenario_id', scenarioId)
         .order('name')
@@ -54,7 +54,16 @@ export function useStructureCreatePaths(
         name: path.name,
         items:
           draft.kind === 'lane'
-            ? [...path.lanes].sort((a, b) => a.position - b.position)
+            ? [...path.lanes]
+                .sort((a, b) => a.position - b.position)
+                .map((lane) => ({
+                  id: lane.id,
+                  name: lane.name,
+                  position: lane.position,
+                  // Always set — omitted role collapses section math to the
+                  // whole stack (the create rail listing every lane).
+                  role: (lane.lane_role ?? null) as string | null,
+                }))
             : [...path.path_steps]
                 .sort((a, b) => a.position - b.position)
                 .map((row) => ({ ...row.steps, position: row.position })),

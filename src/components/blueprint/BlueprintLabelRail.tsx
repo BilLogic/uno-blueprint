@@ -33,7 +33,6 @@ import {
   BLUEPRINT_SLOT_INSET,
   BLUEPRINT_SLOT_INSET_COMPACT,
   CANVAS_HEADER_TEXT,
-  CANVAS_HEADER_STATE,
 } from '@/lib/canvasHeaderStyle'
 import { cn } from '@/lib/utils'
 import type { BlueprintLane } from '@/types/blueprint'
@@ -285,7 +284,14 @@ export function BlueprintLabelRow({
   return (
     <div
         data-structure-header-cell=""
-        data-open={selection?.kind === 'lane' && selection.id === laneId ? '' : undefined}
+        // Selected chrome on the cell is design-mode only: view mode wears
+        // CANVAS_HEADER_STATE on the inner LaneHeaderAffordance box instead,
+        // and stacking both produced the nested empty frame.
+        data-open={
+          laneSelectable && selection?.kind === 'lane' && selection.id === laneId
+            ? ''
+            : undefined
+        }
         onPointerEnter={(event) => {
           if (laneSelectable)
             highlightStructure(event.currentTarget, 'lane', laneId!, true)
@@ -327,8 +333,10 @@ export function BlueprintLabelRow({
         // No right border. The rail already reads as its own column through
         // its fill, and the hairline landed a few pixels from the path
         // section's own outline — two vertical lines describing one edge.
-        'z-40 rounded-md',
-        CANVAS_HEADER_STATE,
+        // Hover / selected / focus chrome is the content-band ::before/::after
+        // in blueprint.css — never CANVAS_HEADER_STATE on this full-height
+        // cell, or corridors turn the selected ring into a tall empty frame.
+        'relative z-40 rounded-md',
       )}
       /*
         NO BACKGROUND HERE.
@@ -353,6 +361,7 @@ export function BlueprintLabelRow({
       {corridorAbove > 0 && (
         <div
           aria-hidden
+          data-blueprint-rail-corridor="above"
           className="shrink-0"
           style={{ height: corridorAbove }}
         />
@@ -360,6 +369,7 @@ export function BlueprintLabelRow({
       {inLaneLoopCorridorAbove > 0 && (
         <div
           aria-hidden
+          data-blueprint-loop-corridor="above"
           className="shrink-0"
           style={{ height: inLaneLoopCorridorAbove }}
         />
@@ -388,6 +398,8 @@ export function BlueprintLabelRow({
             onClick={selectLane}
             data-structure-header-title=""
             data-open={selection?.kind === 'lane' && selection.id === laneId ? '' : undefined}
+            // Every lane header reorders inside its section (between fixed
+            // semantic lines), including the storyboard strip.
             data-structure-reorder="lane"
             data-structure-id={row.lane!.id}
             data-blueprint-row-header=""
@@ -446,6 +458,7 @@ export function BlueprintLabelRow({
       {corridorBelow > 0 && (
         <div
           aria-hidden
+          data-blueprint-wrap-corridor="below"
           className="shrink-0"
           style={{ height: corridorBelow }}
         />
@@ -459,8 +472,9 @@ function LaneSelectionName({
   name,
   children,
   ...props
-}: React.ComponentProps<'button'> & { id: string; name: string }) {
+}: React.ComponentProps<'button'> & { id: string; name: string; 'data-structure-reorder'?: string }) {
   const rename = useStructureRename('lane', id, name)
+  const reorderable = props['data-structure-reorder'] != null
   return rename.editing ? (
     rename.editor
   ) : (
@@ -470,7 +484,7 @@ function LaneSelectionName({
       onClick={(event) => rename.click(event, () => props.onClick?.(event))}
       onDoubleClick={rename.begin}
     >
-      <StructureDragGrip />
+      {reorderable ? <StructureDragGrip /> : null}
       {children}
     </button>
   )

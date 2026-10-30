@@ -74,7 +74,11 @@ export function CompareLaneRowShell({
       {...(isDivider
         ? {
             'data-blueprint-divider':
-              row.kind === 'interaction' ? 'interaction' : 'visibility',
+              row.kind === 'interaction'
+                ? 'interaction'
+                : row.kind === 'internalInteraction'
+                  ? 'internal-interaction'
+                  : 'visibility',
           }
         : {})}
       className={cn(

@@ -939,11 +939,6 @@ const FILL_INK_MARKS: ReadonlyArray<{
     because: 'The seam contains only a plus glyph; primary identifies an insertion mark, with no text painted in the fill colour.',
   },
   {
-    file: 'components/blueprint/PathOrderSection.tsx',
-    element: 'span',
-    because: 'The rail handle contains only the node and grip marks. Primary identifies the new item; its name remains in role ink beside the handle.',
-  },
-  {
     file: 'components/blueprint/OwnerTagSelect.tsx',
     element: 'Check',
     because:

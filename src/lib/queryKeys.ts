@@ -57,8 +57,7 @@ export const queryKeys = {
   phaseSpec: family('phase-spec'),
   scenarioSpec: family('scenario-spec'),
   laneSpec: family('lane-spec'),
-  // v2: select includes lane_role so create-panel section math can bound the rail.
-  structureCreatePaths: family('structure-create-paths-v2'),
+  structurePaths: family('structure-paths-v2'),
   stepSpec: family('step-spec'),
   evidence: family('evidence'),
   registryTouchpoints: family('registry-touchpoints'),
@@ -106,7 +105,7 @@ export const STRUCTURE_KEYS: readonly string[] = [
   queryKeys.canvasBlueprints.prefix,
   queryKeys.scenarioPaths.prefix,
   queryKeys.laneSources,
-  queryKeys.structureCreatePaths.prefix,
+  queryKeys.structurePaths.prefix,
   queryKeys.slices.prefix,
   // A slice's own detail is keyed separately, and a cascade can empty it.
   queryKeys.slice.prefix,

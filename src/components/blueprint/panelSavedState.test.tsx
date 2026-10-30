@@ -34,6 +34,7 @@ vi.mock('@/hooks/useStructureCreatePaths', () => ({
   NEW_STRUCTURE_ITEM:'new',
   useStructureCreatePaths: () => ({status:'ready',paths:[],value:[],onChange:vi.fn(),defaultOrder:()=>[]})
 }))
+vi.mock('@/hooks/useStructurePaths', () => ({ useStructurePaths: () => ({status:'ready',data:[]}) }))
 vi.mock('@/hooks/useStepSpec', () => ({
   useStepSpec: () => ({ status: 'ready', data: state.step }),
 }))

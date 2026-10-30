@@ -273,37 +273,105 @@ $_$;
 --
 
 CREATE FUNCTION public.cells_validate_path_match() RETURNS trigger
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare lane_path uuid;
+begin
+  select path_id into lane_path from public.lanes where id=new.lane_id;
+  if lane_path is null then raise exception 'This lane no longer exists. Reload the canvas'; end if;
+  if lane_path<>new.path_id then raise exception 'Choose a lane on this path'; end if;
+  perform 1 from public.path_steps ps where ps.path_id=new.path_id and ps.step_id=new.step_id for key share;
+  if not found then raise exception 'This step is not on this path. Reload the canvas'; end if;
+  return new;
+end $$;
+
+--
+-- Name: change_step_path(uuid, uuid, boolean, integer, uuid[], uuid[], jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.change_step_path(step_id uuid, path_id uuid, present boolean, at_position integer, expected_ids uuid[], expected_path_ids uuid[], confirmed_cells jsonb DEFAULT NULL::jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_catalog', 'pg_temp'
     AS $$
 declare
-  lane_path uuid;
-  step_on_path boolean;
+  prior jsonb; following jsonb; captured jsonb := '{}'; saved_cells jsonb; confirmed_snapshot jsonb;
+  ids uuid[]; ordered uuid[]; new_order uuid[]; memberships uuid[];
+  step_scenario uuid; path_scenario uuid; receipt uuid;
 begin
-  select path_id into lane_path from public.lanes where id = new.lane_id;
-
-  select exists (
-    select 1
-    from public.path_steps ps
-    where ps.path_id = new.path_id
-      and ps.step_id = new.step_id
-  ) into step_on_path;
-
-  if lane_path is null then
-    raise exception 'cells: lane_id does not exist';
+  perform public.require_structure_author();
+  -- Same path-first lock order as reorder_steps / undo_structure_order.
+  perform 1 from public.paths p where p.id=change_step_path.path_id for update;
+  select p.scenario_id into path_scenario from public.paths p where p.id=change_step_path.path_id;
+  select s.scenario_id into step_scenario from public.steps s where s.id=change_step_path.step_id for update;
+  if step_scenario is null or path_scenario is null or step_scenario<>path_scenario then
+    raise exception 'That step and path must belong to the same scenario';
   end if;
-
-  if lane_path <> new.path_id then
-    raise exception 'cells.path_id must match lanes.path_id';
+  perform 1 from public.path_steps ps where ps.step_id=change_step_path.step_id order by ps.path_id for no key update;
+  select coalesce(array_agg(ps.step_id order by ps.position),'{}') into ordered from public.path_steps ps where ps.path_id=change_step_path.path_id;
+  select coalesce(array_agg(ps.path_id order by ps.path_id),'{}') into memberships from public.path_steps ps where ps.step_id=change_step_path.step_id;
+  if expected_ids is distinct from ordered or expected_path_ids is distinct from memberships then
+    raise exception 'This path changed. Reload and try again';
   end if;
-
-  if not step_on_path then
-    raise exception 'cells.step_id must be linked to cells.path_id in path_steps';
+  if present is null or present=(path_id=any(memberships)) then
+    raise exception 'This step changed. Reload and try again';
   end if;
-
-  return new;
-end;
-$$;
+  if not present and cardinality(memberships)<=1 then
+    raise exception 'A step must stay on at least one path';
+  end if;
+  prior := public.structure_membership_state(step_id,path_id);
+  if present then
+    if at_position is null or at_position<0 or at_position>cardinality(ordered) then
+      raise exception 'Choose a position on this path';
+    end if;
+    if exists(select 1 from public.cells c where c.path_id=change_step_path.path_id and c.step_id=change_step_path.step_id) then
+      raise exception 'This step already has cells on that path. Reload and try again';
+    end if;
+    new_order := ordered[1:at_position] || array[step_id] || ordered[at_position+1:cardinality(ordered)];
+    insert into public.path_steps(path_id,step_id,position) values(path_id,step_id,cardinality(ordered));
+  else
+    -- Lock the existing cells before capturing any cascade. The membership FK
+    -- keeps new inserts out; these row locks keep edits / new references out.
+    perform 1 from public.cells c where c.path_id=change_step_path.path_id and c.step_id=change_step_path.step_id order by c.id for update;
+    select coalesce(array_agg(c.id order by c.id),'{}'),
+      coalesce(jsonb_agg(jsonb_build_object('id',c.id,'updated_at',c.updated_at) order by c.id),'[]')
+      into ids,saved_cells from public.cells c where c.path_id=change_step_path.path_id and c.step_id=change_step_path.step_id;
+    if cardinality(ids)>0 then
+      if jsonb_typeof(confirmed_cells) is distinct from 'array' then
+        raise exception 'The cells on this step changed. Reload and confirm removing them';
+      end if;
+      select coalesce(jsonb_agg(jsonb_build_object('id',x.id,'updated_at',x.updated_at) order by x.id),'[]')
+        into confirmed_snapshot from jsonb_to_recordset(confirmed_cells) as x(id uuid,updated_at timestamptz);
+      if confirmed_snapshot is distinct from saved_cells then
+        raise exception 'The cells on this step changed. Reload and confirm removing them';
+      end if;
+    end if;
+    perform 1 from public.cell_touchpoints t where t.cell_id=any(ids) order by t.id for update;
+    perform 1 from public.resources t where t.cell_id=any(ids) order by t.id for update;
+    perform 1 from public.cell_dependencies t where t.source_cell_id=any(ids) or t.target_cell_id=any(ids) order by t.id for update;
+    perform 1 from public.slide_images t where t.cell_id=any(ids) order by t.id for update;
+    -- Evidence keeps its provenance identity after a cell is removed. Leave
+    -- it intact; restoring the same cell ids reconnects it without rewriting
+    -- any evidence that somebody edited in the meantime.
+    captured := jsonb_build_object(
+      'cells',(select coalesce(jsonb_agg(to_jsonb(c) order by c.id),'[]') from public.cells c where c.id=any(ids)),
+      'lanes',(select coalesce(jsonb_agg(to_jsonb(l) order by l.id),'[]') from public.lanes l where l.id in(select c.lane_id from public.cells c where c.id=any(ids))),
+      'placements',(select coalesce(jsonb_agg(to_jsonb(t) order by t.id),'[]') from public.cell_touchpoints t where t.cell_id=any(ids)),
+      'resources',(select coalesce(jsonb_agg(to_jsonb(r) order by r.id),'[]') from public.resources r where r.cell_id=any(ids)),
+      'dependencies',(select coalesce(jsonb_agg(to_jsonb(d) order by d.id),'[]') from public.cell_dependencies d where d.source_cell_id=any(ids) or d.target_cell_id=any(ids)),
+      'images',(select coalesce(jsonb_agg(to_jsonb(i) order by i.id),'[]') from public.slide_images i where i.cell_id=any(ids))
+    );
+    delete from public.cells c where c.id=any(ids);
+    delete from public.path_steps ps where ps.path_id=change_step_path.path_id and ps.step_id=change_step_path.step_id;
+    new_order := array_remove(ordered,step_id);
+  end if;
+  update public.path_steps ps set position=q.n-1 from unnest(new_order) with ordinality q(id,n)
+    where ps.path_id=change_step_path.path_id and ps.step_id=q.id;
+  following := public.structure_membership_state(step_id,path_id);
+  insert into public.structure_membership_receipts(step_id,path_id,present,before_state,after_state,archive)
+    values(step_id,path_id,present,prior,following,captured) returning id into receipt;
+  return jsonb_build_object('receipt_id',receipt,'step_id',step_id,'path_id',path_id,'present',present);
+end $$;
 
 --
 -- Name: check_structure_draft_order(uuid[], jsonb); Type: FUNCTION; Schema: public; Owner: -
@@ -1171,6 +1239,27 @@ CREATE FUNCTION public.mint_cell_key(path_id uuid, lane_id uuid, step_id uuid) R
   join public.steps s on s.id = $3
   where p.id = $1;
 $_$;
+
+--
+-- Name: path_step_keeps_saved_cells(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.path_step_keeps_saved_cells() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+begin
+  if tg_op='UPDATE' and new.path_id=old.path_id and new.step_id=old.step_id then return new; end if;
+  -- A parent cascade is intentional deletion; normal remove_step and confirmed
+  -- membership removal delete their cells first. An order-only writer cannot.
+  if exists(select 1 from public.paths where id=old.path_id)
+    and exists(select 1 from public.steps where id=old.step_id)
+    and exists(select 1 from public.cells where path_id=old.path_id and step_id=old.step_id) then
+    raise exception 'This step has saved cells on this path. Remove its cells explicitly or use the confirmed path removal';
+  end if;
+  if tg_op='DELETE' then return old; end if;
+  return new;
+end $$;
 
 --
 -- Name: record_authoring_change(text, jsonb, jsonb, text, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -2683,6 +2772,22 @@ $$;
 COMMENT ON FUNCTION public.stakeholders_part_of_is_flat() IS 'Holds the cast list to one level of nesting. Both directions, because either edit breaks it: taking a parent that has one, or taking a parent while being one.';
 
 --
+-- Name: structure_membership_state(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.structure_membership_state(p_step uuid, p_path uuid) RETURNS jsonb
+    LANGUAGE sql STABLE
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+  select jsonb_build_object(
+    'step', (select to_jsonb(s) from public.steps s where s.id=p_step),
+    'paths', (select coalesce(jsonb_agg(ps.path_id order by ps.path_id),'[]') from public.path_steps ps where ps.step_id=p_step),
+    'order', (select coalesce(jsonb_agg(ps.step_id order by ps.position),'[]') from public.path_steps ps where ps.path_id=p_path),
+    'positions', (select coalesce(jsonb_agg(jsonb_build_object('step_id',ps.step_id,'position',ps.position) order by ps.position),'[]') from public.path_steps ps where ps.path_id=p_path)
+  )
+$$;
+
+--
 -- Name: sync_cell_resources(uuid, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3049,6 +3154,57 @@ $$;
 --
 
 COMMENT ON FUNCTION public.sync_placement_resources(p_placement_id uuid, p_rows jsonb) IS 'The touchpoint''s list at one cell, replaced in order: delete the rows not named, update the named ones (name, url, position — never kind or featured), insert the rest. Refuses another placement''s id and a placement that is gone.';
+
+--
+-- Name: undo_step_path_change(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.undo_step_path_change(receipt_id uuid) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+    AS $$
+declare r public.structure_membership_receipts; prior_order uuid[]; lane_state jsonb;
+begin
+  perform public.require_structure_author();
+  select * into r from public.structure_membership_receipts where id=receipt_id for update;
+  if not found or r.reverted then raise exception 'This path change cannot be undone. Reload the canvas'; end if;
+  perform 1 from public.paths p where p.id=r.path_id for update;
+  perform 1 from public.steps s where s.id=r.step_id for update;
+  perform 1 from public.path_steps ps where ps.step_id=r.step_id order by ps.path_id for no key update;
+  if public.structure_membership_state(r.step_id,r.path_id) is distinct from r.after_state then
+    raise exception 'This step or path changed since your save. Reload before undoing';
+  end if;
+  if exists(select 1 from public.cells c where c.path_id=r.path_id and c.step_id=r.step_id) then
+    raise exception 'This step has content since your save. Remove it explicitly instead';
+  end if;
+  select coalesce(array_agg(x::uuid),'{}') into prior_order from jsonb_array_elements_text(r.before_state->'order') x;
+  if r.present then
+    delete from public.path_steps ps where ps.path_id=r.path_id and ps.step_id=r.step_id;
+  else
+    select coalesce(jsonb_agg(to_jsonb(l) order by l.id),'[]') into lane_state from public.lanes l
+      where l.id in(select (x->>'id')::uuid from jsonb_array_elements(r.archive->'lanes') x);
+    if lane_state is distinct from r.archive->'lanes' then
+      raise exception 'The lanes holding this step changed. Reload before undoing';
+    end if;
+    insert into public.path_steps(path_id,step_id,position) values(r.path_id,r.step_id,cardinality(prior_order));
+    -- No upsert: identity or slot collisions and missing references refuse the
+    -- entire inverse rather than overwriting anything written since detach.
+    begin
+      insert into public.cells select * from jsonb_populate_recordset(null::public.cells,r.archive->'cells');
+      insert into public.cell_touchpoints select * from jsonb_populate_recordset(null::public.cell_touchpoints,r.archive->'placements');
+      insert into public.resources select * from jsonb_populate_recordset(null::public.resources,r.archive->'resources');
+      insert into public.cell_dependencies select * from jsonb_populate_recordset(null::public.cell_dependencies,r.archive->'dependencies');
+      insert into public.slide_images select * from jsonb_populate_recordset(null::public.slide_images,r.archive->'images');
+    exception when unique_violation or foreign_key_violation then
+      raise exception 'Content referenced by this change changed. Reload before undoing';
+    end;
+  end if;
+  -- Restore stored positions too: older paths may have intentional gaps.
+  update public.path_steps ps set position=q.position
+    from jsonb_to_recordset(r.before_state->'positions') q(step_id uuid,position integer)
+    where ps.path_id=r.path_id and ps.step_id=q.step_id;
+  update public.structure_membership_receipts set reverted=true, before_state='{}', after_state='{}', archive='{}' where id=r.id;
+end $$;
 
 --
 -- Name: undo_structure_add(jsonb); Type: FUNCTION; Schema: public; Owner: -
@@ -4524,6 +4680,22 @@ COMMENT ON COLUMN public.steps.scenario_id IS 'Scenario that owns this canonical
 COMMENT ON COLUMN public.steps.summary IS 'What this moment is, across every lane — the one sentence that makes the column legible without reading five cells. Shown as the caption on the storyboard frame. Null until an author writes it.';
 
 --
+-- Name: structure_membership_receipts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.structure_membership_receipts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    step_id uuid NOT NULL,
+    path_id uuid NOT NULL,
+    present boolean NOT NULL,
+    before_state jsonb NOT NULL,
+    after_state jsonb NOT NULL,
+    archive jsonb NOT NULL,
+    reverted boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
 -- Name: touchpoints; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4891,6 +5063,13 @@ ALTER TABLE ONLY public.steps
     ADD CONSTRAINT steps_pkey PRIMARY KEY (id);
 
 --
+-- Name: structure_membership_receipts structure_membership_receipts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.structure_membership_receipts
+    ADD CONSTRAINT structure_membership_receipts_pkey PRIMARY KEY (id);
+
+--
 -- Name: touchpoints touchpoints_name_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4987,6 +5166,12 @@ CREATE INDEX cells_lane_id_idx ON public.cells USING btree (lane_id);
 --
 
 CREATE INDEX cells_path_id_idx ON public.cells USING btree (path_id);
+
+--
+-- Name: cells_path_step_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX cells_path_step_idx ON public.cells USING btree (path_id, step_id);
 
 --
 -- Name: cells_step_id_idx; Type: INDEX; Schema: public; Owner: -
@@ -5125,6 +5310,12 @@ CREATE TRIGGER authoring_changes_no_truncate BEFORE TRUNCATE ON public.authoring
 --
 
 CREATE TRIGGER cells_validate_path_match BEFORE INSERT OR UPDATE ON public.cells FOR EACH ROW EXECUTE FUNCTION public.cells_validate_path_match();
+
+--
+-- Name: path_steps path_step_keeps_saved_cells; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER path_step_keeps_saved_cells BEFORE DELETE OR UPDATE OF path_id, step_id ON public.path_steps FOR EACH ROW EXECUTE FUNCTION public.path_step_keeps_saved_cells();
 
 --
 -- Name: audit_findings set_audit_findings_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -5308,6 +5499,13 @@ ALTER TABLE ONLY public.cells
 
 ALTER TABLE ONLY public.cells
     ADD CONSTRAINT cells_path_id_fkey FOREIGN KEY (path_id) REFERENCES public.paths(id) ON DELETE CASCADE;
+
+--
+-- Name: cells cells_path_step_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cells
+    ADD CONSTRAINT cells_path_step_fkey FOREIGN KEY (path_id, step_id) REFERENCES public.path_steps(path_id, step_id) DEFERRABLE INITIALLY DEFERRED;
 
 --
 -- Name: cells cells_step_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -

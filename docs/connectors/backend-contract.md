@@ -202,6 +202,72 @@ after-values are refused. Legacy `reorder_steps(path_id uuid, step_ids uuid[])`,
 `reorder_lanes(scenario_id uuid, lane_names text[])` remain authorized reload
 stubs: `Reload: the app was updated`. They never perform a write.
 
+### Saved step membership
+
+Migration preflight and all legacy writers must uphold the membership invariant.
+Before adding the cell-to-path-step foreign key, count cells missing a matching
+`path_steps` row and refuse with that count and the finding query documented in
+[the database upgrade notes](supabase/database.md). Cell writes to a missing
+membership refuse `This step is not on this path. Reload the canvas`; order-only
+writers such as `set_path_steps` must refuse removal of populated memberships
+with `This step has saved cells on this path. Remove its cells explicitly or use
+the confirmed path removal`. These are readable refusals, not raw FK errors.
+
+
+Existing step panels use `change_step_path` for a single attach or detach; lane
+panels reorder only the owning path through `reorder_lanes` above. Each operation
+returns its own receipt for the session entry and toast Undo.
+
+| RPC | Arguments | Return |
+| --- | --- | --- |
+| `change_step_path` | `step_id uuid`, `path_id uuid`, `present boolean`, `at_position integer`, `expected_ids uuid[]`, `expected_path_ids uuid[]`, `confirmed_cells jsonb default null` | `jsonb`: `{receipt_id, step_id, path_id, present}` |
+| `undo_step_path_change` | `receipt_id uuid` | `void` |
+
+`expected_ids` is the target path's complete current step order.
+`expected_path_ids` is the step's complete membership set, sorted by identity.
+The step and path must share a scenario. Attach inserts the existing step at
+`at_position` (zero-based); detach leaves its other paths and scenario identity
+intact and refuses the last membership. The panel places a newly ticked step
+after its predecessor on the opened path, or at the end when that predecessor
+is absent.
+
+On untick the panel reads the saved cells on that step and path, names their
+count, and asks for confirmation. `confirmed_cells` is the exact array of
+`{id, updated_at}` read for that confirmation. The function locks and compares
+that set again, accepting timestamp-equivalent values; a new cell or edit
+requires a fresh confirmation. Cells, placements, resources, dependencies and
+slide-image members are captured under lock in a server-only memento before
+removal. Evidence retains its provenance identities and is never rewritten by
+this operation. The cell-to-path-step foreign key also prevents a concurrent
+insert from leaving a cell on a detached step.
+
+The opaque `receipt_id` selects a server-captured memento, never a client-supplied
+snapshot. Its inverse compares the step row, membership set and target order
+against the saved after-state. Undo of attach refuses later cells. Undo of detach
+also checks the affected lanes and restores original related identities without
+upserts: collisions or missing references refuse the whole inverse. Receipts
+are single-use and are not directly readable or writable by API callers.
+
+Refusals include:
+
+- `change_step_path`: `That step and path must belong to the same scenario`,
+  `This path changed. Reload and try again`,
+  `This step changed. Reload and try again`,
+  `A step must stay on at least one path`, `Choose a position on this path`,
+  `This step already has cells on that path. Reload and try again`, and
+  `The cells on this step changed. Reload and confirm removing them`.
+- `undo_step_path_change`: `This path change cannot be undone. Reload the canvas`
+  for a missing or spent receipt; `This step or path changed since your save. Reload before undoing`;
+  `This step has content since your save. Remove it explicitly instead`;
+  `The lanes holding this step changed. Reload before undoing`; and
+  `Content referenced by this change changed. Reload before undoing`.
+
+Both functions require the authoring tier, run with a fixed `search_path`, and
+are granted to `authenticated`, never `anon`. `structure_membership_state` is an
+internal helper, not a host-facing entry point. The Supabase recipe uses RLS and
+explicit revokes to keep `structure_membership_receipts` server-only; another
+host must preserve that boundary.
+
 ### Optional host authoring operations
 
 A deployment may supply additional named RPCs under

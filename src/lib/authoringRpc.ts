@@ -18,7 +18,7 @@ import {
   invalidateQueries,
   invalidateStructure,
 } from '@/lib/queryClient'
-import { queryKeys } from '@/lib/queryKeys'
+import { STRUCTURE_KEYS, queryKeys } from '@/lib/queryKeys'
 
 type Client = SupabaseClient<Database>
 
@@ -245,6 +245,21 @@ async function invoke<T>(
  * the forward write.
  */
 const FRESHNESS: Record<string, (args: Record<string, unknown>) => void> = {
+  // Canvas order is patched optimistically before these return. Refetching
+  // canvasBlueprints races the settle preview and flashes the pre-drop seats;
+  // every other structure key still needs a mark (staleTime: Infinity).
+  reorder_lanes: () => {
+    for (const prefix of STRUCTURE_KEYS) {
+      if (prefix === queryKeys.canvasBlueprints.prefix) continue
+      invalidateQueries(prefix)
+    }
+  },
+  reorder_steps: () => {
+    for (const prefix of STRUCTURE_KEYS) {
+      if (prefix === queryKeys.canvasBlueprints.prefix) continue
+      invalidateQueries(prefix)
+    }
+  },
   upsert_cell: (args) => {
     invalidateQueries(queryKeys.servicePhases.prefix)
     if (typeof args.path_id === 'string') invalidateCanvasBlueprintsForPath(args.path_id)
@@ -269,6 +284,8 @@ const FRESHNESS: Record<string, (args: Record<string, unknown>) => void> = {
   rename_step_name: stepDetailsWritten,
   update_step_with_details: stepDetailsWritten,
   restore_step_details: stepDetailsWritten,
+  change_step_path: stepDetailsWritten,
+  undo_step_path_change: stepDetailsWritten,
   rename_lane: laneDetailsWritten,
   update_lane_with_details: laneDetailsWritten,
   restore_lane_details: laneDetailsWritten,
@@ -419,6 +436,10 @@ function deriveRevert(
   if ((fn === 'add_step_with_details' || fn === 'add_lane_with_details') && data && typeof data === 'object' && 'before' in data) {
     return { fn: 'undo_structure_add', args: { snapshot: data } }
   }
+  if (
+    fn === 'change_step_path' && data && typeof data === 'object' &&
+    'receipt_id' in data && typeof data.receipt_id === 'string'
+  ) return { fn: 'undo_step_path_change', args: { receipt_id: data.receipt_id } }
   if ((fn === 'reorder_steps' || fn === 'reorder_lanes') && data && typeof data === 'object' && 'before' in data) return {fn:'undo_structure_order',args:{snapshot:data}}
   if (isHostOperation(fn)) return HOST_OPERATIONS[fn].inverse(args, data as RecordedAuthoringWrite)
   switch (fn) {
@@ -856,6 +877,27 @@ export function upsertCell(
  */
 export async function reorderSteps(client:Client,pathId:string,stepIds:string[],expectedIds:string[]):Promise<SessionEntry> {
   return (await callWithEntry(client,'reorder_steps',{path_id:pathId,step_ids:stepIds,expected_ids:expectedIds})).entry
+}
+
+/** Change one existing step's membership, keeping the server's guarded inverse. */
+export async function changeStepPath(client: Client, input: {
+  stepId: string
+  pathId: string
+  present: boolean
+  atPosition: number
+  expectedIds: string[]
+  expectedPathIds: string[]
+  confirmedCells?: Array<{ id: string; updated_at: string }>
+}): Promise<SessionEntry> {
+  return (await callWithEntry(client, 'change_step_path', {
+    step_id: input.stepId,
+    path_id: input.pathId,
+    present: input.present,
+    at_position: input.atPosition,
+    expected_ids: input.expectedIds,
+    expected_path_ids: input.expectedPathIds,
+    confirmed_cells: input.confirmedCells ?? null,
+  })).entry
 }
 
 /** Set which columns a version carries, and in what order. */

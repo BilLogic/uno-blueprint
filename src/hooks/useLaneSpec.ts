@@ -4,6 +4,7 @@ import { queryKeys } from '@/lib/queryKeys'
 
 export type LaneSpec = {
   id: string
+  pathId?: string
   name: string
   role: string | null
   ownerTeam: string
@@ -52,7 +53,7 @@ export function useLaneSpec(laneId: string | null): QueryResult<LaneSpec | null>
       const { data: lane, error } = await client
         .from('lanes')
         .select(
-          'id, name, lane_role, owner_team, kpis, tools, stakeholder_id, paths!inner(scenario_id, scenarios!inner(name, phases!inner(name)))',
+          'id, path_id, name, lane_role, owner_team, kpis, tools, stakeholder_id, paths!inner(scenario_id, scenarios!inner(name, phases!inner(name)))',
         )
         .eq('id', laneId)
         .abortSignal(signal)
@@ -78,6 +79,7 @@ export function useLaneSpec(laneId: string | null): QueryResult<LaneSpec | null>
 
       return {
         id: lane.id,
+        pathId: lane.path_id,
         name: lane.name,
         role: lane.lane_role ?? null,
         ownerTeam: lane.owner_team ?? '',

@@ -13,13 +13,19 @@ import type { CompareGridTrack } from '@/lib/compareGridTracks'
 /** Step names above the canvas. */
 export function CompareStepHeaderRow({
   tracks,
+  pathId,
 }: {
+  pathId?: string
   tracks: readonly CompareGridTrack[]
 }) {
   return (
     <>
-      {tracks.map((track, trackIndex) =>
-        track.seamSize !== undefined ? (
+      {tracks.map((track, trackIndex) => {
+        const columnPathId =
+          pathId && track.stepIdByPath[pathId]
+            ? pathId
+            : Object.keys(track.stepIdByPath)[0]
+        return track.seamSize !== undefined ? (
           <div
             key={track.key}
             aria-hidden
@@ -39,11 +45,11 @@ export function CompareStepHeaderRow({
               />
             ) : null}
             <StepHeaderAffordance
-              // A canonical column can carry a different step id per path; they
-              // are the same MOMENT, and the summary is stored once per step, so
-              // the first is the one to open.
+              // Prefer the selected path when it owns this column; otherwise
+              // keep the step and its actual owning path together.
               stepIndex={trackIndex}
-              stepId={Object.values(track.stepIdByPath)[0] ?? ''}
+              pathId={columnPathId}
+              stepId={columnPathId ? track.stepIdByPath[columnPathId] : ''}
               name={track.label}
               // `relative z-1`: when a path frame extends up to wrap this
               // row (single-path stacked, merged), the frame's opaque fill is
@@ -56,8 +62,8 @@ export function CompareStepHeaderRow({
               style={{ gridColumn: trackIndex + 2, gridRow: 1 }}
             />
           </Fragment>
-        ),
-      )}
+        )
+      })}
     </>
   )
 }

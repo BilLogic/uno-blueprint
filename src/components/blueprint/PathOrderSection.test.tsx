@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, expect, it } from 'vitest'
 import { useState } from 'react'
 import { PathOrderSection, type PathOrder } from './PathOrderSection'
@@ -82,7 +82,7 @@ it('keeps a duplicate lane path unavailable and gives the reason', () => {
 })
 
 it('shows only the order rail when a scenario has one path', () => {
-  render(
+  const { container } = render(
     <PathOrderSection
       paths={[paths[0]]}
       value={[
@@ -93,11 +93,14 @@ it('shows only the order rail when a scenario has one path', () => {
       defaultOrder={() => []}
     />,
   )
-  expect(screen.queryByRole('checkbox')).toBeNull()
-  expect(screen.queryByText('Add to paths')).toBeNull()
-  expect(screen.getByText('Order')).toBeTruthy()
+  const order = within(within(container).getByRole('region', { name: 'Order' }))
+  expect(order.queryByRole('checkbox')).toBeNull()
+  expect(order.queryByText('Add to paths')).toBeNull()
+  expect(order.getByText('Order')).toBeTruthy()
+  expect(order.getByRole('separator', { name: 'Beginning' })).toBeTruthy()
+  expect(order.getByRole('separator', { name: 'End' })).toBeTruthy()
   expect(
-    screen.getByRole('button', { name: 'Move Review in Online' }),
+    order.getByRole('button', { name: 'Move Review in Online' }),
   ).toBeTruthy()
 })
 
@@ -120,6 +123,70 @@ it('opens the clicked path when its membership arrives after loading', () => {
   )
   expect(
     screen.getByRole('button', { name: 'Move Review in Online' }),
+  ).toBeTruthy()
+})
+
+it('scopes the order rail to a section window with divider labels', () => {
+  render(
+    <PathOrderSection
+      paths={[paths[0]]}
+      value={[
+        {
+          pathId: 'online',
+          order: ['start', 'new', 'finish', 'extra'],
+          moved: [],
+        },
+      ]}
+      onChange={() => {}}
+      item={{ id: 'new', name: 'Review' }}
+      defaultOrder={() => []}
+      sectionForOrder={(_path, _order) => ({
+        start: 1,
+        end: 2,
+        lineAbove: 'Line of interaction',
+        lineBelow: 'Line of visibility',
+      })}
+    />,
+  )
+  expect(
+    screen.getByRole('separator', { name: 'Line of interaction' }),
+  ).toBeTruthy()
+  expect(
+    screen.getByRole('separator', { name: 'Line of visibility' }),
+  ).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Move Review in Online' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Move Finish in Online' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Move Start in Online' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Move Extra in Online' })).toBeNull()
+})
+
+it('bounds an open section end with top/bottom of the board', () => {
+  render(
+    <PathOrderSection
+      paths={[paths[0]]}
+      value={[
+        {
+          pathId: 'online',
+          order: ['new', 'start', 'finish'],
+          moved: [],
+        },
+      ]}
+      onChange={() => {}}
+      item={{ id: 'new', name: 'Review' }}
+      defaultOrder={() => []}
+      sectionForOrder={() => ({
+        start: 0,
+        end: 2,
+        lineAbove: null,
+        lineBelow: 'Line of interaction',
+      })}
+    />,
+  )
+  expect(
+    screen.getByRole('separator', { name: 'Top of the board' }),
+  ).toBeTruthy()
+  expect(
+    screen.getByRole('separator', { name: 'Line of interaction' }),
   ).toBeTruthy()
 })
 

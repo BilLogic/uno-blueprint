@@ -2866,6 +2866,43 @@ begin
 end $compatibility$;
 
 -- ─────────────────────────────────────────────────────────────────────────
+-- 21000312000000_step_path_membership_is_guarded_and_reversible.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- mementos are server-only; only guarded entry points are callable.
+revoke execute on function public.cells_validate_path_match() from public,anon,authenticated;
+revoke execute on function public.path_step_keeps_saved_cells() from public,anon,authenticated;
+alter table public.structure_membership_receipts enable row level security;
+revoke all on public.structure_membership_receipts from public,anon,authenticated;
+revoke execute on function public.structure_membership_state(uuid,uuid) from public,anon,authenticated;
+revoke execute on function public.change_step_path(uuid,uuid,boolean,integer,uuid[],uuid[],jsonb) from public,anon;
+revoke execute on function public.undo_step_path_change(uuid) from public,anon;
+grant execute on function public.change_step_path(uuid,uuid,boolean,integer,uuid[],uuid[],jsonb),public.undo_step_path_change(uuid) to authenticated;
+-- Exercise authorization and direct grants, including the private table.
+do $acl$
+begin
+  if has_table_privilege('anon','public.structure_membership_receipts','select')
+    or has_table_privilege('authenticated','public.structure_membership_receipts','insert')
+    or has_table_privilege('authenticated','public.structure_membership_receipts','select')
+    or has_function_privilege('anon','public.change_step_path(uuid,uuid,boolean,integer,uuid[],uuid[],jsonb)','execute')
+    or has_function_privilege('anon','public.undo_step_path_change(uuid)','execute')
+    or has_function_privilege('authenticated','public.structure_membership_state(uuid,uuid)','execute') then
+    raise exception 'Membership receipt or write privileges are open';
+  end if;
+  perform set_config('request.jwt.claims','{}',true);
+  begin
+    perform public.change_step_path(gen_random_uuid(),gen_random_uuid(),true,0,'{}','{}');
+    raise exception 'A reader changed step membership';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.undo_step_path_change(gen_random_uuid());
+    raise exception 'A reader undid step membership';
+  exception when insufficient_privilege then null;
+  end;
+end $acl$;
+
+-- ─────────────────────────────────────────────────────────────────────────
 -- 21000313000000_a_storyboard_row_saves_its_cell_atomically.sql
 -- ─────────────────────────────────────────────────────────────────────────
 

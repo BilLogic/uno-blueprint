@@ -71,6 +71,8 @@ export type EntityDetailSelection = {
   kind: EntityDetailKind
   /** The row's id — the panel reads everything else from the database. */
   id: string
+  /** The path whose header opened this shared step. */
+  pathId?: string
   draft?: StructureDraft
   focusNext?: boolean
   draftKey?: number

@@ -1,5 +1,6 @@
 import type { SessionEntry } from '@/lib/authoringSession'
 import { toAuthoringError } from '@/lib/authoringErrors'
+import { StructurePathsSection } from './StructurePathsSection'
 import { PathOrderSection } from './PathOrderSection'
 import {
   useStructureCreatePaths,
@@ -33,6 +34,10 @@ import {
   updateLaneWithDetails,
 } from '@/lib/authoringRpc'
 import { OptionSelect } from './OptionSelect'
+import {
+  laneInsertSectionForOrder,
+  preferredCreateRole,
+} from './laneInsertSection'
 import { CANONICAL_LANE_ROLES } from '@/lib/laneRoles'
 import { describeLaneRole, getLaneRole, labelLaneRole } from '@/lib/laneRoles'
 import { getBlueprintLaneStyle } from '@/lib/blueprintTheme'
@@ -188,6 +193,51 @@ function LanePanelBody({
   } | null>(null)
   const paths = useStructureCreatePaths(draft, form.name, form.laneRole)
   const footerHost = usePanelFooterHost(LANE_PANEL_FOOTER_ID)
+  const clickedOrder =
+    paths.value.find((entry) => entry.pathId === paths.clickedPathId)?.order ??
+    paths.value[0]?.order
+  const clickedPath =
+    paths.paths.find((path) => path.id === paths.clickedPathId) ??
+    paths.paths[0]
+  const sectionForOrder = (path: (typeof paths.paths)[number], order: string[]) => {
+    if (!draft) return null
+    const roleById = new Map(
+      path.items.map((row) => [row.id, row.role ?? null] as const),
+    )
+    // The opening seat is stable, unlike a render-time ref that an effect
+    // resets after its first use. Each path derives its own opening band.
+    const opening = laneInsertSectionForOrder(
+      paths.defaultOrder(path),
+      roleById,
+      NEW_STRUCTURE_ITEM,
+      { beforeDivider: draft.beforeDivider },
+    )
+    return laneInsertSectionForOrder(order, roleById, NEW_STRUCTURE_ITEM, {
+      beforeDivider: draft.beforeDivider,
+      lock: opening,
+    })
+  }
+  const insertSection = clickedPath && clickedOrder
+    ? sectionForOrder(clickedPath, clickedOrder)
+    : null
+  const roleOptions = insertSection?.allowedRoles ?? CANONICAL_LANE_ROLES
+  // Adopt a newly loaded band's default before rendering its form or preview.
+  // Prefer a role the section does not already use — auto-picking storyboard
+  // beside Journey figures cloned that strip into the draft row.
+  // An undivided board still asks the author to choose from the full vocabulary.
+  const defaultRole = preferredCreateRole(
+    roleOptions,
+    insertSection?.occupiedRoles ?? [],
+  )
+  if (
+    draft &&
+    defaultRole &&
+    roleOptions.length > 0 &&
+    roleOptions.length < CANONICAL_LANE_ROLES.length &&
+    !roleOptions.some((role) => role === form.laneRole)
+  ) {
+    setForm({ ...form, laneRole: defaultRole })
+  }
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((current) => ({ ...current, [key]: value }))
@@ -346,7 +396,7 @@ function LanePanelBody({
                 onChange={(value) => set('laneRole', value)}
                 options={[
                   { value: '', label: 'Choose a role' },
-                  ...CANONICAL_LANE_ROLES.map((role) => ({
+                  ...roleOptions.map((role) => ({
                     value: role,
                     label: labelLaneRole(role),
                     meaning: describeLaneRole(role),
@@ -373,6 +423,7 @@ function LanePanelBody({
               value={paths.value}
               onChange={paths.onChange}
               defaultOrder={paths.defaultOrder}
+              sectionForOrder={insertSection ? sectionForOrder : undefined}
               item={{
                 id: NEW_STRUCTURE_ITEM,
                 name: form.name.trim() || 'New lane',
@@ -405,6 +456,15 @@ function LanePanelBody({
             </p>
           ) : null}
         </>
+      ) : null}
+      {!draft ? (
+        <StructurePathsSection
+          kind="lane"
+          item={{ id: lane.id, name: lane.name }}
+          scenarioId={lane.scenarioId}
+          pathId={lane.pathId}
+          editable={canEdit}
+        />
       ) : null}
       {/* ACTOR, not Stakeholder. The column is `lanes.stakeholder_id` and the
           registry it points into is `stakeholders`; the word on screen is the

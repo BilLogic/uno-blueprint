@@ -27,6 +27,13 @@ export const EASE_POINTS = {
 
 export type MotionRole = keyof typeof EASE_POINTS
 
+/** A released structure drag returns without a duration-based snap. */
+export const STRUCTURE_RETURN_SPRING = {
+  type: 'spring',
+  stiffness: 300,
+  damping: 25,
+} as const
+
 const bezier = (points: BezierPoints) => `cubic-bezier(${points.join(', ')})`
 
 /** The four curves as CSS timing functions — the `--ease-*` tokens' values. */

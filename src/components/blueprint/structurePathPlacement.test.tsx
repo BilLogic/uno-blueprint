@@ -35,8 +35,8 @@ const read = vi.hoisted(() => ({
     },
   ],
 }))
-vi.mock('@/hooks/useSupabaseQuery', () => ({
-  useSupabaseQuery: () => ({
+vi.mock('@/hooks/useStructurePaths', () => ({
+  useStructurePaths: () => ({
     status: 'ready',
     source: 'database',
     data: read.paths,

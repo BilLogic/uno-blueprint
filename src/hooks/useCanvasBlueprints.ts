@@ -201,13 +201,26 @@ export function useCanvasBlueprints(scenarioIds: string[]) {
   const allSettled = noDb || loadedCount === results.length
   const loading = orderedScenarioIds.length > 0 && !allSettled
 
-  // dataUpdatedAt, not a y/e/n status string: after a mutation calls
-  // invalidateQueries('canvas-blueprints') the refetched chunks come back
-  // with data still DEFINED, so a status-only key never changed and the
-  // canvas kept rendering pre-edit rows until a reload.
+  // dataUpdatedAt alone misses optimistic setQueryData that lands in the
+  // same millisecond as the prior fetch; lane/step identity order must
+  // bust the memo too or a drop keeps painting the pre-drop seats.
   const rowsKey = results
-    .map((result) => (result.error ? 'e' : String(result.dataUpdatedAt ?? 0)))
-    .join(',')
+    .map((result) => {
+      if (result.error) return 'e'
+      const rows = result.data
+      if (!Array.isArray(rows)) return String(result.dataUpdatedAt ?? 0)
+      const order = rows
+        .map((row) => {
+          const lanes = (row.lanes ?? []).map((lane) => lane.id).join(',')
+          const steps = row.path_steps
+            ? row.path_steps.map((pathStep) => pathStep.steps?.id ?? '').join(',')
+            : (row.steps ?? []).map((step) => step.id).join(',')
+          return `${row.id}:${lanes}:${steps}`
+        })
+        .join(';')
+      return `${result.dataUpdatedAt ?? 0}:${order}`
+    })
+    .join('|')
   const derived = useMemo<CanvasBlueprintMaps>(() => {
     if (orderedScenarioIds.length === 0) return EMPTY_MAPS
     if (noDb || !allSettled) {

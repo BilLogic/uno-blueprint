@@ -1,6 +1,7 @@
 import { parseCellContentItems } from '@/lib/parseCellContent'
 import {
   BACKSTAGE_ACTIONS_ROLE,
+  BACKSTAGE_TOUCHPOINTS_ROLE,
   CUSTOMER_ACTIONS_ROLE,
   FRONTSTAGE_ACTIONS_ROLE,
   FRONTSTAGE_TOUCHPOINTS_ROLE,
@@ -18,6 +19,10 @@ import {
   rowTrackHeight,
 } from '@/lib/laneCorridor'
 import type { BlueprintData, BlueprintLane } from '@/types/blueprint'
+import {
+  STRUCTURE_PLACEHOLDER_ID,
+  STRUCTURE_SEAM_ID,
+} from '@/lib/structureDraftPreview'
 
 /**
  * The corridor rule lives in `laneCorridor`; its margins are re-exported
@@ -31,7 +36,7 @@ export {
 }
 
 /** Minimal lane shape for role-driven layout checks. */
-type LaneRoleSource = { name: string; role?: string | null }
+type LaneRoleSource = { id?: string; name: string; role?: string | null }
 
 /** Roles rendered as storyboard frame rows instead of text cells. */
 export const STORYBOARD_LANE_ROLES = [STORYBOARD_ROLE] as const
@@ -95,11 +100,64 @@ export function hasBlueprintCellContent(
   return true
 }
 
+/**
+ * Whether a lane paints the step-scoped storyboard walkthrough strip.
+ * Draft and seam seats stay empty — that strip is shared projection, so a
+ * storyboard-role placeholder would clone Journey figures instead of a blank row.
+ *
+ * @param lane - Lane name/role, optionally with structure draft/seam id.
+ */
 export function shouldUseStoryboardContent(lane: LaneRoleSource): boolean {
+  if (lane.id === STRUCTURE_PLACEHOLDER_ID || lane.id === STRUCTURE_SEAM_ID) {
+    return false
+  }
   const role = getLaneRole(lane)
   return (
     role !== null && (STORYBOARD_LANE_ROLES as readonly string[]).includes(role)
   )
+}
+
+/**
+ * Roles on the service side of the line of interaction — frontstage and
+ * everything behind it. Lanes without these roles (customer actions,
+ * storyboard, unrole'd context rows such as Stakeholders) sit above the line.
+ */
+export function isServiceSideOfInteraction(
+  role: string | null | undefined,
+): boolean {
+  return (
+    role === FRONTSTAGE_ACTIONS_ROLE ||
+    role === FRONTSTAGE_TOUCHPOINTS_ROLE ||
+    role === BACKSTAGE_ACTIONS_ROLE ||
+    role === BACKSTAGE_TOUCHPOINTS_ROLE ||
+    role === SUPPORT_ACTIONS_ROLE
+  )
+}
+
+/**
+ * Index of the lane the line of interaction draws after, or `-1` when the
+ * board has no recipient spine.
+ *
+ * The line closes the recipient band: it follows the last `customer_actions`
+ * lane, then any non-service rows that still sit above the first frontstage
+ * (or deeper) lane. Without that extension, dragging an unrole'd band row
+ * (Stakeholders) below the spine actor parked it under the line while the
+ * line stayed glued to the spine — a boundary that moved with a row.
+ */
+export function interactionLineAnchorIndex(
+  lanes: readonly LaneRoleSource[],
+): number {
+  let lastCustomer = -1
+  for (let index = 0; index < lanes.length; index++) {
+    if (getLaneRole(lanes[index]!) === CUSTOMER_ACTIONS_ROLE) lastCustomer = index
+  }
+  if (lastCustomer < 0) return -1
+  let anchor = lastCustomer
+  for (let index = lastCustomer + 1; index < lanes.length; index++) {
+    if (isServiceSideOfInteraction(getLaneRole(lanes[index]!))) break
+    anchor = index
+  }
+  return anchor
 }
 
 /**
@@ -114,9 +172,9 @@ export function shouldUseStoryboardContent(lane: LaneRoleSource): boolean {
  * the boundary between the people the service is for and the machinery that
  * serves them, and a boundary drawn twice is not a boundary.
  *
- * So the line follows the LAST customer-side lane. Adding a customer-side
- * lane extends the band; it does not divide the board again, and no row has
- * to move to make that true.
+ * So the line follows the LAST customer-side lane, then any still-above-the-
+ * service rows that extend the band (CONTEXT.md § Line of visibility). Adding
+ * a customer-side lane extends the band; it does not divide the board again.
  *
  * Without `lanes` there is no band for a lane to be last in, so a
  * customer-side lane is its own band and answers as it always did. That is
@@ -126,17 +184,22 @@ export function shouldShowInteractionLineAfter(
   lane: BlueprintLane,
   lanes?: BlueprintLane[],
 ): boolean {
-  if (getLaneRole(lane) !== CUSTOMER_ACTIONS_ROLE) return false
-  if (!lanes) return true
-
-  let last: BlueprintLane | undefined
-  for (const entry of lanes) {
-    if (getLaneRole(entry) === CUSTOMER_ACTIONS_ROLE) last = entry
-  }
-  return last === undefined || last.id === lane.id
+  if (!lanes) return getLaneRole(lane) === CUSTOMER_ACTIONS_ROLE
+  const anchor = interactionLineAnchorIndex(lanes)
+  return anchor >= 0 && lanes[anchor]?.id === lane.id
 }
 
-/** The visibility line is drawn after frontstage lanes (above backstage lanes). */
+/** The last customer-facing lane owns the single visibility boundary. */
+export function visibilityLineAnchorIndex(lanes: readonly LaneRoleSource[]): number {
+  let anchor = -1
+  for (let index = 0; index < lanes.length; index++) {
+    const role = getLaneRole(lanes[index]!)
+    if (role === FRONTSTAGE_ACTIONS_ROLE || role === FRONTSTAGE_TOUCHPOINTS_ROLE) anchor = index
+  }
+  return anchor
+}
+
+/** The visibility line is drawn once, below the complete frontstage band. */
 export function shouldShowVisibilityLineAfter(
   lane: BlueprintLane,
   lanes?: BlueprintLane[],
@@ -146,17 +209,8 @@ export function shouldShowVisibilityLineAfter(
     return false
   }
 
-  // A frontstage-touchpoints lane can sit above frontstage actions — the
-  // visibility line follows the actions lane, not the touchpoints lane.
-  if (role === FRONTSTAGE_TOUCHPOINTS_ROLE && lanes) {
-    const index = lanes.findIndex((entry) => entry.id === lane.id)
-    const next = lanes[index + 1]
-    if (next && getLaneRole(next) === FRONTSTAGE_ACTIONS_ROLE) {
-      return false
-    }
-  }
-
-  return true
+  if (!lanes) return true
+  return lanes[visibilityLineAnchorIndex(lanes)]?.id === lane.id
 }
 
 /**

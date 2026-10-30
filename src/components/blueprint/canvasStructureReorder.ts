@@ -31,6 +31,7 @@ export { orderWithinSection }
 
 /** Longest wait before a stuck settle preview is forced clear. */
 const SETTLE_FALLBACK_MS = 5_000
+const MAX_OVERDRAG = 24
 
 /** Finger-locked in range; smooth square-root rubber band outside it. */
 export function dampenStructureDrag(
@@ -44,7 +45,7 @@ export function dampenStructureDrag(
   // Offset the root so its slope joins normal dragging at 1, rather than
   // jumping at the edge. The soft ceiling never becomes a hard clamp.
   const stretch = 2 * (Math.sqrt(1 + Math.abs(extra)) - 1)
-  return edge + Math.sign(extra) * 24 * Math.tanh(stretch / 24) * scale
+  return edge + Math.sign(extra) * MAX_OVERDRAG * Math.tanh(stretch / MAX_OVERDRAG) * scale
 }
 
 type Options = {
@@ -178,6 +179,7 @@ export function registerCanvasStructureReorder(
   let slot: HTMLDivElement | null = null
   let settleTimer: ReturnType<typeof setTimeout> | undefined
   let settling = false
+  let returnVersion = 0
   const clearChrome = () => {
     delete body.dataset.structureReordering
     delete board.dataset.structureReordering
@@ -210,6 +212,7 @@ export function registerCanvasStructureReorder(
   const releaseSettle = () => {
     if (!settling) return
     settling = false
+    returnVersion++
     clearTimeout(settleTimer)
     settleTimer = undefined
     clearTranslates()
@@ -546,18 +549,33 @@ export function registerCanvasStructureReorder(
     document.documentElement.dataset.structureSettling = ''
     if (g.source.hasPointerCapture?.(g.pointerId))
       g.source.releasePointerCapture(g.pointerId)
+    // Read the current rendered displacement once. A DOM animation's cached
+    // translate can still be zero after the pointer has moved the element.
+    const released = Array.from(original.keys(), (part) => {
+      const [x = 0, y = 0] = (getComputedStyle(part).translate || part.style.translate || '')
+        .split(/\s+/).map(Number.parseFloat)
+      return { part, offset: g.axis.coordinate(x || 0, y || 0) }
+    })
     clearChrome()
-    for (const playback of moves.values()) playback.cancel()
+    for (const playback of moves.values()) playback.stop()
     moves.clear()
-    let remaining = original.size
-    for (const part of original.keys()) {
-      moves.set(part, animate(part, { translate: g.axis.translate(0) }, {
-        ...STRUCTURE_RETURN_SPRING,
-        onComplete: () => {
-          if (--remaining === 0) releaseSettle()
-        },
-      }))
-    }
+    const version = ++returnVersion
+    moves.set(g.source, animate(0, 1, {
+      ...STRUCTURE_RETURN_SPRING,
+      onUpdate: (progress) => {
+        if (!settling || version !== returnVersion) return
+        const weight = 1 - progress
+        for (const { part, offset } of released) {
+          const value = weight >= 0
+            ? offset * weight
+            : -Math.sign(offset) * MAX_OVERDRAG * Math.tanh(Math.abs(offset * weight) / MAX_OVERDRAG)
+          part.style.translate = g.axis.translate(value)
+        }
+      },
+      onComplete: () => {
+        if (version === returnVersion) releaseSettle()
+      },
+    }))
     clearTimeout(settleTimer)
     settleTimer = setTimeout(releaseSettle, SETTLE_FALLBACK_MS)
   }

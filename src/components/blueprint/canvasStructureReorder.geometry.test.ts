@@ -5,8 +5,9 @@ import * as motion from '@/lib/motion'
 import { registerCanvasStructureReorder } from './canvasStructureReorder'
 
 vi.mock('framer-motion', () => ({
-  animate: vi.fn((node: HTMLElement, values: Record<string, string>) => {
-    Object.assign(node.style, values)
+  animate: vi.fn((node: HTMLElement | number, values: Record<string, string> | number, options?: { onUpdate?: (value: number) => void }) => {
+    if (typeof node === 'number') options?.onUpdate?.(values as number)
+    else Object.assign(node.style, values)
     return { stop: vi.fn(), cancel: vi.fn() }
   }),
 }))

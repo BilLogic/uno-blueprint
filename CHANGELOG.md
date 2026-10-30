@@ -1,5 +1,51 @@
 # Changelog
 
+## 2.8.10
+
+**Adding a lane or step opens a panel to name it and place it.** Hovering
+between two step or lane headers opens a slot; clicking it opens the
+properties panel, where the new step or lane gets its name and its position on
+every path it should join, in one change with one Undo. Headers can be dragged
+(or moved with Alt+arrow) to reorder a path. Undo now refuses rather than
+overwrites when something changed after the write it reverts, and lane
+properties belong to one path.
+
+### Upgrading a deployment
+
+- **Bump the pin and apply three migrations together with the app:**
+  `21000309000000_a_structure_panel_saves_one_change.sql`,
+  `21000310000000_path_orders_are_guarded_permutations.sql` and
+  `21000311000000_structure_undo_and_edits_refuse_stale_state.sql`. Drag
+  reordering fails between the database and app upgrades; an app still on
+  2.8.9 is told "Reload: the app was updated".
+- **Regenerate database types** (`supabase gen types`, or your usual step).
+- **Custom or host callers of `reorder_steps` and `reorder_lanes`** must pass
+  `expected_ids` (the order they saw) and accept a JSON receipt; the old
+  signatures now only refuse. The full contract is
+  `docs/connectors/backend-contract.md`.
+- **Lane properties are now per path.** A lane edited on one path no longer
+  changes the same-named lane on another.
+- **Undo history from before the upgrade is refused;** start a fresh session.
+- **Optional host operations** (rename a shared step, move a cell, insert into
+  a vacant slot) need nothing unless the deployment installs them; see
+  `docs/adr/0033-a-deployment-may-supply-optional-host-operations.md`.
+
+### Patch Changes
+
+- fa8d92e: Lane and step headers show subtle insertion hints, padded grips and neutral hover surfaces. Insertion slots grow from ordinary dividers with room around the plus, and highlights follow the content as slots close. Creation opens the properties panel with path placement and Undo. Insertion previews grow and close around a fixed centre at edge positions as well as between headers. Delay explanatory hints consistently, centre feedforward marks in the clear header gaps, grow insertion previews into drafts, and require at least one path before creating. Align open header indicators with their canvas preview and dismiss insertion after pointer exit or lost window focus.
+
+  Require a steady header hover before opening insertion; dismiss during camera gestures and coordinate reversals, closing tracks and resting marks on one motion clock.
+
+  Protect Add-Undo and saved-field inverses from later edits, guard reordering against stale orders, keep lane properties path-local, bind Undo to each write's receipt, and recover interrupted gestures without taking the camera back from the person editing.
+
+  Upgrade the database and app together: apply migrations 309–311 as one upgrade; drag reordering breaks at intermediate versions. Regenerate database types. Custom and host callers of `reorder_steps` and `reorder_lanes` must pass `expected_ids` and accept a JSON receipt. Older app calls receive “Reload: the app was updated.” Lane properties are now per path. Undo history from before the upgrade is refused; start a fresh session after upgrading.
+
+- 9201b2e: Keep lane naming above the canvas rail using the shared popover, insert lanes and steps at their stored positions, and refresh pristine property forms when saved values arrive.
+- 90a071d: A deployment with the matching host operations can rename shared steps, move cells without changing their identity, and insert into vacant secondary slots with checked durable receipts. Status-only edits preserve blank cells and report a failed durable record with a captured recovery inverse.
+- aed078d: The README and the Claude Code plugin's descriptions open with the same one-sentence definition the website and its llms.txt use: an open-source context-engineering toolkit that turns a team's scattered context into service blueprints that people and AI agents work from.
+
+  Upgrading a deployment: nothing to do.
+
 ## 2.8.9
 
 **A fresh hosted project takes the whole migration chain.** `supabase db push`
@@ -10851,8 +10897,8 @@ accent: BRAND.accent }, content: { workspaceTitle: coverContent.title } }`. The
   constraint violation rather than as anything the authoring tools had said
   (#204):
 
-                                                                                                                                                                                                                                                                  ERROR: new row for relation "lanes" violates check constraint
-                                                                                                                                                                                                                                                                  "lanes_lane_role_check" … compliance_review
+                                                                                                                                                                                                                                                                    ERROR: new row for relation "lanes" violates check constraint
+                                                                                                                                                                                                                                                                    "lanes_lane_role_check" … compliance_review
 
   That error at least names the value. Meeting it after validation has passed is
   the wrong moment.

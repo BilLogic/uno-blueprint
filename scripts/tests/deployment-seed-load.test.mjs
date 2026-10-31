@@ -255,6 +255,19 @@ test('a knock-on failure is one of three shapes, and nothing else is', () => {
   assert.equal(isDownstream('column "picture" of relation "cells" does not exist'), false)
 })
 
+test('current cell trigger refusals stay downstream of their missing parents', () => {
+  const messages = [
+    'This lane no longer exists. Reload the canvas',
+    'Choose a lane on this path',
+    'This step is not on this path. Reload the canvas',
+  ]
+  const failures = messages.map((message, index) => ({ file: 'seed.sql', line: index + 2, message }))
+  failures.push({ file: 'seed.sql', line: 1, message: 'column "old_name" of relation "paths" does not exist' })
+  const groups = groupFailures(failures)
+  assert.equal(groups[0].message, failures[3].message)
+  assert.deepEqual(groups.slice(1).map((group) => group.downstream), [true, true, true])
+})
+
 test('root causes come first, commonest first, with at most three examples each', () => {
   const failures = [
     ...Array.from({ length: 4 }, (_, i) => ({

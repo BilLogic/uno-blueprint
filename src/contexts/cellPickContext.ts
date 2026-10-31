@@ -12,19 +12,19 @@ import { createContext, useContext } from 'react'
  */
 export type CellPickApi = {
   /**
-   * `true` while the picker wants a plain click (Design mode: the whole
-   * surface is a picker). `false` leaves ordinary reading of the blueprint
+   * `true` while an explicit selection tool wants a plain click. `false` leaves ordinary reading of the blueprint
    * untouched.
    */
   plainClick: boolean
+  /** Enter the explicit Make slice selection tool. */
+  startPicking?: () => void
   /** The selection, in order. The toolbar counts it; the dialog consumes it. */
   picked: readonly string[]
   isPicked: (cellId: string) => boolean
   /** 1-based position in the pick order, for the badge. */
   orderOf: (cellId: string) => number | undefined
   /**
-   * `true` while the picker is a set-builder rather than a cursor — Design
-   * mode. A slice edit session picks too, but its clicks mean "put this cell in
+   * `true` for a Make slice set-builder rather than an existing slice editor. A slice edit session picks too, but its clicks mean "put this cell in
    * the active slide", so it keeps replace-style semantics of its own.
    */
   gathers?: boolean

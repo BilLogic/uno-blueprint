@@ -1,3 +1,8 @@
+import { useCellPick } from '@/contexts/cellPickContext'
+import { clickOpensDetail } from '@/lib/cellPickGrammar'
+import { STRUCTURE_PLACEHOLDER_ID } from '@/lib/structureDraftPreview'
+import { highlightStructure } from './structureHighlight'
+import { useStructureRename } from './useStructureRename'
 import { useEffect, useRef, useState } from 'react'
 import { EntityDefinitionPopover } from '@/components/blueprint/EntityDefinitionPopover'
 import { useBlueprintCellDetailOptional } from '@/contexts/BlueprintCellDetailContext'
@@ -57,10 +62,8 @@ function InfoGlyph() {
  * Top-left aligned, because a lane label reads down a tall row — the only
  * thing it does differently from the column header it shares a treatment with.
  *
- * NOT used where the label already means something else. In the compare rail's
- * Design mode the label is a *selection* handle — clicking takes every cell in
- * the lane — and a second meaning on the same word would make both ambiguous.
- * There the ⓘ stays a button of its own, beside it (`EntityPropertiesButton`).
+ * The compare rail retains its own drag/rename target in Edit mode. Both
+ * targets open lane properties; neither bulk-selects a row of cells.
  */
 export function LaneHeaderAffordance({
   laneId,
@@ -74,7 +77,9 @@ export function LaneHeaderAffordance({
   color?: string
   className?: string
 }) {
-  const { toggleEntity, selection } = useEntityDetail()
+  const pick = useCellPick()
+  const rename = useStructureRename('lane', laneId, laneName)
+  const { toggleEntity, openEntity, selection } = useEntityDetail()
   const detail = useBlueprintCellDetailOptional()
   const boardInScope = useScenarioBoardInScope()
   /*
@@ -97,11 +102,13 @@ export function LaneHeaderAffordance({
   */
   const blockRef = useRef<HTMLDivElement>(null)
   const [defOpen, setDefOpen] = useState(false)
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  )
   useEffect(() => () => clearTimeout(hoverTimer.current), [])
 
   const armHover = (event: React.PointerEvent) => {
-    if (event.pointerType === 'touch') return
+    if (rename.editing || event.pointerType === 'touch') return
     clearTimeout(hoverTimer.current)
     hoverTimer.current = setTimeout(
       () => setDefOpen(true),
@@ -155,13 +162,15 @@ export function LaneHeaderAffordance({
   // control that announces itself and refuses is worse than no control. The
   // definition is still on the block, because "what is a lane?" is not a
   // question about which board is in scope.
-  if (!isInteractive) {
+  if (!isInteractive || laneId === STRUCTURE_PLACEHOLDER_ID) {
     return (
       <div
         ref={blockRef}
         data-blueprint-row-header=""
-        onPointerEnter={armHover}
-        onPointerLeave={cancelHover}
+        onPointerEnter={event=>{ highlightStructure(event.currentTarget,'lane',laneId,true);armHover(event) }}
+        onPointerLeave={event=>{ highlightStructure(event.currentTarget,'lane',laneId,false);cancelHover() }}
+      onFocusCapture={event=>highlightStructure(event.currentTarget,'lane',laneId,true)}
+      onBlurCapture={event=>{if (!event.currentTarget.contains(event.relatedTarget as Node)) highlightStructure(event.currentTarget,'lane',laneId,false)}}
         className={cn(
           'group/lane-header relative flex min-w-0 flex-1 items-start self-stretch text-left',
           CANVAS_HEADER_BOX,
@@ -169,18 +178,20 @@ export function LaneHeaderAffordance({
         )}
       >
         {nameSpan}
-        {info}
+        {laneId === STRUCTURE_PLACEHOLDER_ID ? null : info}
       </div>
     )
   }
 
-  const openPanel = (event: React.SyntheticEvent) => {
+  const openPanel = (event: React.MouseEvent<HTMLElement>) => {
     // The canvas pans on pointer-down anywhere it does not recognise; opening a
     // panel is neither a pan nor a selection. Close any open definition so the
     // click reads as one action.
     event.stopPropagation()
+    if (pick?.plainClick && !clickOpensDetail(event)) return
     setDefOpen(false)
-    toggleEntity({ kind: 'lane', id: laneId })
+    if (clickOpensDetail(event)) openEntity({ kind: 'lane', id: laneId })
+    else toggleEntity({ kind: 'lane', id: laneId })
   }
 
   return (
@@ -188,9 +199,15 @@ export function LaneHeaderAffordance({
       ref={blockRef}
       data-blueprint-row-header=""
       data-open={open ? '' : undefined}
-      onClick={openPanel}
-      onPointerEnter={armHover}
-      onPointerLeave={cancelHover}
+      onClick={rename.editing ? undefined : (event) => rename.click(event, () => openPanel(event))}
+      onDoubleClick={(event) => {
+        cancelHover()
+        rename.begin(event)
+      }}
+      onPointerEnter={event=>{ highlightStructure(event.currentTarget,'lane',laneId,true);armHover(event) }}
+      onPointerLeave={event=>{ highlightStructure(event.currentTarget,'lane',laneId,false);cancelHover() }}
+      onFocusCapture={event=>highlightStructure(event.currentTarget,'lane',laneId,true)}
+      onBlurCapture={event=>{if (!event.currentTarget.contains(event.relatedTarget as Node)) highlightStructure(event.currentTarget,'lane',laneId,false)}}
       className={cn(
         // No negative margins. They pulled the ink block outside the rail,
         // which clips (`overflow-hidden`) — so the hover surface came back cut
@@ -205,15 +222,21 @@ export function LaneHeaderAffordance({
           ⓘ opens the panel; the click bubbles to the block, which carries the
           open — so a click that reaches the block (a keyboard activation, a
           click on the label falling through) opens it too. */}
-      <button
-        type="button"
-        data-lane-header-affordance=""
-        data-canvas-header-opener=""
-        aria-label={`View details: ${laneName}`}
-        aria-pressed={open}
-        className={CANVAS_HEADER_OPENER}
-      />
-      {nameSpan}
+      {rename.editing ? (
+        rename.editor
+      ) : (
+        <>
+          <button
+            type="button"
+            data-lane-header-affordance=""
+            data-canvas-header-opener=""
+            aria-label={`View details: ${laneName}`}
+            aria-pressed={open}
+            className={CANVAS_HEADER_OPENER}
+          />
+          {nameSpan}
+        </>
+      )}
       {info}
     </div>
   )

@@ -21,7 +21,7 @@
  * those files reports through `reportWriteFailure`, with whitespace collapsed
  * first so that only the channel is being read, never the layout.
  */
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { sourceOf } from '@/lib/sourceTree'
 import { EditorErrorBoundary } from '@/components/EditorErrorBoundary'
@@ -174,7 +174,7 @@ describe('⌘Z, when the revert fails', () => {
 })
 
 /**
- * The three remaining paths that failed silently, and the `catch` in each.
+ * The remaining immediate-write paths that failed silently, and the `catch` in each.
  *
  * Read as source, for the reason at the top of the file — but read for shape
  * rather than for characters. A path that moves is a failing test rather than
@@ -184,10 +184,6 @@ const FAILING_PATHS = [
   {
     file: 'components/editor/CanvasCellContextMenu.tsx',
     subject: 'The cell was not deleted',
-  },
-  {
-    file: 'components/blueprint/BlueprintColumnHandles.tsx',
-    subject: 'The step was not added',
   },
   {
     file: 'components/editor/SlicesSidebarSection.tsx',
@@ -220,7 +216,12 @@ function catchBodies(source: string): string[] {
       else if (char === '}') depth -= 1
       index += 1
     }
-    bodies.push(withoutComments.slice(start, index - 1).replace(/\s+/g, ' ').trim())
+    bodies.push(
+      withoutComments
+        .slice(start, index - 1)
+        .replace(/\s+/g, ' ')
+        .trim(),
+    )
   }
   return bodies
 }
@@ -234,7 +235,9 @@ describe('the paths that used to fail in silence', () => {
       )
 
       const bodies = catchBodies(source)
-      expect(bodies.length, `no catch block found in ${file}`).toBeGreaterThan(0)
+      expect(bodies.length, `no catch block found in ${file}`).toBeGreaterThan(
+        0,
+      )
       for (const body of bodies) {
         // A `catch` that swallows deliberately is allowed to say nothing —
         // the pointer-capture guards are the standing example. What is not
@@ -289,7 +292,10 @@ describe('the notice outlives the shell', () => {
     const closed = app.indexOf('</EditorErrorBoundary>')
     const notice = app.indexOf('<WriteFailureNotices />')
 
-    expect(opened, 'App.tsx no longer mounts the error boundary').toBeGreaterThan(-1)
+    expect(
+      opened,
+      'App.tsx no longer mounts the error boundary',
+    ).toBeGreaterThan(-1)
     expect(notice, 'App.tsx no longer mounts the notice').toBeGreaterThan(-1)
     expect(
       notice < opened || notice > closed,
@@ -297,4 +303,51 @@ describe('the notice outlives the shell', () => {
         'fails as the shell falls over would then have nowhere to say so',
     ).toBe(true)
   })
+})
+
+it('dismisses a successful addition when its session entry is undone elsewhere', async () => {
+  const { reportWriteSuccess } = await import('./writeFailures')
+  const { forgetChange } = await import('./authoringSession')
+  clearSession()
+  recordChange('rename_step',{step_id:'step',new_name:'Review'},{fn:'rename_step',args:{step_id:'step',new_name:'Start'}})
+  const entry=sessionSnapshot().at(-1)!
+  render(<WriteFailureNotices />)
+  act(()=>reportWriteSuccess('Added Review', entry.id, async()=>{}))
+  expect(screen.getByText('Added Review')).toBeTruthy()
+  expect(screen.getByRole('button',{name:'Undo'})).toBeTruthy()
+  act(()=>forgetChange(entry.id))
+  expect(screen.queryByText('Added Review')).toBeNull()
+})
+
+it('expires a successful addition without expiring a failed write', async () => {
+  vi.useFakeTimers()
+  try {
+    const {reportWriteSuccess}=await import('./writeFailures')
+    quiet()
+    reportWriteSuccess('Added Review','entry',async()=>{})
+    reportWriteFailure('The edit was not saved',new Error('Try again'))
+    act(()=>vi.advanceTimersByTime(8000))
+    expect(writeFailureSnapshot().map(notice=>notice.message)).toEqual(['The edit was not saved. Try again'])
+  } finally {vi.useRealTimers()}
+})
+
+
+it('keeps only the latest success notice and its undo without removing errors or history', async () => {
+  const { reportWriteSuccess } = await import('./writeFailures')
+  quiet()
+  clearSession()
+  const first = vi.fn(async () => {}), latest = vi.fn(async () => {})
+  reportWriteFailure('The edit was not saved', new Error('Try again'))
+  recordChange('rename_step', {step_id:'step',new_name:'Start'}, {fn:'rename_step',args:{step_id:'step',new_name:'Review'}})
+  reportWriteSuccess('Moved Start', sessionSnapshot().at(-1)!.id, first)
+  recordChange('rename_step', {step_id:'step',new_name:'Finish'}, {fn:'rename_step',args:{step_id:'step',new_name:'Start'}})
+  reportWriteSuccess('Moved Start', sessionSnapshot().at(-1)!.id, latest)
+  render(<WriteFailureNotices />)
+  expect(writeFailureSnapshot().filter(notice => notice.success)).toHaveLength(1)
+  expect(sessionSnapshot()).toHaveLength(2)
+  expect(screen.getByRole('alert').textContent).toContain('The edit was not saved')
+  expect(screen.getByRole('status').textContent).toContain('Moved Start')
+  fireEvent.click(screen.getByRole('button', {name:'Undo'}))
+  await waitFor(() => expect(latest).toHaveBeenCalledOnce())
+  expect(first).not.toHaveBeenCalled()
 })

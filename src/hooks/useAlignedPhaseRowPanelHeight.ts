@@ -57,6 +57,7 @@ export function useAlignedPhaseRowPanelHeight(
     const scrollPad = getComparePanelScrollPaddingY({ lockHeight: true })
 
     const measureRow = () => {
+      if (document.documentElement.hasAttribute('data-structure-motion')) return
       let rowMax = 0
       let excludedMax = 0
       row
@@ -92,12 +93,16 @@ export function useAlignedPhaseRowPanelHeight(
     }
 
     measureRow()
+    document.addEventListener('structure-motion-end', measureRow)
     const observer = new ResizeObserver(measureRow)
     row
       .querySelectorAll<HTMLElement>('[data-blueprint-panel-content]')
       .forEach((node) => observer.observe(node))
 
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      document.removeEventListener('structure-motion-end', measureRow)
+    }
   }, [alignPanelHeights, measureKey, rowRef])
 
   if (!alignPanelHeights) {

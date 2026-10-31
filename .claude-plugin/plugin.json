@@ -1,7 +1,7 @@
 {
   "name": "ub",
-  "version": "2.8.10",
-  "description": "Uno Blueprint (ub), service blueprinting skills: ub:init starts Uno, the agent that keeps one business's blueprint, and four skills are its moves — ub:map ingests/co-creates/translates/imports blueprints with hash-bound sign-off, ub:slice cuts stakeholder views, ub:audit runs a check roster into triageable findings, ub:whatif traces hypothetical changes before promotion. Five agents + three hooks around a validated JSON intermediate representation, presented with the bundled React blueprint template.",
+  "version": "2.8.11",
+  "description": "Uno Blueprint (ub): an open-source context-engineering toolkit that turns a team's scattered context into service blueprints that people and AI agents work from. ub:init starts Uno, the agent that keeps one business's blueprint, and four skills are its moves: ub:map drafts, translates and imports a blueprint with sign-off; ub:slice cuts a view for one audience; ub:audit finds gaps, conflicts and stale sources; ub:whatif traces a change before anyone makes it.",
   "author": {
     "name": "BilLogic (Bill & Meryem)",
     "url": "https://github.com/BilLogic"
@@ -10,6 +10,7 @@
   "repository": "https://github.com/BilLogic/uno-blueprint",
   "license": "MIT",
   "keywords": [
+    "context-engineering",
     "service-blueprint",
     "service-design",
     "journey-map",

@@ -272,7 +272,7 @@ export function BlueprintDependencyArrows({
     let raf = 0
     const scheduleUpdate = () => {
       cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(updateArrows)
+      if (!document.documentElement.hasAttribute('data-structure-motion')) raf = requestAnimationFrame(updateArrows)
     }
 
     const observer = new ResizeObserver(scheduleUpdate)
@@ -283,12 +283,14 @@ export function BlueprintDependencyArrows({
 
     scrollParent.addEventListener('scroll', scheduleUpdate, { passive: true })
     window.addEventListener('resize', scheduleUpdate)
+    document.addEventListener('structure-motion-end', scheduleUpdate)
 
     return () => {
       cancelAnimationFrame(raf)
       observer.disconnect()
       scrollParent.removeEventListener('scroll', scheduleUpdate)
       window.removeEventListener('resize', scheduleUpdate)
+      document.removeEventListener('structure-motion-end', scheduleUpdate)
     }
   }, [contentRef, scrollContainerRef, updateArrows])
 

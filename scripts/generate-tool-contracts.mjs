@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url'
 import { buildToolServer } from './build-tool-server.mjs'
 await buildToolServer()
 const { serverWriteContracts, SERVICE_REQUIRED } = await import(pathToFileURL(resolve('supabase/functions/uno-tools/server.generated.js')))
-const file = 'supabase/migrations/21000317000000_structure_labels_have_explanations.sql'
+const file = 'supabase/migrations/21000322000000_structure_labels_have_explanations.sql'
 const before = readFileSync(file, 'utf8')
 const ir = JSON.parse(readFileSync('references/ir-schema.json', 'utf8'))
 const contracts = serverWriteContracts()

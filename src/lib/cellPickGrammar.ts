@@ -6,53 +6,9 @@ import type {
 } from '@/types/blueprintCellDetail'
 
 /**
- * What a modifier means when a cell is clicked.
- *
- * One function, so the answer cannot differ between the cell button, the
- * marquee and anything added later. It was previously spread across three
- * call sites with slightly different opinions, which is exactly how a
- * selection grammar becomes "messy": every gesture was individually
- * defensible and no two agreed.
- *
- * ## The grammar, and where it departs from Figma
- *
- * | gesture              | Figma (canvas)     | here                        |
- * | -------------------- | ------------------ | --------------------------- |
- * | click                | replace            | **toggle**                  |
- * | ⇧ click              | add / toggle       | **range** from the anchor   |
- * | ⌘ / ctrl click       | deep-select child  | **open the detail panel**   |
- * | double click         | enter/edit         | nothing (two toggles)       |
- * | ⇧ drag (marquee)     | add to selection   | add                         |
- * | drag (marquee)       | replace            | replace                     |
- * | click empty canvas   | clear              | **nothing**                 |
- *
- * The departures share one reason: this selection is a **set being
- * assembled** over minutes, with exactly one verb at the end of it — make a
- * slice. Figma's grammar assumes the opposite, a selection that is the
- * subject of the next of many verbs, held for seconds.
- *
- * - **Click toggles rather than replaces.** Replace-on-click means the set can
- *   never be built by clicking; it can only be built by holding a modifier for
- *   every cell after the first, which nothing tells you.
- * - **Empty canvas does not clear.** A miss between two cells would throw away
- *   minutes of work gathered across blueprints. The ✕ in the bar clears.
- * - **⌘-click opens the detail panel, and double-click means nothing.**
- *   Opening a cell needs a deliberate gesture while plain clicks pick, and
- *   double-click cannot be that gesture in a toggle grammar: click-in,
- *   click-out *is* a fast double-click, so the two are indistinguishable by
- *   construction — reading a cell kept flipping its membership. A held
- *   modifier cannot be produced by clicking fast. Right-click → "View cell
- *   detail" is the discoverable route to the same place.
- *
- * Unpicking is always the same gesture as picking: click a picked cell and it
- * leaves. `range` is the one mode that cannot unpick, which is correct — a
- * range is a reach, not a toggle, and Figma's shift-range does not unpick
- * either.
- *
- * The detail panel follows the same rule as of this change: a bare click on
- * the cell the panel is already showing closes it (`detailClickCloses`). One
- * gesture, one meaning — "click a thing that is already on to turn it off" —
- * rather than the panel being the single surface you could only leave via ✕.
+ * Normal clicks open the detail panel. Make slice explicitly takes over cell
+ * clicks: click toggles membership, Shift extends a range, and Cmd/Ctrl opens
+ * a panel without changing the slice. Clearing or Escape leaves that tool.
  */
 export type ClickModifiers = {
   shiftKey: boolean
@@ -147,5 +103,5 @@ export function clickPicks(
   plainClick: boolean,
 ): boolean {
   if (clickOpensDetail(event)) return false
-  return plainClick || event.shiftKey
+  return plainClick
 }

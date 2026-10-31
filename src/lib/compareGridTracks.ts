@@ -1,3 +1,4 @@
+import { STRUCTURE_SEAM_ID } from '@/lib/structureDraftPreview'
 import type { CompareModel } from '@/lib/compareSlots'
 import type { BlueprintData } from '@/types/blueprint'
 
@@ -13,6 +14,7 @@ import type { BlueprintData } from '@/types/blueprint'
 /** One canonical step column. */
 export type CompareGridColumn = {
   key: string
+  seamSize?: number
   label: string
   summary?: string | null
   /** This column's backing step id per path — absent path ⇒ inert spacer. */
@@ -42,6 +44,7 @@ export function buildCompareGridTracks(
             key: `${blueprint.path.id}:${step.id}`,
             label: step.name,
             ...(step.summary !== undefined ? { summary: step.summary } : {}),
+            seamSize: step.seamSize,
             stepIdByPath: { [blueprint.path.id]: step.id },
             divergent: false,
           }),
@@ -49,17 +52,60 @@ export function buildCompareGridTracks(
     )
   }
 
-  const summaries = new Map(blueprints.flatMap(board => board.steps.map(step => [step.id, step.summary] as const)))
-  return model.columns.map(
-    (column): CompareGridTrack => {
-      const summary = summaries.get(Object.values(column.stepIdByPath)[0])
-      return ({
+  const summaries = new Map(
+    blueprints.flatMap((board) =>
+      board.steps.map((step) => [step.id, step.summary] as const),
+    ),
+  )
+  const tracks = model.columns.map((column): CompareGridTrack => {
+    const summary = summaries.get(Object.values(column.stepIdByPath)[0])
+    return {
       kind: 'column',
       key: column.columnKey,
       label: column.label,
       ...(summary !== undefined ? { summary } : {}),
+      seamSize: blueprints
+        .flatMap((board) => board.steps)
+        .find((step) => Object.values(column.stepIdByPath).includes(step.id))
+        ?.seamSize,
       stepIdByPath: column.stepIdByPath,
       divergent: column.verdict !== 'shared',
-    }) },
+    }
+  })
+  // A hover must not participate in content matching: its empty cells would
+  // rematch canonical moments and move the opener. Insert into the stable axis.
+  const seamBoard = blueprints.find((board) =>
+    board.steps.some((step) => step.seamSize !== undefined),
   )
+  const seamIndex =
+    seamBoard?.steps.findIndex((step) => step.seamSize !== undefined) ?? -1
+  if (seamBoard && seamIndex >= 0) {
+    const seam = seamBoard.steps[seamIndex]
+    const next = seamBoard.steps[seamIndex + 1]
+    const previous = seamBoard.steps[seamIndex - 1]
+    const at = next
+      ? tracks.findIndex((track) =>
+          Object.values(track.stepIdByPath).includes(next.id),
+        )
+      : previous
+      ? tracks.findIndex((track) =>
+          Object.values(track.stepIdByPath).includes(previous.id),
+        ) + 1
+      : 0
+    tracks.splice(at < 0 ? tracks.length : at, 0, {
+      kind: 'column',
+      key: STRUCTURE_SEAM_ID,
+      label: seam.name,
+      seamSize: seam.seamSize,
+      divergent: false,
+      stepIdByPath: Object.fromEntries(
+        blueprints
+          .filter((board) =>
+            board.steps.some((step) => step.seamSize !== undefined),
+          )
+          .map((board) => [board.path.id, STRUCTURE_SEAM_ID]),
+      ),
+    })
+  }
+  return tracks
 }

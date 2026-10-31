@@ -55,7 +55,7 @@ export type ToolUi = {
   focusCell: (cellId: string) => Promise<string>
   openCellPanel: (cellId: string) => Promise<string>
   setSidebar: (collapsed: boolean) => string
-  setCanvasMode: (mode: 'view' | 'design') => void
+  setCanvasMode: (mode: 'view' | 'design') => boolean | void
   annotateCells: (cellIds: string[], note?: string) => string
   /** The live UI state the shells report, as text; empty when nothing is. */
   uiState: () => string

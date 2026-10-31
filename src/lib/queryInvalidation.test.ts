@@ -242,3 +242,18 @@ describe('a revert', () => {
     expect(invalidated).toEqual([queryKeys.slices.prefix, queryKeys.slice.of('sl1')])
   })
 })
+
+for (const kind of ['step','lane'] as const) {
+  it(`refreshes the ${kind} editor after an atomic save and its undo`,async()=>{
+    const api=await import('./authoringRpc')
+    const previous=kind==='step' ? {step_id:'step',name:'Start',summary:null} : {lane_id:'lane',name:'Actor',rows:[]}
+    const client=fakeClient([],previous)
+    if(kind==='step')await api.updateStepWithDetails(client,{stepId:'step',name:'Review',summary:'Check the request.'})
+    else await api.updateLaneWithDetails(client,{laneId:'lane',laneIds:['lane'],name:'Reviewer',ownerTeam:'Operations',stakeholderId:null,kpis:[],tools:[]})
+    const expected=['<structure>',kind==='step' ? queryKeys.stepSpec.prefix : queryKeys.laneSpec.prefix]
+    expect(invalidated).toEqual(expected)
+    invalidated.length=0
+    await executeRevert(client,sessionSnapshot().at(-1)!)
+    expect(invalidated).toEqual(expected)
+  })
+}

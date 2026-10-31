@@ -14,7 +14,7 @@ try {
     run('psql', ['-X', '-q', '-v', 'ON_ERROR_STOP=1', '-d', database, '-f', file])
   const psql = ['-X', '-q', '-v', 'ON_ERROR_STOP=1', '-d', database]
   const original = run('psql', [...psql, '-Atc', "select pg_get_functiondef('public.is_service_account()'::regprocedure)"])
-  const recipe = partition(readFileSync('supabase/migrations/21000311000000_a_proposal_is_a_validated_tool_call.sql', 'utf8')).recipe.join('\n')
+  const recipe = partition(readFileSync('supabase/migrations/21000316000000_a_proposal_is_a_validated_tool_call.sql', 'utf8')).recipe.join('\n')
   for (const allowed of [true, false]) {
     run('psql', psql, `create or replace function public.is_service_account() returns boolean language sql stable as $$ select ${allowed} $$;`)
     run('psql', psql, recipe)

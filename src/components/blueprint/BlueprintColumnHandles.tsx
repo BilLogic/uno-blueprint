@@ -1,24 +1,41 @@
-import { BLUEPRINT_INSERT_HIT_HALF } from '@/lib/blueprintLayout'
-import { useLayoutEffect, useState, type RefObject } from 'react'
-import { Plus } from 'lucide-react'
-import { IconTooltip } from '@/components/editor/IconTooltip'
+import { useCanvasScale } from '@/contexts/CanvasScaleContext'
+import { COMPARE_STEP_HEADER_HEIGHT } from '@/lib/sideBySideCompareLayout'
+import { STEP_COLUMN_GAP } from '@/lib/blueprintLayout'
+import { STRUCTURE_SEAM_ID } from '@/lib/structureDraftPreview'
+
+import { useEffect, useLayoutEffect, useState, type RefObject } from 'react'
+import { useEntityDetail } from '@/contexts/EntityDetailContext'
+import { StructureInsert, STRUCTURE_INSERT_SIZE } from './StructureInsert'
 import { useAtScenarioLevel } from '@/contexts/EditorContext'
 import { useCanvasModeValue } from '@/contexts/canvasModeContext'
 import { useCellPick } from '@/contexts/cellPickContext'
 import { useSupabase } from '@/contexts/SupabaseProvider'
-import { addStep } from '@/lib/authoringRpc'
-import { reportWriteFailure } from '@/lib/writeFailures'
 
-type Step = { id: string; name: string }
-type Column = { left: number; width: number }
+type Step = {
+  id: string
+  name: string
+  position: number
+  seamSize?: number
+  pathId?: string
+  pathName?: string
+  pathIds?: string[]
+}
+type Column = {
+  stepIndex: number
+  storedPosition: number
+  left: number
+  width: number
+}
+type Boundary = {
+  stepIndex: number
+  storedPosition: number | undefined
+  x: number
+  centered: boolean
+  hitSize: number
+}
 
 /**
- * Column handles above the grid, in Design mode only.
- *
- * The blueprint has never rendered step names as a header row — steps exist
- * only as column positions for cells — so there was nothing to click to select
- * a column the way a lane label selects a lane. This renders only while Design
- * mode is on, so a reader's view is untouched.
+ * Insertion targets between columns, in Edit mode only.
  *
  * **Positions are measured, not computed**, because the compare grid lays out
  * on CSS subgrid with each path in its own column: there is no single constant
@@ -32,7 +49,7 @@ type Column = { left: number; width: number }
  * and the equality check below stops it from looping.
  */
 export function BlueprintColumnHandles({
-  steps,
+  steps: renderedSteps,
   bodyRef,
   pathId,
 }: {
@@ -41,13 +58,33 @@ export function BlueprintColumnHandles({
   /** The path these columns belong to. Absent disables inserting. */
   pathId?: string
 }) {
+  const steps = renderedSteps.filter((step) => step.id !== STRUCTURE_SEAM_ID)
+  const scale = useCanvasScale()
   const mode = useCanvasModeValue()
   const atScenarioLevel = useAtScenarioLevel()
   const pick = useCellPick()
   const { client, canWrite } = useSupabase()
+  const [, refreshMeasurements] = useState(0)
+  useEffect(() => {
+    const body = bodyRef.current
+    if (!body || typeof ResizeObserver === 'undefined') return
+    const refresh = () => {
+      if (!document.documentElement.hasAttribute('data-structure-motion'))
+        refreshMeasurements(value => value + 1)
+    }
+    const observer = new ResizeObserver(refresh)
+    observer.observe(body)
+    document.addEventListener('structure-motion-end', refresh)
+    return () => {
+      observer.disconnect()
+      document.removeEventListener('structure-motion-end', refresh)
+    }
+  }, [bodyRef])
   const [columns, setColumns] = useState<Column[]>([])
   const [bodyHeight, setBodyHeight] = useState(0)
-  const [busyAt, setBusyAt] = useState<number | null>(null)
+  const [header, setHeader] = useState<{top:number; lastId?:string}>({top: -COMPARE_STEP_HEADER_HEIGHT})
+  const [seamWidth, setSeamWidth] = useState(0)
+  const { openCreate, selection, seam, setSeam } = useEntityDetail()
   // Scenario level only: at the overview twenty blueprints render at 6%
   // zoom, and an insert handle there is an unaimed weapon.
   const active = mode === 'design' && pick !== null && atScenarioLevel
@@ -76,9 +113,26 @@ export function BlueprintColumnHandles({
     const body = bodyRef.current
     if (!body) return
 
-    const measured = steps.flatMap<Column>((_, stepIndex) => {
+    const currentSeamWidth = (body.querySelector<HTMLElement>('[data-structure-seam-track="step"]')?.getBoundingClientRect().width ?? 0) / scale
+    if (Math.abs(currentSeamWidth-seamWidth)>0.1) setSeamWidth(currentSeamWidth)
+
+    const headers = Array.from(body.closest('[data-structure-board]')?.querySelectorAll<HTMLElement>('[data-blueprint-column-header]') ?? [])
+    const owners = headers.map(node => node.querySelector<HTMLElement>('[data-structure-id]')?.dataset.structureId)
+    const firstHeader = headers[0]
+    const top = firstHeader ? (firstHeader.getBoundingClientRect().top - body.getBoundingClientRect().top) / scale : -COMPARE_STEP_HEADER_HEIGHT
+    const lastId = owners.at(-1)
+    if (Math.abs(top - header.top) > 0.5 || lastId !== header.lastId) setHeader({top, lastId})
+
+    const paths = Array.from(body.closest('[data-structure-board]')?.querySelectorAll<HTMLElement>('[data-structure-path][data-structure-step-ids]') ?? [])
+    const measured = steps.flatMap<Column>((step, stepIndex) => {
+      // A shared column has one header and one insertion trigger, owned by its first displayed path.
+      if (owners.some(Boolean) && !owners.includes(step.id)) return []
+      const owner = paths.find(path => path.dataset.structureStepIds?.split(' ').includes(step.id))
+      if (owner && owner !== body) return []
       const cell = body.querySelector(
-        `[data-blueprint-cell-anchor][data-step-index="${stepIndex}"]`,
+        `:is([data-structure-column], [data-blueprint-cell-anchor], [data-blueprint-empty-slot])[data-step-index="${renderedSteps.findIndex(
+          (item) => item.id === step.id,
+        )}"]`,
       )
       if (!(cell instanceof HTMLElement)) return []
 
@@ -88,15 +142,25 @@ export function BlueprintColumnHandles({
       let node: HTMLElement | null = cell
       while (node && node !== body) {
         left += node.offsetLeft
-        node = node.offsetParent instanceof HTMLElement ? node.offsetParent : null
+        node =
+          node.offsetParent instanceof HTMLElement ? node.offsetParent : null
       }
-      return [{ left, width: cell.offsetWidth }]
+      return [
+        {
+          stepIndex,
+          storedPosition: step.position,
+          left,
+          width: cell.offsetWidth,
+        },
+      ]
     })
 
     const changed =
       measured.length !== columns.length ||
       measured.some(
         (column, index) =>
+          column.stepIndex !== columns[index]?.stepIndex ||
+          column.storedPosition !== columns[index]?.storedPosition ||
           column.left !== columns[index]?.left ||
           column.width !== columns[index]?.width,
       )
@@ -106,121 +170,124 @@ export function BlueprintColumnHandles({
 
   /**
    * Where a new column could go: before the first, between each pair, after
-   * the last. `at_position` is the index the new step takes, so boundary `i`
-   * and position `i` are the same number.
+   * the last. The array index is not a stored position: imported paths can
+   * start at one or leave gaps. Each measurement retains its original step
+   * index and stored position even when another step has no measurable cell.
    */
-  const boundaries = columns.map((column, index) => {
-    const previous = columns[index - 1]
-    const x = previous
-      ? (previous.left + previous.width + column.left) / 2
-      : column.left
-    return { at: index, x }
-  })
-  const last = columns[columns.length - 1]
-  if (last) boundaries.push({ at: columns.length, x: last.left + last.width })
-
-  const insertable = canWrite && client !== null && pathId !== undefined
-
-  const insertAt = async (at: number) => {
-    if (!client || !pathId || busyAt !== null) return
-    setBusyAt(at)
-    try {
-      // Unnamed on purpose. A blank trailing column is always a valid grid and
-      // is named in place on the canvas; a dialog here would be a modal asking
-      // for the one thing that is easiest to type where it lands.
-      await addStep(client, { pathId, name: '', atPosition: at })
-    } catch (error) {
-      reportWriteFailure('The step was not added', error)
-    } finally {
-      setBusyAt(null)
+  // Measurements are state from the previous paint. A deletion can publish
+  // fewer steps before the measuring effect runs again.
+  const visibleColumns = columns.filter(
+    (column) => steps[column.stepIndex] !== undefined,
+  )
+  const boundaries: Boundary[] = visibleColumns.map((column) => {
+    const renderedIndex = renderedSteps.findIndex(
+      (step) => step.id === steps[column.stepIndex]?.id,
+    )
+    const previousTrack = renderedSteps[renderedIndex - 1]
+    const seamTrack = previousTrack?.id === STRUCTURE_SEAM_ID
+    const x = seamTrack
+      ? column.left - seamWidth / (column.stepIndex > 0 ? 2 : 1) - STEP_COLUMN_GAP
+      : column.left - (column.stepIndex > 0 ? STEP_COLUMN_GAP / 2 : 0)
+    return {
+      hitSize: Math.min(44,(column.width + STEP_COLUMN_GAP)*scale/2),
+      stepIndex: column.stepIndex,
+      storedPosition: column.storedPosition,
+      x,
+      centered: column.stepIndex > 0,
     }
+  })
+  const last = visibleColumns[visibleColumns.length - 1]
+  if (last?.stepIndex === steps.length - 1 && (!header.lastId || steps[last.stepIndex]?.id === header.lastId)) {
+    boundaries.push({
+      hitSize: Math.min(44,(last.width + STEP_COLUMN_GAP)*scale/2),
+      stepIndex: steps.length,
+      storedPosition: undefined,
+      x: last.left + last.width + STEP_COLUMN_GAP,
+      centered: false,
+    })
   }
 
-  if (!active || columns.length === 0) return null
+  const insertable =
+    canWrite &&
+    client !== null &&
+    (pathId !== undefined ||
+      steps.some((step) => {
+        return Boolean(step.pathId)
+      }))
+
+  const draft = selection?.draft
+  if (!active || visibleColumns.length === 0) return null
 
   return (
     <div
       className="pointer-events-none absolute inset-x-0 top-0 z-30"
       data-blueprint-column-handles=""
     >
-      {insertable
-        ? boundaries.map((boundary) => (
-            <IconTooltip
-              key={`insert-${boundary.at}`}
-              label={
-                boundary.at === 0
-                  ? 'Insert a step before this one'
-                  : boundary.at === columns.length
-                    ? 'Add a step at the end'
-                    : 'Insert a step here'
-              }
-            >
-              <button
-                type="button"
-                aria-label={`Insert a step at position ${boundary.at + 1}`}
-                disabled={busyAt !== null}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  void insertAt(boundary.at)
-                }}
-                className="group/insert pointer-events-auto absolute z-40 flex justify-center"
+      {insertable && !draft
+        ? boundaries.map((boundary) => {
+            const target = steps[boundary.stepIndex] ?? steps[steps.length - 1]
+            const targetPath = target.pathId ?? pathId!
+            const previous = steps[boundary.stepIndex - 1]
+            const label = previous
+              ? `Add a step after ${previous.name}`
+              : `Add a step before ${steps[0]?.name ?? 'the first step'}`
+            return (
+              <StructureInsert
+                key={`insert-${target.id}-${boundary.storedPosition ?? 'end'}`}
+                hitSize={boundary.hitSize}
+                scale={scale}
+                extent={seam?.key === `step:${targetPath}:${boundary.storedPosition ?? 'end'}` ? seam.size * scale : 0}
+                indicatorOffset={boundary.centered ? 0 : -STEP_COLUMN_GAP / 2}
+                edge={!boundary.centered}
+                orientation="vertical"
+                label={
+                  target.pathName ? `${label} in ${target.pathName}` : label
+                }
                 style={{
-                  left: boundary.x - BLUEPRINT_INSERT_HIT_HALF,
-                  width: BLUEPRINT_INSERT_HIT_HALF * 2,
-                  top: -32,
-                  height: bodyHeight + 32,
+                  left: seam?.key === `step:${targetPath}:${boundary.storedPosition ?? 'end'}` && boundary.centered
+                    ? `calc(${boundary.x - seamWidth / 2}px + var(--structure-seam-progress, 1) * ${seam.size / 2}px)`
+                    : boundary.x,
+                  top: header.top,
+                  height: COMPARE_STEP_HEADER_HEIGHT,
                 }}
-              >
-                {/* The line is the preview: it shows exactly where the column
-                    lands, full height, before anything is written. */}
-                <span
-                  aria-hidden
-                  className="absolute inset-y-0 w-px bg-primary opacity-0 transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none group-hover/insert:opacity-100 group-focus-visible/insert:opacity-100"
-                />
-                <span
-                  aria-hidden
-                  className="absolute top-0 grid size-4 place-items-center rounded-full bg-primary text-primary-foreground opacity-0 shadow-sm transition-opacity duration-(--motion-micro) ease-arrive motion-reduce:transition-none group-hover/insert:opacity-100 group-focus-visible/insert:opacity-100"
-                >
-                  <Plus className="size-2.5" />
-                </span>
-              </button>
-            </IconTooltip>
-          ))
+                slotStyle={{ top: -header.top, height: bodyHeight }}
+                onOpenChange={(open) => {
+                  const key = `step:${targetPath}:${
+                    boundary.storedPosition ?? 'end'
+                  }`
+                  setSeam((current) =>
+                    open
+                      ? {
+                          kind: 'step',
+                          centered: boundary.centered,
+                          pathId: targetPath,
+                          pathIds: target.pathIds,
+                          atPosition: boundary.storedPosition,
+                          size: STRUCTURE_INSERT_SIZE,
+                          key,
+                        }
+                      : current?.key === key
+                      ? null
+                      : current,
+                  )
+                }}
+                onClick={(opener) =>
+                  openCreate(
+                    {
+                      kind: 'step',
+                      centered: boundary.centered,
+                      pathId: targetPath,
+                      pathIds: target.pathIds,
+                      atPosition: boundary.storedPosition,
+                    },
+                    opener,
+                  )
+                }
+              />
+            )
+          })
         : null}
 
-      {columns.map((column, stepIndex) => (
-        <IconTooltip
-          key={steps[stepIndex]?.id ?? stepIndex}
-          label={`Select the ${steps[stepIndex]?.name ?? 'step'} step`}
-        >
-          <button
-            type="button"
-            aria-label={`Select the ${steps[stepIndex]?.name ?? 'step'} step`}
-            onClick={(event) => {
-              // Scoped to *this* column's blueprint, not the whole canvas: the
-              // overview shows every scenario at once, and a handle that
-              // selected step 1 across all of them would be selecting cells the
-              // user cannot even see.
-              const body = bodyRef.current
-              if (!body) return
-              const cells = Array.from(
-                body.querySelectorAll(
-                  `[data-blueprint-cell][data-blueprint-cell-interactive][data-step-index="${stepIndex}"]`,
-                ),
-              )
-                .map((cell) => cell.getAttribute('data-blueprint-cell'))
-                .filter((id): id is string => id !== null)
-              if (cells.length === 0) return
-              event.stopPropagation()
-              pick.pickMany(cells, event.shiftKey ? 'toggle' : 'add')
-            }}
-            className="pointer-events-auto absolute truncate rounded-md border border-dashed border-muted bg-card/90 px-2 py-1 text-xs font-medium text-muted-foreground shadow-sm transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:border-primary hover:text-foreground"
-            style={{ left: column.left, width: column.width, top: -32 }}
-          >
-            {steps[stepIndex]?.name ?? `Step ${stepIndex + 1}`}
-          </button>
-        </IconTooltip>
-      ))}
     </div>
   )
 }

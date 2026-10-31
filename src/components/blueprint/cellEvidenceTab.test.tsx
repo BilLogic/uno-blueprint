@@ -248,3 +248,10 @@ describe('a saved source', () => {
     expect(view.queryByRole('link')).toBeNull()
   })
 })
+
+it('renders preserved evidence when its cell is detached, without needing a live cell', () => {
+  rows = [source({ id: 'kept-source', cell_id: 'detached-cell', title: 'Retained observation', note: 'The original claim remains traceable.' })]
+  const view = render(<CellEvidenceTab cellId="detached-cell" />)
+  expect(view.getByText('Retained observation')).toBeTruthy()
+  expect(view.getByText('The original claim remains traceable.')).toBeTruthy()
+})

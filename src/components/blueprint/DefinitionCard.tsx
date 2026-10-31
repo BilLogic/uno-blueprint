@@ -1,3 +1,4 @@
+import { HOVER_HINT_DELAY } from '@/lib/hoverIntent'
 import type { ReactElement, RefObject } from 'react'
 import {
   Popover,
@@ -122,7 +123,7 @@ export function DefinitionPopover({
   onOpenChange,
   anchor,
   openOnHover = true,
-  delay = 200,
+  delay = HOVER_HINT_DELAY,
   keepTriggerFocus = false,
 }: {
   sections: DefinitionSection[]

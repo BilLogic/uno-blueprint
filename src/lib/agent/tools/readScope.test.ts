@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
-import { listBlueprint, listStakeholders } from '@/lib/agent/tools/read'
+import { listBlueprint, listStakeholders, listEvidence, getEvidence } from '@/lib/agent/tools/read'
 import type { ServiceScope } from '@/lib/agent/tools/serviceScope'
 
 /*
@@ -46,6 +46,7 @@ function fakeClient(handlers: {
       range() {
         return b
       },
+      limit() { return b },
       then(onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) {
         return Promise.resolve(
           handlers.from ? handlers.from(rec) : { data: [], error: null },
@@ -167,4 +168,17 @@ describe('listStakeholders scope', () => {
     expect(out).toContain('Sales Pipeline')
     expect(out).toContain('service:"all"')
   })
+})
+
+it('reads preserved evidence without joining a detached cell', async () => {
+  const row = { id: 'source', cell_id: 'detached-cell', kind: 'observation', title: 'Retained source', note: 'Original claim', observed_at: null, created_at: '2026-10-27' }
+  const client = fakeClient({ from: (request) => {
+    if (request.table !== 'evidence') throw new Error('There is no live cell')
+    return { data: [row], error: null }
+  } })
+  // The real readers and formatters must tolerate a provenance id whose
+  // cell is temporarily absent; Undo restores that same identity in SQL.
+  expect(await listEvidence(client, 'detached-cell')).toContain('Retained source')
+  expect(await getEvidence(client, ['source'])).toContain('Original claim')
+  expect(readLog(client).every((request) => request.table === 'evidence' && !request.select?.includes('cells('))).toBe(true)
 })

@@ -187,8 +187,9 @@ name collision on a selected path raises `This path already has a lane named
 
 Add Undo requires non-empty matching path maps,
 complete membership coverage for all deleted identities, matching current after
-orders, and non-negative contiguous before positions containing exactly the
-surviving identities. Malformed or incomplete receipts raise
+orders, and before positions containing exactly the surviving identities,
+each a non-negative integer and strictly increasing in array order (the array
+order is the path order; a path numbered from 1 or with gaps is valid). Malformed or incomplete receipts raise
 `This change cannot be undone. Reload the canvas`; a changed order raises
 `This path changed since Add. Reload before undoing this change`. Any cell on a
 new identity, including an empty cell and its attached evidence, resources and

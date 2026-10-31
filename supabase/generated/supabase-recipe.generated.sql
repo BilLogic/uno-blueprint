@@ -2925,3 +2925,16 @@ begin
  or has_table_privilege('authenticated','public.cell_storyboard_receipts','SELECT')
  or has_table_privilege('anon','public.cell_storyboard_receipts','SELECT') then raise exception 'storyboard grants are open'; end if;
 end $storyboard_permissions$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000323000000_undo_of_an_add_keeps_the_numbering_it_found.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- The replacement keeps its grant: authors only.
+do $grants$
+begin
+  if not has_function_privilege('authenticated','public.undo_structure_add(jsonb)','execute')
+    or has_function_privilege('anon','public.undo_structure_add(jsonb)','execute') then
+    raise exception 'undo_structure_add lost its author-only grant';
+  end if;
+end $grants$;

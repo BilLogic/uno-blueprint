@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.8.12
+
+**Undo of an Add works on paths numbered from one.** A deployment whose path
+steps or lanes were numbered 1, 2, 3 (or with gaps) could add a step or lane,
+but every Undo of that Add was refused with "This change cannot be undone.
+Reload the canvas". Undo now restores exactly the numbering the path had.
+
+### Upgrading a deployment
+
+- **Bump the pin and apply one migration:**
+  `21000323000000_undo_of_an_add_keeps_the_numbering_it_found.sql`. It replaces
+  `undo_structure_add` only; grants, signatures and database types are
+  unchanged, and no data moves.
+- **No app or type regeneration is needed.** Adds made before the upgrade keep
+  their receipts; their Undo works once the migration is applied.
+
+### Patch Changes
+
+- 45db919: Undo of an added step or lane works again on paths whose steps or lanes are numbered from 1, or have gaps. Before, the server refused it with "This change cannot be undone. Reload the canvas" on any path not numbered 0, 1, 2, …, and Undo now puts back exactly the numbering the path had.
+
+  Upgrading a deployment: apply migration 21000323000000. No app change, no database-type change and no data backfill are needed.
+
 ## 2.8.11
 
 **Reorder the board and edit its pictures directly.** Dragged lanes and steps
@@ -43,6 +65,7 @@ updated component tooling.
 
   Restore the listed memberships before upgrading. Migration 312 refuses
   with the orphan count and this query; it does not delete content to pass.
+
 - **Custom hosts must provide** the guarded `change_step_path` and
   `undo_step_path_change` operations, plus `read_cell_storyboard`,
   `update_cell_storyboard` and `restore_cell_storyboard`, as specified in
@@ -10946,8 +10969,8 @@ accent: BRAND.accent }, content: { workspaceTitle: coverContent.title } }`. The
   constraint violation rather than as anything the authoring tools had said
   (#204):
 
-                                                                                                                                                                                                                                                                      ERROR: new row for relation "lanes" violates check constraint
-                                                                                                                                                                                                                                                                      "lanes_lane_role_check" … compliance_review
+                                                                                                                                                                                                                                                                        ERROR: new row for relation "lanes" violates check constraint
+                                                                                                                                                                                                                                                                        "lanes_lane_role_check" … compliance_review
 
   That error at least names the value. Meeting it after validation has passed is
   the wrong moment.

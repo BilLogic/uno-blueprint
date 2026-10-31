@@ -1,5 +1,54 @@
 # Changelog
 
+## 2.8.11
+
+**Reorder the board and edit its pictures directly.** Dragged lanes and steps
+keep a landing outline and preview until the saved order appears. Neighbours
+slide into place, and pulling beyond an allowed section or board edge meets
+progressive resistance. Side-panel rails show their bounds and keep items
+inside the permitted section. Reduced motion makes these movements immediate.
+
+Existing step and lane panels now show the same Paths rail as creation. Move
+an item, add a step to another path, or take it off a path with one saved change
+and Undo. Removing saved cells asks first; a step always keeps at least one
+path. Undo refuses to overwrite newer edits.
+
+In canvas Edit mode, storyboard pictures open a compact Picture and Caption
+editor. An empty slot lets you choose the existing cell that owns the picture.
+Other cell properties stay in the cell panel; Name and Summary stay in the
+step panel. Featured images also have a reusable control with Save and Cancel.
+
+Click a cell or lane header to open its panel. Choose Make slice before
+selecting cells; Cmd/Ctrl-click opens panels while that tool is active. Lane
+headers use one neutral fill and no longer select whole rows. Undo notices
+remain reachable above panels and align with the canvas controls.
+
+The database guide now requires the tier recipe and explains the founding
+editor and later viewers. The bundled UI utility stylesheet follows the
+updated component tooling.
+
+### Upgrading a deployment
+
+- **Apply migrations 312 and 313 with the matching app**, then regenerate
+  database types. An installation still on 2.8.9 must also follow the
+  coordinated 309–311 upgrade described under 2.8.10 below.
+- **Check for cells missing their path-step membership before applying 312:**
+
+  ```sql
+  SELECT c.id, c.path_id, c.step_id
+  FROM public.cells c
+  LEFT JOIN public.path_steps ps ON ps.path_id=c.path_id AND ps.step_id=c.step_id
+  WHERE ps.step_id IS NULL;
+  ```
+
+  Restore the listed memberships before upgrading. Migration 312 refuses
+  with the orphan count and this query; it does not delete content to pass.
+- **Custom hosts must provide** the guarded `change_step_path` and
+  `undo_step_path_change` operations, plus `read_cell_storyboard`,
+  `update_cell_storyboard` and `restore_cell_storyboard`, as specified in
+  `docs/connectors/backend-contract.md`. Keep receipts private to the server;
+  their inverses refuse stale state. No storyboard data backfill is required.
+
 ## 2.8.10
 
 **Adding a lane or step opens a panel to name it and place it.** Hovering
@@ -10897,8 +10946,8 @@ accent: BRAND.accent }, content: { workspaceTitle: coverContent.title } }`. The
   constraint violation rather than as anything the authoring tools had said
   (#204):
 
-                                                                                                                                                                                                                                                                    ERROR: new row for relation "lanes" violates check constraint
-                                                                                                                                                                                                                                                                    "lanes_lane_role_check" … compliance_review
+                                                                                                                                                                                                                                                                      ERROR: new row for relation "lanes" violates check constraint
+                                                                                                                                                                                                                                                                      "lanes_lane_role_check" … compliance_review
 
   That error at least names the value. Meeting it after validation has passed is
   the wrong moment.

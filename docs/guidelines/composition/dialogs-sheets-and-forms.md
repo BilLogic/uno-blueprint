@@ -84,12 +84,15 @@ There are two, and the rule is about **whether the control is still on screen**:
 
 `WriteFailureNotices` is mounted **outside** the editor's
 `EditorErrorBoundary` in `App.tsx`, deliberately: a write can fail as the shell
-falls over, and the notice is what says so. It is bottom-centre, dismissed by
+falls over, and the notice is what says so. It sits above the bottom-centre canvas toolbar and is dismissed by
 hand rather than timed out — a write that silently failed is not a thing to take
 away while the user is still looking for what happened — and
-`aria-live="assertive"`, because it is the correction of a belief the user
-already holds. At most three stack; a report that grows
+the alert's assertive announcement corrects a belief the user already holds. Success uses the same Alert surface with a polite status announcement, and its message, Undo and Dismiss share one flex row so the actions remain inside it. Only the latest success offers Undo; older changes remain in the session, and failed-write notices remain visible. At most three notices stack; a report that grows
 without limit buries the canvas under the report of its own trouble.
+
+The shared notice layer sits above non-modal panel drawers. In a narrow canvas
+the centred notice can overlap the panel footer; its Undo and Dismiss controls
+must remain clickable while the panel stays open.
 
 ## The create dialogs
 

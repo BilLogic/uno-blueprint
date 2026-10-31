@@ -934,6 +934,11 @@ const FILL_INK_MARKS: ReadonlyArray<{
   because: string
 }> = [
   {
+    file: 'components/blueprint/StructureInsert.tsx',
+    element: 'Plus',
+    because: 'The seam contains only a plus glyph; primary identifies an insertion mark, with no text painted in the fill colour.',
+  },
+  {
     file: 'components/blueprint/OwnerTagSelect.tsx',
     element: 'Check',
     because:

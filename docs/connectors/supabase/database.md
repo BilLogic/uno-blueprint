@@ -305,13 +305,15 @@ Writes are layered on top for signed-in sessions (`authenticated`):
   `paths.name/summary/note/kind`,
   `scenarios.name/summary/layout`, plus the spec columns — writable directly by `authenticated` under permissive
   update policies.
-- **Optional service-account tier** (`20260818002000`, a recipe you can
-  skip or delete): RESTRICTIVE policies AND an in-function
-  `is_service_account()` guard split `authenticated` into service accounts
-  (edit everything) and regular accounts (view + agent surfaces, no
-  blueprint writes). `anon` is untouched either way. Note that
-  `supabase db reset` applies every file in `supabase/migrations/`, this one
-  included: the split is what you get unless you delete the file.
+- **The service-account tier recipe is required by the migration chain**
+  (`20260818002000`). Keep it: later migrations depend on its configuration
+  table and storage policies. RESTRICTIVE policies and the in-function
+  `is_service_account()` guard separate editors from viewers; `anon` remains
+  read-only. A deployment that wants no configured service accounts leaves
+  `public.service_account_emails` empty. With no service-account emails listed,
+  nobody is enrolled through that list: the founding account becomes an editor
+  and later accounts are viewers. Empty configuration does not disable the
+  guard or give every signed-in person editing rights.
 - **Profile confirmation is an intentional exception to the service-account tier.**
   `approve_suggested_change` and `confirm_cell` allow a caller whose profile
   holds `may_confirm`, including an ordinary account without the service
@@ -327,7 +329,7 @@ Writes are layered on top for signed-in sessions (`authenticated`):
   may*. **Write both when you put a table on the write surface.** A single
   permissive policy whose whole predicate is `is_service_account()` admits
   exactly the same people, and is deliberately not used **on the surface**: it fuses the
-  optional recipe's decision into a base-template policy — correct only
+  recipe's tier decision into a base-template policy — correct only
   because the core seam's default body is `select true`, which nothing at the
   call site shows — and it makes a table whose restriction is *missing*
   (`services`, until `21000212000000`) unreadable from one that never had a
@@ -358,14 +360,13 @@ Writes are layered on top for signed-in sessions (`authenticated`):
   level security was consulted, before the change and after it. The rule has
   two halves and both are worth saying — write BOTH policies when you put a
   table on the write surface, and write NEITHER when you do not.
-- **The first account a project ever has is a service account**
-  (`21000206000000`, part of the same recipe). `service_account_emails`
-  ships empty, so without this a fresh deployment of the tier would have no
-  editor at all and would need a hand-written `update auth.users` to gain
-  one. Every account after the first is governed by the allowlist as
-  before. The client reads the tier by CALLING `is_service_account()`, so
-  deleting the recipe needs no matching client change — see
-  `docs/connectors/backend-contract.md` § Auth contract.
+- **The founding account becomes an editor** (`21000206000000`, part of
+  the same required recipe). It receives the `app_metadata.role = 'service'`
+  claim even when `service_account_emails` is empty; this is the bootstrap
+  editor, independent of list enrollment. Later accounts receive that claim
+  only if their email is listed or an operator assigns it. The client asks
+  `is_service_account()` for editing rights rather than interpreting the
+  claim itself — see `docs/connectors/backend-contract.md` § Auth contract.
 - **Agent-surface tables** (`agent_sessions`, `agent_messages`) are
   reachable only by `authenticated`; the same migration restores the
   findings insert/update grants for in-app agent runs (still ANDed with
@@ -384,7 +385,7 @@ credentials.
 | `20260803001000_slices_origin_allows_human.sql` | Adds `human` to the `slices.origin` vocabulary (in-app authored slices) |
 | `20260818000000_authoring_foundation.sql` | Authoring foundation: `origin` provenance columns, `cells.cell_key` identity, `cells.position` (+ widened uniqueness), deferrable `path_steps` ordering, the deletion archive, direct-column grants for panel edits |
 | `20260818001000_authoring_operations.sql` | Authoring operations: the `SECURITY DEFINER` RPCs (create/duplicate/rename/reorder/delete structure, `upsert_cell`, dependencies) that are the only sanctioned write path for structural shape |
-| `20260818002000_service_account_tier.sql` | OPTIONAL recipe: splits `authenticated` into service accounts (edit everything) and regular accounts (view + agent surfaces) via RESTRICTIVE policies + `is_service_account()` |
+| `20260818002000_service_account_tier.sql` | Required recipe: splits `authenticated` into service accounts (edit everything) and regular accounts (view + agent surfaces) via RESTRICTIVE policies + `is_service_account()` |
 | `20260819000000_agent_surface.sql` | Agent surface: `agent_sessions`/`agent_messages` chat persistence (authenticated-only) and the findings insert/update grants for in-app agent runs |
 | `21000101000000_schema_version_is_a_table.sql` | `schema_version`: one row naming the shape this database carries, so the adapter contract's compatibility check can interrogate a live target |
 | `21000102000000_a_rewriter_for_function_bodies.sql` | Scaffolding for the vocabulary series: rewrites plpgsql bodies a rename left naming the old identifier (restoring ACLs when a signature change forces a drop), renames dependent objects from the catalog, and asserts the old word is gone. Dropped by `21000109000000` |
@@ -398,10 +399,97 @@ credentials.
 | `21000110000000_the_ir_can_author_a_needs_edge.sql` | `schema_version` → `2026.08.26`. No DDL: `cell_dependencies.kind` has existed since `20260729120000`; the IR gained the field that can author it |
 | `21000111000000_propositions_are_the_business_model.sql` | `propositions` → `business_models`, with its constraint, index, policy and trigger names swept from the catalogue rather than listed. `evidence.proposition_question_key` is a permanent exemption and is asserted to survive. `schema_version` → `2026.08.27` |
 | `21000112000000_the_word_boundary_left_five_behind.sql` | Repairs what `\m…\M` could not reach. `set_cell_dependency` named `cell_triggers_source_target_kind_unique` in an `on conflict on constraint`, and `21000103`'s catalogue sweep had renamed that constraint — the body rewrite used a word-boundary pattern, and `_` is a word constituent, so it matched the table reference and not the constraint. Plus three stale comments and one inside a function body. No version bump: nothing about the shape moves |
+| `21000309000000_a_structure_panel_saves_one_change.sql` | Atomic multi-path structure creation and panel saves with captured receipts; 311 completes path-local lane properties and server-captured guarded inverses |
+| `21000310000000_path_orders_are_guarded_permutations.sql` | Path-local identity permutations and exact reorder receipts; legacy name-based reorder becomes a reload refusal |
+| `21000311000000_structure_undo_and_edits_refuse_stale_state.sql` | Expected-order checks under lock, complete Add-Undo membership/content guards, per-path lane properties, guarded server-captured panel/rename inverses and authorized reload stubs for older apps |
+| `21000312000000_step_path_membership_is_guarded_and_reversible.sql` | Guarded existing-step attach/detach, server-only single-use membership receipts, confirmation against saved cell identities/timestamps, complete related-row recovery, and an enforced cell-to-path-step foreign key |
 
-| `21000313000000_a_confirmer_can_start_a_service.sql` | Service structure can be created through the caller-scoped tool gateway |
-| `21000314000000_journey_structure_can_be_named.sql` | Existing services and their initial structure labels can be renamed |
-| `21000315000000_a_service_can_be_read_for_validation.sql` | A caller can read a complete service snapshot for read-only validation |
+Apply 312 with the matching app and regenerate database types. Existing step
+panels now use `change_step_path` and `undo_step_path_change`; custom hosts must
+implement the signatures in [the backend contract](../backend-contract.md#saved-step-membership).
+`structure_membership_receipts` holds the server-captured before/after states
+and any removed cells, placements, resources, dependencies and slide-image
+members. RLS and explicit revokes keep that table inaccessible to API callers.
+Evidence stays intact. Undo refuses newer work and restores identities without
+upserts. The new foreign key validates the existing path-membership rule:
+repair any orphaned cells by restoring their membership before applying 312;
+the migration never deletes content to pass validation.
+
+Preflight before applying 312 (the migration also refuses with the count and
+this query rather than a raw constraint error):
+
+```sql
+SELECT c.id, c.path_id, c.step_id
+FROM public.cells c
+LEFT JOIN public.path_steps ps ON ps.path_id=c.path_id AND ps.step_id=c.step_id
+WHERE ps.step_id IS NULL;
+```
+
+All cell inserts/updates take a membership key-share lock and refuse a missing
+membership with `This step is not on this path. Reload the canvas`. All direct
+membership deletes/key updates, including `set_path_steps`, refuse saved cells
+with `This step has saved cells on this path. Remove its cells explicitly or use
+the confirmed path removal`. Parent deletion and confirmed removal retain their
+explicit deletion semantics.
+
+Evidence is a provenance record, not a cascading cell child. Detach leaves its
+`cell_id` and `cell_key` unchanged; Undo restores the exact cell id and reconnects
+it. The canvas evidence tab reads evidence directly (`useEvidence`), and agent
+`listEvidence` / `getEvidence` format those rows without joining a live cell.
+Slice rendering resolves missing cell ids as tombstones (`resolveSliceCells`);
+presentation snippets say `Removed cell`. The IR and seed export contracts omit
+derived evidence rather than dereferencing it. Panel and agent-reader regression
+tests exercise an absent cell, and the migration proves both its absence during
+detach and the evidence-to-cell join restored by Undo.
+
+Receipt retention: unspent receipts keep their recoverable content until Undo;
+expiring them automatically would silently discard the recovery offered by the
+change sheet. Successful Undo clears the archive and before/after payloads.
+Only the opaque spent identity, timestamps and membership identifiers remain as
+a single-use tombstone; it contains no saved cell content. Tombstones are kept
+as a durable audit of successful recovery, without retaining removed content;
+`reverted` makes an old Undo request refuse. There is no scheduled expiry job.
+
+
+| `21000313000000_a_storyboard_row_saves_its_cell_atomically.sql` | One guarded storyboard cell save and a private, author-owned inverse receipt; restores resource and placement identities and refuses newer edits |
+
+Apply 309–311 together with the matching app; drag reordering does not work
+between those migrations. Regenerate database types afterwards. Reorder callers,
+including custom and host callers, must send `expected_ids`, the complete order
+they saw. The server returns a JSON receipt and refuses a stale expected order.
+Older reorder signatures remain granted to authenticated authors as stubs that
+raise `Reload: the app was updated`; they cannot write. Anonymous callers and
+readers remain refused. The private order helper is not exposed.
+
+Creation saves complete fields, memberships and validated path orders in one
+transaction. `undo_structure_add` verifies every new identity's complete path
+membership, matching current orders and non-negative contiguous before positions;
+it refuses any later cell, preserving its evidence, resources and dependencies.
+Successful Undo removes only the new items and restores the stored order.
+
+Lane names and properties are per path: saving one lane never updates a
+same-named sibling. Panel saves and step/lane renames capture before-values and
+after-values on the server under lock. `restore_step_details` and
+`restore_lane_details` refuse when the current row differs from that receipt's
+after-values. `undo_structure_order` similarly refuses a newer order. Undo
+history captured before this upgrade lacks the required guarded receipt and is
+refused; reload rather than replaying an old inverse. Exact signatures and
+refusals are in [the backend contract](../backend-contract.md#structure-authoring-signatures).
+
+
+Storyboard editing requires migration 313 with the matching app and regenerated
+database types. It adds the guarded aggregate operations in [the backend
+contract](../backend-contract.md#storyboard-cell-authoring-signatures). Private
+`cell_storyboard_receipts` rows are inaccessible to client table queries. They
+remain for the cell's lifetime so a change-sheet Undo has no arbitrary expiry;
+successful Undo consumes its receipt and cell deletion cascades it. Uploaded
+Storage objects are retained on Cancel and Undo, matching the existing
+attachment lifecycle. No deployment data backfill is required.
+
+
+| `21000318000000_a_confirmer_can_start_a_service.sql` | Service structure can be created through the caller-scoped tool gateway |
+| `21000319000000_journey_structure_can_be_named.sql` | Existing services and their initial structure labels can be renamed |
+| `21000320000000_a_service_can_be_read_for_validation.sql` | A caller can read a complete service snapshot for read-only validation |
 
 ## Reserved migration timestamp band
 

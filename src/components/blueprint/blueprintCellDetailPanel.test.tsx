@@ -479,6 +479,17 @@ describe('the new-cell form', () => {
     detail.blueprints = []
   })
 
+  it('does not open the generic cell form for an empty storyboard slot', () => {
+    detail.draftCell = { ...DRAFT, laneName: 'Journey figures', laneRole: 'storyboard' }
+    detail.blueprints[0].lanes[0] = {
+      id: 'lane-1', name: 'Journey figures', role: 'storyboard', position: 0,
+    }
+    render(<BlueprintCellDetailPanel />)
+
+    expect(document.querySelector('[data-stub="cell-panel-editor"]')).toBeNull()
+    expect(screen.queryByText('New cell')).toBeNull()
+  })
+
   it("names the row it is written into with that row's own badge", async () => {
     render(<BlueprintCellDetailPanel />)
     await screen.findByText('New cell')

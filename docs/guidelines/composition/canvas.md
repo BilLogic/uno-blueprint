@@ -1,6 +1,11 @@
 ---
 summary: The board and the chrome around it — click grammar, canvas modes, panel-as-selection, the motion vocabulary, camera behaviour, the phase-row height contract and the touch contract.
 claims:
+  - src/components/blueprint/StructureDragGrip.tsx
+  - src/components/blueprint/canvasStructureReorder.ts
+  - src/components/blueprint/laneInsertSection.ts
+  - src/components/blueprint/canvasStructureDividerGeometry.ts
+  - src/components/blueprint/useCanvasStructureReorder.ts
   - src/components/blueprint/BlueprintArrowMarkerDefs.tsx
   - src/components/blueprint/BlueprintCellButton.tsx
   - src/components/blueprint/BlueprintColumnHandles.tsx
@@ -135,9 +140,13 @@ One grammar for cells, everywhere (the authoritative comment lives in
 - **⌘/Ctrl-click opens the cell detail panel.** Always, on every surface.
   Right-click → "View cell detail" is the discoverable route to the same
   place.
-- **A bare click picks, when a picker is armed** (slice membership, compare
-  selection). No picker armed → a bare click opens the panel — or closes it,
-  when the panel already shows that exact cell (click-in, click-out).
+- **Make slice explicitly arms cell picking.** A bare click toggles a cell
+  into the slice; Shift extends a range. Cmd/Ctrl-click opens cell, lane or
+  step panels without changing the slice. Clear or Escape leaves the tool.
+- **Outside Make slice, a bare click opens the panel** — or closes it,
+  when the panel already shows that exact cell (click-in, click-out). Lane
+  and step headers follow the same panel grammar; lane headers never select
+  a whole row.
 - **Double-click deliberately does nothing.** In a toggle grammar, click-in
   click-out _is_ a fast double-click — indistinguishable by construction —
   and every attempt to give the pair its own meaning turned reading a cell
@@ -246,6 +255,29 @@ owner**: the ✕, Escape, a toggling click, and the agent all go through the
 same `closePanel`; nothing else holds an "is it open" fact. Any new
 affordance that opens or closes the panel calls the owner — a second source
 of truth here is the bug class this rule killed.
+
+The step header opens the step panel: Name and Summary, with no storyboard
+picture row. A storyboard cell opens its own picture panel, identified
+by a **Storyboard** badge and **Step N · step name** in the selected path's
+order. It offers no step editing. The pictures come from the featured images
+of that step's cells in the walkthrough lanes and are edited on those cells;
+the storyboard cell holds nothing of its own. In canvas Edit mode, each existing
+picture opens directly to Picture and optional Caption fields, with its own
+Save and Cancel. Caption stores the cell summary; action text stays in the cell
+panel and never fills a missing caption. View mode is read-only. An existing
+picture offers Change picture and a quiet options menu for Remove picture;
+removing it reveals an Add picture upload tile and any existing image choices.
+Cancel restores the saved picture. Unpictured cells do not add unrelated rows
+to this panel. Clicking an empty storyboard slot opens Add picture with a
+Picture for selector over the step's existing walkthrough cells, followed by
+Picture and optional Caption. It never opens the generic new-cell form or
+creates a cell in the storyboard lane. Switching the chosen cell protects any
+unsaved picture draft; a step without eligible cells explains that one must be
+added in another lane first.
+
+Row headers paint a single neutral content-band wash. Nested name/opening
+controls are transparent, including while their definition is hovered; focus
+and the selected ring use that same padded band.
 
 ## The selected phase
 
@@ -560,3 +592,21 @@ that iOS, where the pointer map already pinches, never applies scale twice.
 What exists on a phone at all is a question for
 [mobile-shell.md](mobile-shell.md), not for this surface: below the gate this
 canvas is not what renders.
+
+### Reorder an axis
+
+Reordering is available in Edit mode when exactly one stacked path is shown. Its step headers and lane labels carry a grip on hover or keyboard focus. A header press holds the current camera. Moving more than five screen pixels lifts its whole column or row along one axis; a dashed landing slot names the destination while the other items slide. Escape cancels the move. A press without movement keeps selection and double-click rename available. Alt with Left or Right moves a step; Alt with Up or Down moves a lane.
+
+During a lane drag the semantic dividers (line of interaction, line of visibility, line of internal interaction) stay fixed. Lanes reorder only inside the section those lines bound; the lift tracks the pointer normally up to the boundary, then permits a small square-root rubber-band pull beyond it. Resistance joins the normal movement smoothly and increases with distance, approaching 24 board pixels without hitting a hard stop. The same response applies at the board’s top and bottom. The ban cursor and bad landing mark the last legal seat; release outside the section saves nothing and springs the lift and neighbours home on one clock (stiffness 300, damping 25). Repeated pulls return from their current position without a parked pause. Reduced motion returns instantly. Step drags use the same resistance at the board’s horizontal edges. Neighbours in the active section slide into the settle preview; other sections dim only after the drag has lifted. Alt with Up or Down moves a lane one seat inside its section, not across a line.
+
+A drop writes one path's complete identity permutation and records one session inverse. The moved item lands at its destination seat with no frame at its old one. Undo restores the captured positions and refuses a path that has changed since that drop. Merged, read mode, several visible paths and an open create draft withhold the grips. Both kinds reorder the displayed path's own identities.
+
+An insertion animates the real grid track and the panel's offset from the same extent on the structural duration and move curve. Dependency arrows fade while their endpoints move and reroute at rest; obstacle routing must not block each animation frame. Reduced motion commits the geometry immediately.
+
+Lane and step pointer hover use one background fill with no outline. Keyboard focus and the selected (`data-open`) ring share that same content-band box: arrow-routing corridors above and below the label are excluded, so a tall storyboard or a row above the line of interaction does not grow an empty outer frame around a second nested wash. The name button has no separate focus ring or hover fill. The corresponding row keeps its continuous, borderless wash, inset by the shared cell-shell spacing. Empty-cell insertion hints use the same inset and a plain plus; their outline appears for keyboard focus. Cell shells retain equal top and bottom padding beside semantic dividers.
+
+Every lane header — including the storyboard strip — carries a reorder grip in Edit mode and may move inside its section between the fixed semantic lines.
+
+A new lane's path-order rail shows only the section in which insertion began. Its read-only bounds name the line of interaction, visibility or internal interaction where present; otherwise they say **Top of the board** and **Bottom of the board**. Each path derives its own section and offers that band's roles. Side-panel rails use firm drag bounds at the list's first and last item so the flat cards stay clear of the read-only divider labels. Step rails label these bounds **Beginning** and **End**. Canvas drags retain their soft overpull. The Undo notice shares the control bar's horizontal centre in the canvas column, with the sidebar open or collapsed.
+
+Insertion detection belongs to the gaps between axis headers, not the cell area. A hovered gap shows a wash-filled header block with a plain plus and opens a separate preview strip inside the path's content frame. The open track is 36 board pixels, with a 28-pixel fill and 4-pixel gutters that scale with the board; growth uses three quarters of the structural duration token (240 ms) and the balanced movement curve, with a 75 ms off-hover grace period. Semantic divider captions retain their own track, with independent header targets above and below. The header block and preview grow with the actual empty track on one motion clock; the plus fades in only once the gap has room for it, and fades out before the gap closes. The preview shows where the new row or column will go and stays clickable while open. Ordinary canvas hover keeps cell creation available, including on entirely empty rows.

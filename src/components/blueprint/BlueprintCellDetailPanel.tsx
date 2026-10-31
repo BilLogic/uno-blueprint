@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { CellInSlicesFooter } from '@/components/blueprint/CellInSlicesFooter'
 import { CellDetailDifferencesSurface } from '@/components/blueprint/CellDetailDifferencesSurface'
+import { StoryboardPictureDraftSurface } from '@/components/blueprint/StoryboardPictureDraftSurface'
 import { CellDetailDraftSurface } from '@/components/blueprint/CellDetailDraftSurface'
 import { CellDetailEmptySurface } from '@/components/blueprint/CellDetailEmptySurface'
 import { CellDetailOverview } from '@/components/blueprint/CellDetailOverview'
@@ -29,6 +30,8 @@ import {
 } from '@/components/blueprint/panelShell'
 import { IconTooltip } from '@/components/editor/IconTooltip'
 import { StoryboardStepDetailStack } from '@/components/blueprint/StoryboardStepDetailStack'
+import { StoryboardCellRows } from '@/components/blueprint/StoryboardCellRows'
+import { resolveStoryboardCellRows } from '@/lib/storyboardWalkthrough'
 import { Button } from '@/components/ui/button'
 import {
   useBlueprintCellDetail,
@@ -345,12 +348,22 @@ function BlueprintCellDetailPanelBody() {
         onCloseRequest={clearSelection}
         onClosed={handleClosed}
       >
-        <CellDetailDraftSurface
-          draft={draft}
-          laneBadge={laneBadge}
-          surfaceSwitcher={surfaceSwitcher}
-          onClose={clearSelection}
-        />
+        {shouldUseStoryboardContent({ name: draft.laneName, role: draft.laneRole }) ? (
+          <StoryboardPictureDraftSurface
+            key={`${draft.pathId}:${draft.stepId}`}
+            draft={draft}
+            rows={selectedBlueprint ? resolveStoryboardCellRows(selectedBlueprint, draft.stepId) : []}
+            canEdit={canEdit}
+            onClose={clearSelection}
+          />
+        ) : (
+          <CellDetailDraftSurface
+            draft={draft}
+            laneBadge={laneBadge}
+            surfaceSwitcher={surfaceSwitcher}
+            onClose={clearSelection}
+          />
+        )}
         {/* The editor portals Create/Cancel here — panel-level footing. */}
         <PanelFooterHost id={CELL_PANEL_FOOTER_ID} />
       </PanelDrawerShell>
@@ -442,6 +455,14 @@ function BlueprintCellDetailPanelBody() {
     })
   }
 
+  // The step number belongs to the selected path, even when this step also
+  // appears elsewhere. The selection supplies a fallback for an unloaded board.
+  const storyboardStepIndex = selectedBlueprint?.steps.findIndex(
+    (step) => step.id === selection.stepId,
+  ) ?? -1
+  const storyboardStepNumber =
+    (storyboardStepIndex >= 0 ? storyboardStepIndex : selection.stepIndex) + 1
+
   return (
     <PanelDrawerShell
       open={drawerOpen}
@@ -476,13 +497,12 @@ function BlueprintCellDetailPanelBody() {
 
         {isStoryboardLane ? (
           <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-4 blueprint-scroll">
-            {/*
-              A storyboard cell titles itself with the STEP, not the lane: the
-              frames below belong to the moment, not to the row they were
-              drawn on.
-            */}
-            <PanelIdentity badge={laneBadge} title={selection.stepName} meta="" />
-            <StoryboardStepDetailStack entries={storyboardStepEntries} />
+            <PanelIdentity
+              badge={<PanelKindBadge label="Storyboard" laneRole={laneResolution?.style.lane} />}
+              title={`Step ${storyboardStepNumber} · ${selection.stepName}`}
+              meta=""
+            />
+            {selectedBlueprint ? <StoryboardCellRows rows={resolveStoryboardCellRows(selectedBlueprint, selection.stepId)} canEdit={canEdit} /> : <StoryboardStepDetailStack entries={storyboardStepEntries} />}
           </div>
         ) : (
           <>

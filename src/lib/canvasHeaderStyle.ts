@@ -1,3 +1,4 @@
+import { HOVER_HINT_DELAY } from './hoverIntent'
 /**
  * One treatment for both canvas header axes.
  *
@@ -67,7 +68,7 @@ export const CANVAS_HEADER_STATE = [
  * beat of intent before it appears, or every pass across the axis pops a
  * card. Short, because it is a rest, not a wait.
  */
-export const CANVAS_HEADER_HOVER_DELAY = 500
+export const CANVAS_HEADER_HOVER_DELAY = HOVER_HINT_DELAY
 
 /*
   THE ⓘ CAME BACK, but only for the reader who has no other way in.

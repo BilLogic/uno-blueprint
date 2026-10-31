@@ -14580,7 +14580,1247 @@ $add_step_runs$;
 -- replay — the two revokes change nothing.
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 21000309000000_a_person_who_talks_to_uno_has_a_profile.sql
+-- 21000309000000_a_structure_panel_saves_one_change.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- Authored 2026-10-22. A structure panel saves its fields and path orders together.
+
+create or replace function public.rename_step_name(step_id uuid, new_name text)
+returns void language plpgsql security definer
+set search_path to 'public', 'pg_catalog', 'pg_temp' as $$
+begin
+  if not public.is_service_account() then
+    raise exception 'This account cannot edit the blueprint' using errcode = '42501';
+  end if;
+  if nullif(trim(new_name), '') is null then raise exception 'A step needs a name'; end if;
+  update public.steps set name = trim(new_name) where id = step_id;
+  if not found then raise exception 'That step no longer exists'; end if;
+end $$;
+
+create function public.require_structure_author() returns void
+language plpgsql set search_path to 'public','pg_catalog','pg_temp' as $$
+begin
+  if not public.is_service_account() then
+    raise exception 'This account cannot edit the blueprint' using errcode='42501';
+  end if;
+end $$;
+
+create function public.check_structure_draft_order(current_ids uuid[], requested jsonb)
+returns void language plpgsql set search_path to 'public','pg_catalog','pg_temp' as $$
+begin
+  if jsonb_typeof(requested) is distinct from 'array' then
+    raise exception 'Reload this path and include every item exactly once, plus the new item';
+  end if;
+  if jsonb_array_length(requested) <> coalesce(cardinality(current_ids),0)+1
+    or (select count(*) from jsonb_array_elements_text(requested) x where x='new') <> 1
+    or (select count(distinct x) from jsonb_array_elements_text(requested) x) <> jsonb_array_length(requested)
+    or exists(select 1 from jsonb_array_elements_text(requested) x where x <> 'new' and not x = any(coalesce(current_ids,'{}')::text[])) then
+    raise exception 'Reload this path and include every item exactly once, plus the new item';
+  end if;
+end $$;
+
+create function public.add_step_with_details(
+  path_id uuid, name text, path_orders jsonb, summary text default null
+) returns jsonb language plpgsql security definer
+set search_path to 'public','pg_catalog','pg_temp' as $$
+declare sc uuid; p uuid; requested jsonb; ids uuid[]; new_id uuid; snapshot jsonb := '{}'; after_orders jsonb := '{}'; f jsonb;
+begin
+  perform public.require_structure_author();
+  if nullif(trim(name),'') is null then raise exception 'Enter a name'; end if;
+  select scenario_id into sc from public.paths where id=add_step_with_details.path_id;
+  if not found then raise exception 'That path no longer exists. Reload and choose a path'; end if;
+  if jsonb_typeof(path_orders) is distinct from 'object' or path_orders='{}' or not path_orders ? path_id::text then
+    raise exception 'Choose at least the path where you opened the new step';
+  end if;
+  perform 1 from public.paths where scenario_id=sc order by id for update;
+  for p,requested in select key::uuid,value from jsonb_each(path_orders) order by key loop
+    if not exists(select 1 from public.paths where id=p and scenario_id=sc) then raise exception 'Choose paths in the same scenario'; end if;
+    perform 1 from public.path_steps where path_steps.path_id=p order by step_id for update;
+    select array_agg(step_id order by position),coalesce(jsonb_agg(jsonb_build_object('id',step_id,'position',position) order by position),'[]') into ids,f from public.path_steps where path_steps.path_id=p;
+    perform public.check_structure_draft_order(ids,requested);
+    snapshot := snapshot || jsonb_build_object(p,f);
+  end loop;
+  new_id := public.add_step(path_id,trim(name),null::integer);
+  update public.steps set summary=nullif(trim(add_step_with_details.summary),'') where id=new_id;
+  for p,requested in select key::uuid,value from jsonb_each(path_orders) order by key loop
+    if not exists(select 1 from public.path_steps where path_steps.path_id=p and step_id=new_id) then
+    insert into public.path_steps(path_id,step_id,position)
+      select p,new_id,coalesce(max(position)+1,0) from public.path_steps where path_steps.path_id=p;
+    end if;
+    update public.path_steps ps set position=q.ordinality-1
+      from jsonb_array_elements_text(requested) with ordinality q(id,ordinality)
+      where ps.path_id=p and ps.step_id=case when q.id='new' then new_id else q.id::uuid end;
+    select jsonb_agg(jsonb_build_object('id',step_id,'position',position) order by position) into f from public.path_steps where path_steps.path_id=p;
+    after_orders := after_orders || jsonb_build_object(p,f);
+  end loop;
+  return jsonb_build_object('kind','step','ids',jsonb_build_array(new_id),'before',snapshot,'after',after_orders);
+end $$;
+
+create function public.add_lane_with_details(
+  scenario_id uuid, name text, lane_role text, path_orders jsonb, details jsonb default '{}'
+) returns jsonb language plpgsql security definer
+set search_path to 'public','pg_catalog','pg_temp' as $$
+declare p uuid; requested jsonb; ids uuid[]; new_id uuid; created uuid[] := '{}'; by_path jsonb := '{}'; snapshot jsonb := '{}'; after_orders jsonb := '{}'; rows jsonb;
+begin
+  perform public.require_structure_author();
+  if nullif(trim(name),'') is null then raise exception 'Enter a name'; end if;
+  if nullif(trim(lane_role),'') is null then raise exception 'Choose a role'; end if;
+  if jsonb_typeof(path_orders) is distinct from 'object' or path_orders='{}' then raise exception 'Choose at least one path'; end if;
+  if jsonb_typeof(coalesce(details->'kpis','[]')) <> 'array' or jsonb_typeof(coalesce(details->'tools','[]')) <> 'array' then raise exception 'KPIs and tools must be lists'; end if;
+  perform 1 from public.paths where paths.scenario_id=add_lane_with_details.scenario_id order by id for update;
+  for p,requested in select key::uuid,value from jsonb_each(path_orders) order by key loop
+    if not exists(select 1 from public.paths where id=p and paths.scenario_id=add_lane_with_details.scenario_id) then raise exception 'Choose paths in the same scenario'; end if;
+    perform 1 from public.lanes where lanes.path_id=p order by id for update;
+    if exists(select 1 from public.lanes where lanes.path_id=p and lower(trim(lanes.name))=lower(trim(add_lane_with_details.name))) then
+      raise exception 'This path already has a lane named %. Choose another name or untick this path',trim(name);
+    end if;
+    select array_agg(id order by position),coalesce(jsonb_agg(jsonb_build_object('id',id,'position',position) order by position),'[]') into ids,rows from public.lanes where lanes.path_id=p;
+    perform public.check_structure_draft_order(ids,requested);
+    snapshot := snapshot || jsonb_build_object(p,rows);
+    insert into public.lanes(path_id,name,lane_role,position,owner_team,stakeholder_id,kpis,tools,origin)
+    values(p,trim(name),lane_role,coalesce((select max(position)+1 from public.lanes where lanes.path_id=p),0),nullif(trim(details->>'owner_team'),''),nullif(details->>'stakeholder_id','')::uuid,coalesce(details->'kpis','[]'),coalesce(details->'tools','[]'),'app') returning id into new_id;
+    created := array_append(created,new_id);
+    by_path := by_path || jsonb_build_object(p,new_id);
+    update public.lanes l set position=q.ordinality-1 from jsonb_array_elements_text(requested) with ordinality q(id,ordinality)
+      where l.path_id=p and l.id=case when q.id='new' then new_id else q.id::uuid end;
+    select jsonb_agg(jsonb_build_object('id',id,'position',position) order by position) into rows from public.lanes where lanes.path_id=p;
+    after_orders := after_orders || jsonb_build_object(p,rows);
+  end loop;
+  return jsonb_build_object('kind','lane','ids',to_jsonb(created),'by_path',by_path,'before',snapshot,'after',after_orders);
+end $$;
+
+create function public.undo_structure_add(snapshot jsonb) returns void
+language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+declare p uuid; rows jsonb; actual jsonb; ids uuid[];
+begin
+  perform public.require_structure_author();
+  if snapshot->>'kind' not in ('lane','step') or jsonb_typeof(snapshot->'before') is distinct from 'object' then raise exception 'This change cannot be undone. Reload the canvas'; end if;
+  select array_agg(x::uuid) into ids from jsonb_array_elements_text(snapshot->'ids') x;
+  perform 1 from public.paths where id in(select key::uuid from jsonb_each(snapshot->'before')) order by id for update;
+  for p,rows in select key::uuid,value from jsonb_each(snapshot->'after') order by key loop
+    if snapshot->>'kind'='step' then
+      select jsonb_agg(jsonb_build_object('id',step_id,'position',position) order by position) into actual from public.path_steps where path_id=p;
+    else
+      select jsonb_agg(jsonb_build_object('id',id,'position',position) order by position) into actual from public.lanes where path_id=p;
+    end if;
+    if actual is distinct from rows then raise exception 'This path changed since Add. Reload before undoing this change'; end if;
+  end loop;
+  if snapshot->>'kind'='step' then delete from public.steps where id=any(ids);
+  else delete from public.lanes where id=any(ids); end if;
+  for p,rows in select key::uuid,value from jsonb_each(snapshot->'before') loop
+    if snapshot->>'kind'='step' then
+      update public.path_steps ps set position=(q->>'position')::int from jsonb_array_elements(rows) q where ps.path_id=p and ps.step_id=(q->>'id')::uuid;
+    else
+      update public.lanes l set position=(q->>'position')::int from jsonb_array_elements(rows) q where l.path_id=p and l.id=(q->>'id')::uuid;
+    end if;
+  end loop;
+end $$;
+
+-- A lane is one path's row. A later rename must not rewrite its neighbours.
+create or replace function public.rename_lane(lane_id uuid,new_name text) returns void
+language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+declare p uuid;
+begin
+  perform public.require_structure_author();
+  if nullif(trim(new_name),'') is null then raise exception 'Enter a name'; end if;
+  select path_id into p from public.lanes where id=lane_id;
+  if not found then raise exception 'That lane no longer exists'; end if;
+  perform 1 from public.paths where id=p for update;
+  perform 1 from public.lanes where id=lane_id and path_id=p for update;
+  if not found then raise exception 'That lane no longer exists'; end if;
+  if exists(select 1 from public.lanes where path_id=p and id<>lane_id and lower(trim(name))=lower(trim(new_name))) then raise exception 'This path already has that lane name. Choose another name'; end if;
+  update public.lanes set name=trim(new_name) where id=lane_id;
+end $$;
+
+-- Name and properties are one panel save; its result captures the exact inverse.
+create function public.update_step_with_details(step_id uuid, name text, summary text)
+returns jsonb language plpgsql security definer
+set search_path to 'public','pg_catalog','pg_temp' as $$
+declare previous jsonb;
+begin
+  perform public.require_structure_author();
+  if nullif(trim(name),'') is null then raise exception 'Enter a name'; end if;
+  select jsonb_build_object('step_id',s.id,'name',s.name,'summary',s.summary) into previous
+    from public.steps s where s.id=step_id for update;
+  if not found then raise exception 'That step no longer exists'; end if;
+  update public.steps s set name=trim(update_step_with_details.name),summary=nullif(trim(update_step_with_details.summary),'') where s.id=step_id;
+  return previous;
+end $$;
+
+create function public.restore_step_details(snapshot jsonb)
+returns void language plpgsql security definer
+set search_path to 'public','pg_catalog','pg_temp' as $$
+begin
+  perform public.require_structure_author();
+  if nullif(trim(snapshot->>'name'),'') is null then raise exception 'The saved step name is missing'; end if;
+  update public.steps set name=snapshot->>'name',summary=snapshot->>'summary' where id=(snapshot->>'step_id')::uuid;
+  if not found then raise exception 'That step no longer exists'; end if;
+end $$;
+
+create function public.update_lane_with_details(lane_id uuid, lane_ids uuid[], name text, details jsonb)
+returns jsonb language plpgsql security definer
+set search_path to 'public','pg_catalog','pg_temp' as $$
+declare original_name text; sc uuid; p uuid; previous jsonb;
+begin
+  perform public.require_structure_author();
+  if nullif(trim(name),'') is null then raise exception 'Enter a name'; end if;
+  if jsonb_typeof(details->'kpis') is distinct from 'array' or jsonb_typeof(details->'tools') is distinct from 'array' then raise exception 'KPIs and tools must be lists'; end if;
+  select l.name,paths.scenario_id,l.path_id into original_name,sc,p from public.lanes l join public.paths on paths.id=l.path_id where l.id=lane_id;
+  if not found then raise exception 'That lane no longer exists'; end if;
+  perform 1 from public.paths where scenario_id=sc order by id for update;
+  perform 1 from public.lanes where id=any(lane_ids) order by id for update;
+  if not lane_id=any(lane_ids) or cardinality(lane_ids) is distinct from
+    (select count(distinct l.id)::integer from public.lanes l join public.paths on paths.id=l.path_id where l.id=any(lane_ids) and paths.scenario_id=sc and l.name=original_name) then
+    raise exception 'Reload the lane before saving its properties';
+  end if;
+  select jsonb_build_object('lane_id',lane_id,'name',original_name,'rows',jsonb_agg(jsonb_build_object('id',id,'owner_team',owner_team,'stakeholder_id',stakeholder_id,'kpis',kpis,'tools',tools) order by id)) into previous from public.lanes where id=any(lane_ids);
+  perform public.rename_lane(lane_id,name);
+  update public.lanes set owner_team=nullif(trim(details->>'owner_team'),''),stakeholder_id=nullif(details->>'stakeholder_id','')::uuid,kpis=details->'kpis',tools=details->'tools' where id=any(lane_ids);
+  return previous;
+end $$;
+
+create function public.restore_lane_details(snapshot jsonb)
+returns void language plpgsql security definer
+set search_path to 'public','pg_catalog','pg_temp' as $$
+declare row_data jsonb;
+begin
+  perform public.require_structure_author();
+  if jsonb_typeof(snapshot->'rows') is distinct from 'array' then raise exception 'The saved lane properties are missing'; end if;
+  -- The rename uses the same path lock and duplicate-name guard as the forward save.
+  perform public.rename_lane((snapshot->>'lane_id')::uuid,snapshot->>'name');
+  for row_data in select value from jsonb_array_elements(snapshot->'rows') order by value->>'id' loop
+    update public.lanes set owner_team=row_data->>'owner_team',stakeholder_id=nullif(row_data->>'stakeholder_id','')::uuid,kpis=row_data->'kpis',tools=row_data->'tools' where id=(row_data->>'id')::uuid;
+    if not found then raise exception 'A lane no longer exists. Reload before undoing'; end if;
+  end loop;
+end $$;
+
+-- Clear PUBLIC and explicit host defaults before the recipe grants its roles.
+do $acl$
+declare fn regprocedure; role_name text;
+begin
+  for fn in select p.oid::regprocedure from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('require_structure_author','check_structure_draft_order','add_step_with_details','add_lane_with_details','undo_structure_add','rename_step_name','rename_lane','update_step_with_details','update_lane_with_details','restore_step_details','restore_lane_details') loop
+    execute format('revoke all on function %s from public',fn);
+    for role_name in select r.rolname from pg_proc p,lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a join pg_roles r on r.oid=a.grantee where p.oid=fn::oid and a.grantee<>p.proowner loop execute format('revoke all on function %s from %I',fn,role_name); end loop;
+  end loop;
+end $acl$;
+
+-- Atomic write and undo proof; every fixture rolls back.
+do $proof$
+declare svc uuid; ph uuid; sc uuid; a uuid; b uuid; first_step uuid; last_step uuid; outcome jsonb; lanes jsonb; before_order jsonb; before_lanes jsonb; a1 uuid; a2 uuid; b1 uuid; b2 uuid;
+begin
+  perform set_config('request.jwt.claims','{"app_metadata":{"role":"service"}}',true);
+  insert into public.services(name) values('Atomic draft fixture') returning id into svc;
+  insert into public.phases(service_id,name,position) values(svc,'Draft phase',0) returning id into ph;
+  insert into public.scenarios(phase_id,name,position) values(ph,'Draft scenario',0) returning id into sc;
+  insert into public.paths(scenario_id,name,kind) values(sc,'Online','happy') returning id into a;
+  insert into public.paths(scenario_id,name,kind) values(sc,'Phone','variant') returning id into b;
+  first_step := public.add_step(a,'Start',4);
+  last_step := public.add_step(a,'Finish',9);
+  insert into public.path_steps(path_id,step_id,position) values(b,first_step,2),(b,last_step,7);
+  before_order := (select jsonb_agg(jsonb_build_object('path_id',path_id,'step_id',step_id,'position',position) order by path_id,position) from public.path_steps where path_id in(a,b));
+  outcome := public.add_step_with_details(a,'Review',jsonb_build_object(a,jsonb_build_array(last_step,'new',first_step),b,jsonb_build_array(first_step,last_step,'new')), 'Review the request.');
+  if (select count(*) from public.path_steps where step_id=(outcome->'ids'->>0)::uuid) <> 2 then raise exception 'new step did not reach both paths'; end if;
+  if (select summary from public.steps where id=(outcome->'ids'->>0)::uuid) <> 'Review the request.' then raise exception 'step summary missing'; end if;
+  if (select position from public.path_steps where path_id=a and step_id=last_step) <> 0 then raise exception 'existing step did not move'; end if;
+  update public.path_steps set position=99 where path_id=a and step_id=last_step;
+  begin
+    perform public.undo_structure_add(outcome);
+    raise exception 'undo replaced a newer order';
+  exception when raise_exception then if sqlerrm <> 'This path changed since Add. Reload before undoing this change' then raise; end if; end;
+  update public.path_steps set position=0 where path_id=a and step_id=last_step;
+  perform public.undo_structure_add(outcome);
+  if exists(select 1 from public.steps where id=(outcome->'ids'->>0)::uuid) then raise exception 'step undo left the item'; end if;
+  if before_order is distinct from (select jsonb_agg(jsonb_build_object('path_id',path_id,'step_id',step_id,'position',position) order by path_id,position) from public.path_steps where path_id in(a,b)) then raise exception 'undo did not restore exact stored positions'; end if;
+  begin
+    perform public.add_step_with_details(a,'Invalid',jsonb_build_object(a,jsonb_build_array(first_step,'new')));
+    raise exception 'bad order accepted';
+  exception when raise_exception then if sqlerrm <> 'Reload this path and include every item exactly once, plus the new item' then raise; end if; end;
+  if exists(select 1 from public.steps where scenario_id=sc and name='Invalid') then raise exception 'failed order leaked step'; end if;
+  insert into public.lanes(path_id,name,position,lane_role) values(a,'Start actor',3,'frontstage_actions') returning id into a1;
+  insert into public.lanes(path_id,name,position,lane_role) values(a,'End actor',8,'backstage_actions') returning id into a2;
+  insert into public.lanes(path_id,name,position,lane_role) values(b,'Start actor',2,'frontstage_actions') returning id into b1;
+  insert into public.lanes(path_id,name,position,lane_role) values(b,'End actor',7,'backstage_actions') returning id into b2;
+  before_lanes := (select jsonb_agg(jsonb_build_object('id',id,'position',position) order by id) from public.lanes where path_id in(a,b));
+  begin
+    perform public.add_lane_with_details(sc,'Bad order','frontstage_actions',jsonb_build_object(a,jsonb_build_array(a1,a1,'new'),b,jsonb_build_array(b1,b2,'new')));
+    raise exception 'bad lane order accepted';
+  exception when raise_exception then if sqlerrm <> 'Reload this path and include every item exactly once, plus the new item' then raise; end if; end;
+  if exists(select 1 from public.lanes where path_id in(a,b) and name='Bad order') then raise exception 'failed lane order leaked an item'; end if;
+  lanes := public.add_lane_with_details(sc,'Reviewer','frontstage_actions',jsonb_build_object(a,jsonb_build_array(a2,'new',a1),b,jsonb_build_array('new',b2,b1)), '{"owner_team":"Operations"}');
+  if jsonb_array_length(lanes->'ids') <> 2 or (select count(*) from public.lanes where path_id in(a,b) and name='Reviewer' and owner_team='Operations') <> 2 then raise exception 'per-path lane fields missing'; end if;
+  perform public.rename_lane((select id from public.lanes where path_id=a and name='Reviewer'),'Assessor');
+  if (select count(*) from public.lanes where path_id in(a,b) and name='Reviewer') <> 1 then raise exception 'lane rename changed another path'; end if;
+  begin
+    perform public.add_lane_with_details(sc,'reviewer','frontstage_actions',jsonb_build_object(b,jsonb_build_array('new')));
+    raise exception 'duplicate accepted';
+  exception when raise_exception then if sqlerrm not like 'This path already has a lane named %. Choose another name or untick this path' then raise; end if; end;
+  perform public.undo_structure_add(lanes);
+  if before_lanes is distinct from (select jsonb_agg(jsonb_build_object('id',id,'position',position) order by id) from public.lanes where path_id in(a,b)) then raise exception 'lane undo did not restore every row and exact order'; end if;
+  raise exception 'draft proof complete';
+exception when raise_exception then if sqlerrm <> 'draft proof complete' then raise; end if;
+end $proof$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000310000000_path_orders_are_guarded_permutations.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- Authored 2026-10-24. Path orders use complete identity permutations.
+-- Each reorder owns one path and captures the exact inverse.
+drop function public.reorder_steps(uuid,uuid[]);
+-- Earlier recipe grants still name this signature; it remains a refusal, never a name-based write.
+create or replace function public.reorder_lanes(scenario_id uuid, lane_names text[]) returns void
+language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+begin
+  perform public.require_structure_author();
+  raise exception 'Reload: the app was updated';
+end $$;
+
+create function public.apply_structure_order(path_id uuid, kind text, ids uuid[])
+returns jsonb language plpgsql security definer
+set search_path to 'public','pg_catalog','pg_temp' as $$
+declare current_ids uuid[]; before_rows jsonb; after_rows jsonb;
+begin
+  perform public.require_structure_author();
+  if kind not in ('lane','step') or kind is null then raise exception 'Choose lanes or steps to reorder'; end if;
+  perform 1 from public.paths p where p.id=path_id for update;
+  if not found then raise exception 'This path no longer exists. Reload the canvas'; end if;
+  if kind='step' then
+    perform 1 from public.path_steps ps where ps.path_id=apply_structure_order.path_id order by step_id for update;
+    select array_agg(step_id order by position),coalesce(jsonb_agg(jsonb_build_object('id',step_id,'position',position) order by position),'[]') into current_ids,before_rows from public.path_steps ps where ps.path_id=apply_structure_order.path_id;
+  else
+    perform 1 from public.lanes l where l.path_id=apply_structure_order.path_id order by id for update;
+    select array_agg(id order by position),coalesce(jsonb_agg(jsonb_build_object('id',id,'position',position) order by position),'[]') into current_ids,before_rows from public.lanes l where l.path_id=apply_structure_order.path_id;
+  end if;
+  if ids is null or cardinality(ids)<>coalesce(cardinality(current_ids),0)
+    or (select count(distinct id) from unnest(ids) id)<>cardinality(ids)
+    or exists(select 1 from unnest(ids) id where id is null or not id=any(coalesce(current_ids,'{}'))) then
+    raise exception 'Reload this path and include every item exactly once';
+  end if;
+  if kind='step' then
+    update public.path_steps ps set position=q.ordinality-1 from unnest(ids) with ordinality q(id,ordinality) where ps.path_id=apply_structure_order.path_id and ps.step_id=q.id;
+  else
+    update public.lanes l set position=q.ordinality-1 from unnest(ids) with ordinality q(id,ordinality) where l.path_id=apply_structure_order.path_id and l.id=q.id;
+  end if;
+  select coalesce(jsonb_agg(jsonb_build_object('id',id,'position',ordinality-1) order by ordinality),'[]') into after_rows from unnest(ids) with ordinality q(id,ordinality);
+  return jsonb_build_object('kind',kind,'path_id',path_id,'before',before_rows,'after',after_rows);
+end $$;
+
+create function public.reorder_steps(path_id uuid, step_ids uuid[]) returns jsonb
+language sql security definer set search_path to 'public','pg_catalog','pg_temp'
+as $$ select public.apply_structure_order(path_id,'step',step_ids) $$;
+create function public.reorder_lanes(path_id uuid, lane_ids uuid[]) returns jsonb
+language sql security definer set search_path to 'public','pg_catalog','pg_temp'
+as $$ select public.apply_structure_order(path_id,'lane',lane_ids) $$;
+
+create function public.undo_structure_order(snapshot jsonb) returns void
+language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+declare p uuid := (snapshot->>'path_id')::uuid; kind text := snapshot->>'kind'; actual jsonb; ids uuid[];
+begin
+  perform public.require_structure_author();
+  if kind not in ('step','lane') or kind is null or jsonb_typeof(snapshot->'before') is distinct from 'array' or jsonb_typeof(snapshot->'after') is distinct from 'array' then raise exception 'This order cannot be undone. Reload the canvas'; end if;
+  perform 1 from public.paths where id=p for update;
+  if kind='step' then
+    select coalesce(jsonb_agg(jsonb_build_object('id',step_id,'position',position) order by position),'[]') into actual from public.path_steps where path_id=p;
+  else
+    select coalesce(jsonb_agg(jsonb_build_object('id',id,'position',position) order by position),'[]') into actual from public.lanes where path_id=p;
+  end if;
+  if actual is distinct from snapshot->'after' then raise exception 'This path changed since Move. Reload before undoing this change'; end if;
+  select coalesce(array_agg((q->>'id')::uuid),'{}') into ids from jsonb_array_elements(snapshot->'before') q;
+  perform public.apply_structure_order(p,kind,ids);
+  if kind='step' then
+    update public.path_steps ps set position=(q->>'position')::int from jsonb_array_elements(snapshot->'before') q where ps.path_id=p and ps.step_id=(q->>'id')::uuid;
+  else
+    update public.lanes l set position=(q->>'position')::int from jsonb_array_elements(snapshot->'before') q where l.path_id=p and l.id=(q->>'id')::uuid;
+  end if;
+end $$;
+
+-- Clear inherited host grants as well as PUBLIC without requiring host roles in the core.
+do $acl$
+declare fn regprocedure; role_name text;
+begin
+  for fn in select p.oid::regprocedure from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('apply_structure_order','reorder_steps','reorder_lanes','undo_structure_order') loop
+    execute format('revoke all on function %s from public',fn);
+    for role_name in select r.rolname from pg_proc p,lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a join pg_roles r on r.oid=a.grantee where p.oid=fn::oid and a.grantee<>p.proowner loop execute format('revoke all on function %s from %I',fn,role_name); end loop;
+  end loop;
+end $acl$;
+-- Real rows, both kinds, exact undo, malformed orders and reader refusal; all rolled back.
+do $proof$
+declare svc uuid; ph uuid; sc uuid; a uuid; b uuid; first_id uuid; last_id uuid; snapshot jsonb; kind text; ids uuid[];
+begin
+  perform set_config('request.jwt.claims','{"app_metadata":{"role":"service"}}',true);
+  insert into public.services(name) values('Order fixture') returning id into svc;
+  insert into public.phases(service_id,name,position) values(svc,'Phase',0) returning id into ph;
+  insert into public.scenarios(phase_id,name,position) values(ph,'Scenario',0) returning id into sc;
+  insert into public.paths(scenario_id,name,kind) values(sc,'Online','happy') returning id into a;
+  insert into public.paths(scenario_id,name,kind) values(sc,'Phone','variant') returning id into b;
+  foreach kind in array array['step','lane'] loop
+    if kind='step' then
+      first_id := public.add_step(a,'Start',4); last_id := public.add_step(a,'Finish',9);
+      insert into public.path_steps(path_id,step_id,position) values(b,first_id,2),(b,last_id,7);
+      snapshot := public.reorder_steps(a,array[last_id,first_id]);
+    else
+      insert into public.lanes(path_id,name,position) values(a,'Actor',4) returning id into first_id;
+      insert into public.lanes(path_id,name,position) values(a,'System',9) returning id into last_id;
+      snapshot := public.reorder_lanes(a,array[last_id,first_id]);
+    end if;
+    if snapshot->'after'->0->>'id' <> last_id::text then raise exception 'reorder failed'; end if;
+    foreach ids slice 1 in array array[array[first_id,first_id],array[first_id,null::uuid],array[first_id,gen_random_uuid()]] loop
+      begin
+        perform public.apply_structure_order(a,kind,ids);
+        raise exception 'invalid permutation accepted';
+      exception when raise_exception then if sqlerrm <> 'Reload this path and include every item exactly once' then raise; end if; end;
+    end loop;
+    begin
+      perform public.apply_structure_order(a,kind,array[first_id]); raise exception 'partial order accepted';
+    exception when raise_exception then if sqlerrm <> 'Reload this path and include every item exactly once' then raise; end if; end;
+    perform public.undo_structure_order(snapshot);
+    if kind='step' then
+      if (select position from public.path_steps where path_id=a and step_id=first_id) <> 4 or (select position from public.path_steps where path_id=b and step_id=first_id) <> 2 then raise exception 'step undo changed stored positions or another path'; end if;
+    elsif (select position from public.lanes where id=first_id) <> 4 then raise exception 'lane undo changed stored positions'; end if;
+    begin
+      perform public.undo_structure_order(snapshot); raise exception 'stale inverse accepted';
+    exception when raise_exception then if sqlerrm <> 'This path changed since Move. Reload before undoing this change' then raise; end if; end;
+  end loop;
+  raise exception 'order proof complete';
+exception when raise_exception then if sqlerrm <> 'order proof complete' then raise; end if;
+end $proof$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000311000000_structure_undo_and_edits_refuse_stale_state.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- Authored 2026-10-25. Undo must not discard later work or trust unchecked destinations.
+create or replace function public.undo_structure_add(snapshot jsonb) returns void
+language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+declare p uuid; rows jsonb; actual jsonb; ids uuid[]; kind text := snapshot->>'kind'; memberships uuid[]; named_paths uuid[]; n integer;
+begin
+  perform public.require_structure_author();
+  if kind is null or kind not in ('lane','step')
+    or jsonb_typeof(snapshot->'before') is distinct from 'object'
+    or jsonb_typeof(snapshot->'after') is distinct from 'object' or snapshot->'after'='{}'
+    or jsonb_typeof(snapshot->'ids') is distinct from 'array' or snapshot->'ids'='[]'
+    or (select array_agg(key order by key) from jsonb_each(snapshot->'before')) is distinct from
+       (select array_agg(key order by key) from jsonb_each(snapshot->'after')) then
+    raise exception 'This change cannot be undone. Reload the canvas';
+  end if;
+  select array_agg(x::uuid) into ids from jsonb_array_elements_text(snapshot->'ids') x;
+  if cardinality(ids)<>(select count(distinct x) from unnest(ids) x) or array_position(ids,null) is not null then
+    raise exception 'This change cannot be undone. Reload the canvas';
+  end if;
+  select array_agg(key::uuid order by key::uuid) into named_paths from jsonb_each(snapshot->'after');
+  perform 1 from public.paths where id=any(named_paths) order by id for update;
+  if kind='step' then
+    perform 1 from public.steps where id=any(ids) order by id for update;
+    select count(*) into n from public.steps where id=any(ids);
+    select array_agg(distinct path_id order by path_id) into memberships from public.path_steps where step_id=any(ids);
+  else
+    perform 1 from public.lanes where id=any(ids) order by id for update;
+    select count(*) into n from public.lanes where id=any(ids);
+    select array_agg(distinct path_id order by path_id) into memberships from public.lanes where id=any(ids);
+  end if;
+  if n<>cardinality(ids) or memberships is distinct from named_paths then raise exception 'This change cannot be undone. Reload the canvas'; end if;
+  for p,rows in select key::uuid,value from jsonb_each(snapshot->'after') order by key loop
+    if jsonb_typeof(rows) is distinct from 'array' or jsonb_typeof(snapshot->'before'->p::text) is distinct from 'array'
+      or exists(select 1 from jsonb_array_elements(snapshot->'before'->p::text) with ordinality q(value,n)
+        where coalesce(q.value->>'position','') !~ '^(0|[1-9][0-9]*)$'
+           or (q.value->>'position')::numeric is distinct from q.n-1)
+      or (select count(*) from jsonb_array_elements(snapshot->'before'->p::text)) <>
+         (select count(distinct q->>'id') from jsonb_array_elements(snapshot->'before'->p::text) q)
+      or (select array_agg(q->>'id' order by q->>'id') from jsonb_array_elements(snapshot->'before'->p::text) q) is distinct from
+         (select array_agg(q->>'id' order by q->>'id') from jsonb_array_elements(rows) q where not (q->>'id')::uuid=any(ids)) then
+      raise exception 'This change cannot be undone. Reload the canvas';
+    end if;
+    if kind='step' then
+      select coalesce(jsonb_agg(jsonb_build_object('id',step_id,'position',position) order by position),'[]') into actual from public.path_steps where path_id=p;
+    else
+      select coalesce(jsonb_agg(jsonb_build_object('id',id,'position',position) order by position),'[]') into actual from public.lanes where path_id=p;
+    end if;
+    if actual is distinct from rows then raise exception 'This path changed since Add. Reload before undoing this change'; end if;
+  end loop;
+  -- FOR UPDATE on the parent ids also excludes concurrent FK inserts while
+  -- checking dependent content. Even a blank cell is later authored work.
+  if kind='step' then
+    if exists(select 1 from public.cells where step_id=any(ids)) then raise exception 'This step has content since Add. Delete it instead if you mean to'; end if;
+    delete from public.steps where id=any(ids);
+  else
+    if exists(select 1 from public.cells where lane_id=any(ids)) then raise exception 'This lane has content since Add. Delete it instead if you mean to'; end if;
+    delete from public.lanes where id=any(ids);
+  end if;
+  for p,rows in select key::uuid,value from jsonb_each(snapshot->'before') loop
+    if kind='step' then
+      update public.path_steps ps set position=(q->>'position')::int from jsonb_array_elements(rows) q where ps.path_id=p and ps.step_id=(q->>'id')::uuid;
+    else
+      update public.lanes l set position=(q->>'position')::int from jsonb_array_elements(rows) q where l.path_id=p and l.id=(q->>'id')::uuid;
+    end if;
+  end loop;
+end $$;
+
+create or replace function public.update_step_with_details(step_id uuid, name text, summary text)
+returns jsonb language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+declare previous jsonb; after_row jsonb;
+begin
+  perform public.require_structure_author();
+  if nullif(trim(name),'') is null then raise exception 'Enter a name'; end if;
+  select jsonb_build_object('step_id',s.id,'name',s.name,'summary',s.summary) into previous from public.steps s where s.id=step_id for update;
+  if not found then raise exception 'That step no longer exists'; end if;
+  update public.steps s set name=trim(update_step_with_details.name),summary=nullif(trim(update_step_with_details.summary),'') where s.id=step_id returning to_jsonb(s) into after_row;
+  return previous||jsonb_build_object('after',after_row);
+end $$;
+create or replace function public.restore_step_details(snapshot jsonb) returns void
+language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+declare actual jsonb;
+begin
+  perform public.require_structure_author();
+  select to_jsonb(s) into actual from public.steps s where s.id=(snapshot->>'step_id')::uuid for update;
+  if actual is null or actual is distinct from snapshot->'after' then raise exception 'This step changed since your save'; end if;
+  if nullif(trim(snapshot->>'name'),'') is null then raise exception 'The saved step name is missing'; end if;
+  update public.steps set name=snapshot->>'name',summary=snapshot->>'summary' where id=(snapshot->>'step_id')::uuid;
+end $$;
+create or replace function public.update_lane_with_details(lane_id uuid, lane_ids uuid[], name text, details jsonb)
+returns jsonb language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+declare previous jsonb; after_row jsonb; p uuid;
+begin
+  perform public.require_structure_author();
+  if nullif(trim(name),'') is null then raise exception 'Enter a name'; end if;
+  if jsonb_typeof(details->'kpis') is distinct from 'array' or jsonb_typeof(details->'tools') is distinct from 'array' then raise exception 'KPIs and tools must be lists'; end if;
+  select path_id into p from public.lanes where id=lane_id;
+  perform 1 from public.paths where id=p for update;
+  select jsonb_build_object('lane_id',l.id,'name',l.name,'rows',jsonb_build_array(jsonb_build_object('id',l.id,'owner_team',l.owner_team,'stakeholder_id',l.stakeholder_id,'kpis',l.kpis,'tools',l.tools))) into previous from public.lanes l where l.id=lane_id for update;
+  if not found then raise exception 'That lane no longer exists'; end if;
+  -- lane_ids is retained for wire compatibility only; a lane belongs to one path.
+  perform public.rename_lane_checked(lane_id,name);
+  update public.lanes l set owner_team=nullif(trim(details->>'owner_team'),''),stakeholder_id=nullif(details->>'stakeholder_id','')::uuid,kpis=details->'kpis',tools=details->'tools' where l.id=lane_id returning to_jsonb(l) into after_row;
+  return previous||jsonb_build_object('after',after_row);
+end $$;
+create or replace function public.restore_lane_details(snapshot jsonb) returns void
+language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+declare actual jsonb; row_data jsonb; p uuid; target uuid := (snapshot->>'lane_id')::uuid;
+begin
+  perform public.require_structure_author();
+  select path_id into p from public.lanes where id=target;
+  perform 1 from public.paths where id=p for update;
+  select to_jsonb(l) into actual from public.lanes l where l.id=target for update;
+  if actual is null or actual is distinct from snapshot->'after' then raise exception 'This lane changed since your save'; end if;
+  if jsonb_typeof(snapshot->'rows') is distinct from 'array' or jsonb_array_length(snapshot->'rows')<>1 or (snapshot->'rows'->0->>'id')::uuid is distinct from target then raise exception 'The saved lane properties are missing'; end if;
+  row_data:=snapshot->'rows'->0;
+  perform public.rename_lane_checked(target,snapshot->>'name');
+  update public.lanes set owner_team=row_data->>'owner_team',stakeholder_id=nullif(row_data->>'stakeholder_id','')::uuid,kpis=row_data->'kpis',tools=row_data->'tools' where id=target;
+end $$;
+
+-- Renames capture their before-value under the write lock, never from a stale client.
+drop function public.rename_step_name(uuid,text);
+create function public.rename_step_name(step_id uuid,new_name text) returns jsonb
+language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+declare previous jsonb; after_row jsonb;
+begin
+  perform public.require_structure_author();
+  if nullif(trim(new_name),'') is null then raise exception 'Enter a name'; end if;
+  select jsonb_build_object('step_id',s.id,'name',s.name,'summary',s.summary) into previous from public.steps s where s.id=step_id for update;
+  if not found then raise exception 'That step no longer exists'; end if;
+  update public.steps s set name=trim(new_name) where s.id=step_id returning to_jsonb(s) into after_row;
+  return previous||jsonb_build_object('after',after_row);
+end $$;
+-- Keep rename_lane's existing guarded write as a private helper for the panel and inverse.
+alter function public.rename_lane(uuid,text) rename to rename_lane_checked;
+create function public.rename_lane(lane_id uuid,new_name text) returns jsonb
+language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+declare previous jsonb; after_row jsonb; p uuid;
+begin
+  perform public.require_structure_author();
+  select path_id into p from public.lanes where id=lane_id;
+  perform 1 from public.paths where id=p for update;
+  select jsonb_build_object('lane_id',l.id,'name',l.name,'rows',jsonb_build_array(jsonb_build_object('id',l.id,'owner_team',l.owner_team,'stakeholder_id',l.stakeholder_id,'kpis',l.kpis,'tools',l.tools))) into previous from public.lanes l where l.id=lane_id for update;
+  if not found then raise exception 'That lane no longer exists'; end if;
+  perform public.rename_lane_checked(lane_id,new_name);
+  select to_jsonb(l) into after_row from public.lanes l where l.id=lane_id;
+  return previous||jsonb_build_object('after',after_row);
+end $$;
+
+create function public.apply_structure_order(path_id uuid, kind text, ids uuid[], expected_ids uuid[])
+returns jsonb language plpgsql security definer
+set search_path to 'public','pg_catalog','pg_temp' as $$
+declare current_ids uuid[]; before_rows jsonb; after_rows jsonb;
+begin
+  perform public.require_structure_author();
+  if kind not in ('lane','step') or kind is null then raise exception 'Choose lanes or steps to reorder'; end if;
+  perform 1 from public.paths p where p.id=path_id for update;
+  if not found then raise exception 'This path no longer exists. Reload the canvas'; end if;
+  if kind='step' then
+    perform 1 from public.path_steps ps where ps.path_id=apply_structure_order.path_id order by step_id for update;
+    select array_agg(step_id order by position),coalesce(jsonb_agg(jsonb_build_object('id',step_id,'position',position) order by position),'[]') into current_ids,before_rows from public.path_steps ps where ps.path_id=apply_structure_order.path_id;
+  else
+    perform 1 from public.lanes l where l.path_id=apply_structure_order.path_id order by id for update;
+    select array_agg(id order by position),coalesce(jsonb_agg(jsonb_build_object('id',id,'position',position) order by position),'[]') into current_ids,before_rows from public.lanes l where l.path_id=apply_structure_order.path_id;
+  end if;
+  if expected_ids is distinct from coalesce(current_ids,'{}'::uuid[]) then raise exception 'This path changed. Reload and try again'; end if;
+  if ids is null or cardinality(ids)<>coalesce(cardinality(current_ids),0)
+    or (select count(distinct id) from unnest(ids) id)<>cardinality(ids)
+    or exists(select 1 from unnest(ids) id where id is null or not id=any(coalesce(current_ids,'{}'))) then
+    raise exception 'Reload this path and include every item exactly once';
+  end if;
+  if kind='step' then
+    update public.path_steps ps set position=q.ordinality-1 from unnest(ids) with ordinality q(id,ordinality) where ps.path_id=apply_structure_order.path_id and ps.step_id=q.id;
+  else
+    update public.lanes l set position=q.ordinality-1 from unnest(ids) with ordinality q(id,ordinality) where l.path_id=apply_structure_order.path_id and l.id=q.id;
+  end if;
+  select coalesce(jsonb_agg(jsonb_build_object('id',id,'position',ordinality-1) order by ordinality),'[]') into after_rows from unnest(ids) with ordinality q(id,ordinality);
+  return jsonb_build_object('kind',kind,'path_id',path_id,'before',before_rows,'after',after_rows);
+end $$;
+
+create function public.reorder_steps(path_id uuid, step_ids uuid[], expected_ids uuid[]) returns jsonb
+language sql security definer set search_path to 'public','pg_catalog','pg_temp'
+as $$ select public.apply_structure_order(path_id,'step',step_ids,expected_ids) $$;
+create function public.reorder_lanes(path_id uuid, lane_ids uuid[], expected_ids uuid[]) returns jsonb
+language sql security definer set search_path to 'public','pg_catalog','pg_temp'
+as $$ select public.apply_structure_order(path_id,'lane',lane_ids,expected_ids) $$;
+
+create or replace function public.undo_structure_order(snapshot jsonb) returns void
+language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+declare p uuid := (snapshot->>'path_id')::uuid; kind text := snapshot->>'kind'; actual jsonb; ids uuid[];
+begin
+  perform public.require_structure_author();
+  if kind not in ('step','lane') or kind is null or jsonb_typeof(snapshot->'before') is distinct from 'array' or jsonb_typeof(snapshot->'after') is distinct from 'array' then raise exception 'This order cannot be undone. Reload the canvas'; end if;
+  perform 1 from public.paths where id=p for update;
+  if kind='step' then
+    select coalesce(jsonb_agg(jsonb_build_object('id',step_id,'position',position) order by position),'[]') into actual from public.path_steps where path_id=p;
+  else
+    select coalesce(jsonb_agg(jsonb_build_object('id',id,'position',position) order by position),'[]') into actual from public.lanes where path_id=p;
+  end if;
+  if actual is distinct from snapshot->'after' then raise exception 'This path changed since Move. Reload before undoing this change'; end if;
+  select coalesce(array_agg((q->>'id')::uuid),'{}') into ids from jsonb_array_elements(snapshot->'before') q;
+  perform public.apply_structure_order(p,kind,ids,array(select (q->>'id')::uuid from jsonb_array_elements(actual) q));
+  if kind='step' then
+    update public.path_steps ps set position=(q->>'position')::int from jsonb_array_elements(snapshot->'before') q where ps.path_id=p and ps.step_id=(q->>'id')::uuid;
+  else
+    update public.lanes l set position=(q->>'position')::int from jsonb_array_elements(snapshot->'before') q where l.path_id=p and l.id=(q->>'id')::uuid;
+  end if;
+end $$;
+
+
+-- Older apps remain authorized to receive a useful reload refusal, never a write.
+create or replace function public.reorder_steps(path_id uuid, step_ids uuid[]) returns jsonb
+language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+begin
+  perform public.require_structure_author();
+  raise exception 'Reload: the app was updated';
+end $$;
+create or replace function public.reorder_lanes(path_id uuid, lane_ids uuid[]) returns jsonb
+language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+begin
+  perform public.require_structure_author();
+  raise exception 'Reload: the app was updated';
+end $$;
+create or replace function public.reorder_lanes(scenario_id uuid, lane_names text[]) returns void
+language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+begin
+  perform public.require_structure_author();
+  raise exception 'Reload: the app was updated';
+end $$;
+drop function public.apply_structure_order(uuid,text,uuid[]);
+
+-- Explicit ACLs include the renamed helper and overloads; none inherit PUBLIC access.
+do $acl$
+declare fn regprocedure; role_name text;
+begin
+ for fn in select p.oid::regprocedure from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('undo_structure_add','rename_step_name','rename_lane','rename_lane_checked','update_step_with_details','update_lane_with_details','restore_step_details','restore_lane_details','apply_structure_order','reorder_steps','reorder_lanes','undo_structure_order') loop
+  execute format('revoke all on function %s from public',fn);
+  for role_name in select r.rolname from pg_proc p,lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a join pg_roles r on r.oid=a.grantee where p.oid=fn::oid and a.grantee<>p.proowner loop execute format('revoke all on function %s from %I',fn,role_name); end loop;
+ end loop;
+end $acl$;
+-- Real content and concurrent edits must survive Undo; fixtures roll back.
+create function pg_temp.expect_structure_refusal(statement text, message text) returns void
+language plpgsql as $$
+begin
+  begin
+    execute statement;
+    raise exception 'Unexpected success: %',statement using errcode='ZX001';
+  exception when others then
+    if sqlerrm is distinct from message then raise exception 'Expected %, got %',message,sqlerrm; end if;
+  end;
+end $$;
+do $proof$
+declare svc uuid; ph uuid; sc uuid; a uuid; b uuid; s uuid; t uuid; la uuid; lb uuid; added jsonb; saved jsonb; created_id uuid; cell uuid; target_cell uuid; kind text;
+begin
+  perform set_config('request.jwt.claims','{"app_metadata":{"role":"service"}}',true);
+  insert into public.services(name) values('Guarded structure fixture') returning id into svc;
+  insert into public.phases(service_id,name,position) values(svc,'Phase',0) returning id into ph;
+  insert into public.scenarios(phase_id,name,position) values(ph,'Scenario',0) returning id into sc;
+  insert into public.paths(scenario_id,name,kind) values(sc,'Online','happy') returning id into a;
+  insert into public.paths(scenario_id,name,kind) values(sc,'Phone','variant') returning id into b;
+  s:=public.add_step(a,'Start',0); t:=public.add_step(a,'Finish',1);
+  insert into public.path_steps(path_id,step_id,position) values(b,s,0),(b,t,1);
+  insert into public.lanes(path_id,name,lane_role,position) values(a,'Front desk','customer_actions',0) returning id into la;
+  insert into public.lanes(path_id,name,lane_role,position) values(b,'Front desk','customer_actions',0) returning id into lb;
+  added:=public.add_step_with_details(a,'Review',jsonb_build_object(a,jsonb_build_array(s,'new',t),b,jsonb_build_array(s,t,'new')));
+  created_id:=(added->'ids'->>0)::uuid;
+  insert into public.cells(path_id,lane_id,step_id,content) values(a,la,created_id,'New work') returning cells.id into cell;
+  update public.cells set cell_key=cell::text where cells.id=cell;
+  insert into public.evidence(service_id,cell_id,cell_key,kind,title) select svc,cell,c.cell_key,'doc','Later evidence' from public.cells c where c.id=cell;
+  insert into public.resources(cell_id,name,url,position,origin) values(cell,'Later resource','https://example.com/reference',0,'app');
+  insert into public.cells(path_id,lane_id,step_id,content) values(a,la,t,'Existing destination') returning cells.id into target_cell;
+  insert into public.cell_dependencies(source_cell_id,target_cell_id,kind) values(cell,target_cell,'leads_to');
+  perform pg_temp.expect_structure_refusal(format('select public.undo_structure_add(%L::jsonb)',added),'This step has content since Add. Delete it instead if you mean to');
+  if not exists(select 1 from public.cells where cells.id=cell)
+     or not exists(select 1 from public.evidence where cell_id=cell)
+     or not exists(select 1 from public.resources where cell_id=cell)
+     or not exists(select 1 from public.cell_dependencies where source_cell_id=cell) then raise exception 'Add Undo destroyed later content'; end if;
+  delete from public.evidence where cell_id=cell;
+  delete from public.cells where cells.id=cell;
+  perform pg_temp.expect_structure_refusal(format('select public.undo_structure_add(%L::jsonb)',jsonb_set(added,'{after}','{}')),'This change cannot be undone. Reload the canvas');
+  perform pg_temp.expect_structure_refusal(format('select public.undo_structure_add(%L::jsonb)',jsonb_set(added,'{ids}',jsonb_build_array(s))),'This change cannot be undone. Reload the canvas');
+  perform pg_temp.expect_structure_refusal(format('select public.undo_structure_add(%L::jsonb)',(added-'after')||jsonb_build_object('after',jsonb_build_object(a,added->'after'->a::text),'before',jsonb_build_object(a,added->'before'->a::text))),'This change cannot be undone. Reload the canvas');
+  perform pg_temp.expect_structure_refusal(format('select public.undo_structure_add(%L::jsonb)',jsonb_set(added,array['before',a::text,'0','position'],'-1')),'This change cannot be undone. Reload the canvas');
+  perform pg_temp.expect_structure_refusal(format('select public.undo_structure_add(%L::jsonb)',jsonb_set(added,array['before',a::text,'1','position'],'3')),'This change cannot be undone. Reload the canvas');
+  perform public.undo_structure_add(added);
+  added:=public.add_lane_with_details(sc,'Reviewer','customer_actions',jsonb_build_object(a,jsonb_build_array(la,'new')));
+  created_id:=(added->'ids'->>0)::uuid;
+  insert into public.cells(path_id,lane_id,step_id,content) values(a,created_id,s,'New lane work') returning cells.id into cell;
+  perform pg_temp.expect_structure_refusal(format('select public.undo_structure_add(%L::jsonb)',added),'This lane has content since Add. Delete it instead if you mean to');
+  delete from public.cells where cells.id=cell;
+  perform public.undo_structure_add(added);
+  saved:=public.update_step_with_details(s,'Arrival','Initial summary');
+  update public.steps set summary='Newer agent summary' where steps.id=s;
+  perform pg_temp.expect_structure_refusal(format('select public.restore_step_details(%L::jsonb)',saved),'This step changed since your save');
+  if (select summary from public.steps where steps.id=s)<>'Newer agent summary' then raise exception 'Restore lost newer summary'; end if;
+  saved:=public.update_step_with_details(s,'Arrival','Latest summary');
+  perform public.restore_step_details(saved);
+  saved:=public.update_lane_with_details(la,array[la,lb],'Reception','{"owner_team":"Ops","stakeholder_id":null,"kpis":[],"tools":[]}');
+  if exists(select 1 from public.lanes where lanes.id=lb and (name<>'Front desk' or owner_team is not null)) then raise exception 'Lane save changed sibling properties'; end if;
+  update public.lanes set owner_team='Newer team' where lanes.id=la;
+  perform pg_temp.expect_structure_refusal(format('select public.restore_lane_details(%L::jsonb)',saved),'This lane changed since your save');
+  saved:=public.update_lane_with_details(la,array[la],'Reception','{"owner_team":"Latest team","stakeholder_id":null,"kpis":[],"tools":[]}');
+  perform public.restore_lane_details(saved);
+  saved:=public.rename_step_name(s,'Renamed on the server');
+  update public.steps set summary='Newer rename summary' where steps.id=s;
+  perform pg_temp.expect_structure_refusal(format('select public.restore_step_details(%L::jsonb)',saved),'This step changed since your save');
+  saved:=public.rename_lane(la,'Renamed lane');
+  update public.lanes set owner_team='Newer rename owner' where lanes.id=la;
+  perform pg_temp.expect_structure_refusal(format('select public.restore_lane_details(%L::jsonb)',saved),'This lane changed since your save');
+  perform public.reorder_lanes(a,array[la],array[la]);
+  perform pg_temp.expect_structure_refusal(format('select public.reorder_lanes(%L::uuid,%L::uuid[],%L::uuid[])',a,array[la],array[lb]),'This path changed. Reload and try again');
+  saved:=public.reorder_steps(a,array[t,s],array[s,t]);
+  perform pg_temp.expect_structure_refusal(format('select public.reorder_steps(%L::uuid,%L::uuid[],%L::uuid[])',a,array[s,t],array[s,t]),'This path changed. Reload and try again');
+  perform public.reorder_steps(a,array[s,t],array[t,s]);
+  perform pg_temp.expect_structure_refusal(format('select public.undo_structure_order(%L::jsonb)',saved),'This path changed since Move. Reload before undoing this change');
+  -- A later lane reorder invalidates the first move's receipt as well.
+  insert into public.lanes(path_id,name,lane_role,position) values(a,'Second actor','customer_actions',1) returning id into created_id;
+  saved:=public.reorder_lanes(a,array[created_id,la],array[la,created_id]);
+  perform public.reorder_lanes(a,array[la,created_id],array[created_id,la]);
+  perform pg_temp.expect_structure_refusal(format('select public.undo_structure_order(%L::jsonb)',saved),'This path changed since Move. Reload before undoing this change');
+  -- Every fixture above disappears even when this proof passes.
+  raise exception 'structure review proof complete' using errcode='ZX002';
+exception when sqlstate 'ZX002' then null;
+end $proof$;
+drop function pg_temp.expect_structure_refusal(text,text);
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000312000000_step_path_membership_is_guarded_and_reversible.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- Authored 2026-10-26. Existing steps can join or leave a path without losing recoverable content.
+
+-- Refuse before installing the constraint, with a count and a usable finding
+-- query. No existing content is deleted or repaired implicitly.
+create function pg_temp.assert_cell_path_steps() returns void language plpgsql as $$
+declare orphan_count bigint;
+begin
+  select count(*) into orphan_count from public.cells c
+    left join public.path_steps ps on ps.path_id=c.path_id and ps.step_id=c.step_id
+    where ps.step_id is null;
+  if orphan_count>0 then
+    raise exception 'Cannot upgrade: % % off any path-step. Find them with: SELECT c.id, c.path_id, c.step_id FROM public.cells c LEFT JOIN public.path_steps ps ON ps.path_id=c.path_id AND ps.step_id=c.step_id WHERE ps.step_id IS NULL;', orphan_count, case when orphan_count=1 then 'cell sits' else 'cells sit' end;
+  end if;
+end $$;
+select pg_temp.assert_cell_path_steps();
+
+-- Lock the referenced membership before accepting a cell write. This gives
+-- every app, importer and tool caller a readable refusal and closes the race
+-- with a concurrent detach. The deferred FK remains the final invariant.
+-- The caller's cell RLS still authorizes its write. The trigger owns this
+-- lock read because path_steps updates are RPC-only under RLS.
+create or replace function public.cells_validate_path_match() returns trigger
+language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+declare lane_path uuid;
+begin
+  select path_id into lane_path from public.lanes where id=new.lane_id;
+  if lane_path is null then raise exception 'This lane no longer exists. Reload the canvas'; end if;
+  if lane_path<>new.path_id then raise exception 'Choose a lane on this path'; end if;
+  perform 1 from public.path_steps ps where ps.path_id=new.path_id and ps.step_id=new.step_id for key share;
+  if not found then raise exception 'This step is not on this path. Reload the canvas'; end if;
+  return new;
+end $$;
+create function public.path_step_keeps_saved_cells() returns trigger
+language plpgsql set search_path to 'public','pg_catalog','pg_temp' as $$
+begin
+  if tg_op='UPDATE' and new.path_id=old.path_id and new.step_id=old.step_id then return new; end if;
+  -- A parent cascade is intentional deletion; normal remove_step and confirmed
+  -- membership removal delete their cells first. An order-only writer cannot.
+  if exists(select 1 from public.paths where id=old.path_id)
+    and exists(select 1 from public.steps where id=old.step_id)
+    and exists(select 1 from public.cells where path_id=old.path_id and step_id=old.step_id) then
+    raise exception 'This step has saved cells on this path. Remove its cells explicitly or use the confirmed path removal';
+  end if;
+  if tg_op='DELETE' then return old; end if;
+  return new;
+end $$;
+create trigger path_step_keeps_saved_cells before delete or update of path_id,step_id
+  on public.path_steps for each row execute function public.path_step_keeps_saved_cells();
+alter table public.cells add constraint cells_path_step_fkey
+  foreign key (path_id, step_id) references public.path_steps(path_id, step_id)
+  deferrable initially deferred;
+create index cells_path_step_idx on public.cells(path_id, step_id);
+
+-- Only the guarded functions read this memento. A client receives its opaque
+-- identity, never a payload that it could change and hand back as an inverse.
+create table public.structure_membership_receipts (
+  id uuid primary key default gen_random_uuid(),
+  step_id uuid not null,
+  path_id uuid not null,
+  present boolean not null,
+  before_state jsonb not null,
+  after_state jsonb not null,
+  archive jsonb not null,
+  reverted boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create function public.structure_membership_state(p_step uuid, p_path uuid)
+returns jsonb language sql stable set search_path to 'public','pg_catalog','pg_temp' as $$
+  select jsonb_build_object(
+    'step', (select to_jsonb(s) from public.steps s where s.id=p_step),
+    'paths', (select coalesce(jsonb_agg(ps.path_id order by ps.path_id),'[]') from public.path_steps ps where ps.step_id=p_step),
+    'order', (select coalesce(jsonb_agg(ps.step_id order by ps.position),'[]') from public.path_steps ps where ps.path_id=p_path),
+    'positions', (select coalesce(jsonb_agg(jsonb_build_object('step_id',ps.step_id,'position',ps.position) order by ps.position),'[]') from public.path_steps ps where ps.path_id=p_path)
+  )
+$$;
+
+create function public.change_step_path(
+  step_id uuid, path_id uuid, present boolean, at_position integer,
+  expected_ids uuid[], expected_path_ids uuid[], confirmed_cells jsonb default null
+) returns jsonb language plpgsql security definer
+set search_path to 'public','pg_catalog','pg_temp' as $$
+declare
+  prior jsonb; following jsonb; captured jsonb := '{}'; saved_cells jsonb; confirmed_snapshot jsonb;
+  ids uuid[]; ordered uuid[]; new_order uuid[]; memberships uuid[];
+  step_scenario uuid; path_scenario uuid; receipt uuid;
+begin
+  perform public.require_structure_author();
+  -- Same path-first lock order as reorder_steps / undo_structure_order.
+  perform 1 from public.paths p where p.id=change_step_path.path_id for update;
+  select p.scenario_id into path_scenario from public.paths p where p.id=change_step_path.path_id;
+  select s.scenario_id into step_scenario from public.steps s where s.id=change_step_path.step_id for update;
+  if step_scenario is null or path_scenario is null or step_scenario<>path_scenario then
+    raise exception 'That step and path must belong to the same scenario';
+  end if;
+  perform 1 from public.path_steps ps where ps.step_id=change_step_path.step_id order by ps.path_id for no key update;
+  select coalesce(array_agg(ps.step_id order by ps.position),'{}') into ordered from public.path_steps ps where ps.path_id=change_step_path.path_id;
+  select coalesce(array_agg(ps.path_id order by ps.path_id),'{}') into memberships from public.path_steps ps where ps.step_id=change_step_path.step_id;
+  if expected_ids is distinct from ordered or expected_path_ids is distinct from memberships then
+    raise exception 'This path changed. Reload and try again';
+  end if;
+  if present is null or present=(path_id=any(memberships)) then
+    raise exception 'This step changed. Reload and try again';
+  end if;
+  if not present and cardinality(memberships)<=1 then
+    raise exception 'A step must stay on at least one path';
+  end if;
+  prior := public.structure_membership_state(step_id,path_id);
+  if present then
+    if at_position is null or at_position<0 or at_position>cardinality(ordered) then
+      raise exception 'Choose a position on this path';
+    end if;
+    if exists(select 1 from public.cells c where c.path_id=change_step_path.path_id and c.step_id=change_step_path.step_id) then
+      raise exception 'This step already has cells on that path. Reload and try again';
+    end if;
+    new_order := ordered[1:at_position] || array[step_id] || ordered[at_position+1:cardinality(ordered)];
+    insert into public.path_steps(path_id,step_id,position) values(path_id,step_id,cardinality(ordered));
+  else
+    -- Lock the existing cells before capturing any cascade. The membership FK
+    -- keeps new inserts out; these row locks keep edits / new references out.
+    perform 1 from public.cells c where c.path_id=change_step_path.path_id and c.step_id=change_step_path.step_id order by c.id for update;
+    select coalesce(array_agg(c.id order by c.id),'{}'),
+      coalesce(jsonb_agg(jsonb_build_object('id',c.id,'updated_at',c.updated_at) order by c.id),'[]')
+      into ids,saved_cells from public.cells c where c.path_id=change_step_path.path_id and c.step_id=change_step_path.step_id;
+    if cardinality(ids)>0 then
+      if jsonb_typeof(confirmed_cells) is distinct from 'array' then
+        raise exception 'The cells on this step changed. Reload and confirm removing them';
+      end if;
+      select coalesce(jsonb_agg(jsonb_build_object('id',x.id,'updated_at',x.updated_at) order by x.id),'[]')
+        into confirmed_snapshot from jsonb_to_recordset(confirmed_cells) as x(id uuid,updated_at timestamptz);
+      if confirmed_snapshot is distinct from saved_cells then
+        raise exception 'The cells on this step changed. Reload and confirm removing them';
+      end if;
+    end if;
+    perform 1 from public.cell_touchpoints t where t.cell_id=any(ids) order by t.id for update;
+    perform 1 from public.resources t where t.cell_id=any(ids) order by t.id for update;
+    perform 1 from public.cell_dependencies t where t.source_cell_id=any(ids) or t.target_cell_id=any(ids) order by t.id for update;
+    perform 1 from public.slide_images t where t.cell_id=any(ids) order by t.id for update;
+    -- Evidence keeps its provenance identity after a cell is removed. Leave
+    -- it intact; restoring the same cell ids reconnects it without rewriting
+    -- any evidence that somebody edited in the meantime.
+    captured := jsonb_build_object(
+      'cells',(select coalesce(jsonb_agg(to_jsonb(c) order by c.id),'[]') from public.cells c where c.id=any(ids)),
+      'lanes',(select coalesce(jsonb_agg(to_jsonb(l) order by l.id),'[]') from public.lanes l where l.id in(select c.lane_id from public.cells c where c.id=any(ids))),
+      'placements',(select coalesce(jsonb_agg(to_jsonb(t) order by t.id),'[]') from public.cell_touchpoints t where t.cell_id=any(ids)),
+      'resources',(select coalesce(jsonb_agg(to_jsonb(r) order by r.id),'[]') from public.resources r where r.cell_id=any(ids)),
+      'dependencies',(select coalesce(jsonb_agg(to_jsonb(d) order by d.id),'[]') from public.cell_dependencies d where d.source_cell_id=any(ids) or d.target_cell_id=any(ids)),
+      'images',(select coalesce(jsonb_agg(to_jsonb(i) order by i.id),'[]') from public.slide_images i where i.cell_id=any(ids))
+    );
+    delete from public.cells c where c.id=any(ids);
+    delete from public.path_steps ps where ps.path_id=change_step_path.path_id and ps.step_id=change_step_path.step_id;
+    new_order := array_remove(ordered,step_id);
+  end if;
+  update public.path_steps ps set position=q.n-1 from unnest(new_order) with ordinality q(id,n)
+    where ps.path_id=change_step_path.path_id and ps.step_id=q.id;
+  following := public.structure_membership_state(step_id,path_id);
+  insert into public.structure_membership_receipts(step_id,path_id,present,before_state,after_state,archive)
+    values(step_id,path_id,present,prior,following,captured) returning id into receipt;
+  return jsonb_build_object('receipt_id',receipt,'step_id',step_id,'path_id',path_id,'present',present);
+end $$;
+
+create function public.undo_step_path_change(receipt_id uuid) returns void
+language plpgsql security definer set search_path to 'public','pg_catalog','pg_temp' as $$
+declare r public.structure_membership_receipts; prior_order uuid[]; lane_state jsonb;
+begin
+  perform public.require_structure_author();
+  select * into r from public.structure_membership_receipts where id=receipt_id for update;
+  if not found or r.reverted then raise exception 'This path change cannot be undone. Reload the canvas'; end if;
+  perform 1 from public.paths p where p.id=r.path_id for update;
+  perform 1 from public.steps s where s.id=r.step_id for update;
+  perform 1 from public.path_steps ps where ps.step_id=r.step_id order by ps.path_id for no key update;
+  if public.structure_membership_state(r.step_id,r.path_id) is distinct from r.after_state then
+    raise exception 'This step or path changed since your save. Reload before undoing';
+  end if;
+  if exists(select 1 from public.cells c where c.path_id=r.path_id and c.step_id=r.step_id) then
+    raise exception 'This step has content since your save. Remove it explicitly instead';
+  end if;
+  select coalesce(array_agg(x::uuid),'{}') into prior_order from jsonb_array_elements_text(r.before_state->'order') x;
+  if r.present then
+    delete from public.path_steps ps where ps.path_id=r.path_id and ps.step_id=r.step_id;
+  else
+    select coalesce(jsonb_agg(to_jsonb(l) order by l.id),'[]') into lane_state from public.lanes l
+      where l.id in(select (x->>'id')::uuid from jsonb_array_elements(r.archive->'lanes') x);
+    if lane_state is distinct from r.archive->'lanes' then
+      raise exception 'The lanes holding this step changed. Reload before undoing';
+    end if;
+    insert into public.path_steps(path_id,step_id,position) values(r.path_id,r.step_id,cardinality(prior_order));
+    -- No upsert: identity or slot collisions and missing references refuse the
+    -- entire inverse rather than overwriting anything written since detach.
+    begin
+      insert into public.cells select * from jsonb_populate_recordset(null::public.cells,r.archive->'cells');
+      insert into public.cell_touchpoints select * from jsonb_populate_recordset(null::public.cell_touchpoints,r.archive->'placements');
+      insert into public.resources select * from jsonb_populate_recordset(null::public.resources,r.archive->'resources');
+      insert into public.cell_dependencies select * from jsonb_populate_recordset(null::public.cell_dependencies,r.archive->'dependencies');
+      insert into public.slide_images select * from jsonb_populate_recordset(null::public.slide_images,r.archive->'images');
+    exception when unique_violation or foreign_key_violation then
+      raise exception 'Content referenced by this change changed. Reload before undoing';
+    end;
+  end if;
+  -- Restore stored positions too: older paths may have intentional gaps.
+  update public.path_steps ps set position=q.position
+    from jsonb_to_recordset(r.before_state->'positions') q(step_id uuid,position integer)
+    where ps.path_id=r.path_id and ps.step_id=q.step_id;
+  update public.structure_membership_receipts set reverted=true, before_state='{}', after_state='{}', archive='{}' where id=r.id;
+end $$;
+
+-- Real attach, detach, round-trip content and stale-state proofs. No fixture survives.
+create function pg_temp.expect_membership_refusal(statement text, message text) returns void
+language plpgsql as $$
+begin
+  begin
+    execute statement;
+    raise exception 'Unexpected success: %',statement using errcode='ZX001';
+  exception when others then
+    if sqlerrm<>message then raise; end if;
+  end;
+end $$;
+do $proof$
+declare
+  svc uuid; ph uuid; sc uuid; a uuid; b uuid; start_id uuid; review_id uuid; end_id uuid;
+  la uuid; lb uuid; cell uuid; target_cell uuid; placement uuid; resource uuid; edge uuid; ev uuid;
+  slice_id uuid; slide_id uuid; image_id uuid; result jsonb; detached jsonb; proof_order jsonb;
+  members uuid[]; confirmation jsonb; original_cell jsonb; original_resource jsonb; original_target jsonb;
+begin
+  perform set_config('request.jwt.claims','{"app_metadata":{"role":"service"}}',true);
+  insert into public.services(name) values('Path membership fixture') returning id into svc;
+  insert into public.phases(service_id,name,position) values(svc,'Phase',0) returning id into ph;
+  insert into public.scenarios(phase_id,name,position) values(ph,'Scenario',0) returning id into sc;
+  insert into public.paths(scenario_id,name,kind) values(sc,'Online','happy') returning id into a;
+  insert into public.paths(scenario_id,name,kind) values(sc,'Phone','variant') returning id into b;
+  start_id:=public.add_step(a,'Start',0); review_id:=public.add_step(a,'Review',1); end_id:=public.add_step(a,'Finish',2);
+  insert into public.path_steps(path_id,step_id,position) values(b,start_id,0),(b,end_id,3);
+  insert into public.lanes(path_id,name,position,lane_role) values(a,'Actor',0,'customer_actions') returning id into la;
+  insert into public.lanes(path_id,name,position,lane_role) values(b,'Actor',0,'customer_actions') returning id into lb;
+  perform pg_temp.expect_membership_refusal(format('select public.change_step_path(%L,%L,false,0,%L::uuid[],%L::uuid[])',review_id,a,array[start_id,review_id,end_id],array[a]),'A step must stay on at least one path');
+  perform pg_temp.expect_membership_refusal(format('select public.change_step_path(%L,%L,true,1,%L::uuid[],%L::uuid[])',review_id,b,array[end_id,start_id],array[a]),'This path changed. Reload and try again');
+  result:=public.change_step_path(review_id,b,true,1,array[start_id,end_id],array[a]);
+  if (select array_agg(step_id order by position) from public.path_steps where path_id=b)<>array[start_id,review_id,end_id] then raise exception 'Attach lost its requested placement'; end if;
+  perform public.undo_step_path_change((result->>'receipt_id')::uuid);
+  if exists(select 1 from public.path_steps where path_id=b and step_id=review_id) then raise exception 'Attach inverse left membership'; end if;
+  if (select position from public.path_steps where path_id=b and step_id=end_id)<>3 then raise exception 'Attach inverse lost stored positions'; end if;
+  perform pg_temp.expect_membership_refusal(format('select public.undo_step_path_change(%L)',result->>'receipt_id'),'This path change cannot be undone. Reload the canvas');
+  result:=public.change_step_path(review_id,b,true,1,array[start_id,end_id],array[a]);
+  select array_agg(x order by x) into members from unnest(array[a,b]) x;
+  insert into public.cells(path_id,lane_id,step_id,content) values(b,lb,review_id,'Saved review') returning id into cell;
+  insert into public.cells(path_id,lane_id,step_id,content) values(b,lb,end_id,'Saved outcome') returning id into target_cell;
+  insert into public.cell_touchpoints(cell_id,name,position,origin) values(cell,'Counter',0,'app') returning id into placement;
+  insert into public.resources(cell_id,cell_touchpoint_id,name,url,position,origin) values(cell,placement,'Guide','https://example.com/guide',0,'app') returning id into resource;
+  insert into public.cell_dependencies(source_cell_id,target_cell_id,kind) values(cell,target_cell,'leads_to') returning id into edge;
+  update public.cells set cell_key=cell::text where id=cell;
+  insert into public.evidence(service_id,cell_id,cell_key,kind,title) values(svc,cell,(select cell_key from public.cells where id=cell),'observation','Observed review') returning id into ev;
+  insert into public.slices(service_id,kind,title) values(svc,'custom','Saved view') returning id into slice_id;
+  insert into public.slides(slice_id,position,cell_ids,cell_keys) values(slice_id,0,array[cell],array[cell::text]) returning id into slide_id;
+  insert into public.slide_images(slide_id,position,cell_id,image_url) values(slide_id,0,cell,null) returning id into image_id;
+  select to_jsonb(c) into original_target from public.cells c where c.id=target_cell;
+  select to_jsonb(c) into original_cell from public.cells c where c.id=cell;
+  select to_jsonb(r) into original_resource from public.resources r where r.id=resource;
+  perform pg_temp.expect_membership_refusal(format('select public.undo_step_path_change(%L)',result->>'receipt_id'),'This step has content since your save. Remove it explicitly instead');
+  perform pg_temp.expect_membership_refusal(format('select public.change_step_path(%L,%L,false,0,%L::uuid[],%L::uuid[])',review_id,b,array[start_id,review_id,end_id],members),'The cells on this step changed. Reload and confirm removing them');
+  select jsonb_agg(jsonb_build_object('id',c.id,'updated_at',c.updated_at) order by c.id) into confirmation from public.cells c where c.id=cell;
+  perform pg_temp.expect_membership_refusal(format('select public.change_step_path(%L,%L,false,0,%L::uuid[],%L::uuid[],%L::jsonb)',review_id,b,array[start_id,review_id,end_id],members,'[]'),'The cells on this step changed. Reload and confirm removing them');
+  detached:=public.change_step_path(review_id,b,false,0,array[start_id,review_id,end_id],members,confirmation);
+  if exists(select 1 from public.cells where id=cell) or exists(select 1 from public.resources where id=resource) then raise exception 'Detach left live cells or resources'; end if;
+  if not exists(select 1 from public.evidence where id=ev and cell_id=cell) then raise exception 'Detach removed provenance'; end if;
+  if exists(select 1 from public.evidence e join public.cells c on c.id=e.cell_id where e.id=ev) then raise exception 'Detached provenance unexpectedly has a live cell'; end if;
+  update public.lanes set owner_team='New ownership' where id=lb;
+  perform pg_temp.expect_membership_refusal(format('select public.undo_step_path_change(%L)',detached->>'receipt_id'),'The lanes holding this step changed. Reload before undoing');
+  update public.lanes set owner_team=null where id=lb;
+  delete from public.cells where id=target_cell;
+  perform pg_temp.expect_membership_refusal(format('select public.undo_step_path_change(%L)',detached->>'receipt_id'),'Content referenced by this change changed. Reload before undoing');
+  if exists(select 1 from public.cells where id=cell) or exists(select 1 from public.path_steps where path_id=b and step_id=review_id) then raise exception 'Refused inverse leaked restored rows'; end if;
+  insert into public.cells select * from jsonb_populate_record(null::public.cells,original_target);
+  -- A newer path order refuses the inverse, and its own inverse restores it.
+  proof_order:=public.reorder_steps(b,array[end_id,start_id],array[start_id,end_id]);
+  perform pg_temp.expect_membership_refusal(format('select public.undo_step_path_change(%L)',detached->>'receipt_id'),'This step or path changed since your save. Reload before undoing');
+  perform public.undo_structure_order(proof_order);
+  perform public.undo_step_path_change((detached->>'receipt_id')::uuid);
+  if original_cell is distinct from (select to_jsonb(c) from public.cells c where c.id=cell)
+     or original_resource is distinct from (select to_jsonb(r) from public.resources r where r.id=resource)
+     or not exists(select 1 from public.cell_touchpoints where id=placement)
+     or not exists(select 1 from public.cell_dependencies where id=edge)
+     or not exists(select 1 from public.slide_images where id=image_id) then raise exception 'Detach inverse failed to restore exact content and related identities'; end if;
+  if not exists(select 1 from public.evidence e join public.cells c on c.id=e.cell_id where e.id=ev and c.id=cell) then raise exception 'Undo did not reconnect preserved evidence'; end if;
+  if exists(select 1 from public.structure_membership_receipts where id=(detached->>'receipt_id')::uuid and (archive<>'{}' or before_state<>'{}' or after_state<>'{}')) then raise exception 'Spent receipt retained content'; end if;
+  -- A changed row cannot be overwritten by membership Undo either.
+  detached:=public.change_step_path(review_id,b,false,0,array[start_id,review_id,end_id],members,confirmation);
+  update public.steps set summary='A newer summary' where id=review_id;
+  perform pg_temp.expect_membership_refusal(format('select public.undo_step_path_change(%L)',detached->>'receipt_id'),'This step or path changed since your save. Reload before undoing');
+  perform pg_temp.expect_membership_refusal(format('select public.change_step_path(%L,%L,true,1,%L::uuid[],%L::uuid[])',review_id,b,array[start_id,end_id],members),'This path changed. Reload and try again');
+  -- All writers, including legacy set_path_steps and direct writes, refuse
+  -- before the FK can emit a raw constraint error.
+  perform pg_temp.expect_membership_refusal(format('select public.set_path_steps(%L,%L::uuid[])',b,array[start_id]),'This step has saved cells on this path. Remove its cells explicitly or use the confirmed path removal');
+  perform pg_temp.expect_membership_refusal(format('delete from public.path_steps where path_id=%L and step_id=%L',b,end_id),'This step has saved cells on this path. Remove its cells explicitly or use the confirmed path removal');
+  perform pg_temp.expect_membership_refusal(format('update public.path_steps set step_id=%L where path_id=%L and step_id=%L',review_id,b,end_id),'This step has saved cells on this path. Remove its cells explicitly or use the confirmed path removal');
+  perform pg_temp.expect_membership_refusal(format('insert into public.cells(path_id,lane_id,step_id,content) values(%L,%L,%L,%L)',b,lb,review_id,'New cell'),'This step is not on this path. Reload the canvas');
+  perform pg_temp.expect_membership_refusal(format('update public.cells set step_id=%L where id=%L',review_id,target_cell),'This step is not on this path. Reload the canvas');
+  -- Plant one orphan in a rollback-only subtransaction to prove the exact
+  -- migration preflight. The deferred FK is never allowed to commit it.
+  set constraints all immediate;
+  begin
+    alter table public.path_steps disable trigger path_step_keeps_saved_cells;
+    set constraints cells_path_step_fkey deferred;
+    delete from public.path_steps where path_id=b and step_id=end_id;
+    perform pg_temp.assert_cell_path_steps();
+    raise exception 'Preflight accepted orphaned cells' using errcode='ZX001';
+  exception when others then
+    if sqlerrm not like 'Cannot upgrade: 1 cell sits off any path-step. Find them with: SELECT%' then raise; end if;
+  end;
+  begin
+    alter table public.path_steps disable trigger path_step_keeps_saved_cells;
+    set constraints cells_path_step_fkey deferred;
+    insert into public.cells(path_id,lane_id,step_id,content) values(b,lb,start_id,'Saved start');
+    delete from public.path_steps where path_id=b and step_id in(start_id,end_id);
+    perform pg_temp.assert_cell_path_steps();
+    raise exception 'Preflight accepted two orphaned cells' using errcode='ZX001';
+  exception when others then
+    if sqlerrm not like 'Cannot upgrade: 2 cells sit off any path-step. Find them with: SELECT%' then raise; end if;
+  end;
+  perform public.remove_step(b,end_id);
+  if exists(select 1 from public.cells where id=target_cell) then raise exception 'Explicit step deletion left its cells'; end if;
+  raise exception 'membership proof complete' using errcode='ZX002';
+exception when sqlstate 'ZX002' then null;
+end $proof$;
+drop function pg_temp.expect_membership_refusal(text,text);
+drop function pg_temp.assert_cell_path_steps();
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000313000000_a_storyboard_row_saves_its_cell_atomically.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- Authored 2026-10-29. A storyboard row edits one existing cell aggregate.
+create table public.cell_storyboard_receipts (
+  id uuid primary key default gen_random_uuid(),
+  cell_id uuid not null references public.cells(id) on delete cascade,
+  actor text not null,
+  uploaded_ids uuid[] not null,
+  before_state jsonb not null,
+  after_state jsonb not null
+);
+create index cell_storyboard_receipts_cell_idx on public.cell_storyboard_receipts(cell_id);
+alter table public.cell_storyboard_receipts enable row level security;
+revoke all on public.cell_storyboard_receipts from public;
+
+-- Canonical state is also the expected-state contract. Resources include
+-- placement-owned rows because content synchronization can remove placements.
+create function public.read_cell_storyboard(p_cell_id uuid) returns jsonb
+language plpgsql security definer set search_path = public, pg_catalog, pg_temp as $$
+declare result jsonb;
+begin
+ perform public.require_structure_author();
+ select jsonb_build_object('cell_id', c.id, 'path_id',c.path_id,'lane_id',c.lane_id,'step_id',c.step_id,
+   'content',c.content,'summary',c.summary,'frame',c.frame,
+   'placements',coalesce((select jsonb_agg(to_jsonb(t) order by t.id) from public.cell_touchpoints t where t.cell_id=c.id),'[]'::jsonb),
+   'resources',coalesce((select jsonb_agg(to_jsonb(r) order by r.id) from public.resources r where r.cell_id=c.id),'[]'::jsonb))
+ into result from public.cells c where c.id=p_cell_id;
+ if result is null then raise exception 'That cell no longer exists'; end if;
+ return result;
+end $$;
+
+create function public.update_cell_storyboard(p_cell_id uuid,p_content text,p_summary text,p_frame text,p_expected jsonb,p_attachments jsonb default '[]') returns jsonb
+language plpgsql security definer set search_path = public, pg_catalog, pg_temp as $$
+declare before_state jsonb; after_state jsonb; receipt_id uuid; attachment jsonb; next_position int; next_frame text; uploaded_id uuid; uploaded_ids uuid[] := array[]::uuid[];
+begin
+ perform public.require_structure_author();
+ perform 1 from public.cells where id=p_cell_id for update;
+ perform 1 from public.cell_touchpoints where cell_id=p_cell_id for update;
+ perform 1 from public.resources where cell_id=p_cell_id for update;
+ before_state := public.read_cell_storyboard(p_cell_id);
+ if p_expected is null or before_state <> p_expected then raise exception 'This cell changed. Reopen it before saving.' using errcode='40001'; end if;
+ if coalesce(p_content,'') ~ '^[[:space:]]*$' then raise exception 'Text is required'; end if;
+ next_frame := nullif(btrim(p_frame),'');
+ if next_frame is not null and next_frame !~ '^(https://|/[^/\\])' and next_frame !~ '^http://(127\.0\.0\.1|localhost|\[::1\])(:[0-9]+)?/storage/v1/object/public/cell-attachments/' then raise exception 'A featured image is an https address or a path on this site'; end if;
+ if jsonb_typeof(p_attachments) is distinct from 'array' then raise exception 'Attachments must be an array'; end if;
+ select coalesce(max(position),-1)+1 into next_position from public.resources where cell_id=p_cell_id and cell_touchpoint_id is null;
+ for attachment in select value from jsonb_array_elements(p_attachments) loop
+   if attachment->>'kind' is distinct from 'attachment' or coalesce(btrim(attachment->>'name'),'')='' or (coalesce(attachment->>'url','') !~ '^https://' and coalesce(attachment->>'url','') !~ '^http://(127\.0\.0\.1|localhost|\[::1\])(:[0-9]+)?/storage/v1/object/public/cell-attachments/') or coalesce(attachment->>'objectKey','')='' or attachment->>'objectKey' not like 'cells/'||p_cell_id::text||'/%' or right(attachment->>'url',length('/cell-attachments/'|| (attachment->>'objectKey'))) <> '/cell-attachments/'||(attachment->>'objectKey') or attachment ? 'id' or attachment ? 'cell_touchpoint_id' then
+     raise exception 'Invalid staged attachment';
+   end if;
+   insert into public.resources(cell_id,kind,name,url,position,origin) values(p_cell_id,'attachment',attachment->>'name',attachment->>'url',next_position,'app') returning id into uploaded_id;
+   uploaded_ids := array_append(uploaded_ids,uploaded_id);
+   next_position := next_position+1;
+ end loop;
+ -- Picture/caption-only edits preserve action text and all placements as-is.
+ if p_content is distinct from before_state->>'content' then
+ perform public.sync_cell_touchpoints(p_cell_id, array(select name from (select regexp_replace(part,'^[[:space:]]+|[[:space:]]+$','','g') as name,ord from regexp_split_to_table(p_content,E'\\r?\\n|,') with ordinality as parts(part,ord)) names where name<>'' order by ord));
+ end if;
+ -- Explicit choice follows synchronization, which may fill an empty frame.
+ update public.cells set content=p_content,summary=nullif(regexp_replace(p_summary,'^[[:space:]]+|[[:space:]]+$','','g'),''),frame=next_frame where id=p_cell_id;
+ after_state := public.read_cell_storyboard(p_cell_id);
+ insert into public.cell_storyboard_receipts(cell_id,actor,uploaded_ids,before_state,after_state)
+ values(p_cell_id,coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub',''),uploaded_ids,before_state,after_state) returning id into receipt_id;
+ return jsonb_build_object('cell_id',p_cell_id,'receipt_id',receipt_id,'before',before_state,'after',after_state);
+end $$;
+
+create function public.restore_cell_storyboard(p_receipt_id uuid) returns void
+language plpgsql security definer set search_path = public, pg_catalog, pg_temp as $$
+declare receipt public.cell_storyboard_receipts; current_state jsonb;
+begin
+ perform public.require_structure_author();
+ select * into receipt from public.cell_storyboard_receipts where id=p_receipt_id for update;
+ if receipt.id is null or receipt.actor <> coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub','') then raise exception 'This edit receipt is unavailable'; end if;
+ perform 1 from public.cells where id=receipt.cell_id for update;
+ perform 1 from public.cell_touchpoints where cell_id=receipt.cell_id for update;
+ perform 1 from public.resources where cell_id=receipt.cell_id for update;
+ current_state := public.read_cell_storyboard(receipt.cell_id);
+ if current_state <> receipt.after_state then raise exception 'This cell changed after this edit. Undo refused.' using errcode='40001'; end if;
+ -- Only this transaction's captured upload IDs may be removed by Undo.
+ -- Retained resources are untouched; sync-removed rows recover their own IDs.
+ if exists(select 1 from jsonb_populate_recordset(null::public.cell_touchpoints,receipt.before_state->'placements') b join public.cell_touchpoints t on t.id=b.id where t.cell_id<>receipt.cell_id)
+ or exists(select 1 from jsonb_populate_recordset(null::public.resources,receipt.before_state->'resources') b join public.resources r on r.id=b.id where r.cell_id<>receipt.cell_id) then raise exception 'A captured identity is now owned elsewhere'; end if;
+ delete from public.resources where cell_id=receipt.cell_id and id=any(receipt.uploaded_ids);
+ delete from public.cell_touchpoints t where t.cell_id=receipt.cell_id and not exists(select 1 from jsonb_array_elements(receipt.before_state->'placements') b where b->>'id'=t.id::text);
+ insert into public.cell_touchpoints select * from jsonb_populate_recordset(null::public.cell_touchpoints,receipt.before_state->'placements')
+ on conflict(id) do update set name=excluded.name,position=excluded.position,summary=excluded.summary,role=excluded.role,touchpoint_id=excluded.touchpoint_id;
+ insert into public.resources select * from jsonb_populate_recordset(null::public.resources,receipt.before_state->'resources') on conflict(id) do nothing;
+ update public.cells set content=receipt.before_state->>'content', summary=receipt.before_state->>'summary',frame=receipt.before_state->>'frame' where id=receipt.cell_id;
+ delete from public.cell_storyboard_receipts where id=p_receipt_id;
+end $$;
+revoke execute on function public.read_cell_storyboard(uuid), public.update_cell_storyboard(uuid,text,text,text,jsonb,jsonb),public.restore_cell_storyboard(uuid) from public;
+
+-- Every fixture lives in a rolled-back subtransaction, including failed writes.
+do $storyboard_proof$
+declare s uuid; ph uuid; sc uuid; p uuid; st uuid; ln uuid; c uuid; other_cell uuid; tp uuid; placement uuid; resource uuid;
+ before_state jsonb; receipt jsonb; uploaded jsonb; after_state jsonb; refused boolean; bad text; original_resources jsonb;
+begin
+ begin
+ perform set_config('request.jwt.claims','{"sub":"33333333-3333-4333-8333-333333333333","app_metadata":{"role":"service"}}',true);
+ insert into public.services(name) values ('storyboard aggregate proof') returning id into s;
+ insert into public.phases(service_id,name,position) values(s,'phase',0) returning id into ph;
+ insert into public.scenarios(phase_id,name,position) values(ph,'scenario',0) returning id into sc;
+ insert into public.paths(scenario_id,name,kind) values(sc,'path','happy') returning id into p;
+ insert into public.steps(scenario_id,name) values(sc,'step') returning id into st;
+ insert into public.path_steps(path_id,step_id,position) values(p,st,0);
+ insert into public.lanes(path_id,name,position) values(p,'actor',0) returning id into ln;
+ insert into public.cells(path_id,lane_id,step_id,content,owner) values(p,ln,st,'','preserve') returning id into c;
+ before_state := public.read_cell_storyboard(c);
+ receipt := public.update_cell_storyboard(c,'New text',E'\n New summary \t','https://example.test/image.png',before_state,'[]');
+ if (select content <> 'New text' or summary <> 'New summary' or frame <> 'https://example.test/image.png' or owner <> 'preserve' from public.cells where id=c) then raise exception 'aggregate save failed'; end if;
+ update public.cells set owner='new unrelated owner',status='planned' where id=c;
+ perform public.restore_cell_storyboard((receipt->>'receipt_id')::uuid);
+ if public.read_cell_storyboard(c) <> before_state or (select owner<>'new unrelated owner' or status<>'planned' from public.cells where id=c) then raise exception 'blank-cell inverse or unrelated-field preservation failed'; end if;
+ -- Consumed/foreign/malformed tokens cannot replay an inverse.
+ refused:=false; begin perform public.restore_cell_storyboard((receipt->>'receipt_id')::uuid); exception when others then refused:=true; end;
+ if not refused then raise exception 'receipt replay accepted'; end if;
+ refused:=false; begin perform public.restore_cell_storyboard(gen_random_uuid()); exception when others then refused:=true; end;
+ if not refused then raise exception 'foreign token accepted'; end if;
+ -- Validation and stale expected state are checked before any aggregate mutation.
+ foreach bad in array array['blank','url','stale','missing','attachment','foreign_attachment'] loop
+ refused:=false;
+ begin
+   perform public.update_cell_storyboard(case when bad='missing' then gen_random_uuid() else c end,
+    case when bad='blank' then E' \n\t ' else 'New text' end,'Changed',case when bad='url' then 'javascript:bad' else '/image.png' end,
+    case when bad='stale' then '{}'::jsonb else before_state end,
+    case when bad='attachment' then '[{"kind":"attachment","name":"File","url":"javascript:bad","objectKey":"bad"}]'::jsonb
+     when bad='foreign_attachment' then '[{"id":"11111111-1111-4111-8111-111111111111","kind":"attachment","name":"File","url":"https://example.test/file","objectKey":"bad"}]'::jsonb else '[]'::jsonb end);
+ exception when others then refused:=true; end;
+ if not refused or public.read_cell_storyboard(c)<>before_state then raise exception 'invalid % did not roll back the aggregate',bad; end if;
+ end loop;
+ -- Existing placements on actor cells still follow full-cell content rules.
+ update public.cells set content='Action text stays here' where id=c;
+ insert into public.touchpoints(name,origin) values('Original tool','app') returning id into tp;
+ insert into public.cell_touchpoints(cell_id,touchpoint_id,position,origin,summary) values(c,tp,0,'app','Keep placement writing') returning id into placement;
+ insert into public.resources(cell_id,kind,name,url,position,origin,featured) values(c,'link','Original link','https://example.test/link',0,'app',true) returning id into resource;
+ insert into public.resources(cell_id,cell_touchpoint_id,kind,name,url,position,origin) values(c,placement,'link','Placement link','https://example.test/placement',0,'app');
+ before_state := public.read_cell_storyboard(c); original_resources:=before_state->'resources';
+ receipt:=public.update_cell_storyboard(c,before_state->>'content','Picture caption','/caption.png',before_state,'[]');
+ after_state:=public.read_cell_storyboard(c);
+ if after_state->'placements'<>before_state->'placements' or after_state->'resources'<>before_state->'resources' or after_state->>'content'<>before_state->>'content' then raise exception 'picture/caption edit changed action text or placements'; end if;
+ perform public.restore_cell_storyboard((receipt->>'receipt_id')::uuid);
+ if public.read_cell_storyboard(c)<>before_state then raise exception 'picture/caption inverse changed the aggregate'; end if;
+ uploaded:=jsonb_build_array(jsonb_build_object('kind','attachment','name','Uploaded image','objectKey','cells/'||c||'/image.png','url','http://127.0.0.1:58080/storage/v1/object/public/cell-attachments/cells/'||c||'/image.png'));
+ receipt := public.update_cell_storyboard(c,E' \tNew tool\t, \n ,\t,\tAnother tool\t  ','Updated','http://127.0.0.1:58080/storage/v1/object/public/cell-attachments/cells/'||c||'/image.png',before_state,uploaded);
+ after_state:=public.read_cell_storyboard(c);
+ if exists(select 1 from public.cell_touchpoints ct left join public.touchpoints t on t.id=ct.touchpoint_id where ct.cell_id=c and coalesce(ct.name,t.name)<>regexp_replace(coalesce(ct.name,t.name),'^[[:space:]]+|[[:space:]]+$','','g')) or not exists(select 1 from public.cell_touchpoints ct join public.touchpoints t on t.id=ct.touchpoint_id where ct.cell_id=c and t.name='Another tool') then raise exception 'content segments were not trimmed and filtered'; end if;
+ if jsonb_array_length(after_state->'resources')<>3 or not exists(select 1 from public.cell_touchpoints where id=placement and touchpoint_id is null and name='Original tool') then raise exception 'upload or content synchronization failed'; end if;
+ -- Resource edits refuse Undo; original IDs/flags/order survive the refused attempt.
+ update public.resources set name='Later resource edit' where id=resource;
+ refused:=false; begin perform public.restore_cell_storyboard((receipt->>'receipt_id')::uuid); exception when serialization_failure then refused:=true; end;
+ if not refused then raise exception 'Undo overwrote a newer resource edit'; end if;
+ -- Roll back that simulated later edit without using a timestamp-changing update.
+ delete from public.resources where id=resource;
+ insert into public.resources select * from jsonb_populate_recordset(null::public.resources,after_state->'resources') r where r.id=resource;
+ -- A newer placement edit also refuses Undo.
+ update public.cell_touchpoints set summary='Later placement edit' where id=placement;
+ refused:=false; begin perform public.restore_cell_storyboard((receipt->>'receipt_id')::uuid); exception when serialization_failure then refused:=true; end;
+ if not refused then raise exception 'Undo overwrote a newer placement edit'; end if;
+ -- Restore the fixture snapshot by exact rows, then test the real inverse.
+ delete from public.resources where cell_id=c;
+ delete from public.cell_touchpoints where cell_id=c;
+ insert into public.cell_touchpoints select * from jsonb_populate_recordset(null::public.cell_touchpoints,after_state->'placements');
+ insert into public.resources select * from jsonb_populate_recordset(null::public.resources,after_state->'resources');
+ perform public.restore_cell_storyboard((receipt->>'receipt_id')::uuid);
+ if (public.read_cell_storyboard(c)->'resources')<>original_resources or not exists(select 1 from public.cell_touchpoints where id=placement and touchpoint_id=tp and summary='Keep placement writing') then raise exception 'Undo lost original resource IDs or placement state'; end if;
+ before_state:=public.read_cell_storyboard(c);
+ receipt:=public.update_cell_storyboard(c,'Latest','Summary','/latest.png',before_state,'[]');
+ update public.cells set content='Newer text' where id=c;
+ refused:=false; begin perform public.restore_cell_storyboard((receipt->>'receipt_id')::uuid); exception when serialization_failure then refused:=true; end;
+ if not refused or (select content<>'Newer text' from public.cells where id=c) then raise exception 'Undo overwrote newer text'; end if;
+ raise exception using errcode='P0002',message='storyboard fixture rollback';
+ exception when no_data_found then if sqlerrm<>'storyboard fixture rollback' then raise; end if; end;
+end $storyboard_proof$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000314000000_a_person_who_talks_to_uno_has_a_profile.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- A person who talks to Uno has a profile, and only some may confirm.
@@ -14903,7 +16143,7 @@ comment on function public.decline_suggested_change(uuid) is
   'Guard: the caller''s profile must hold may_confirm. Declines a pending suggestion without changing its cell.';
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 21000310000000_an_approval_records_the_cell_update.sql
+-- 21000315000000_an_approval_records_the_cell_update.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- An approval records the cell edit in the same shape as other text edits.
@@ -14955,7 +16195,7 @@ comment on function public.approve_suggested_change(uuid) is
   'Apply a pending suggested change to its cell and owner-confirm the cell in the caller''s name. Refused unless the caller''s profile may confirm.';
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 21000311000000_a_proposal_is_a_validated_tool_call.sql
+-- 21000316000000_a_proposal_is_a_validated_tool_call.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- A server write and approval use the same transaction. Preview executes it
@@ -15287,7 +16527,7 @@ create trigger validate_cell_content_suggestion before insert on public.suggeste
 revoke all on function public.agent_check_shape(jsonb,jsonb,text),public.agent_named_cells(jsonb),public.agent_refuse_secrets(jsonb),public.validate_cell_content_suggestion(),public.agent_tool_state(jsonb),public.agent_tool_transaction(text,jsonb,uuid,uuid,boolean,uuid),public.agent_write_contracts(),public.approve_cell_content_suggestion(uuid),public.run_agent_tool(text,jsonb,uuid,uuid,boolean),public.approve_suggested_change(uuid) from public;
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 21000312000000_a_server_write_captures_its_prior_rows.sql
+-- 21000317000000_a_server_write_captures_its_prior_rows.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- Authored 2026-10-19.
@@ -15366,7 +16606,7 @@ comment on column public.authoring_changes.revert is
   'Audit-only inverse data: browser writes and existing cell-content approvals hold a RevertSpec; server tool transactions and their approvals hold captured_rows with before and after values. Durable rows are never replayed by canvas undo.';
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 21000313000000_a_confirmer_can_start_a_service.sql
+-- 21000318000000_a_confirmer_can_start_a_service.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- A new service uses the existing checked write and proposal transaction.
@@ -15400,7 +16640,7 @@ begin
 end $$;
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 21000314000000_journey_structure_can_be_named.sql
+-- 21000319000000_journey_structure_can_be_named.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- Renames and initial step names use the same checked, attributed transaction.
@@ -15454,7 +16694,7 @@ begin
 end $$;
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 21000315000000_a_service_can_be_read_for_validation.sql
+-- 21000320000000_a_service_can_be_read_for_validation.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- Authored 2026-10-20.
@@ -15496,7 +16736,7 @@ $$;
 revoke all on function public.read_service_blueprint(uuid) from public;
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 21000316000000_structure_writes_refuse_unapplied_changes.sql
+-- 21000321000000_structure_writes_refuse_unapplied_changes.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- Authored 2026-10-20. Applied migrations stay unchanged; this tightens their gateway.
@@ -15550,7 +16790,7 @@ begin
 end $$;
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 21000317000000_structure_labels_have_explanations.sql
+-- 21000322000000_structure_labels_have_explanations.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- Authored 2026-10-20. Names label a structure; summaries explain it.

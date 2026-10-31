@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react'
+import { requestPanelTransition } from '@/lib/openPanelStore'
 
 /**
  * What the canvas is for right now.
@@ -47,14 +48,16 @@ let sharedModeAvailable = false
 
 export function setSharedCanvasModeAvailable(available: boolean) {
   sharedModeAvailable = available
-  if (!available) setSharedCanvasMode('view')
+  if (!available) { sharedMode = 'view'; for (const listener of listeners) listener() }
 }
 
 export function setSharedCanvasMode(mode: CanvasMode) {
   const next = sharedModeAvailable ? mode : 'view'
-  if (next === sharedMode) return
-  sharedMode = next
-  for (const listener of listeners) listener()
+  if (next === sharedMode) return true
+  return requestPanelTransition(() => {
+    sharedMode = next
+    for (const listener of listeners) listener()
+  })
 }
 
 export function subscribeSharedCanvasMode(listener: () => void): () => void {

@@ -25,7 +25,7 @@ type PanelRole = keyof typeof FORMER_PANEL_TEXT
 /**
  * Per-file counts of `PANEL_TEXT.*` JSX sites on origin/main, taken after
  * the last batch that moved one. The retirement of the panel role layer
- * cites 28; the tree holds 19. The test enumerates those 19 so a
+ * cites 28; the tree holds 17. The test enumerates those 17 so a
  * coincidental `text-xs font-medium text-muted-foreground` elsewhere
  * cannot satisfy a missing call site.
  *
@@ -59,7 +59,8 @@ const FORMER_SITE_COUNTS: Readonly<
   'components/blueprint/PanelSectionLabel.tsx': { sectionLabel: 1 },
   'components/blueprint/ResourcesList.tsx': { sectionLabel: 1 },
   'components/blueprint/StakeholderSelect.tsx': { meta: 3, value: 1 },
-  'components/blueprint/StepPanel.tsx': { meta: 1, value: 1 },
+  // StepPanel's picture captions and Position body retired together; its
+  // Name and Summary use the shared identity and field components.
   'components/blueprint/panelShell.tsx': {
     // The identity block's name, and the header's heading.
     title: 2,
@@ -86,7 +87,7 @@ describe('the former PANEL_TEXT call sites', () => {
         total += expected
       }
     }
-    expect(total).toBe(19)
+    expect(total).toBe(17)
   })
 
   it('and the tree names no PANEL_TEXT identifier', () => {

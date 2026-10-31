@@ -5,15 +5,46 @@ import type { CellSpecUpdate } from '@/lib/cellSpecMutations'
 import { cellBudgetKindForLane, type CellBudgetKind } from '@/lib/cellContentLimits'
 import type { CellResource } from '@/types/blueprint'
 import type { Database, Json } from '@/types/database'
-import { recordChange } from '@/lib/authoringSession'
+import { recordChange, recordRequiredChange } from '@/lib/authoringSession'
 import { toAuthoringError } from '@/lib/authoringErrors'
-import { requireRowsWritten } from '@/lib/optimisticConcurrency'
+import { ConflictError, requireRowsWritten } from '@/lib/optimisticConcurrency'
+import { supabaseAuthoringLogWriter } from '@/lib/authoringLog'
 import { rowsForSync } from '@/lib/resourceDrafts'
 import { parseCellContentItems } from '@/lib/parseCellContent'
 import { invalidateCellBoard, invalidateQueries } from '@/lib/queryClient'
 import { queryKeys } from '@/lib/queryKeys'
 
 type Client = SupabaseClient<Database>
+
+/**
+ * Status alone, including a storyboard whose label is deliberately empty.
+ * Two requests: if the durable append fails after the update, report that
+ * partial outcome and retain its session inverse. Never retry blindly.
+ */
+export async function updateCellStatus(
+  client: Client,
+  input: { cellId: string; status: EntityStatus; expectedStatus: EntityStatus; record?: boolean },
+): Promise<string | null> {
+  const { cellId, status, expectedStatus } = input
+  if (!asEntityStatus(status) || !asEntityStatus(expectedStatus)) {
+    throw new Error('A status edit requires valid current and new statuses.')
+  }
+  const before = await client.from('cells').select('status').eq('id', cellId).maybeSingle()
+  if (before.error) throw toAuthoringError(before.error)
+  if (!before.data) throw new Error('That cell no longer exists or is not readable.')
+  const previous = asEntityStatus(before.data.status)
+  if (previous !== expectedStatus) throw new ConflictError('The cell status changed; refresh before editing.')
+  if (previous === status) return null
+  const { data, error } = await client.from('cells').update({ status })
+    .eq('id', cellId).eq('status', previous).select('id')
+  if (error) throw toAuthoringError(error)
+  requireRowsWritten(data, 'cell')
+  cellWritten(cellId)
+  if (input.record === false) return null
+  return recordRequiredChange('update_cell_status', { cell_id: cellId, status, expected_status: previous }, {
+    fn: 'update_cell_status', args: { cell_id: cellId, status: previous, expected_status: status },
+  }, supabaseAuthoringLogWriter(client))
+}
 
 /**
  * What a cell's own writes change on screen: the grid and the board draw

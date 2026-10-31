@@ -52,3 +52,18 @@ export function releasePanel(which: PanelOwner): void {
   owner = null
   emit()
 }
+
+/** The active editor owns the decision; callers submit the entire transition. */
+type PanelTransitionGuard = (action: () => void) => boolean
+let transitionGuard: PanelTransitionGuard | null = null
+export function registerPanelTransitionGuard(guard: PanelTransitionGuard): () => void {
+  transitionGuard = guard
+  return () => { if (transitionGuard === guard) transitionGuard = null }
+}
+export function requestPanelTransition(action: () => void): boolean {
+  let ran = false
+  const once = () => { if (!ran) { ran = true; action() } }
+  if (transitionGuard) return transitionGuard(once)
+  once()
+  return true
+}

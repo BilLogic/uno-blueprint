@@ -120,6 +120,214 @@ and return shapes — as the generated portable core carries them — are **norm
 the generated `Database['public']['Functions']` types are the client's
 compile-time contract.
 
+### Structure authoring signatures
+
+A host serving this app must implement the following portable operations, with
+these argument names and PostgreSQL types. Every write and inverse uses the
+host's author-tier guard, performs its checks under the same locks as its write,
+and either succeeds atomically or refuses without changing data.
+
+| RPC | Arguments | Return |
+| --- | --- | --- |
+| `add_step_with_details` | `path_id uuid`, `name text`, `path_orders jsonb`, `summary text default null` | `jsonb` step Add receipt |
+| `add_lane_with_details` | `scenario_id uuid`, `name text`, `lane_role text`, `path_orders jsonb`, `details jsonb default '{}'` | `jsonb` lane Add receipt |
+| `reorder_steps` | `path_id uuid`, `step_ids uuid[]`, `expected_ids uuid[]` | `jsonb` order receipt |
+| `reorder_lanes` | `path_id uuid`, `lane_ids uuid[]`, `expected_ids uuid[]` | `jsonb` order receipt |
+| `rename_step_name` | `step_id uuid`, `new_name text` | `jsonb` step receipt |
+| `rename_lane` | `lane_id uuid`, `new_name text` | `jsonb` lane receipt |
+| `update_step_with_details` | `step_id uuid`, `name text`, `summary text` | `jsonb` step receipt |
+| `update_lane_with_details` | `lane_id uuid`, `lane_ids uuid[]`, `name text`, `details jsonb` | `jsonb` lane receipt |
+| `restore_step_details` | `snapshot jsonb` | `void` |
+| `restore_lane_details` | `snapshot jsonb` | `void` |
+| `undo_structure_add` | `snapshot jsonb` | `void` |
+| `undo_structure_order` | `snapshot jsonb` | `void` |
+
+An order receipt is `{kind, path_id, before, after}`. Both orders are arrays of
+`{id, position}`. Forward reorder requires a complete identity permutation and
+compares the stored identity order with `expected_ids` under a path lock; a stale
+view raises `This path changed. Reload and try again`. Order Undo compares the
+complete current order with `after`, refusing a newer reorder with
+`This path changed since Move. Reload before undoing this change`, then restores
+the exact positions in `before`. A missing or invalid kind, before-array or
+after-array raises `This order cannot be undone. Reload the canvas`.
+
+A step receipt is `{step_id, name, summary, after}`. A lane receipt is
+`{lane_id, name, rows: [{id, owner_team, stakeholder_id, kpis, tools}], after}`.
+Before-values and `after` (the complete saved row) are captured by the server,
+not supplied from the client's previous name. Restore requires the current row
+to match `after` exactly or raises `This step changed since your save` (or
+`This lane changed since your save`). Lane saves affect only `lane_id`;
+`lane_ids` is retained for wire compatibility and never fans properties out.
+`restore_step_details` also refuses a missing saved name with
+`The saved step name is missing`; `restore_lane_details` refuses missing,
+extra or mismatched saved property rows with `The saved lane properties are missing`.
+
+`add_step_with_details` creates one shared step on the selected paths and returns
+`{kind: 'step', ids: [step_id], before, after}`. `add_lane_with_details` creates a
+separate lane per selected path and returns
+`{kind: 'lane', ids: [lane_id, ...], by_path: {path_id: lane_id, ...}, before, after}`.
+In both receipts, before/after map path IDs to `{id, position}` arrays.
+
+Both Add operations require a nonempty name (`Enter a name`) and complete
+`path_orders`: a JSON object mapping each selected path ID to an ordered array
+of every existing identity exactly once plus the literal `new` exactly once.
+Invalid complete-order arrays raise `Reload this path and include every item
+exactly once, plus the new item`. All selected paths must belong to the same
+scenario (`Choose paths in the same scenario`).
+
+Step Add requires an existing reference `path_id` (`That path no longer exists.
+Reload and choose a path`) included in `path_orders`; an empty selection or
+missing reference raises `Choose at least the path where you opened the new step`.
+Lane Add requires at least one path (`Choose at least one path`) and a semantic
+`lane_role` (`Choose a role`). Its optional `details` contains `owner_team`,
+`stakeholder_id`, `kpis` and `tools`; KPIs and tools default to empty arrays and
+non-array values raise `KPIs and tools must be lists`. A case-insensitive lane
+name collision on a selected path raises `This path already has a lane named
+<name>. Choose another name or untick this path`.
+
+Add Undo requires non-empty matching path maps,
+complete membership coverage for all deleted identities, matching current after
+orders, and non-negative contiguous before positions containing exactly the
+surviving identities. Malformed or incomplete receipts raise
+`This change cannot be undone. Reload the canvas`; a changed order raises
+`This path changed since Add. Reload before undoing this change`. Any cell on a
+new identity, including an empty cell and its attached evidence, resources and
+dependencies, prevents deletion with `This step has content since Add. Delete
+it instead if you mean to` (or the lane equivalent).
+
+Apply migrations 309–311 with the matching app and regenerate database types.
+Custom reorder callers must supply `expected_ids`; old Undo receipts without
+after-values are refused. Legacy `reorder_steps(path_id uuid, step_ids uuid[])`,
+`reorder_lanes(path_id uuid, lane_ids uuid[])` and
+`reorder_lanes(scenario_id uuid, lane_names text[])` remain authorized reload
+stubs: `Reload: the app was updated`. They never perform a write.
+
+### Saved step membership
+
+Migration preflight and all legacy writers must uphold the membership invariant.
+Before adding the cell-to-path-step foreign key, count cells missing a matching
+`path_steps` row and refuse with that count and the finding query documented in
+[the database upgrade notes](supabase/database.md). Cell writes to a missing
+membership refuse `This step is not on this path. Reload the canvas`; order-only
+writers such as `set_path_steps` must refuse removal of populated memberships
+with `This step has saved cells on this path. Remove its cells explicitly or use
+the confirmed path removal`. These are readable refusals, not raw FK errors.
+
+
+Existing step panels use `change_step_path` for a single attach or detach; lane
+panels reorder only the owning path through `reorder_lanes` above. Each operation
+returns its own receipt for the session entry and toast Undo.
+
+| RPC | Arguments | Return |
+| --- | --- | --- |
+| `change_step_path` | `step_id uuid`, `path_id uuid`, `present boolean`, `at_position integer`, `expected_ids uuid[]`, `expected_path_ids uuid[]`, `confirmed_cells jsonb default null` | `jsonb`: `{receipt_id, step_id, path_id, present}` |
+| `undo_step_path_change` | `receipt_id uuid` | `void` |
+
+`expected_ids` is the target path's complete current step order.
+`expected_path_ids` is the step's complete membership set, sorted by identity.
+The step and path must share a scenario. Attach inserts the existing step at
+`at_position` (zero-based); detach leaves its other paths and scenario identity
+intact and refuses the last membership. The panel places a newly ticked step
+after its predecessor on the opened path, or at the end when that predecessor
+is absent.
+
+On untick the panel reads the saved cells on that step and path, names their
+count, and asks for confirmation. `confirmed_cells` is the exact array of
+`{id, updated_at}` read for that confirmation. The function locks and compares
+that set again, accepting timestamp-equivalent values; a new cell or edit
+requires a fresh confirmation. Cells, placements, resources, dependencies and
+slide-image members are captured under lock in a server-only memento before
+removal. Evidence retains its provenance identities and is never rewritten by
+this operation. The cell-to-path-step foreign key also prevents a concurrent
+insert from leaving a cell on a detached step.
+
+The opaque `receipt_id` selects a server-captured memento, never a client-supplied
+snapshot. Its inverse compares the step row, membership set and target order
+against the saved after-state. Undo of attach refuses later cells. Undo of detach
+also checks the affected lanes and restores original related identities without
+upserts: collisions or missing references refuse the whole inverse. Receipts
+are single-use and are not directly readable or writable by API callers.
+
+Refusals include:
+
+- `change_step_path`: `That step and path must belong to the same scenario`,
+  `This path changed. Reload and try again`,
+  `This step changed. Reload and try again`,
+  `A step must stay on at least one path`, `Choose a position on this path`,
+  `This step already has cells on that path. Reload and try again`, and
+  `The cells on this step changed. Reload and confirm removing them`.
+- `undo_step_path_change`: `This path change cannot be undone. Reload the canvas`
+  for a missing or spent receipt; `This step or path changed since your save. Reload before undoing`;
+  `This step has content since your save. Remove it explicitly instead`;
+  `The lanes holding this step changed. Reload before undoing`; and
+  `Content referenced by this change changed. Reload before undoing`.
+
+Both functions require the authoring tier, run with a fixed `search_path`, and
+are granted to `authenticated`, never `anon`. `structure_membership_state` is an
+internal helper, not a host-facing entry point. The Supabase recipe uses RLS and
+explicit revokes to keep `structure_membership_receipts` server-only; another
+host must preserve that boundary.
+
+### Storyboard cell authoring signatures
+
+| RPC | Arguments | Return |
+| --- | --- | --- |
+| `read_cell_storyboard` | `p_cell_id uuid` | Canonical `jsonb` cell state |
+| `update_cell_storyboard` | `p_cell_id uuid`, `p_content text`, `p_summary text`, `p_frame text`, `p_expected jsonb`, `p_attachments jsonb default '[]'` | `{cell_id, receipt_id, before, after}` |
+| `restore_cell_storyboard` | `p_receipt_id uuid` | `void` |
+
+These operations require the author tier, including the snapshot read. The
+canonical state contains `cell_id`, `path_id`, `lane_id`, `step_id`, `content`,
+`summary`, `frame`, and the complete `placements` and `resources` rows, ordered
+by ID. Save compares that state under locks; a mismatch raises `This cell
+changed. Reopen it before saving.` It requires nonempty Text (`Text is required`),
+an HTTPS or site-relative image address, and staged attachments owned by this cell. HTTP is accepted only for a loopback Storage bucket address for local development. Attachments
+carry `{kind: 'attachment', name, url, objectKey}`; client resource IDs and
+placement ownership are refused. When action content changes, its synchronization,
+picture, summary and new attachment rows commit together. Picture/caption-only edits
+forward unchanged action content and preserve its placements and resources. The
+storyboard panel labels `cells.summary` as Caption.
+
+The inverse consumes a private server receipt owned by the same author. It
+refuses a missing, consumed or foreign receipt with `This edit receipt is
+unavailable`, and newer text, picture, summary, placement or resource edits
+with `This cell changed after this edit. Undo refused.` It restores the original
+resource and placement IDs without overwriting unrelated cell properties or
+removing objects from Storage. A deleted cell raises `That cell no longer exists`.
+Neither anonymous callers nor readers may call these operations. Hosts must
+provide the same guarded aggregate and receipt semantics before serving this UI.
+
+### Optional host authoring operations
+
+A deployment may supply additional named RPCs under
+[ADR 0033](../adr/0033-a-deployment-may-supply-optional-host-operations.md).
+The portable core remains the minimum; installing the template client does
+not install these operations. Hosts supply their existing write-tier guard
+and the exact contracts used by `authoringRpc.ts`:
+
+| RPC | Arguments | Success receipt |
+| --- | --- | --- |
+| `rename_step` | `step_id`, `expected_name`, `new_name` | `id`, `change_id` |
+| `move_cell` | `cell_id`, `expected_source`, `destination` | `id`, `change_id` |
+| `insert_cell_at_position` | `path_id`, `lane_id`, `step_id`, `at_position`, `content`, `status` | `id`, `change_id`, `cell_key` |
+
+Coordinates contain `path_id`, `lane_id`, `step_id` and `position`. Hosts
+reject stale expected values and occupied slots, preserve identities on
+rename/move, and atomically record each write with its inverse. Names are
+exact strings, including surrounding spaces. Insertion creates a new
+identity, never overwrites an existing cell, and requires content and an
+explicit status. Receipts require nonempty, nonzero row/change identities;
+rename/move must return the requested identity, insertion a nonempty key.
+Missing operations and malformed receipts fail. A failed receipt requires
+read-back before retry because the server may have committed. Callers still
+verify the row and durable record against the approved edit.
+
+The status-only column mutation captures and guards the old status, updates
+only that column and requires a returned row. Blank text and placements stay
+intact. Its column update and durable append are separate requests: a failed
+append is a partial write, not an atomic rollback. A matching same-status
+request does nothing; a stale expectation still fails.
+
 ### 2. The direct table-write surface
 
 Non-structural edits go straight at tables and must be honored with the

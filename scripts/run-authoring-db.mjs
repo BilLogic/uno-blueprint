@@ -31,7 +31,7 @@ export async function judge() {
         and g.tgfoid='public.capture_agent_prior_rows()'::regprocedure and not g.tgisinternal);
     `]).trim()
     if (missing) {
-      const file = 'supabase/migrations/21000312000000_a_server_write_captures_its_prior_rows.sql'
+      const file = 'supabase/migrations/21000317000000_a_server_write_captures_its_prior_rows.sql'
       const line = readFileSync(file,'utf8').split('\n').findIndex(line => line.includes('foreach relation')) + 1
       throw new Error(`${file}:${line}: Inverse capture misses authored tables: ${missing}.`)
     }

@@ -1,8 +1,14 @@
+import { supabaseAuthoringLogWriter } from '@/lib/authoringLog'
+import { HOST_OPERATIONS, isHostOperation, type HostOperation, type HostReceipt, type RecordedAuthoringWrite } from '@/lib/hostAuthoringOperations'
+export type { RecordedAuthoringWrite } from '@/lib/hostAuthoringOperations'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { asEntityStatus, type EntityStatus } from '@/lib/entityStatus'
 import { toAuthoringError } from '@/lib/authoringErrors'
 import {
   recordChange,
+  recordRequiredEntry,
+  type SessionEntry,
   type RevertSpec,
   type WriteFn,
 } from '@/lib/authoringSession'
@@ -12,7 +18,7 @@ import {
   invalidateQueries,
   invalidateStructure,
 } from '@/lib/queryClient'
-import { queryKeys } from '@/lib/queryKeys'
+import { STRUCTURE_KEYS, queryKeys } from '@/lib/queryKeys'
 
 type Client = SupabaseClient<Database>
 
@@ -239,6 +245,21 @@ async function invoke<T>(
  * the forward write.
  */
 const FRESHNESS: Record<string, (args: Record<string, unknown>) => void> = {
+  // Canvas order is patched optimistically before these return. Refetching
+  // canvasBlueprints races the settle preview and flashes the pre-drop seats;
+  // every other structure key still needs a mark (staleTime: Infinity).
+  reorder_lanes: () => {
+    for (const prefix of STRUCTURE_KEYS) {
+      if (prefix === queryKeys.canvasBlueprints.prefix) continue
+      invalidateQueries(prefix)
+    }
+  },
+  reorder_steps: () => {
+    for (const prefix of STRUCTURE_KEYS) {
+      if (prefix === queryKeys.canvasBlueprints.prefix) continue
+      invalidateQueries(prefix)
+    }
+  },
   upsert_cell: (args) => {
     invalidateQueries(queryKeys.servicePhases.prefix)
     if (typeof args.path_id === 'string') invalidateCanvasBlueprintsForPath(args.path_id)
@@ -251,12 +272,23 @@ const FRESHNESS: Record<string, (args: Record<string, unknown>) => void> = {
   set_cell_dependency: dependencyWritten,
   update_cell_dependency: dependencyWritten,
   clear_cell_dependency: dependencyWritten,
+  update_cell_storyboard: () => { invalidateStructure(); invalidateQueries(queryKeys.stepSpec.prefix) },
+  restore_cell_storyboard: () => { invalidateStructure(); invalidateQueries(queryKeys.stepSpec.prefix) },
   set_cell_featured_image: () => {
     // The frame is drawn by the grid and the canvas, and the step's
     // storyboard reads it as the column's picture.
     invalidateStructure()
     invalidateQueries(queryKeys.stepSpec.prefix)
   },
+  rename_step: stepDetailsWritten,
+  rename_step_name: stepDetailsWritten,
+  update_step_with_details: stepDetailsWritten,
+  restore_step_details: stepDetailsWritten,
+  change_step_path: stepDetailsWritten,
+  undo_step_path_change: stepDetailsWritten,
+  rename_lane: laneDetailsWritten,
+  update_lane_with_details: laneDetailsWritten,
+  restore_lane_details: laneDetailsWritten,
   rename_owner_tag: ownerTagWritten,
   rename_owner_tag_scoped: ownerTagWritten,
   // The registry entry is drawn on every placement of it and read by the
@@ -265,6 +297,16 @@ const FRESHNESS: Record<string, (args: Record<string, unknown>) => void> = {
   // the structural default re-reads the boards and leaves the registry stale.
   rename_touchpoint: touchpointRegistryWritten,
   update_touchpoint: touchpointRegistryWritten,
+}
+
+function stepDetailsWritten(): void {
+  invalidateStructure()
+  invalidateQueries(queryKeys.stepSpec.prefix)
+}
+
+function laneDetailsWritten(): void {
+  invalidateStructure()
+  invalidateQueries(queryKeys.laneSpec.prefix)
 }
 
 function dependencyWritten(): void {
@@ -288,7 +330,10 @@ function ownerTagWritten(): void {
  * Called by `call()` after every forward write, and by the revert path after
  * an inverse it sends to the database itself.
  */
-export function invalidateAfterRpc(fn: string, args: Record<string, unknown>): void {
+export function invalidateAfterRpc(
+  fn: string,
+  args: Record<string, unknown>,
+): void {
   const narrow = Object.hasOwn(FRESHNESS, fn) ? FRESHNESS[fn] : undefined
   if (narrow) narrow(args)
   else invalidateStructure()
@@ -310,10 +355,36 @@ async function call<T>(
   args: Record<string, unknown>,
   revert?: RevertSpec,
 ): Promise<T> {
-  const data = await invoke<T>(client, fn, args)
+  return (await callWithEntry<T>(client,fn,args,revert)).data
+}
+
+async function callWithEntry<T>(client:Client,fn:WriteFn,args:Record<string,unknown>,revert?:RevertSpec):Promise<{data:T;entry:SessionEntry}> {
+  const data=await invoke<T>(client,fn,args)
+  invalidateAfterRpc(fn,args)
+  const entry=recordChange(fn,args,revert ?? deriveRevert(fn,args,data))
+  return {data,entry}
+}
+
+/** Not a portable-core promise: the host must implement this operation. */
+async function callRecorded<Fn extends HostOperation>(
+  client: Client,
+  fn: Fn,
+  args: Record<string, unknown>,
+  options: { record?: boolean },
+): Promise<HostReceipt<Fn>> {
+  const operation = HOST_OPERATIONS[fn]
+  const data = operation.receipt(await invoke<unknown>(client, fn, args), args)
+  const inverse = deriveRevert(fn, args, data)
+  if (!inverse) throw new Error('The authoring operation has no supported inverse.')
   invalidateAfterRpc(fn, args)
-  recordChange(fn, args, revert ?? deriveRevert(fn, args, data))
-  return data
+  if (options.record !== false) recordChange(fn, args, inverse)
+  // The operation selected by Fn owns the validator that produced this shape.
+  return data as HostReceipt<Fn>
+}
+
+/** Re-run a known session inverse through its host receipt validator. */
+export async function revertHostOperation(client: Client, fn: HostOperation, args: Record<string, unknown>): Promise<void> {
+  await callRecorded(client, fn, args, { record: false })
 }
 
 /**
@@ -348,9 +419,9 @@ function read<T>(
  * The inverse of a change, derived at the only moment it is cheap: right
  * after the call, while the returned id is in hand.
  *
- * Only *creations* derive an inverse here — the created thing's id came back
- * from the call, and deleting it restores the world exactly. Renames and
- * reorders need before-state their wrappers must pass explicitly; deletes
+ * Creations use the returned identity. Guarded host operations use their
+ * expected-before arguments, which the host verifies before committing.
+ * Other renames and reorders pass a captured inverse explicitly; deletes
  * have no inverse RPC and stay non-revertible per row.
  */
 function deriveRevert(
@@ -358,12 +429,27 @@ function deriveRevert(
   args: Record<string, unknown>,
   data: unknown,
 ): RevertSpec | undefined {
+  if (fn === 'update_step_with_details' || fn === 'rename_step_name')
+    return { fn: 'restore_step_details', args: { snapshot: data } }
+  if (fn === 'update_lane_with_details' || fn === 'rename_lane')
+    return { fn: 'restore_lane_details', args: { snapshot: data } }
+  if ((fn === 'add_step_with_details' || fn === 'add_lane_with_details') && data && typeof data === 'object' && 'before' in data) {
+    return { fn: 'undo_structure_add', args: { snapshot: data } }
+  }
+  if (
+    fn === 'change_step_path' && data && typeof data === 'object' &&
+    'receipt_id' in data && typeof data.receipt_id === 'string'
+  ) return { fn: 'undo_step_path_change', args: { receipt_id: data.receipt_id } }
+  if ((fn === 'reorder_steps' || fn === 'reorder_lanes') && data && typeof data === 'object' && 'before' in data) return {fn:'undo_structure_order',args:{snapshot:data}}
+  if (isHostOperation(fn)) return HOST_OPERATIONS[fn].inverse(args, data as RecordedAuthoringWrite)
   switch (fn) {
     case 'add_step':
+    case 'add_step_with_details':
       return typeof data === 'string'
         ? { fn: 'remove_step', args: { path_id: args.path_id, step_id: data } }
         : undefined
     case 'add_lane':
+    case 'add_lane_with_details':
       // By identity, like every other inverse here. The name-keyed
       // `remove_lane(scenario_id, lane_name)` this replaces held only under
       // clean LIFO: rename the lane and it matched nothing; rename a
@@ -435,7 +521,10 @@ function deriveRevert(
       const outcome = data as CellDependencyWrite | null
       if (!outcome?.id) return undefined
       if (outcome.inserted)
-        return { fn: 'clear_cell_dependency', args: { dependency_id: outcome.id } }
+        return {
+          fn: 'clear_cell_dependency',
+          args: { dependency_id: outcome.id },
+        }
       // An update whose before-state did not come back cannot be restored, and
       // a row with no `revert` is how the ledger says so — the same silence it
       // shows on a delete, rather than an approximation that reads like an
@@ -656,6 +745,58 @@ export function renamePath(
   )
 }
 
+/** Rename by identity only when the host offers the guarded optional RPC. */
+export function renameStep(
+  client: Client,
+  input: { stepId: string; expectedName: string; name: string },
+  options: { record?: boolean } = {},
+): Promise<RecordedAuthoringWrite> {
+  if (!input.name.trim() || !input.expectedName.trim()) throw new Error('A step rename requires nonempty names.')
+  return callRecorded(client, 'rename_step', {
+    step_id: input.stepId, expected_name: input.expectedName, new_name: input.name,
+  }, options)
+}
+
+/** A cell's full slot, including the secondary position within its square. */
+export type CellCoordinates = { path_id: string; lane_id: string; step_id: string; position: number }
+
+function capturedCoordinates(value: CellCoordinates): CellCoordinates {
+  if (!value || typeof value.path_id !== 'string' || !value.path_id.trim()
+      || typeof value.lane_id !== 'string' || !value.lane_id.trim()
+      || typeof value.step_id !== 'string' || !value.step_id.trim()
+      || !Number.isSafeInteger(value.position) || value.position < 0) {
+    throw new Error('A cell slot requires parent identities and a nonnegative integer position.')
+  }
+  return { path_id: value.path_id, lane_id: value.lane_id, step_id: value.step_id, position: value.position }
+}
+
+/** Optional host RPC: preserves identity and refuses an occupied destination. */
+export function moveCell(
+  client: Client,
+  input: { cellId: string; expectedSource: CellCoordinates; destination: CellCoordinates },
+  options: { record?: boolean } = {},
+): Promise<RecordedAuthoringWrite> {
+  return callRecorded(client, 'move_cell', {
+    cell_id: input.cellId,
+    expected_source: capturedCoordinates(input.expectedSource),
+    destination: capturedCoordinates(input.destination),
+  }, options)
+}
+
+/** Optional host RPC: creates a new identity at a vacant explicit slot. */
+export function insertCellAtPosition(
+  client: Client,
+  input: CellCoordinates & { content: string; status: EntityStatus },
+  options: { record?: boolean } = {},
+): Promise<RecordedAuthoringWrite & { cell_key: string }> {
+  const slot = capturedCoordinates(input)
+  if (!input.content.trim() || !asEntityStatus(input.status)) throw new Error('Insertion requires content and an explicit valid status.')
+  return callRecorded(client, 'insert_cell_at_position', {
+    path_id: slot.path_id, lane_id: slot.lane_id, step_id: slot.step_id, at_position: slot.position,
+    content: input.content, status: input.status,
+  }, options)
+}
+
 /** Add a column to a version. `atPosition` inserts; omitted appends. */
 export function addStep(
   client: Client,
@@ -734,15 +875,29 @@ export function upsertCell(
  * `deferrable initially deferred` in the foundation migration — before that, a
  * multi-row shift collided with itself midway through.
  */
-export function reorderSteps(
-  client: Client,
-  pathId: string,
-  stepIds: string[],
-): Promise<void> {
-  return call<void>(client, 'reorder_steps', {
-    path_id: pathId,
-    step_ids: stepIds,
-  })
+export async function reorderSteps(client:Client,pathId:string,stepIds:string[],expectedIds:string[]):Promise<SessionEntry> {
+  return (await callWithEntry(client,'reorder_steps',{path_id:pathId,step_ids:stepIds,expected_ids:expectedIds})).entry
+}
+
+/** Change one existing step's membership, keeping the server's guarded inverse. */
+export async function changeStepPath(client: Client, input: {
+  stepId: string
+  pathId: string
+  present: boolean
+  atPosition: number
+  expectedIds: string[]
+  expectedPathIds: string[]
+  confirmedCells?: Array<{ id: string; updated_at: string }>
+}): Promise<SessionEntry> {
+  return (await callWithEntry(client, 'change_step_path', {
+    step_id: input.stepId,
+    path_id: input.pathId,
+    present: input.present,
+    at_position: input.atPosition,
+    expected_ids: input.expectedIds,
+    expected_path_ids: input.expectedPathIds,
+    confirmed_cells: input.confirmedCells ?? null,
+  })).entry
 }
 
 /** Set which columns a version carries, and in what order. */
@@ -757,22 +912,9 @@ export function setPathSteps(
   })
 }
 
-/**
- * Reorder lanes across a whole blueprint, by name.
- *
- * By name, not by id, because every version of a blueprint has its own copy of
- * each lane and they must stay row-aligned — reordering one version's lane ids
- * would misalign it against its siblings in the side-by-side view.
- */
-export function reorderLanes(
-  client: Client,
-  scenarioId: string,
-  laneNames: string[],
-): Promise<void> {
-  return call<void>(client, 'reorder_lanes', {
-    scenario_id: scenarioId,
-    lane_names: laneNames,
-  })
+/** Reorder one path's own lanes, naming every lane exactly once. */
+export async function reorderLanes(client:Client,pathId:string,laneIds:string[],expectedIds:string[]):Promise<SessionEntry> {
+  return (await callWithEntry(client,'reorder_lanes',{path_id:pathId,lane_ids:laneIds,expected_ids:expectedIds})).entry
 }
 
 // ---------------------------------------------------------------------------
@@ -965,7 +1107,10 @@ export function deletionImpact(
  * that destroys it, so the client skips its own append for exactly these six
  * (`ARCHIVED_BY_THE_DATABASE` in `authoringLog.ts`).
  */
-export function deleteScenario(client: Client, scenarioId: string): Promise<string> {
+export function deleteScenario(
+  client: Client,
+  scenarioId: string,
+): Promise<string> {
   return call<string>(client, 'delete_scenario', { scenario_id: scenarioId })
 }
 
@@ -978,7 +1123,10 @@ export function removeStep(
   pathId: string,
   stepId: string,
 ): Promise<string> {
-  return call<string>(client, 'remove_step', { path_id: pathId, step_id: stepId })
+  return call<string>(client, 'remove_step', {
+    path_id: pathId,
+    step_id: stepId,
+  })
 }
 
 export function removeLane(
@@ -1031,3 +1179,230 @@ export async function renameOwnerTag(
  * the work, and `authoringSession.test.ts` still names both as reads that must
  * never become members of `WriteFn`.
  */
+
+/** Create a complete draft and capture every replaced order for its session inverse. */
+export async function createStepWithDetails(
+  client: Client,
+  input: {
+    pathId: string
+    name: string
+    summary: string
+    atPosition?: number
+    pathOrders: Record<string, string[]>
+  },
+): Promise<{id:string;entry:SessionEntry}> {
+  const {data:result,entry} = await callWithEntry<string | { ids: string[] }>(
+    client,
+    'add_step_with_details',
+    {
+      path_id: input.pathId,
+      name: input.name.trim(),
+      summary: input.summary.trim(),
+      path_orders: input.pathOrders,
+    },
+  )
+  return {id:typeof result === 'string' ? result : result.ids[0],entry}
+}
+
+export async function createLaneWithDetails(
+  client: Client,
+  input: {
+    scenarioId: string
+    pathId?: string
+    name: string
+    laneRole: string
+    atPosition?: number
+    ownerTeam: string
+    stakeholderId: string | null
+    kpis: string[]
+    tools: string[]
+    pathOrders: Record<string, string[]>
+  },
+): Promise<{ids:string[];entry:SessionEntry}> {
+  const {data:result,entry} = await callWithEntry<
+    string[] | { ids: string[]; by_path?: Record<string, string> }
+  >(client, 'add_lane_with_details', {
+    scenario_id: input.scenarioId,
+    name: input.name.trim(),
+    lane_role: input.laneRole,
+    path_orders: input.pathOrders,
+    details: {
+      owner_team: input.ownerTeam.trim() || null,
+      stakeholder_id: input.stakeholderId,
+      kpis: input.kpis.map((v) => v.trim()).filter(Boolean),
+      tools: input.tools.map((v) => v.trim()).filter(Boolean),
+    },
+  })
+  if (Array.isArray(result)) return {ids:result,entry}
+  const clicked = input.pathId && result.by_path?.[input.pathId]
+  return {ids:clicked
+    ? [clicked, ...result.ids.filter((id) => id !== clicked)]
+    : result.ids,entry}
+}
+
+/** Portable canvas rename with a server-captured guarded inverse. */
+export function renameStepName(client:Client,input:{stepId:string;name:string}):Promise<void> {
+  return call<void>(client,'rename_step_name',{step_id:input.stepId,new_name:input.name})
+}
+
+export function renameLane(client:Client,input:{laneId:string;name:string}):Promise<void> {
+  return call<void>(client,'rename_lane',{lane_id:input.laneId,new_name:input.name})
+}
+
+/** Save the panel's name and properties in one transaction and one session entry. */
+export function updateStepWithDetails(
+  client: Client,
+  input: { stepId: string; name: string; summary: string },
+): Promise<void> {
+  return call<void>(client, 'update_step_with_details', {
+    step_id: input.stepId,
+    name: input.name.trim(),
+    summary: input.summary.trim(),
+  })
+}
+
+export function updateLaneWithDetails(
+  client: Client,
+  input: {
+    laneId: string
+    laneIds: readonly string[]
+    name: string
+    ownerTeam: string
+    stakeholderId: string | null
+    kpis: string[]
+    tools: string[]
+  },
+): Promise<void> {
+  return call<void>(client, 'update_lane_with_details', {
+    lane_id: input.laneId,
+    lane_ids: input.laneIds,
+    name: input.name.trim(),
+    details: {
+      owner_team: input.ownerTeam.trim() || null,
+      stakeholder_id: input.stakeholderId,
+      kpis: input.kpis.map((v) => v.trim()).filter(Boolean),
+      tools: input.tools.map((v) => v.trim()).filter(Boolean),
+    },
+  })
+}
+
+
+export type CellStoryboardState = {
+  cell_id: string
+  path_id: string
+  lane_id: string
+  step_id: string
+  content: string
+  summary: string | null
+  frame: string | null
+  placements: Array<Record<string, unknown>>
+  resources: Array<Record<string, unknown>>
+}
+function storyboardState(value: unknown, cellId: string): CellStoryboardState {
+  const state = value as CellStoryboardState | null
+  if (
+    !state ||
+    state.cell_id !== cellId ||
+    !state.path_id ||
+    !state.lane_id ||
+    !state.step_id ||
+    typeof state.content !== 'string' ||
+    (state.summary !== null && typeof state.summary !== 'string') ||
+    (state.frame !== null && typeof state.frame !== 'string') ||
+    !Array.isArray(state.resources) ||
+    !Array.isArray(state.placements) ||
+    [...state.resources, ...state.placements].some(
+      (row) => !row || typeof row.id !== 'string' || row.cell_id !== cellId,
+    )
+  ) {
+    throw new Error(
+      'The cell returned no matching canonical state. Read back before retrying.',
+    )
+  }
+  return state
+}
+export async function readCellStoryboard(
+  client: Client,
+  cellId: string,
+): Promise<CellStoryboardState> {
+  return storyboardState(
+    await read(client, 'read_cell_storyboard', { p_cell_id: cellId }),
+    cellId,
+  )
+}
+/** One aggregate write returns the exact minted session entry for its own Undo. */
+export async function updateCellStoryboard(
+  client: Client,
+  input: {
+    cellId: string
+    content: string
+    summary: string
+    frame: string | null
+    expected: CellStoryboardState
+    attachments: readonly {
+      kind: 'attachment'
+      name: string
+      url: string
+      objectKey: string
+    }[]
+  },
+): Promise<SessionEntry> {
+  const args = {
+    p_cell_id: input.cellId,
+    p_content: input.content,
+    p_summary: input.summary,
+    p_frame: input.frame,
+    p_expected: input.expected,
+    p_attachments: input.attachments,
+  }
+  const result = await invoke<unknown>(client, 'update_cell_storyboard', args)
+  const receipt = result as {
+    cell_id?: unknown
+    receipt_id?: unknown
+    before?: unknown
+    after?: unknown
+  } | null
+  if (
+    !receipt ||
+    receipt.cell_id !== input.cellId ||
+    typeof receipt.receipt_id !== 'string' ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      receipt.receipt_id,
+    )
+  ) {
+    throw new Error(
+      'The write returned no matching edit receipt. Read back before retrying.',
+    )
+  }
+  const before = storyboardState(receipt.before, input.cellId)
+  const after = storyboardState(receipt.after, input.cellId)
+  if (
+    ['path_id', 'lane_id', 'step_id', 'content', 'summary', 'frame'].some(
+      (key) =>
+        before[key as keyof CellStoryboardState] !==
+        input.expected[key as keyof CellStoryboardState],
+    ) ||
+    ['path_id', 'lane_id', 'step_id'].some(
+      (key) =>
+        after[key as keyof CellStoryboardState] !==
+        before[key as keyof CellStoryboardState],
+    ) ||
+    after.content !== input.content ||
+    after.summary !== (input.summary.trim() || null) ||
+    after.frame !== (input.frame?.trim() || null)
+  ) {
+    throw new Error(
+      'The write returned a mismatched cell receipt. Read back before retrying.',
+    )
+  }
+  invalidateAfterRpc('update_cell_storyboard', args)
+  return recordRequiredEntry(
+    'update_cell_storyboard',
+    args,
+    {
+      fn: 'restore_cell_storyboard',
+      args: { p_receipt_id: receipt.receipt_id },
+    },
+    supabaseAuthoringLogWriter(client),
+  )
+}

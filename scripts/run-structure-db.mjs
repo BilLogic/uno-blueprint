@@ -23,12 +23,12 @@ export async function judge(stack = STACK) {
     }
     run('createdb', [database]); created = true
     let output = ''; let previousGateway
-    const migration = 'supabase/migrations/21000316000000_structure_writes_refuse_unapplied_changes.sql'
+    const migration = 'supabase/migrations/21000321000000_structure_writes_refuse_unapplied_changes.sql'
     const psql = ['-X', '-q', '-v', 'ON_ERROR_STOP=1', '-d', database]
     for (const file of [...stack, 'scripts/tests/fixtures/tool-writes.sql', 'scripts/tests/structure.sql']) {
       if (file === 'supabase/generated/portable-core.generated.sql') {
         const core = readFileSync(file, 'utf8')
-        const boundary = core.indexOf('-- 21000316000000_')
+        const boundary = core.indexOf('-- 21000321000000_')
         if (boundary < 0) throw new Error(`${file}: the refusal migration is missing from the generated core.`)
         run('psql', [...psql, '-f', '-'], core.slice(0, boundary))
         previousGateway = run('psql', [...psql, '-A', '-t', '-c', "select pg_get_functiondef('public.agent_tool_transaction(text,jsonb,uuid,uuid,boolean,uuid)'::regprocedure)"])

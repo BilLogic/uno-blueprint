@@ -27,7 +27,7 @@ const SEQUENCE_BADGE_FILE = 'components/blueprint/BlueprintCellButton.tsx'
 const EYEBROW_FILE = 'components/blueprint/ScenarioTitleBadge.tsx'
 const HEADER_TEXT_FILE = 'lib/canvasHeaderStyle.ts'
 const HEADER_CN_FILE = 'components/blueprint/StepHeaderAffordance.tsx'
-const NAMED_CN_FILE = 'components/blueprint/StepPanel.tsx'
+const NAMED_CN_FILE = 'components/blueprint/CellDependencySections.tsx'
 
 /**
  * The first `className="…"` in `file` whose value contains `needle`.

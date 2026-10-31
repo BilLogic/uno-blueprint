@@ -6,10 +6,9 @@ import { reconcileSessionAfterDenial } from '@/lib/sessionReconcile'
  * An authoring failure, already phrased for a person.
  *
  * `message` is what the UI shows. `raw` is the database's own text, which
- * never reaches a person's eye unasked: the trigger messages are precise and
- * correct ("cells.step_id must be linked to cells.path_id in path_steps") and
- * mean nothing to someone drawing a blueprint. It goes to the console, and to
- * the agent: the loop hands it to the model beside the sentence, because the
+ * may contain technical constraint details that belong in diagnostics rather
+ * than the summary shown to someone drawing a blueprint. It goes to the console
+ * and to the agent: the loop hands it to the model beside the sentence, because the
  * model cannot read the console and retries blind without the cause. The
  * transcript row's expandable detail shows that same answer, so a person
  * reading the turn back sees what the model saw; its summary stays `message`.
@@ -27,32 +26,19 @@ export class AuthoringError extends Error {
 /**
  * Database text the app must never show, mapped to what actually went wrong.
  *
- * Matching is by substring rather than by SQLSTATE because these are raised
- * by `raise exception`, which yields P0001 for all of them — the code carries
- * no information, only the text does.
+ * Matching uses constraint names and Postgres phrases because one SQLSTATE
+ * can describe collisions on different objects. The text identifies which
+ * condition failed.
  *
  * The RPCs that hold the app's authoring operations deliberately raise
  * sentences ("A blueprint needs a name"), so they are absent here and pass
- * through untouched. Only the older structural triggers, and Postgres's own
- * constraint machinery, need translating.
+ * through untouched, including the cell-validation trigger's human sentences.
+ * Postgres's constraint and permission machinery still needs translating.
  */
 const DENIAL_PERMISSION = 'permission denied'
 const DENIAL_RLS = 'violates row-level security'
 
 const TRANSLATIONS: Array<{ match: string; message: string }> = [
-  {
-    match: 'cells.step_id must be linked',
-    message:
-      'That step is not part of this version yet. Add the step to the version before putting a cell in it.',
-  },
-  {
-    match: 'cells.path_id must match lanes.path_id',
-    message: 'That lane belongs to a different version of this journey.',
-  },
-  {
-    match: 'cells: lane_id does not exist',
-    message: 'That lane no longer exists — it may have been deleted in another tab.',
-  },
   {
     match: 'path_steps_path_column_unique',
     message: 'Two steps ended up in the same position. Reload and try the move again.',

@@ -42,7 +42,7 @@ export function WriteFailureNotices() {
         full viewport — otherwise the toast sits left of the bottom control
         bar, which is itself centred in the main pane.
       */
-      className="pointer-events-none fixed bottom-20 z-50 flex w-[min(32rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] flex-col gap-2"
+      className="pointer-events-none fixed bottom-20 z-60 flex w-[min(32rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] flex-col gap-2"
       style={{
         left: 'calc((100vw + var(--editor-aside-width, 0px)) / 2)',
         transform: 'translateX(-50%)',

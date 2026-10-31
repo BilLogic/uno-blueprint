@@ -18,7 +18,7 @@ export function useCellPanelAgentCommands({
 }: {
   setActiveTab: (tab: PanelTab) => void
   setExpanded: (wide: boolean) => void
-  clearSelection: () => void
+  clearSelection: () => boolean
 }) {
   useEffect(() => {
     const unregister = [
@@ -44,7 +44,7 @@ export function useCellPanelAgentCommands({
         name: 'cell_panel_close',
         summary: 'Close the open cell detail panel.',
         run: () => {
-          clearSelection()
+          if (!clearSelection()) return 'Panel transition is awaiting a draft decision or the editor is busy.'
           return 'Cell panel closed.'
         },
       }),

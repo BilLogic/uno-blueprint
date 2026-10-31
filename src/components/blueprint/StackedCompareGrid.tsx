@@ -81,7 +81,7 @@ export function StackedCompareGrid({
           columnGap: STEP_COLUMN_GAP,
         }}
       >
-        <CompareStepHeaderRow tracks={tracks} />
+        <CompareStepHeaderRow tracks={tracks} pathId={blueprints[0].path.id} />
         {blueprints.map((blueprint, bandIndex) => {
           const bandRows = rows.filter(
             (row) =>

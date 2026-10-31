@@ -140,9 +140,13 @@ One grammar for cells, everywhere (the authoritative comment lives in
 - **⌘/Ctrl-click opens the cell detail panel.** Always, on every surface.
   Right-click → "View cell detail" is the discoverable route to the same
   place.
-- **A bare click picks, when a picker is armed** (slice membership, compare
-  selection). No picker armed → a bare click opens the panel — or closes it,
-  when the panel already shows that exact cell (click-in, click-out).
+- **Make slice explicitly arms cell picking.** A bare click toggles a cell
+  into the slice; Shift extends a range. Cmd/Ctrl-click opens cell, lane or
+  step panels without changing the slice. Clear or Escape leaves the tool.
+- **Outside Make slice, a bare click opens the panel** — or closes it,
+  when the panel already shows that exact cell (click-in, click-out). Lane
+  and step headers follow the same panel grammar; lane headers never select
+  a whole row.
 - **Double-click deliberately does nothing.** In a toggle grammar, click-in
   click-out _is_ a fast double-click — indistinguishable by construction —
   and every attempt to give the pair its own meaning turned reading a cell
@@ -251,6 +255,29 @@ owner**: the ✕, Escape, a toggling click, and the agent all go through the
 same `closePanel`; nothing else holds an "is it open" fact. Any new
 affordance that opens or closes the panel calls the owner — a second source
 of truth here is the bug class this rule killed.
+
+The step header opens the step panel: Name and Summary, with no storyboard
+picture row. A storyboard cell opens its own picture panel, identified
+by a **Storyboard** badge and **Step N · step name** in the selected path's
+order. It offers no step editing. The pictures come from the featured images
+of that step's cells in the walkthrough lanes and are edited on those cells;
+the storyboard cell holds nothing of its own. In canvas Edit mode, each existing
+picture opens directly to Picture and optional Caption fields, with its own
+Save and Cancel. Caption stores the cell summary; action text stays in the cell
+panel and never fills a missing caption. View mode is read-only. An existing
+picture offers Change picture and a quiet options menu for Remove picture;
+removing it reveals an Add picture upload tile and any existing image choices.
+Cancel restores the saved picture. Unpictured cells do not add unrelated rows
+to this panel. Clicking an empty storyboard slot opens Add picture with a
+Picture for selector over the step's existing walkthrough cells, followed by
+Picture and optional Caption. It never opens the generic new-cell form or
+creates a cell in the storyboard lane. Switching the chosen cell protects any
+unsaved picture draft; a step without eligible cells explains that one must be
+added in another lane first.
+
+Row headers paint a single neutral content-band wash. Nested name/opening
+controls are transparent, including while their definition is hovered; focus
+and the selected ring use that same padded band.
 
 ## The selected phase
 

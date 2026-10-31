@@ -2,6 +2,7 @@
 summary: One shell, six subjects — the drawer chrome every entity panel is made of, what the six panels share, where they legitimately differ, and the invariants a well-meaning edit breaks.
 claims:
   - src/components/blueprint/PathOrderSection.tsx
+  - src/components/blueprint/StructurePathsSection.tsx
   - src/components/blueprint/structureHighlight.ts
   - src/components/blueprint/StructureInsert.tsx
   - src/components/blueprint/structureInsertIntent.ts
@@ -30,6 +31,9 @@ claims:
   - src/components/blueprint/EntityPropertiesButton.tsx
   - src/components/blueprint/EntityTitleAffordance.tsx
   - src/components/blueprint/Eyebrow.tsx
+  - src/components/blueprint/FeaturedImageControl.tsx
+  - src/components/blueprint/StoryboardCellRows.tsx
+  - src/components/blueprint/StoryboardPictureDraftSurface.tsx
   - src/components/blueprint/FeaturedResources.tsx
   - src/components/blueprint/RegistryLink.tsx
   - src/components/blueprint/LaneHeaderAffordance.tsx
@@ -156,7 +160,7 @@ should change, it changes in the shell, once.
 | Phase | Hints lifted verbatim from the column comments, so the panel and the schema cannot drift. |
 | Lane | No evidence, resources or dependency tabs: those all key on a **cell**, and a lane has no link to any of them. The only panel with `PanelEmpty` gating and the fan-out alert. |
 | Scenario | A paths accordion opening `multiple`, first path open — comparing two routes is the reason to read this panel, and an accordion that closes one to open the next makes that impossible. |
-| Step | The one panel whose save invalidates the canvas grid, because `summary` is also the storyboard caption. |
+| Step | Owns the Step name and summary. Storyboard pictures and captions belong to the picture’s cell and are edited in the storyboard panel. |
 | Cell | Tabs, two surfaces, an expand toggle, agent commands and the in-slices footer. |
 
 ### The lane panel's fan-out
@@ -276,6 +280,26 @@ as its host and a file as its own filename, and the rename is a second,
 optional act. The upload is on screen the whole way — the row present and
 dimmed while the bucket is written, and a `Retry` in its place if the write is
 refused.
+
+The storyboard panel lists only the pictured cells already represented in the
+step's strip, in both View and Edit. Unpictured cells do not add empty rows to
+this panel; their featured images are managed from their own cell panels. Edit mode
+opens picture controls and the optional Caption field directly. Caption maps to
+`cells.summary`; action Text and other cell properties stay in the cell's own panel.
+Save and Cancel keep the picture fields open. A single close guard covers every pictured
+cell's unsaved draft; each Save records only that cell's picture and caption.
+
+**The featured image has one reusable control.** `FeaturedImageControl.tsx`
+exports `FeaturedImageField`, a controlled choice over the cell's image
+attachments, inherited touchpoint logos and saved frame, including a saved
+storyboard illustration. Its host supplies the draft frame and receives a
+choice; an upload uses the existing attachment bucket and hands the full
+attachment back for that host to stage. It performs no authoring save.
+`CellResourcesTab` embeds it through the existing list and logo controls, so
+the panel keeps its unsaved count and one Save. `FeaturedImageControl` adds a
+standalone frozen draft and Save/Cancel around the same field, saving through
+`resourceDraftStore`; changing the cell opens a fresh draft. A surface composing
+picture and text edits uses the controlled field and owns their combined save.
 
 **None of it writes until the panel's Save.** The tabs sit beside the form,
 not inside it, so the draft is held above both: `ResourceDraftsProvider`
@@ -486,3 +510,22 @@ entry is removed elsewhere. A panel edit saves its name and properties with
 one RPC, whose result captures the exact fields its one inverse restores.
 
 `structureInsertIntent` gives each board one hover owner. A fresh crossing chooses the nearest boundary; an open seam keeps ownership while the pointer remains inside its detection band. Leaving the band allows the other axis to open after the normal delay. Crossing clicks follow that owner rather than whichever overlapping element painted last. Keyboard focus retains ownership until blur.
+
+
+## Saved structure paths
+
+`StructurePathsSection` parameterizes the same `PathOrderSection` used during
+creation. The edit label is Paths. Steps show token-painted membership checks;
+the last selected path is disabled with a reason. Lanes show only their owning
+path and no checks. The edited item keeps the `bg-wash-primary` and
+`border-border-primary` card treatment; every row retains the same grip,
+keyboard moves, moved tag and Reset order action.
+
+A pointer drag previews locally and commits once on drop, with no momentum
+reorder after release. Keys, ticks, unticks and Reset commit immediately. The
+rail is disabled while saving, and fresh reads wait through a held drag or a
+removal confirmation. A removal first reads and names the saved cell count;
+its dialog carries `data-panel-dialog` so Escape cancels that dialog without
+closing the panel below. The write rechecks the confirmed cell identities and
+timestamps, and every successful change binds its own session entry to toast
+Undo. A stale refusal keeps the prior rail and shows the reason next to it.

@@ -90,6 +90,10 @@ away while the user is still looking for what happened — and
 the alert's assertive announcement corrects a belief the user already holds. Success uses the same Alert surface with a polite status announcement, and its message, Undo and Dismiss share one flex row so the actions remain inside it. Only the latest success offers Undo; older changes remain in the session, and failed-write notices remain visible. At most three notices stack; a report that grows
 without limit buries the canvas under the report of its own trouble.
 
+The shared notice layer sits above non-modal panel drawers. In a narrow canvas
+the centred notice can overlap the panel footer; its Undo and Dismiss controls
+must remain clickable while the panel stays open.
+
 ## The create dialogs
 
 Each asks for the decisions that cannot be made later, and no more.

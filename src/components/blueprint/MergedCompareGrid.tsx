@@ -290,7 +290,7 @@ export function MergedCompareGrid({
           columnGap: STEP_COLUMN_GAP,
         }}
       >
-        <CompareStepHeaderRow tracks={tracks} />
+        <CompareStepHeaderRow tracks={tracks} pathId={blueprints[0]?.path.id} />
         <div
           ref={bandRef}
           data-structure-paths={blueprints.map(blueprint => blueprint.path.id).join(' ')}

@@ -38,7 +38,7 @@
  * loads in dependency order: a lane whose path never inserted fails its foreign
  * key, and every cell in that lane then fails the core's row-validation trigger.
  * Reporting forty of those beside the one column that started it buries the
- * finding. Foreign-key violations and the core's own `cells: …` raises are
+ * finding. Foreign-key violations and the core's own cell-validation refusals are
  * therefore listed second, under a heading that says they are downstream.
  *
  * ── Finding the deployment ────────────────────────────────────────────────
@@ -153,14 +153,20 @@ export function fileNeverRan(status, failures) {
   return status !== 0 && failures.length === 0
 }
 
+const CELL_VALIDATION_MESSAGES = new Set([
+  'This lane no longer exists. Reload the canvas',
+  'Choose a lane on this path',
+  'This step is not on this path. Reload the canvas',
+])
+
 /**
  * Is this failure a consequence of an earlier one rather than a finding?
  *
  * A seed loads in dependency order. When the statement that inserts a path
  * fails, every lane on that path fails its foreign key and every cell in those
- * lanes fails the core's own row-validation trigger — which raises `cells: …`
- * rather than a constraint name. A seed that wraps its load in one transaction
- * adds a third shape: once any statement fails, Postgres refuses the rest of
+ * lanes fails the core's row-validation trigger with a human sentence
+ * rather than a constraint name. Older cores used a `cells: …` prefix. A seed
+ * that wraps its load in one transaction adds a third shape: once any statement fails, Postgres refuses the rest of
  * the block outright. Those three are the whole knock-on surface, and
  * separating them is what keeps the one real cause visible.
  */
@@ -168,6 +174,7 @@ export function isDownstream(message) {
   return (
     /violates foreign key constraint/.test(message) ||
     /^cells[.:]/.test(message) ||
+    CELL_VALIDATION_MESSAGES.has(message) ||
     /current transaction is aborted/.test(message)
   )
 }

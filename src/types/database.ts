@@ -281,6 +281,40 @@ export type Database = {
           },
         ]
       }
+      cell_storyboard_receipts: {
+        Row: {
+          actor: string
+          after_state: NonNullable<Json>
+          before_state: NonNullable<Json>
+          cell_id: string
+          id: string
+          uploaded_ids: string[]
+        }
+        Insert: {
+          actor: string
+          after_state: NonNullable<Json>
+          before_state: NonNullable<Json>
+          cell_id: string
+          id?: string
+          uploaded_ids: string[]
+        }
+        Update: {
+          actor?: string
+          after_state?: NonNullable<Json>
+          before_state?: NonNullable<Json>
+          cell_id?: string
+          id?: string
+          uploaded_ids?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cell_storyboard_receipts_cell_id_fkey"
+            columns: ["cell_id"]
+            referencedRelation: "cells"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cell_touchpoints: {
         Row: {
           cell_id: string
@@ -406,6 +440,12 @@ export type Database = {
             columns: ["path_id"]
             referencedRelation: "paths"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cells_path_step_fkey"
+            columns: ["path_id", "step_id"]
+            referencedRelation: "path_steps"
+            referencedColumns: ["path_id", "step_id"]
           },
           {
             foreignKeyName: "cells_step_id_fkey"
@@ -1048,6 +1088,42 @@ export type Database = {
           },
         ]
       }
+      structure_membership_receipts: {
+        Row: {
+          after_state: NonNullable<Json>
+          archive: NonNullable<Json>
+          before_state: NonNullable<Json>
+          created_at: string
+          id: string
+          path_id: string
+          present: boolean
+          reverted: boolean
+          step_id: string
+        }
+        Insert: {
+          after_state: NonNullable<Json>
+          archive: NonNullable<Json>
+          before_state: NonNullable<Json>
+          created_at?: string
+          id?: string
+          path_id: string
+          present: boolean
+          reverted?: boolean
+          step_id: string
+        }
+        Update: {
+          after_state?: NonNullable<Json>
+          archive?: NonNullable<Json>
+          before_state?: NonNullable<Json>
+          created_at?: string
+          id?: string
+          path_id?: string
+          present?: boolean
+          reverted?: boolean
+          step_id?: string
+        }
+        Relationships: []
+      }
       touchpoints: {
         Row: {
           aliases: string[] | null
@@ -1183,6 +1259,18 @@ export type Database = {
         Returns: Json
       }
       cell_natural_key: { Args: { cell_id: string }; Returns: string }
+      change_step_path: {
+        Args: {
+          at_position: number
+          confirmed_cells?: Json
+          expected_ids: string[]
+          expected_path_ids: string[]
+          path_id: string
+          present: boolean
+          step_id: string
+        }
+        Returns: Json
+      }
       check_structure_draft_order: {
         Args: { current_ids: string[]; requested: Json }
         Returns: undefined
@@ -1254,6 +1342,7 @@ export type Database = {
         Args: { lane_id: string; path_id: string; step_id: string }
         Returns: string
       }
+      read_cell_storyboard: { Args: { p_cell_id: string }; Returns: Json }
       record_authoring_change: {
         Args: {
           agent_session_id?: string
@@ -1350,6 +1439,10 @@ export type Database = {
         Args: { dependency_id: string; name: string; note: string }
         Returns: undefined
       }
+      restore_cell_storyboard: {
+        Args: { p_receipt_id: string }
+        Returns: undefined
+      }
       restore_cell_touchpoints: {
         Args: { p_cell_id: string; p_rows: Json }
         Returns: undefined
@@ -1404,6 +1497,10 @@ export type Database = {
         Returns: Json
       }
       slices_referencing: { Args: { cell_ids: string[] }; Returns: Json }
+      structure_membership_state: {
+        Args: { p_path: string; p_step: string }
+        Returns: Json
+      }
       sync_cell_resources: {
         Args: { p_cell_id: string; p_rows: Json }
         Returns: undefined
@@ -1416,6 +1513,10 @@ export type Database = {
         Args: { p_placement_id: string; p_rows: Json }
         Returns: undefined
       }
+      undo_step_path_change: {
+        Args: { receipt_id: string }
+        Returns: undefined
+      }
       undo_structure_add: { Args: { snapshot: Json }; Returns: undefined }
       undo_structure_order: { Args: { snapshot: Json }; Returns: undefined }
       update_cell_dependency: {
@@ -1424,6 +1525,17 @@ export type Database = {
           kind: string
           note: string
           target_cell_id: string
+        }
+        Returns: Json
+      }
+      update_cell_storyboard: {
+        Args: {
+          p_attachments?: Json
+          p_cell_id: string
+          p_content: string
+          p_expected: Json
+          p_frame: string
+          p_summary: string
         }
         Returns: Json
       }

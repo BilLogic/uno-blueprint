@@ -272,10 +272,27 @@ export function readerFacingStrings(files = applicationComponents()) {
   return out
 }
 
+/**
+ * These upload controls name the picture a person is choosing, not the retired
+ * cells.picture column. Keep the exception to these components and exact copy;
+ * domain prose and every other retired spelling remain covered.
+ */
+const PICTURE_CONTROL_COPY = new Set([
+  'Picture', 'Picture file', 'Picture options', 'Add picture', 'Add a picture',
+  'Change picture', 'Remove picture', 'Choose existing picture', 'Picture for',
+])
+
 /** Reader-facing strings carrying a retired spelling. */
 export function offenders(strings = readerFacingStrings()) {
   return strings.flatMap((entry) => {
-    const hit = PATTERNS.find(({ pattern }) => pattern.test(entry.value))
+    const hit = PATTERNS.find(({ word, pattern }) =>
+      pattern.test(entry.value) && !(
+        word === 'picture' &&
+        ['src/components/blueprint/FeaturedImageControl.tsx',
+          'src/components/blueprint/StoryboardPictureDraftSurface.tsx'].includes(entry.file) &&
+        PICTURE_CONTROL_COPY.has(entry.value)
+      ),
+    )
     return hit ? [`${entry.file} (${entry.where}) "${entry.value}" — "${hit.word}"`] : []
   })
 }
@@ -295,6 +312,13 @@ test('no retired spelling reaches a reader', () => {
       'current one, and a UI that disagrees is the same defect as a doc asserting ' +
       `an interface the code lacks — pointed at the user instead:\n${found.join('\n')}`,
   )
+})
+
+test('picture upload copy is allowed without exempting domain prose or other words', () => {
+  const file = 'src/components/blueprint/FeaturedImageControl.tsx'
+  assert.deepEqual(offenders([{ file, where: 'text', value: 'Remove picture' }]), [])
+  assert.equal(offenders([{ file, where: 'text', value: 'The picture column' }]).length, 1)
+  assert.equal(offenders([{ file: 'Other.tsx', where: 'text', value: 'Remove picture' }]).length, 1)
 })
 
 test('the guard reads the props and the text nodes it claims to', () => {

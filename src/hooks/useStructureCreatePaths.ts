@@ -1,6 +1,5 @@
-import { useCallback, useState, useEffect } from 'react'
-import { queryKeys } from '@/lib/queryKeys'
-import { useSupabaseQuery } from './useSupabaseQuery'
+import { useState, useEffect } from 'react'
+import { useStructurePaths } from './useStructurePaths'
 import {
   useEntityDetailOptional,
   type StructureDraft,
@@ -18,58 +17,14 @@ export function useStructureCreatePaths(
   name = '',
   role?: string,
 ) {
-  const fallback = useCallback(() => null, [])
-  const result = useSupabaseQuery<OrderPath[]>(
+  const result = useStructurePaths(
     draft
-      ? queryKeys.structureCreatePaths.of(
-          `${draft.kind}:${
-            draft.kind === 'step' ? draft.pathId : draft.scenarioId
-          }`,
-        )
+      ? {
+          kind: draft.kind,
+          pathId: draft.pathId,
+          scenarioId: draft.kind === 'lane' ? draft.scenarioId : undefined,
+        }
       : null,
-    async (client, signal) => {
-      if (!draft) return []
-      let scenarioId = draft.kind === 'lane' ? draft.scenarioId : ''
-      if (draft.kind === 'step') {
-        const { data, error } = await client
-          .from('paths')
-          .select('scenario_id')
-          .eq('id', draft.pathId)
-          .abortSignal(signal)
-          .single()
-        if (error) throw error
-        scenarioId = data.scenario_id
-      }
-      const { data, error } = await client
-        .from('paths')
-        .select(
-          'id,name,lanes(id,name,position,lane_role),path_steps(position,steps(id,name))',
-        )
-        .eq('scenario_id', scenarioId)
-        .order('name')
-        .abortSignal(signal)
-      if (error) throw error
-      return data.map((path) => ({
-        id: path.id,
-        name: path.name,
-        items:
-          draft.kind === 'lane'
-            ? [...path.lanes]
-                .sort((a, b) => a.position - b.position)
-                .map((lane) => ({
-                  id: lane.id,
-                  name: lane.name,
-                  position: lane.position,
-                  // Always set — omitted role collapses section math to the
-                  // whole stack (the create rail listing every lane).
-                  role: (lane.lane_role ?? null) as string | null,
-                }))
-            : [...path.path_steps]
-                .sort((a, b) => a.position - b.position)
-                .map((row) => ({ ...row.steps, position: row.position })),
-      }))
-    },
-    fallback,
   )
   const paths = result.status === 'ready' ? result.data : []
   const [value, setValue] = useState<PathOrder[] | null>(null)

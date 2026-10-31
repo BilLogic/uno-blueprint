@@ -24,6 +24,7 @@ export function CompareStepHeaderRow({
           // the first is the one to open.
           stepId={Object.values(track.stepIdByPath)[0] ?? ''}
           name={track.label}
+          summary={track.summary}
           // `relative z-1`: when a path frame extends up to wrap this
           // row (single-path stacked, merged), the frame's opaque fill is
           // an absolutely-positioned later sibling — without a stacking

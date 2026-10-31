@@ -596,3 +596,11 @@ describe('the list_blueprint spec', () => {
     )
   })
 })
+
+it('step readback includes the explanation beside its label', async () => {
+  const board = structuredClone(BOARD)
+  board.steps[0].summary = 'The person chooses how to receive support.'
+  const text = await runTool(listBlueprintTool, { granularity: ['step'], service: 'all' }, fakeToolContext({ client: fakeDb(board).client }))
+  expect(text).toContain('Triage')
+  expect(text).toContain('The person chooses how to receive support.')
+})

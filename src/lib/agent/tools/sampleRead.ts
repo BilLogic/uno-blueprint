@@ -77,7 +77,7 @@ function sampleJourneyTree(board: OfflineBoard): JourneyTree {
   const paths: Rows<'paths'> = []
   const steps = new Map<
     string,
-    { id: string; scenarioId: string; name: string; placements: Array<{ pathId: string; position: number }> }
+    { id: string; scenarioId: string; name: string; summary?: string | null; placements: Array<{ pathId: string; position: number }> }
   >()
   const lanes: Rows<'lanes'> = []
   const cells: Rows<'cells'> = []
@@ -101,6 +101,7 @@ function sampleJourneyTree(board: OfflineBoard): JourneyTree {
           id: step.id,
           scenarioId: item.id,
           name: step.name,
+          summary: step.summary,
           placements: [],
         }
         placed.placements.push({ pathId: path.id, position: step.position })

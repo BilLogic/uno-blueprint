@@ -15,7 +15,12 @@ turning the user's notes or ideas into canvas content — new steps,
 lanes, OR cells mapped onto existing structure — the adapter's nod gate
 applies to the mapping, not just to new columns. In the proposed
 outline, tag each cell with the note fragment it comes from (a short
-quote in parentheses). After any structural building, close with path
+quote in parentheses).
+
+For structure names, follow the map skill's Naming structure guidance. Put
+explanations in summary; show and read back both fields in slices and exports.
+
+After any structural building, close with path
 completeness: ask what actually goes wrong, relate the work to its
 sibling paths, or say why no further path work is needed.
 

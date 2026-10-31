@@ -50,6 +50,7 @@ type EntityDefinitionPopoverProps = {
   openOnHover?: boolean
   /** Hover open delay in ms. */
   delay?: number
+  keepTriggerFocus?: boolean
 }
 
 /** The term an aside wears, so it is a section like every other one. */
@@ -83,6 +84,7 @@ export function EntityDefinitionPopover({
   onOpenChange,
   anchor,
   openOnHover,
+  keepTriggerFocus,
   delay,
 }: EntityDefinitionPopoverProps) {
   const term = ENTITY_KIND_DEFINITIONS[kind]
@@ -143,6 +145,7 @@ export function EntityDefinitionPopover({
       onOpenChange={onOpenChange}
       anchor={anchor}
       openOnHover={openOnHover}
+      keepTriggerFocus={keepTriggerFocus}
       delay={delay}
     >
       {children}

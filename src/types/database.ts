@@ -1436,6 +1436,7 @@ export type Database = {
         Args: { lane_id: string; path_id: string; step_id: string }
         Returns: string
       }
+      read_service_blueprint: { Args: { p_service_id: string }; Returns: Json }
       record_authoring_change: {
         Args: {
           agent_session_id?: string

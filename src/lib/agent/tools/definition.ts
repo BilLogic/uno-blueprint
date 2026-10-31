@@ -116,7 +116,7 @@ export type ToolContext = {
     getChanges: (limit: number | undefined, currentSessionId: string) => string | Promise<string>
   }
   /** A server applies the validated write in one database transaction. */
-  serverWrite?: (name: string, args: Record<string, unknown>) => Promise<string>
+  serverWrite?: (name: string, args: Record<string, unknown>, context: ToolContext) => Promise<string>
   /**
    * The roster this call was offered from: what the canvas adapter lists
    * when it is served, so the agent reads exactly the tools it can call.
@@ -177,13 +177,8 @@ export type WriteContext = ToolContext & { client: Client }
  * Stated here once, so a write tool is its schema, its mutation and its
  * reply, and cannot forget any of the three.
  */
-export function defineWriteTool<Args extends z.ZodObject>(definition: {
-  name: string
+export function defineWriteTool<Args extends z.ZodObject>(definition: Pick<ToolDefinition<Args>, 'name' | 'args' | 'aliases' | 'confirmation'> & {
   description: string
-  args: Args
-  aliases?: Record<string, string>
-  /** The canvas must offer the same confirmation metadata as MCP. */
-  confirmation?: boolean
   run: (args: z.infer<Args>, ctx: WriteContext) => Promise<string>
 }): ToolDefinition<Args> {
   return {
@@ -195,7 +190,7 @@ export function defineWriteTool<Args extends z.ZodObject>(definition: {
     aliases: definition.aliases,
     confirmation: definition.confirmation,
     run: (args, ctx) => ctx.serverWrite
-      ? ctx.serverWrite(definition.name, args)
+      ? ctx.serverWrite(definition.name, args, ctx)
       : ctx.session.attributed(() => definition.run(args, { ...ctx, client: requireClient(ctx) })),
   }
 }
@@ -260,7 +255,7 @@ export const arg = {
  * adapters expect the object shape and nothing else, and one of them strips
  * both anyway.
  */
-export function businessToolSpec(definition: ToolDefinition): ToolSpec {
+export function toolContractSpec(definition: ToolDefinition): ToolSpec {
   const {
     $schema: _schema,
     additionalProperties: _additional,
@@ -276,12 +271,14 @@ export function businessToolSpec(definition: ToolDefinition): ToolSpec {
   }
 }
 
+export const CONFIRMATION_DESCRIPTION = 'True only after the person explicitly confirmed this change; otherwise record a proposal.'
+
 /** The host's confirmation is call metadata, never a blueprint argument. */
 export function toolSpec(definition: ToolDefinition): ToolSpec {
-  const spec = businessToolSpec(definition)
+  const spec = toolContractSpec(definition)
   if (definition.confirmation) {
     spec.parameters.properties = { ...(spec.parameters.properties as object), confirmed: {
-      type: 'boolean', description: 'True only after the person explicitly confirmed this change; otherwise record a proposal.',
+      type: 'boolean', description: CONFIRMATION_DESCRIPTION,
     } }
   }
   return spec
@@ -304,7 +301,7 @@ export async function runTool(
       .join('; ')
     throw new Error(`${definition.name}: invalid arguments — ${issues}.`)
   }
-  return definition.run(parsed.data, { ...ctx, confirmed: rawArgs.confirmed === true })
+  return definition.run(parsed.data, { ...ctx, confirmed: ctx.confirmed ?? rawArgs.confirmed === true })
 }
 
 /** The call as sent, with each accepted alias read as the argument it names. */

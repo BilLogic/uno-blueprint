@@ -141,7 +141,7 @@ async function readJourneyTree(
       readAll((from, to) =>
         client
           .from('steps')
-          .select('id, scenario_id, name, path_steps (path_id, position)', {
+          .select('id, scenario_id, name, summary, path_steps (path_id, position)', {
             count: 'exact',
           })
           .order('id')
@@ -195,6 +195,7 @@ async function readJourneyTree(
       id: row.id,
       scenarioId: row.scenario_id,
       name: row.name,
+      summary: row.summary,
       placements: (row.path_steps ?? []).map((placement) => ({
         pathId: placement.path_id,
         position: placement.position,

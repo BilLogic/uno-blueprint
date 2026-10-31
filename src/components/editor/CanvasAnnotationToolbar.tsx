@@ -1,3 +1,4 @@
+import { HOVER_HINT_DELAY } from '@/lib/hoverIntent'
 import { useState } from 'react'
 import {
   Circle,
@@ -433,7 +434,7 @@ function CanvasModeSwitch({
     // short enough to arrive before the question is abandoned. Scoped to this
     // group: everything else in the bar keeps the instant tooltips, because
     // there the icon alone is usually enough.
-    <TooltipProvider delay={500}>
+    <TooltipProvider delay={HOVER_HINT_DELAY} timeout={0}>
     {/*
       A track holding two squares, not two loose buttons: the inset well and
       the shared gutter are what say "these two are one control and one of them

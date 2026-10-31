@@ -2,7 +2,7 @@
 summary: The server uses a TypeScript validator because its runtime cannot execute Python; parity against the canonical file validator gates changes to the port.
 ---
 
-# 33. The server validator is guarded by Python parity
+# 34. The server validator is guarded by Python parity
 
 **Status** Accepted — 2026-10-22.
 

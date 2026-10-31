@@ -1,3 +1,4 @@
+import { HOVER_HINT_DELAY } from '@/lib/hoverIntent'
 import type { ReactNode } from 'react'
 import { Diamond, LayoutGrid, Sparkles } from 'lucide-react'
 import { IconTooltip } from '@/components/editor/IconTooltip'
@@ -109,7 +110,7 @@ export function EditorRail({
   bottomSlot?: ReactNode
 }) {
   return (
-    <TooltipProvider delay={300}>
+    <TooltipProvider delay={HOVER_HINT_DELAY} timeout={0}>
       <nav
         aria-label="Sidebar surfaces"
         className={cn(

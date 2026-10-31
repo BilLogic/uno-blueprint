@@ -24,7 +24,7 @@ import {
   rowTrackHeight,
 } from '@/lib/laneCorridor'
 import { getBlueprintGridMinHeight, getLaneRowMinHeight } from '@/lib/blueprintLayout'
-import { buildCompareRowSpecs, getCompareRowTrackHeight } from '@/lib/sideBySideCompareLayout'
+import { buildCompareRowSpecs, buildSideBySideLabelRowSpecs, getCompareRowTrackHeight } from '@/lib/sideBySideCompareLayout'
 import type { BlueprintData, BlueprintLane } from '@/types/blueprint'
 
 const lane = (name: string, position: number, id = `lane-${position}`): BlueprintLane => ({
@@ -169,4 +169,15 @@ test('both layouts price a corridor the same', () => {
   // adds the cell shell to the board's lane row) — one rule for one corridor.
   assert.equal(getCompareRowTrackHeight(row), rowTrackHeight(row.height, { inLaneLoopAbove: true }))
   assert.ok(row.height >= getLaneRowMinHeight(lanes[1]!, looped))
+})
+
+test('a lane created only on another path stays on the board without borrowing a same-position lane', () => {
+  const first = board(1,'first')
+  const second = board(1,'second')
+  const added = lane('Additional actor',1,'added')
+  second.data = {...second.data,lanes:[...second.lanes,added]}
+  const rows = buildSideBySideLabelRowSpecs([first.data,second.data])
+  assert.ok(rows.some(row=>row.lane?.id === 'added'))
+  const unrelated = lane('Only here',0,'only-here')
+  assert.equal(resolveBlueprintLane(unrelated,first.data).id,'only-here')
 })

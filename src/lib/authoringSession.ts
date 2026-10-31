@@ -1,3 +1,4 @@
+import { HOST_DESCRIBERS, type HostOperation } from '@/lib/hostAuthoringOperations'
 /**
  * What has been changed since Edit was turned on.
  *
@@ -34,12 +35,12 @@
  * for the payload as well.
  *
  * Which is why the claim is now a wall instead of a habit. `executeRevert`
- * takes a `SessionEntry`, a type only `recordChange` below can mint, so a row
- * selected out of `public.authoring_changes` cannot be handed to the undo
+ * takes a `SessionEntry`, a type only the recording functions below can mint,
+ * so a row selected out of `public.authoring_changes` cannot be handed to the undo
  * path — not because nobody has tried, but because it does not compile.
  * `revertBoundaryContract.test.ts` holds the rest of the argument.
  */
-import { appendToAuthoringLog } from '@/lib/authoringLog'
+import { appendToAuthoringLog, appendRequiredAuthoringLog, type AuthoringLogWriter } from '@/lib/authoringLog'
 
 /**
  * How to take one change back: the operation that undoes it, captured at
@@ -71,14 +72,23 @@ export type WriteFn =
   | 'duplicate_scenario'
   | 'rename_phase'
   | 'rename_scenario'
+  | HostOperation
   | 'update_scenario_layout'
   | 'rename_path'
   | 'rename_owner_tag'
+  | 'update_step_with_details'
+  | 'update_lane_with_details'
+  | 'add_step_with_details'
+  | 'add_lane_with_details'
+  | 'rename_step_name'
+  | 'rename_lane'
   | 'add_step'
   | 'add_lane'
   | 'upsert_cell'
   | 'update_cell_content'
   | 'approve_suggested_change'
+  | 'update_cell_storyboard'
+  | 'update_cell_status'
   | 'update_cell_resources'
   | 'update_placement_resources'
   | 'set_featured_resource'
@@ -107,6 +117,7 @@ export type WriteFn =
   | 'update_cell_dependency'
   | 'set_cell_featured_image'
   | 'clear_cell_dependency'
+  | 'change_step_path'
   | 'reorder_steps'
   | 'set_path_steps'
   | 'reorder_lanes'
@@ -168,8 +179,8 @@ declare const SESSION_ORIGIN: unique symbol
  * had wired a read of the log into the undo path; it would have compiled, and
  * then thrown on the row above.
  *
- * `recordChange` is the only mint, and `revertBoundaryContract.test.ts` holds
- * it to that — a cast to `SessionEntry` anywhere else in `src/` fails there.
+ * The session recorders share one mint. `revertBoundaryContract.test.ts` holds
+ * that boundary — a cast to `SessionEntry` anywhere else in `src/` fails there.
  */
 export type SessionEntry = ChangeEntry & { readonly [SESSION_ORIGIN]: true }
 
@@ -189,7 +200,10 @@ let agentAttribution: { sessionId: string } | null = null
  * no caller can leave attribution on after a throw — the one caller is the
  * live tool context, and a tool never touches this by name.
  */
-export async function attributedTo<T>(sessionId: string, work: () => Promise<T>): Promise<T> {
+export async function attributedTo<T>(
+  sessionId: string,
+  work: () => Promise<T>,
+): Promise<T> {
   agentAttribution = { sessionId }
   try {
     return await work()
@@ -241,16 +255,12 @@ export function sessionSnapshot(): SessionEntry[] {
   return entries
 }
 
-export function recordChange(fn: WriteFn, args: Record<string, unknown>, revert?: RevertSpec): void {
-  appendToAuthoringLog(appendSessionChange(fn, args, revert))
-}
-
 /** Approval is already durable; add its local action without an undo payload. */
 export function recordSuggestionApproval(suggestedChangeId: string): void {
-  appendSessionChange('approve_suggested_change', { suggested_change_id: suggestedChangeId })
+  captureChange('approve_suggested_change', { suggested_change_id: suggestedChangeId })
 }
 
-function appendSessionChange(fn: WriteFn, args: Record<string, unknown>, revert?: RevertSpec): ChangeEntry {
+function captureChange(fn: WriteFn, args: Record<string, unknown>, revert?: RevertSpec): SessionEntry {
   counter += 1
   const entry: ChangeEntry = {
     id: `c${counter}`,
@@ -263,15 +273,64 @@ function appendSessionChange(fn: WriteFn, args: Record<string, unknown>, revert?
       : {}),
   }
   // The one mint of a `SessionEntry`, and the reason the type is worth
-  // having: an entry is branded here, after this module has assembled it
+  // having: an entry is branded here, after this session recorder assembled it
   // from arguments this build's own mutation modules passed in. Nothing that
   // arrived over the wire can acquire the brand, so nothing that arrived over
   // the wire can reach `executeRevert`.
-  entries = [...entries, entry as SessionEntry]
+  const captured = entry as SessionEntry
+  entries = [...entries, captured]
   emit()
+  return captured
+}
+
+/** Ordinary saves retain their existing best-effort durable append. */
+export function recordChange(fn: WriteFn, args: Record<string, unknown>, revert?: RevertSpec): SessionEntry {
+  const entry = captureChange(fn, args, revert)
+  appendToAuthoringLog(entry)
   return entry
 }
 
+/** The content write landed; callers must recover using this captured entry. */
+export class PartialAuthoringWriteError extends Error {
+  readonly entry: SessionEntry
+
+  constructor(entry: SessionEntry, cause: unknown) {
+    super('The write landed, but its durable authoring record failed. Read back before recovery; the session retains the inverse.', { cause })
+    this.name = 'PartialAuthoringWriteError'
+    this.entry = entry
+  }
+}
+
+/** Required recording is a separate command, never an overload of a UI save. */
+export async function recordRequiredChange(
+  fn: WriteFn,
+  args: Record<string, unknown>,
+  revert: RevertSpec,
+  writer: AuthoringLogWriter,
+): Promise<string> {
+  const entry = captureChange(fn, args, revert)
+  try {
+    return await appendRequiredAuthoringLog(entry, writer)
+  } catch (cause) {
+    throw new PartialAuthoringWriteError(entry, cause)
+  }
+}
+
+/** A required UI save retains its own entry, including when only the append fails. */
+export async function recordRequiredEntry(
+  fn: WriteFn,
+  args: Record<string, unknown>,
+  revert: RevertSpec,
+  writer: AuthoringLogWriter,
+): Promise<SessionEntry> {
+  const entry = captureChange(fn, args, revert)
+  try {
+    await appendRequiredAuthoringLog(entry, writer)
+    return entry
+  } catch (cause) {
+    throw new PartialAuthoringWriteError(entry, cause)
+  }
+}
 /** Save: the changes are wanted, so stop tracking them. Writes nothing. */
 export function clearSession(): void {
   if (entries.length === 0) return
@@ -341,23 +400,33 @@ const DESCRIBERS: Record<WriteFn, (entry: ChangeEntry) => string> = {
   create_phase: (entry) => `Added phase${named(entry)}`,
   create_scenario: (entry) => `Added scenario${named(entry)}`,
   create_path: (entry) => `Added path${named(entry)}`,
-  duplicate_path: (entry) =>
-    `Duplicated a path as${named(entry) || ' a copy'}`,
+  duplicate_path: (entry) => `Duplicated a path as${named(entry) || ' a copy'}`,
   duplicate_scenario: (entry) =>
     `Duplicated a blueprint as${named(entry) || ' a copy'}`,
+  rename_step_name: (entry) => `Renamed a step${renameTo(entry)}`,
+  rename_lane: (entry) => `Renamed a lane${renameTo(entry)}`,
+  update_step_with_details: () => 'Edited a step’s name and summary',
+  update_lane_with_details: () => 'Edited a lane’s name and properties',
+  add_step_with_details: (entry) => `Added step${named(entry)}`,
+  add_lane_with_details: (entry) => `Added lane${named(entry)}`,
   rename_phase: (entry) => `Renamed a phase${renameTo(entry)}`,
   rename_scenario: (entry) => `Renamed a scenario${renameTo(entry)}`,
+  ...HOST_DESCRIBERS,
   update_scenario_layout: (entry) =>
-    `Showed a scenario ${entry.args.layout === 'merged' ? 'merged' : 'stacked'}`,
+    `Showed a scenario ${
+      entry.args.layout === 'merged' ? 'merged' : 'stacked'
+    }`,
   rename_path: (entry) => `Renamed a path${renameTo(entry)}`,
   rename_owner_tag: (entry) => {
-    const from = typeof entry.args.from_name === 'string' ? entry.args.from_name : ''
+    const from =
+      typeof entry.args.from_name === 'string' ? entry.args.from_name : ''
     const to = typeof entry.args.to_name === 'string' ? entry.args.to_name : ''
     return from && to
       ? `Renamed owner tag “${from}” to “${to}”`
       : 'Renamed an owner tag'
   },
-  add_step: (entry) => (named(entry) ? `Added step${named(entry)}` : 'Added a step'),
+  add_step: (entry) =>
+    named(entry) ? `Added step${named(entry)}` : 'Added a step',
   add_lane: (entry) => `Added lane${named(entry)}`,
   // Reads the derived inverse, because that is where the write's own account
   // of which half it took survives into the entry. `deriveRevert` branches on
@@ -368,11 +437,16 @@ const DESCRIBERS: Record<WriteFn, (entry: ChangeEntry) => string> = {
   // No inverse means the update half whose before-state did not come back;
   // an insert always has one. So the absence reads as an edit, not a create.
   upsert_cell: (entry) =>
-    entry.revert?.fn === 'delete_cell' ? 'Added a cell' : 'Edited a cell’s text',
+    entry.revert?.fn === 'delete_cell'
+      ? 'Added a cell'
+      : 'Edited a cell’s text',
+  update_cell_storyboard: () => 'Edited a storyboard cell',
   approve_suggested_change: () => 'Approved a suggested change',
   update_cell_content: () => 'Edited a cell’s text',
+  update_cell_status: () => 'Changed a cell’s status',
   update_cell_resources: () => 'Edited a cell’s resources',
-  update_placement_resources: () => 'Edited a touchpoint’s resources at this cell',
+  update_placement_resources: () =>
+    'Edited a touchpoint’s resources at this cell',
   set_featured_resource: (entry) =>
     entry.args.featured === false
       ? 'Unfeatured a resource'
@@ -380,30 +454,43 @@ const DESCRIBERS: Record<WriteFn, (entry: ChangeEntry) => string> = {
   restore_featured_resources: () => 'Put back which resources were featured',
   set_placement_touchpoint: (entry) =>
     typeof entry.args.touchpoint_name === 'string' && entry.args.touchpoint_name
-      ? `Linked “${String(entry.args.name ?? '')}” to the registry as “${entry.args.touchpoint_name}”`
+      ? `Linked “${String(entry.args.name ?? '')}” to the registry as “${
+          entry.args.touchpoint_name
+        }”`
       : `Named a placement “${String(entry.args.name ?? '')}”`,
-  remove_placement: (entry) => `Removed “${String(entry.args.name ?? '')}” from a cell`,
+  remove_placement: (entry) =>
+    `Removed “${String(entry.args.name ?? '')}” from a cell`,
   restore_placement: () => 'Put a placement back on its cell',
   rename_touchpoint: (entry) => {
     // Named by how far it reached, because that is the whole point of the
     // registry: one edit moves every touchpoint that says the word, and the
     // row is where a person finds out how many that was.
-    const cells = Array.isArray(entry.args.cell_ids) ? entry.args.cell_ids.length : 0
+    const cells = Array.isArray(entry.args.cell_ids)
+      ? entry.args.cell_ids.length
+      : 0
     const to = renameTo(entry)
     if (cells === 0) return `Renamed a touchpoint${to}`
-    return `Renamed a touchpoint${to} (${cells} ${cells === 1 ? 'cell' : 'cells'})`
+    return `Renamed a touchpoint${to} (${cells} ${
+      cells === 1 ? 'cell' : 'cells'
+    })`
   },
   // Named by the entry, and by how far the name reached when it moved: the
   // same edit that changes a summary can rename the tool on every board, and
   // the row is where a person finds out which of the two it was.
   update_touchpoint: (entry) => {
-    const name = typeof entry.args.name === 'string' ? entry.args.name.trim() : ''
+    const name =
+      typeof entry.args.name === 'string' ? entry.args.name.trim() : ''
     const before =
-      typeof entry.args.previous_name === 'string' ? entry.args.previous_name.trim() : ''
+      typeof entry.args.previous_name === 'string'
+        ? entry.args.previous_name.trim()
+        : ''
     if (!name) return 'Edited a touchpoint'
     if (!before || before === name) return `Edited touchpoint “${name}”`
-    const cells = Array.isArray(entry.args.cell_ids) ? entry.args.cell_ids.length : 0
-    const reach = cells === 0 ? '' : ` (${cells} ${cells === 1 ? 'cell' : 'cells'})`
+    const cells = Array.isArray(entry.args.cell_ids)
+      ? entry.args.cell_ids.length
+      : 0
+    const reach =
+      cells === 0 ? '' : ` (${cells} ${cells === 1 ? 'cell' : 'cells'})`
     return `Edited touchpoint “${before}”, renamed to “${name}”${reach}`
   },
   // Named by the touchpoint, because a cell can hold several and "edited a
@@ -426,7 +513,9 @@ const DESCRIBERS: Record<WriteFn, (entry: ChangeEntry) => string> = {
   create_stakeholder: (entry) => `Added stakeholder${named(entry)}`,
   update_stakeholder: (entry) => `Edited stakeholder${named(entry)}`,
   add_evidence: (entry) =>
-    titled(entry) ? `Added evidence “${titled(entry)}”` : 'Added an evidence source',
+    titled(entry)
+      ? `Added evidence “${titled(entry)}”`
+      : 'Added an evidence source',
   update_evidence: (entry) =>
     titled(entry)
       ? `Edited evidence “${titled(entry)}”`
@@ -446,8 +535,11 @@ const DESCRIBERS: Record<WriteFn, (entry: ChangeEntry) => string> = {
       : 'Edited a connection',
   update_cell_dependency: () => 'Edited a connection',
   set_cell_featured_image: (entry) =>
-    entry.args.image_url ? 'Set a cell’s featured image' : 'Cleared a cell’s featured image',
+    entry.args.image_url
+      ? 'Set a cell’s featured image'
+      : 'Cleared a cell’s featured image',
   clear_cell_dependency: () => 'Removed a connection',
+  change_step_path: (entry) => entry.args.present ? 'Added a step to a path' : 'Removed a step from a path',
   reorder_steps: () => 'Reordered the steps',
   set_path_steps: () => 'Reordered the steps',
   reorder_lanes: () => 'Reordered the lanes',
@@ -483,7 +575,9 @@ const DESCRIBERS: Record<WriteFn, (entry: ChangeEntry) => string> = {
       return 'A slide now shows every cited cell’s frames'
     }
     const count =
-      typeof entry.args.member_count === 'number' ? entry.args.member_count : null
+      typeof entry.args.member_count === 'number'
+        ? entry.args.member_count
+        : null
     if (count === 0) return 'A slide now shows no images'
     if (count === null) return 'Edited a slide’s images'
     return `A slide now shows ${count} image${count === 1 ? '' : 's'}`
@@ -495,16 +589,21 @@ const DESCRIBERS: Record<WriteFn, (entry: ChangeEntry) => string> = {
     const severity =
       typeof entry.args.severity === 'string' ? `${entry.args.severity} ` : ''
     const check =
-      typeof entry.args.check_key === 'string' ? ` for “${entry.args.check_key}”` : ''
+      typeof entry.args.check_key === 'string'
+        ? ` for “${entry.args.check_key}”`
+        : ''
     const rated =
-      typeof entry.args.impact === 'string' && typeof entry.args.effort === 'string'
+      typeof entry.args.impact === 'string' &&
+      typeof entry.args.effort === 'string'
         ? ` (impact ${entry.args.impact}, effort ${entry.args.effort})`
         : ''
     return `Recorded a ${severity}finding${rated}${check}`
   },
   update_finding: (entry) => {
     const check =
-      typeof entry.args.check_key === 'string' ? ` for “${entry.args.check_key}”` : ''
+      typeof entry.args.check_key === 'string'
+        ? ` for “${entry.args.check_key}”`
+        : ''
     // A status flip is triage and reads as triage; anything else is the audit
     // run rewriting a finding in place, which is a different act.
     return typeof entry.args.status === 'string'

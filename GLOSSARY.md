@@ -108,8 +108,11 @@ of a lane and a step on a path. A cell is the unit everything else points at
 
 **Storyboard** — the lane that draws the service rather than describing it.
 `lane_role = 'storyboard'`, one of the roles the lane-role constraint admits.
-Its own cells are empty: a storyboard cell's face is the *strip* below it,
-drawn from the cells beside it.
+Its own cells hold nothing: a storyboard cell's face is the *strip* below it.
+Its pictures are the featured images of the step's cells in the walkthrough
+lanes, edited on those cells. Its panel reads those pictures under a Storyboard
+badge and a read-only step number and name; the step header opens Name and
+Summary in the step panel.
 
 **Frame** — one image on one cell. Column `cells.frame`. A cell outside the
 storyboard holds at most one. A frame is never a row of a slice; that is a

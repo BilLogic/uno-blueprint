@@ -1,3 +1,5 @@
+import { useCellPick } from '@/contexts/cellPickContext'
+import { clickOpensDetail } from '@/lib/cellPickGrammar'
 import { Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { IconTooltip } from '@/components/editor/IconTooltip'
@@ -19,14 +21,9 @@ const KIND_LABELS: Record<EntityDetailKind, string> = {
  * The ⓘ that opens an entity's properties. One component for every level,
  * so the affordance reads as one family and nobody has to learn it twice.
  *
- * On a LANE it is a button of its own, and that is the interesting case: a
- * lane label already means two different things depending on where it is
- * rendered — inert prose in the grid, and "select every cell in this lane" in
- * the label rail's Design mode. Neither is "show me its properties", and
- * teaching either a third reading would make the rail's selection handle
- * ambiguous. So the button is separate, sized and inked like `SidebarNav`'s
- * row actions (24px target, 14px glyph, no fill of its own, because the row it
- * sits in already has one).
+ * The label identifies which entity opens. In Make slice, Cmd/Ctrl-click
+ * opens properties without changing membership; ordinary clicks stay with
+ * the active selection tool.
  *
  * ALWAYS VISIBLE, and that is a settled decision rather than a style choice.
  * It carried a `revealOnHover` mode — transparent at rest, drawn on hover —
@@ -46,7 +43,8 @@ export function EntityPropertiesButton({
   name: string
   className?: string
 }) {
-  const { toggleEntity } = useEntityDetail()
+  const pick = useCellPick()
+  const { toggleEntity, openEntity } = useEntityDetail()
   const label = KIND_LABELS[kind]
   return (
     <IconTooltip label={label}>
@@ -66,7 +64,9 @@ export function EntityPropertiesButton({
           // listen above this: opening a panel is not a selection, not a
           // navigation and not a pan.
           event.stopPropagation()
-          toggleEntity({ kind, id })
+          if (pick?.plainClick && !clickOpensDetail(event)) return
+          if (clickOpensDetail(event)) openEntity({ kind, id })
+          else toggleEntity({ kind, id })
         }}
       >
         <Info className="size-3.5" />

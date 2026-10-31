@@ -2717,7 +2717,217 @@ end
 $anon_definer$;
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 21000309000000_a_person_who_talks_to_uno_has_a_profile.sql
+-- 21000309000000_a_structure_panel_saves_one_change.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- Signed-in callers may attempt the guarded writes; helpers stay private.
+grant execute on function public.add_step_with_details(uuid,text,jsonb,text) to authenticated;
+grant execute on function public.add_lane_with_details(uuid,text,text,jsonb,jsonb) to authenticated;
+grant execute on function public.undo_structure_add(jsonb) to authenticated;
+grant execute on function public.rename_step_name(uuid,text) to authenticated;
+grant execute on function public.update_step_with_details(uuid,text,text) to authenticated;
+grant execute on function public.update_lane_with_details(uuid,uuid[],text,jsonb) to authenticated;
+grant execute on function public.restore_step_details(jsonb) to authenticated;
+grant execute on function public.restore_lane_details(jsonb) to authenticated;
+grant execute on function public.rename_lane(uuid,text) to authenticated;
+
+-- The new writes and their inverse refuse a caller without the author tier.
+do $draft_permissions$
+begin
+  perform set_config('request.jwt.claims','{}',true);
+  begin
+    perform public.add_step_with_details(null::uuid,'Blocked','{}'::jsonb);
+    raise exception 'step draft accepted a reader';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.add_lane_with_details(null::uuid,'Blocked','frontstage_actions','{}'::jsonb);
+    raise exception 'lane draft accepted a reader';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.undo_structure_add('{}'::jsonb);
+    raise exception 'draft undo accepted a reader';
+  exception when insufficient_privilege then null; end;
+  if has_function_privilege('anon','public.undo_structure_add(jsonb)','EXECUTE')
+    or has_function_privilege('anon','public.add_step_with_details(uuid,text,jsonb,text)','EXECUTE')
+    or has_function_privilege('anon','public.add_lane_with_details(uuid,text,text,jsonb,jsonb)','EXECUTE') then
+    raise exception 'an anonymous caller can execute a draft write';
+  end if;
+end $draft_permissions$;
+
+-- Panel edits commit and restore the name and all properties together.
+do $panel_edit_proof$
+declare svc uuid; ph uuid; sc uuid; p uuid; st uuid; ln uuid; snapshot jsonb;
+begin
+  perform set_config('request.jwt.claims','{"app_metadata":{"role":"service"}}',true);
+  if not public.is_service_account() then return; end if;
+  insert into public.services(name) values('Panel edit fixture') returning id into svc;
+  insert into public.phases(service_id,name,position) values(svc,'Fixture phase',0) returning id into ph;
+  insert into public.scenarios(phase_id,name,position) values(ph,'Fixture scenario',0) returning id into sc;
+  insert into public.paths(scenario_id,name,kind) values(sc,'Default','happy') returning id into p;
+  st := public.add_step(p,'Start',null);
+  snapshot := public.update_step_with_details(st,'Review','Review the request.');
+  if not exists(select 1 from public.steps where id=st and name='Review' and summary='Review the request.') then raise exception 'step panel fields were not saved together'; end if;
+  perform public.restore_step_details(snapshot);
+  if not exists(select 1 from public.steps where id=st and name='Start' and summary is null) then raise exception 'step panel inverse lost a field'; end if;
+  insert into public.lanes(path_id,name,lane_role,position,owner_team) values(p,'Actor','frontstage_actions',0,'Original team') returning id into ln;
+  snapshot := public.update_lane_with_details(ln,array[ln],'Reviewer','{"owner_team":"Operations","stakeholder_id":null,"kpis":["Completion"],"tools":["Queue"]}');
+  if not exists(select 1 from public.lanes where id=ln and name='Reviewer' and owner_team='Operations' and kpis='["Completion"]' and tools='["Queue"]') then raise exception 'lane panel fields were not saved together'; end if;
+  perform public.restore_lane_details(snapshot);
+  if not exists(select 1 from public.lanes where id=ln and name='Actor' and owner_team='Original team' and kpis='[]' and tools='[]') then raise exception 'lane panel inverse lost a field'; end if;
+  perform set_config('request.jwt.claims','{}',true);
+  begin
+    perform public.update_step_with_details(st,'Blocked','Blocked');
+    raise exception 'step panel accepted a reader';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.update_lane_with_details(ln,array[ln],'Blocked','{"kpis":[],"tools":[]}');
+    raise exception 'lane panel accepted a reader';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.restore_step_details('{}');
+    raise exception 'step restore accepted a reader';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.restore_lane_details('{}');
+    raise exception 'lane restore accepted a reader';
+  exception when insufficient_privilege then null; end;
+  raise exception 'panel edit proof complete';
+exception when raise_exception then if sqlerrm <> 'panel edit proof complete' then raise; end if;
+end $panel_edit_proof$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000310000000_path_orders_are_guarded_permutations.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- The guarded entry points accept authenticated authors only.
+grant execute on function public.reorder_steps(uuid,uuid[]) to authenticated;
+grant execute on function public.reorder_lanes(uuid,uuid[]) to authenticated;
+grant execute on function public.reorder_lanes(uuid,text[]) to authenticated;
+grant execute on function public.undo_structure_order(jsonb) to authenticated;
+
+-- Anonymous callers cannot enter a reorder or its inverse.
+do $permissions$ begin
+  if has_function_privilege('anon','public.reorder_steps(uuid,uuid[])','execute') or has_function_privilege('anon','public.reorder_lanes(uuid,uuid[])','execute') or has_function_privilege('anon','public.undo_structure_order(jsonb)','execute') then raise exception 'anonymous reorder exposed'; end if;
+end $permissions$;
+
+-- The host's reader identity cannot enter a write or undo.
+do $reader$
+begin
+  perform set_config('request.jwt.claims','{}',true);
+  begin
+    perform public.reorder_steps(gen_random_uuid(),'{}'::uuid[]); raise exception 'reader reordered steps';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.reorder_lanes(gen_random_uuid(),'{}'::uuid[]); raise exception 'reader reordered lanes';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.undo_structure_order('{}'); raise exception 'reader undid order';
+  exception when insufficient_privilege then null; end;
+end $reader$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000311000000_structure_undo_and_edits_refuse_stale_state.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- Only guarded author entry points are exposed.
+grant execute on function public.undo_structure_add(jsonb), public.rename_step_name(uuid,text), public.rename_lane(uuid,text), public.update_step_with_details(uuid,text,text), public.update_lane_with_details(uuid,uuid[],text,jsonb), public.restore_step_details(jsonb), public.restore_lane_details(jsonb), public.reorder_steps(uuid,uuid[],uuid[]), public.reorder_lanes(uuid,uuid[],uuid[]), public.undo_structure_order(jsonb), public.reorder_steps(uuid,uuid[]), public.reorder_lanes(uuid,uuid[]), public.reorder_lanes(uuid,text[]) to authenticated;
+
+-- Exercise the replacement entry points as a reader, not just as the owner.
+do $reader$
+begin
+ perform set_config('request.jwt.claims','{}',true);
+ begin perform public.undo_structure_add('{}'); raise exception 'reader undid Add'; exception when insufficient_privilege then null; end;
+ begin perform public.reorder_steps(gen_random_uuid(),'{}'::uuid[],'{}'::uuid[]); raise exception 'reader reordered steps'; exception when insufficient_privilege then null; end;
+ begin perform public.reorder_lanes(gen_random_uuid(),'{}'::uuid[],'{}'::uuid[]); raise exception 'reader reordered lanes'; exception when insufficient_privilege then null; end;
+ begin perform public.restore_step_details('{}'); raise exception 'reader restored step'; exception when insufficient_privilege then null; end;
+ begin perform public.restore_lane_details('{}'); raise exception 'reader restored lane'; exception when insufficient_privilege then null; end;
+end $reader$;
+
+-- Old app signatures are reachable but can only instruct an author to reload.
+do $compatibility$
+declare signature text; statement text;
+begin
+  perform set_config('request.jwt.claims','{"app_metadata":{"role":"service"}}',true);
+  foreach signature in array array['public.reorder_steps(uuid,uuid[])','public.reorder_lanes(uuid,uuid[])','public.reorder_lanes(uuid,text[])'] loop
+    if not has_function_privilege('authenticated',signature,'execute') or has_function_privilege('anon',signature,'execute') then raise exception 'Incorrect compatibility stub grants: %',signature; end if;
+  end loop;
+  foreach statement in array array[
+    'select public.reorder_steps(gen_random_uuid(),array[]::uuid[])',
+    'select public.reorder_lanes(gen_random_uuid(),array[]::uuid[])',
+    'select public.reorder_lanes(gen_random_uuid(),array[]::text[])'
+  ] loop
+    begin
+      execute statement;
+      raise exception 'Old client wrote without an expected order';
+    exception when raise_exception then
+      if sqlerrm <> 'Reload: the app was updated' then raise; end if;
+    end;
+  end loop;
+end $compatibility$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000312000000_step_path_membership_is_guarded_and_reversible.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- mementos are server-only; only guarded entry points are callable.
+revoke execute on function public.cells_validate_path_match() from public,anon,authenticated;
+revoke execute on function public.path_step_keeps_saved_cells() from public,anon,authenticated;
+alter table public.structure_membership_receipts enable row level security;
+revoke all on public.structure_membership_receipts from public,anon,authenticated;
+revoke execute on function public.structure_membership_state(uuid,uuid) from public,anon,authenticated;
+revoke execute on function public.change_step_path(uuid,uuid,boolean,integer,uuid[],uuid[],jsonb) from public,anon;
+revoke execute on function public.undo_step_path_change(uuid) from public,anon;
+grant execute on function public.change_step_path(uuid,uuid,boolean,integer,uuid[],uuid[],jsonb),public.undo_step_path_change(uuid) to authenticated;
+-- Exercise authorization and direct grants, including the private table.
+do $acl$
+begin
+  if has_table_privilege('anon','public.structure_membership_receipts','select')
+    or has_table_privilege('authenticated','public.structure_membership_receipts','insert')
+    or has_table_privilege('authenticated','public.structure_membership_receipts','select')
+    or has_function_privilege('anon','public.change_step_path(uuid,uuid,boolean,integer,uuid[],uuid[],jsonb)','execute')
+    or has_function_privilege('anon','public.undo_step_path_change(uuid)','execute')
+    or has_function_privilege('authenticated','public.structure_membership_state(uuid,uuid)','execute') then
+    raise exception 'Membership receipt or write privileges are open';
+  end if;
+  perform set_config('request.jwt.claims','{}',true);
+  begin
+    perform public.change_step_path(gen_random_uuid(),gen_random_uuid(),true,0,'{}','{}');
+    raise exception 'A reader changed step membership';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.undo_step_path_change(gen_random_uuid());
+    raise exception 'A reader undid step membership';
+  exception when insufficient_privilege then null;
+  end;
+end $acl$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000313000000_a_storyboard_row_saves_its_cell_atomically.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+revoke all on public.cell_storyboard_receipts from anon,authenticated;
+revoke execute on function public.read_cell_storyboard(uuid), public.update_cell_storyboard(uuid,text,text,text,jsonb,jsonb),public.restore_cell_storyboard(uuid) from anon;
+grant execute on function public.read_cell_storyboard(uuid), public.update_cell_storyboard(uuid,text,text,text,jsonb,jsonb),public.restore_cell_storyboard(uuid) to authenticated;
+-- Final ACL and in-body denial proofs, after this migration's grants.
+-- Core replay builds every function before historical recipe proofs run. The
+-- shared require_structure_author gate has the same check as other aggregate
+-- operations; this final proof checks these names after their own ACLs land.
+do $storyboard_permissions$
+begin
+ perform set_config('request.jwt.claims','{}',true);
+ begin perform public.read_cell_storyboard(null); raise exception 'reader read accepted'; exception when insufficient_privilege then null; end;
+ begin perform public.update_cell_storyboard(null,'text','summary',null,'{}','[]'); raise exception 'reader save accepted'; exception when insufficient_privilege then null; end;
+ begin perform public.restore_cell_storyboard(null); raise exception 'reader undo accepted'; exception when insufficient_privilege then null; end;
+ if has_function_privilege('anon','public.read_cell_storyboard(uuid)','EXECUTE')
+ or has_function_privilege('anon','public.update_cell_storyboard(uuid,text,text,text,jsonb,jsonb)','EXECUTE')
+ or has_function_privilege('anon','public.restore_cell_storyboard(uuid)','EXECUTE')
+ or has_table_privilege('authenticated','public.cell_storyboard_receipts','SELECT')
+ or has_table_privilege('anon','public.cell_storyboard_receipts','SELECT') then raise exception 'storyboard grants are open'; end if;
+end $storyboard_permissions$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000314000000_a_person_who_talks_to_uno_has_a_profile.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- the host supplies the authenticated account identity.
@@ -2833,7 +3043,7 @@ end
 $profile_proof$;
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 21000311000000_a_proposal_is_a_validated_tool_call.sql
+-- 21000316000000_a_proposal_is_a_validated_tool_call.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- refuse a Supabase JWT whose own decoded role is service_role.
@@ -2885,14 +3095,14 @@ do $$ declare signature text; begin
 end $$;
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 21000312000000_a_server_write_captures_its_prior_rows.sql
+-- 21000317000000_a_server_write_captures_its_prior_rows.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- host request roles must not call the trigger helper.
 revoke all on function public.capture_agent_prior_rows() from anon,authenticated;
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 21000315000000_a_service_can_be_read_for_validation.sql
+-- 21000320000000_a_service_can_be_read_for_validation.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- the export uses the caller's existing read grants and policies.
@@ -2900,7 +3110,7 @@ revoke all on function public.read_service_blueprint(uuid) from anon,authenticat
 grant execute on function public.read_service_blueprint(uuid) to authenticated;
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 21000316000000_structure_writes_refuse_unapplied_changes.sql
+-- 21000321000000_structure_writes_refuse_unapplied_changes.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
 revoke all on function public.agent_service_required_message() from anon, authenticated;

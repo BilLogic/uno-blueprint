@@ -94,7 +94,7 @@ export const setCanvasModeTool = defineTool({
   }),
   availability: { sample: false, mobile: false },
   run: async ({ mode }, ctx) => {
-    ctx.ui.setCanvasMode(mode)
+    if (ctx.ui.setCanvasMode(mode) === false) return 'Canvas mode transition is awaiting a draft decision or the editor is busy.'
     return `Canvas mode is now ${mode}.`
   },
 })

@@ -8,7 +8,7 @@
     {
       "name": "ub",
       "source": "./",
-      "description": "Uno Blueprint (ub), service blueprinting skills: ub:map, ub:slice, ub:audit, ub:whatif — blueprint lifecycle, stakeholder slices, consistency-check findings, hypothetical-change tracing."
+      "description": "Uno Blueprint (ub): an open-source context-engineering toolkit that turns a team's scattered context into service blueprints that people and AI agents work from. Skills: ub:map, ub:slice, ub:audit, ub:whatif."
     }
   ]
 }

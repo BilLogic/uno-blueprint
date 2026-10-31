@@ -63,17 +63,8 @@ export function CanvasDesignTools() {
   const gathering = pick?.gathers ?? false
   const picked = pick?.picked ?? NO_PICKS
   const [sliceDialogOpen, setSliceDialogOpen] = useState(false)
-  // Armed: clicked with nothing picked. The button becomes the instruction
-  // rather than sitting greyed out — "pick cells first" is advice you can only
-  // read once you have already guessed that cells are pickable.
-  const [armed, setArmed] = useState(false)
-
-  // Picking something disarms: the instruction has been followed.
-  const [lastCount, setLastCount] = useState(picked.length)
-  if (lastCount !== picked.length) {
-    setLastCount(picked.length)
-    if (picked.length > 0 && armed) setArmed(false)
-  }
+  const armed = pick?.plainClick ?? false
+  const startPicking = pick?.startPicking
 
   // Agent parity: the Make-slice flow. With cells picked it opens the
   // sheet; with none it arms the button, exactly like a click.
@@ -89,14 +80,14 @@ export function CanvasDesignTools() {
         'Open the Make slice sheet over the current Design-mode selection (select_cells first). Prefer create_slice when you already know the member cells — this hands the flow to the human.',
       run: () => {
         if (pickedCountRef.current === 0) {
-          setArmed(true)
+          startPicking?.()
           return 'Nothing selected yet — gather cells first (select_cells), then retry.'
         }
         setSliceDialogOpen(true)
         return 'Make-slice sheet opened over the selection.'
       },
     })
-  }, [gathering])
+  }, [gathering, startPicking])
 
   return (
     <>
@@ -133,7 +124,7 @@ export function CanvasDesignTools() {
               // sheet listing no cells answers a question nobody asked.
               if (picked.length === 0) {
                 event.preventDefault()
-                setArmed(true)
+                startPicking?.()
               }
             }}
             // Never a filled button. Nothing in this bar is a page's primary
@@ -144,7 +135,7 @@ export function CanvasDesignTools() {
             // cells are picked, which is also when it starts doing anything.
             className={cn(
               'pointer-events-auto shrink-0 gap-2 px-2',
-              picked.length > 0
+              (armed || picked.length > 0)
                 ? 'border border-primary/30 bg-primary/10 text-text-primary hover:bg-primary/15 hover:text-text-primary'
                 : 'text-muted-foreground hover:text-foreground',
             )}
@@ -182,7 +173,6 @@ export function CanvasDesignTools() {
                 size="sm"
                 aria-label={armed && picked.length === 0 ? 'Cancel' : 'Clear the selection'}
                 onClick={() => {
-                  setArmed(false)
                   pick?.clear()
                 }}
                 className="pointer-events-auto size-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"

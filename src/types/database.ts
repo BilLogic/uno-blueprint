@@ -309,6 +309,40 @@ export type Database = {
           },
         ]
       }
+      cell_storyboard_receipts: {
+        Row: {
+          actor: string
+          after_state: NonNullable<Json>
+          before_state: NonNullable<Json>
+          cell_id: string
+          id: string
+          uploaded_ids: string[]
+        }
+        Insert: {
+          actor: string
+          after_state: NonNullable<Json>
+          before_state: NonNullable<Json>
+          cell_id: string
+          id?: string
+          uploaded_ids: string[]
+        }
+        Update: {
+          actor?: string
+          after_state?: NonNullable<Json>
+          before_state?: NonNullable<Json>
+          cell_id?: string
+          id?: string
+          uploaded_ids?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cell_storyboard_receipts_cell_id_fkey"
+            columns: ["cell_id"]
+            referencedRelation: "cells"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cell_touchpoints: {
         Row: {
           cell_id: string
@@ -446,6 +480,12 @@ export type Database = {
             columns: ["path_id"]
             referencedRelation: "paths"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cells_path_step_fkey"
+            columns: ["path_id", "step_id"]
+            referencedRelation: "path_steps"
+            referencedColumns: ["path_id", "step_id"]
           },
           {
             foreignKeyName: "cells_step_id_fkey"
@@ -1143,6 +1183,42 @@ export type Database = {
           },
         ]
       }
+      structure_membership_receipts: {
+        Row: {
+          after_state: NonNullable<Json>
+          archive: NonNullable<Json>
+          before_state: NonNullable<Json>
+          created_at: string
+          id: string
+          path_id: string
+          present: boolean
+          reverted: boolean
+          step_id: string
+        }
+        Insert: {
+          after_state: NonNullable<Json>
+          archive: NonNullable<Json>
+          before_state: NonNullable<Json>
+          created_at?: string
+          id?: string
+          path_id: string
+          present: boolean
+          reverted?: boolean
+          step_id: string
+        }
+        Update: {
+          after_state?: NonNullable<Json>
+          archive?: NonNullable<Json>
+          before_state?: NonNullable<Json>
+          created_at?: string
+          id?: string
+          path_id?: string
+          present?: boolean
+          reverted?: boolean
+          step_id?: string
+        }
+        Relationships: []
+      }
       suggested_changes: {
         Row: {
           base_state: Json | null
@@ -1324,9 +1400,28 @@ export type Database = {
         }
         Returns: string[]
       }
+      add_lane_with_details: {
+        Args: {
+          details?: Json
+          lane_role: string
+          name: string
+          path_orders: Json
+          scenario_id: string
+        }
+        Returns: Json
+      }
       add_step: {
         Args: { at_position?: number; name: string; path_id: string }
         Returns: string
+      }
+      add_step_with_details: {
+        Args: {
+          name: string
+          path_id: string
+          path_orders: Json
+          summary?: string
+        }
+        Returns: Json
       }
       agent_check_shape: {
         Args: { p_path?: string; p_schema: Json; p_value: Json }
@@ -1351,10 +1446,35 @@ export type Database = {
         Returns: Json
       }
       agent_write_contracts: { Args: Record<PropertyKey, never>; Returns: Json }
+      apply_structure_order: {
+        Args: {
+          expected_ids: string[]
+          ids: string[]
+          kind: string
+          path_id: string
+        }
+        Returns: Json
+      }
       approve_cell_content_suggestion: { Args: { p_id: string }; Returns: Json }
       approve_suggested_change: { Args: { p_id: string }; Returns: Json }
       caller_profile_id: { Args: Record<PropertyKey, never>; Returns: string }
       cell_natural_key: { Args: { cell_id: string }; Returns: string }
+      change_step_path: {
+        Args: {
+          at_position: number
+          confirmed_cells?: Json
+          expected_ids: string[]
+          expected_path_ids: string[]
+          path_id: string
+          present: boolean
+          step_id: string
+        }
+        Returns: Json
+      }
+      check_structure_draft_order: {
+        Args: { current_ids: string[]; requested: Json }
+        Returns: undefined
+      }
       clear_cell_dependency: {
         Args: { dependency_id: string }
         Returns: undefined
@@ -1436,6 +1556,7 @@ export type Database = {
         Args: { lane_id: string; path_id: string; step_id: string }
         Returns: string
       }
+      read_cell_storyboard: { Args: { p_cell_id: string }; Returns: Json }
       read_service_blueprint: { Args: { p_service_id: string }; Returns: Json }
       record_authoring_change: {
         Args: {
@@ -1470,6 +1591,14 @@ export type Database = {
         Args: { p_content: string; p_from: string; p_to: string }
         Returns: string
       }
+      rename_lane: {
+        Args: { lane_id: string; new_name: string }
+        Returns: Json
+      }
+      rename_lane_checked: {
+        Args: { lane_id: string; new_name: string }
+        Returns: undefined
+      }
       rename_owner_tag: {
         Args: { from_name: string; to_name: string }
         Returns: string[]
@@ -1486,21 +1615,45 @@ export type Database = {
         Args: { new_name: string; scenario_id: string }
         Returns: undefined
       }
+      rename_step_name: {
+        Args: { new_name: string; step_id: string }
+        Returns: Json
+      }
       rename_touchpoint: {
         Args: { p_name: string; p_touchpoint_id: string }
         Returns: Json
       }
-      reorder_lanes: {
-        Args: { lane_names: string[]; scenario_id: string }
-        Returns: undefined
-      }
-      reorder_steps: {
-        Args: { path_id: string; step_ids: string[] }
-        Returns: undefined
-      }
+      reorder_lanes:
+        | { Args: { lane_ids: string[]; path_id: string }; Returns: Json }
+        | {
+            Args: {
+              expected_ids: string[]
+              lane_ids: string[]
+              path_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: { lane_names: string[]; scenario_id: string }
+            Returns: undefined
+          }
+      reorder_steps:
+        | { Args: { path_id: string; step_ids: string[] }; Returns: Json }
+        | {
+            Args: {
+              expected_ids: string[]
+              path_id: string
+              step_ids: string[]
+            }
+            Returns: Json
+          }
       replace_slides: {
         Args: { p_slice_id: string; p_slides: Json }
         Returns: Json
+      }
+      require_structure_author: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       restore_cell_content: {
         Args: { cell_id: string; content: string }
@@ -1510,11 +1663,16 @@ export type Database = {
         Args: { dependency_id: string; name: string; note: string }
         Returns: undefined
       }
+      restore_cell_storyboard: {
+        Args: { p_receipt_id: string }
+        Returns: undefined
+      }
       restore_cell_touchpoints: {
         Args: { p_cell_id: string; p_rows: Json }
         Returns: undefined
       }
       restore_featured_resources: { Args: { p_rows: Json }; Returns: undefined }
+      restore_lane_details: { Args: { snapshot: Json }; Returns: undefined }
       restore_placement: {
         Args: { p_resources?: Json; p_row: Json }
         Returns: Json
@@ -1523,6 +1681,7 @@ export type Database = {
         Args: { p_rows: Json; p_slice_id: string }
         Returns: Json
       }
+      restore_step_details: { Args: { snapshot: Json }; Returns: undefined }
       run_agent_tool: {
         Args: {
           p_args: Json
@@ -1572,6 +1731,10 @@ export type Database = {
         Returns: Json
       }
       slices_referencing: { Args: { cell_ids: string[] }; Returns: Json }
+      structure_membership_state: {
+        Args: { p_path: string; p_step: string }
+        Returns: Json
+      }
       sync_cell_resources: {
         Args: { p_cell_id: string; p_rows: Json }
         Returns: undefined
@@ -1584,6 +1747,12 @@ export type Database = {
         Args: { p_placement_id: string; p_rows: Json }
         Returns: undefined
       }
+      undo_step_path_change: {
+        Args: { receipt_id: string }
+        Returns: undefined
+      }
+      undo_structure_add: { Args: { snapshot: Json }; Returns: undefined }
+      undo_structure_order: { Args: { snapshot: Json }; Returns: undefined }
       update_cell_dependency: {
         Args: {
           dependency_id: string
@@ -1593,9 +1762,33 @@ export type Database = {
         }
         Returns: Json
       }
+      update_cell_storyboard: {
+        Args: {
+          p_attachments?: Json
+          p_cell_id: string
+          p_content: string
+          p_expected: Json
+          p_frame: string
+          p_summary: string
+        }
+        Returns: Json
+      }
+      update_lane_with_details: {
+        Args: {
+          details: Json
+          lane_id: string
+          lane_ids: string[]
+          name: string
+        }
+        Returns: Json
+      }
       update_scenario_layout: {
         Args: { layout: string; scenario_id: string }
         Returns: undefined
+      }
+      update_step_with_details: {
+        Args: { name: string; step_id: string; summary: string }
+        Returns: Json
       }
       update_touchpoint: {
         Args: {

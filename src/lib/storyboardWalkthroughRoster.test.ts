@@ -8,6 +8,7 @@ import {
 } from '@/lib/laneRoles'
 import {
   resolveStoryboardStripEntries,
+  resolveStoryboardCellRows,
   stepHasStoryboardWalkthroughLaneCells,
 } from '@/lib/storyboardWalkthrough'
 import type { BlueprintCell, BlueprintLane } from '@/types/blueprint'
@@ -104,4 +105,12 @@ describe('the walkthrough roster leaves out the touchpoint lanes', () => {
       true,
     )
   })
+})
+
+it('the edit roster includes existing unpictured cells but never invents a missing cell', () => {
+  const blueprint = { lanes: LANES, cells: [cell('lane-customer', '', null)] }
+  expect(
+    resolveStoryboardCellRows(blueprint, 'step-1').map((row) => row.cell.id),
+  ).toEqual(['lane-customer-cell'])
+  expect(resolveStoryboardStripEntries(blueprint, 'step-1')).toEqual([])
 })

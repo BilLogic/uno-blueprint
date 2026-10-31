@@ -1,0 +1,286 @@
+/**
+ * Section window for a new-lane create draft: which neighbours and roles the
+ * insert gap may use, bounded by the same semantic lines as the board.
+ */
+import {
+  dividerAnchorIndex,
+  laneSectionBounds,
+  sectionRangeForIndex,
+  type StructureDividerKind,
+  type StructureLaneRole,
+} from './canvasStructureDividerGeometry'
+import {
+  BACKSTAGE_ACTIONS_ROLE,
+  BACKSTAGE_TOUCHPOINTS_ROLE,
+  CUSTOMER_ACTIONS_ROLE,
+  FRONTSTAGE_ACTIONS_ROLE,
+  FRONTSTAGE_TOUCHPOINTS_ROLE,
+  PARTNER_ACTIONS_ROLE,
+  STORYBOARD_ROLE,
+  SUPPORT_ACTIONS_ROLE,
+  type CanonicalLaneRole,
+} from '@/lib/laneRoles'
+import {
+  INTERACTION_LINE_LABEL,
+  INTERNAL_INTERACTION_LINE_LABEL,
+  VISIBILITY_LINE_LABEL,
+} from '@/lib/blueprintLayout'
+
+const DIVIDER_LABEL: Record<StructureDividerKind, string> = {
+  interaction: INTERACTION_LINE_LABEL,
+  visibility: VISIBILITY_LINE_LABEL,
+  'internal-interaction': INTERNAL_INTERACTION_LINE_LABEL,
+}
+
+const BAND_ROLES: Record<string, readonly CanonicalLaneRole[]> = {
+  aboveInteraction: [
+    STORYBOARD_ROLE,
+    CUSTOMER_ACTIONS_ROLE,
+    PARTNER_ACTIONS_ROLE,
+  ],
+  frontstage: [FRONTSTAGE_TOUCHPOINTS_ROLE, FRONTSTAGE_ACTIONS_ROLE],
+  backstage: [BACKSTAGE_TOUCHPOINTS_ROLE, BACKSTAGE_ACTIONS_ROLE],
+  support: [SUPPORT_ACTIONS_ROLE],
+}
+
+export type LaneInsertSection = {
+  /** Inclusive indices into the full path order (includes the new item). */
+  start: number
+  end: number
+  lineAbove: string | null
+  lineBelow: string | null
+  allowedRoles: readonly CanonicalLaneRole[]
+  /** Roles already used by neighbours in this section (not the draft seat). */
+  occupiedRoles: readonly CanonicalLaneRole[]
+}
+
+/**
+ * Default create role: first unused band option, never Storyboard while any
+ * other allowed role exists — Storyboard paints a shared walkthrough strip,
+ * so auto-picking it clones Journey figures instead of seating an empty row.
+ *
+ * @param allowedRoles - Band vocabulary for the insert section.
+ * @param occupiedRoles - Roles already present on neighbours in that section.
+ */
+export function preferredCreateRole(
+  allowedRoles: readonly CanonicalLaneRole[],
+  occupiedRoles: readonly string[] = [],
+): CanonicalLaneRole | undefined {
+  const taken = new Set(occupiedRoles)
+  const unused = allowedRoles.filter((role) => !taken.has(role))
+  const pool = unused.length > 0 ? unused : allowedRoles
+  return (
+    pool.find((role) => role !== STORYBOARD_ROLE) ?? pool[0]
+  )
+}
+
+/** Optional seating hints for an ambiguous gap between two bands. */
+export type LaneInsertSectionOptions = {
+  /**
+   * True when the draft opened from the handle above a semantic divider
+   * (still in the section above the line). Same splice index as “above the
+   * first lane below”, but the opposite band.
+   */
+  beforeDivider?: boolean
+  /**
+   * Keep this band when the draft seat slides to a cross-band edge during
+   * in-panel reorder — otherwise the following-lane seat jumps the rail.
+   */
+  lock?: { lineAbove: string | null; lineBelow: string | null }
+}
+
+/**
+ * Which divider, if any, draws after lane `index` in this role list.
+ *
+ * @param roles - Roles in display order.
+ * @param index - Lane index after which a line may fall.
+ */
+function dividerKindAfter(
+  roles: readonly StructureLaneRole[],
+  index: number,
+): StructureDividerKind | null {
+  for (const kind of [
+    'interaction',
+    'visibility',
+    'internal-interaction',
+  ] as const) {
+    if (dividerAnchorIndex(kind, roles) === index) return kind
+  }
+  return null
+}
+
+/**
+ * Roles a create draft may pick for the band between two bounding lines.
+ *
+ * @param above - Divider above the section, or null at the top of the board.
+ * @param below - Divider below the section, or null at the bottom.
+ */
+function rolesForBand(
+  above: StructureDividerKind | null,
+  below: StructureDividerKind | null,
+): readonly CanonicalLaneRole[] {
+  const boundaries: Record<StructureDividerKind, number> = {
+    interaction: 1,
+    visibility: 2,
+    'internal-interaction': 3,
+  }
+  // Missing lines leave a larger section. Offer every role in that interval
+  // so an author can introduce its first support or frontstage lane.
+  return [
+    BAND_ROLES.aboveInteraction,
+    BAND_ROLES.frontstage,
+    BAND_ROLES.backstage,
+    BAND_ROLES.support,
+  ].slice(above ? boundaries[above] : 0, below ? boundaries[below] : 4).flat()
+}
+
+/**
+ * Seat among existing lanes for the insert gap.
+ *
+ * Cross-band gaps need `beforeDivider`: the handle above a line stays with
+ * the preceding band; the handle on the first lane below joins that band.
+ *
+ * @param existingRoles - Roles of every lane except the draft seat.
+ * @param insertAmongExisting - Splice index among those lanes.
+ * @param beforeDivider - Draft opened above a semantic divider.
+ */
+function seatAmongExisting(
+  existingRoles: readonly StructureLaneRole[],
+  insertAmongExisting: number,
+  beforeDivider: boolean,
+): number {
+  if (existingRoles.length === 0) return 0
+  if (insertAmongExisting <= 0) return 0
+  if (insertAmongExisting >= existingRoles.length)
+    return existingRoles.length - 1
+  const preceding = insertAmongExisting - 1
+  const prev = sectionRangeForIndex(existingRoles, preceding)
+  const next = sectionRangeForIndex(existingRoles, insertAmongExisting)
+  const crossBand =
+    prev.start !== next.start || prev.end !== next.end
+  if (!crossBand) return preceding
+  return beforeDivider ? preceding : insertAmongExisting
+}
+
+/**
+ * Remap a locked band onto the current existing-role list.
+ *
+ * @param existingRoles - Roles without the draft id.
+ * @param lock - Line labels from the section that opened the draft.
+ */
+function sectionForLock(
+  existingRoles: readonly StructureLaneRole[],
+  lock: { lineAbove: string | null; lineBelow: string | null },
+): { start: number; end: number } | null {
+  if (existingRoles.length === 0) return { start: 0, end: 0 }
+  for (const section of laneSectionBounds(existingRoles)) {
+    const above =
+      section.start > 0
+        ? dividerKindAfter(existingRoles, section.start - 1)
+        : null
+    const below =
+      section.end < existingRoles.length - 1
+        ? dividerKindAfter(existingRoles, section.end)
+        : null
+    const lineAbove = above ? DIVIDER_LABEL[above] : null
+    const lineBelow = below ? DIVIDER_LABEL[below] : null
+    if (lineAbove === lock.lineAbove && lineBelow === lock.lineBelow)
+      return section
+  }
+  return null
+}
+
+/**
+ * Section window around a new lane in one path's draft order.
+ *
+ * Computed from the existing lanes' divider geometry, then expanded to include
+ * the new id — so a null role on the draft seat cannot shift the lines.
+ *
+ * @param order - Full identity order including the new-item id.
+ * @param roleById - Role (or null) for each existing lane id.
+ * @param newId - Id of the unwritten lane in `order`.
+ * @param options - Divider-side seating and optional band lock.
+ */
+export function laneInsertSectionForOrder(
+  order: readonly string[],
+  roleById: ReadonlyMap<string, StructureLaneRole>,
+  newId: string,
+  options?: LaneInsertSectionOptions,
+): LaneInsertSection {
+  const newIndex = order.indexOf(newId)
+  if (newIndex < 0 || order.length === 0) {
+    return {
+      start: 0,
+      end: Math.max(0, order.length - 1),
+      lineAbove: null,
+      lineBelow: null,
+      allowedRoles: rolesForBand(null, null),
+      occupiedRoles: [],
+    }
+  }
+
+  const existing = order.filter((id) => id !== newId)
+  const existingRoles = existing.map((id) => roleById.get(id) ?? null)
+  const following = order.slice(newIndex + 1).find((id) => id !== newId)
+  const insertAmongExisting = following
+    ? existing.indexOf(following)
+    : existing.length
+  const seat = seatAmongExisting(
+    existingRoles,
+    insertAmongExisting,
+    Boolean(options?.beforeDivider),
+  )
+  const section =
+    existing.length === 0
+      ? { start: 0, end: 0 }
+      : options?.lock
+        ? (sectionForLock(existingRoles, options.lock) ??
+          sectionRangeForIndex(existingRoles, seat))
+        : sectionRangeForIndex(existingRoles, seat)
+
+  const sectionIds = new Set(
+    existing.length === 0
+      ? [newId]
+      : [...existing.slice(section.start, section.end + 1), newId],
+  )
+  let start = order.length
+  let end = -1
+  for (const [index, id] of order.entries()) {
+    if (!sectionIds.has(id)) continue
+    start = Math.min(start, index)
+    end = Math.max(end, index)
+  }
+
+  const aboveKind =
+    existing.length > 0 && section.start > 0
+      ? dividerKindAfter(existingRoles, section.start - 1)
+      : null
+  const belowKind =
+    existing.length > 0 && section.end < existing.length - 1
+      ? dividerKindAfter(existingRoles, section.end)
+      : null
+
+  const present = new Set<CanonicalLaneRole>()
+  for (const id of sectionIds) {
+    if (id === newId) continue
+    const role = roleById.get(id)
+    if (role) present.add(role as CanonicalLaneRole)
+  }
+  const occupiedRoles = [...present]
+  const band = rolesForBand(aboveKind, belowKind)
+  // Full band vocabulary — a frontstage with only touchpoints must still
+  // offer frontstage actions. Out-of-band present roles stay available too.
+  const allowedRoles = [
+    ...band,
+    ...occupiedRoles.filter((role) => !band.includes(role)),
+  ]
+
+  return {
+    start,
+    end,
+    lineAbove: aboveKind ? DIVIDER_LABEL[aboveKind] : null,
+    lineBelow: belowKind ? DIVIDER_LABEL[belowKind] : null,
+    allowedRoles,
+    occupiedRoles,
+  }
+}

@@ -43,3 +43,17 @@ describe('shared canvas mode', () => {
     expect(getSharedCanvasMode()).toBe('view')
   })
 })
+
+it('holds leaving Edit while an editor is deciding whether to discard', async () => {
+  const { registerPanelTransitionGuard } = await import('@/lib/openPanelStore')
+  setSharedCanvasModeAvailable(true)
+  setSharedCanvasMode('design')
+  let discard: (() => void) | undefined
+  const unregister = registerPanelTransitionGuard(action => { discard = action; return false })
+  try {
+    setSharedCanvasMode('view')
+    expect(getSharedCanvasMode()).toBe('design')
+    discard!()
+    expect(getSharedCanvasMode()).toBe('view')
+  } finally { unregister() }
+})

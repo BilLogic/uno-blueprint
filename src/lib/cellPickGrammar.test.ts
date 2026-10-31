@@ -226,15 +226,15 @@ describe('the pick grammar', () => {
     expect(pickModeForMarquee({ shiftKey: true })).toBe('add')
   })
 
-  it('lets only a shift click reach the picker outside Edit mode', () => {
+  it('never gathers cells before the selection tool is active', () => {
     expect(clickPicks(click(), false)).toBe(false)
-    expect(clickPicks(click({ shiftKey: true }), false)).toBe(true)
+    expect(clickPicks(click({ shiftKey: true }), false)).toBe(false)
     // ⌘/ctrl is the open gesture everywhere; it never picks.
     expect(clickPicks(click({ metaKey: true }), false)).toBe(false)
     expect(clickPicks(click({ ctrlKey: true }), false)).toBe(false)
   })
 
-  it('lets every plain click reach the picker in Edit mode', () => {
+  it('lets a plain click gather while Make slice is active', () => {
     expect(clickPicks(click(), true)).toBe(true)
   })
 })

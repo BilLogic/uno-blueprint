@@ -439,6 +439,10 @@ function applyFocusPaint(transfer: CameraFocusTransfer | null, progress: number)
   }
 }
 
+function notifyCameraGesture(container:HTMLElement|null,point?:{clientX:number;clientY:number}) {
+  container?.dispatchEvent(new CustomEvent('canvas-camera-gesture',{bubbles:true,detail:point ? {clientX:point.clientX,clientY:point.clientY} : null}))
+}
+
 export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
   const {
     resetKey,
@@ -777,7 +781,9 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
       syncReact = false,
       /** See `applyTransformToElement` — animated fits pass `stampFitSemanticTier`. */
       tierZoom?: number,
+      source?: 'structure-draft',
     ) => {
+      const changed = !isSameTransform(transformRef.current, {pan: nextPan, zoom: nextZoom})
       transformRef.current = { pan: nextPan, zoom: nextZoom }
       const ground = groundRef.current
       if (ground) {
@@ -794,6 +800,7 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
           tierZoom,
         )
       }
+      if (changed) containerRef.current?.dispatchEvent(new CustomEvent('canvas-camera-change', {bubbles: true, detail: {source}}))
       if (syncReact) {
         setPan(nextPan)
         setZoom(nextZoom)
@@ -1922,11 +1929,14 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
         return
       }
 
+      // The camera owns this native event and stops other window listeners.
+      // Let transient canvas affordances dismiss before geometry starts moving.
       // macOS sends pinch as ctrl+wheel; ⌘+wheel is the mouse equivalent.
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault()
         // Immediate: a second viewport's window listener must not also apply
         // the same tick, squaring the scale factor.
+        notifyCameraGesture(el,e)
         e.stopImmediatePropagation()
         /*
           The factor is clamped per event, not per gesture. A trackpad pinch
@@ -1965,6 +1975,7 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
           return
         }
         e.preventDefault()
+        notifyCameraGesture(el,e)
         e.stopImmediatePropagation()
         cancelCameraNavigation()
         userAdjustedViewRef.current = true
@@ -2116,9 +2127,14 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
       const temporaryPan =
         e.button === 1 ||
         (e.button === 0 && e.pointerType !== 'touch' && getCanvasSpaceHeld())
+      const target = e.target as HTMLElement
+      if (!temporaryPan && e.pointerType !== 'touch' && target.closest('[data-structure-reorder]') && target.closest('[data-canvas-reorder], [data-canvas-reorder-global]')) {
+        cancelCameraNavigation()
+        userAdjustedViewRef.current = true
+        return
+      }
       if (!panEnabled && !temporaryPan) return
       if (e.button !== 0 && e.button !== 1) return
-      const target = e.target as HTMLElement
       // The mouse on an interactive child is a tap on it, never a pan. A
       // single FINGER there goes pending instead — pan if it travels past
       // the slop, tap if it lifts inside it.
@@ -2198,6 +2214,7 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
         touchPoints.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
         const pinch = pinchStart.current
         if (pinch && touchPoints.current.size >= 2) {
+          notifyCameraGesture(containerRef.current,e)
           const [a, b] = [...touchPoints.current.values()]
           const dist = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y))
           const midX = (a.x + b.x) / 2
@@ -2231,6 +2248,7 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
           } catch {
             // Capture is an assist, not a precondition.
           }
+          notifyCameraGesture(containerRef.current,e)
           beginPan(pending.x, pending.y)
           commitTransform(
             {
@@ -2248,6 +2266,7 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
       // state would otherwise be dropped — a visible stutter at the exact
       // moment the drag engages.
       if (!isPanningRef.current) return
+      notifyCameraGesture(containerRef.current,e)
       commitTransform(
         {
           x: panStart.current.panX + (e.clientX - panStart.current.x),
@@ -2606,6 +2625,7 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
   )
 
   const zoomIn = useCallback(() => {
+    notifyCameraGesture(containerRef.current)
     const el = containerRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
@@ -2613,6 +2633,7 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
   }, [zoomAtPoint])
 
   const zoomOut = useCallback(() => {
+    notifyCameraGesture(containerRef.current)
     const el = containerRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
@@ -2620,7 +2641,7 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
   }, [zoomAtPoint])
 
   const panBy = useCallback(
-    (dx: number, dy: number) => {
+    (dx: number, dy: number, source?: 'structure-draft') => {
       cancelCameraNavigation()
       userAdjustedViewRef.current = true
       const current = transformRef.current
@@ -2628,6 +2649,8 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
         { x: current.pan.x + dx, y: current.pan.y + dy },
         current.zoom,
         true,
+        undefined,
+        source,
       )
     },
     [cancelCameraNavigation, commitTransform],
@@ -2673,6 +2696,7 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
         zoomOut()
       } else if (event.key === '0') {
         event.preventDefault()
+        notifyCameraGesture(containerRef.current)
         fitToView({ animate: true })
       }
     }
@@ -2727,6 +2751,7 @@ export function useZoomPanViewport(options: UseZoomPanViewportOptions = {}) {
       // Arrows scroll the page by default, and this container is the one
       // place that must never scroll.
       event.preventDefault()
+      notifyCameraGesture(containerRef.current)
       panBy(step.dx, step.dy)
     }
 

@@ -1,3 +1,7 @@
+import { useSupabase } from '@/contexts/SupabaseProvider'
+import { type SessionEntry, forgetChange } from '@/lib/authoringSession'
+import { executeRevert } from '@/lib/revertChange'
+import { reportWriteSuccess } from '@/lib/writeFailures'
 import { useEffect, useState, type ComponentType } from 'react'
 import { ServicePanel } from '@/components/blueprint/ServicePanel'
 import { LanePanel } from '@/components/blueprint/LanePanel'
@@ -13,7 +17,9 @@ import {
   useEntityDetail,
   type EntityDetailKind,
   type EntityDetailSelection,
+  type StructureDraft,
 } from '@/contexts/EntityDetailContext'
+import { panelEditorBusy } from '@/lib/panelEditorBusy'
 import { useCanvasTopOffset } from '@/hooks/useCanvasTopOffset'
 
 /**
@@ -47,26 +53,56 @@ export function EntityDetailPanel() {
  */
 const PANELS: Record<
   EntityDetailKind,
-  ComponentType<{ id: string; onClose: () => void }>
+  ComponentType<{
+    id: string
+    pathId?: string
+    draft?: StructureDraft
+    focusNext?: boolean
+    onCreated: (id: string, entry: SessionEntry) => void
+    onClose: () => void
+    onSaved: () => void
+  }>
 > = {
   service: ({ onClose }) => <ServicePanel onClose={onClose} />,
-  lane: ({ id, onClose }) => <LanePanel laneId={id} onClose={onClose} />,
+  lane: ({ id, draft, focusNext, onCreated, onSaved, onClose }) => (
+    <LanePanel
+      laneId={id}
+      draft={draft?.kind === 'lane' ? draft : undefined}
+      onCreated={onCreated}
+      onSaved={onSaved}
+      focusNext={focusNext}
+      onClose={onClose}
+    />
+  ),
   phase: ({ id, onClose }) => <PhasePanel phaseId={id} onClose={onClose} />,
   scenario: ({ id, onClose }) => (
     <ScenarioPanel scenarioId={id} onClose={onClose} />
   ),
-  step: ({ id, onClose }) => <StepPanel stepId={id} onClose={onClose} />,
+  step: ({ id, pathId, draft, focusNext, onCreated, onSaved, onClose }) => (
+    <StepPanel
+      stepId={id}
+      pathId={pathId}
+      draft={draft?.kind === 'step' ? draft : undefined}
+      onCreated={onCreated}
+      onSaved={onSaved}
+      focusNext={focusNext}
+      onClose={onClose}
+    />
+  ),
 }
 
 function EntityDetailPanelBody() {
-  const { selection, closeEntity } = useEntityDetail()
+  const { selection, preview, closeEntity, openEntity } = useEntityDetail()
+  const { client } = useSupabase()
   /*
     Kept only so the exit animation has something to draw. Captured with a
     guarded render-phase set — the codebase's derive-during-render idiom —
     and cleared when the drawer reports it has finished closing. Without it
     the panel empties instantly and then slides out blank.
   */
-  const [closing, setClosing] = useState<EntityDetailSelection | null>(selection)
+  const [closing, setClosing] = useState<EntityDetailSelection | null>(
+    selection,
+  )
   if (selection && closing !== selection) setClosing(selection)
 
   /*
@@ -101,12 +137,39 @@ function EntityDetailPanelBody() {
   const Panel = PANELS[shown.kind]
 
   return (
-    <PanelDrawerShell
-      open={selection !== null}
-      onCloseRequest={closeEntity}
-      onClosed={() => setClosing(null)}
-    >
-      <Panel id={shown.id} onClose={closeEntity} />
-    </PanelDrawerShell>
+    <>
+      <PanelDrawerShell
+        open={selection !== null}
+        onCloseRequest={closeEntity}
+        onClosed={() => setClosing(null)}
+      >
+        <Panel
+          key={`${shown.kind}-${shown.draftKey ?? shown.id}`}
+          id={shown.id}
+          pathId={shown.pathId}
+          draft={shown.draft}
+          focusNext={shown.focusNext}
+          onCreated={(id, entry) => {
+            if (entry?.revert && client)
+              reportWriteSuccess(
+                `Added the ${preview?.name.trim() || ''} ${shown.kind} to ${
+                  preview?.orders.length ?? 1
+                } ${(preview?.orders.length ?? 1) === 1 ? 'path' : 'paths'}`,
+                entry.id,
+                async () => {
+                  await executeRevert(client, entry)
+                  forgetChange(entry.id)
+                  closeEntity()
+                },
+              )
+            openEntity({ kind: shown.kind, id, pathId:preview?.clickedPathId ?? shown.pathId, focusNext: true })
+          }}
+          onSaved={closeEntity}
+          onClose={() => {
+            if (!panelEditorBusy()) closeEntity()
+          }}
+        />
+      </PanelDrawerShell>
+    </>
   )
 }

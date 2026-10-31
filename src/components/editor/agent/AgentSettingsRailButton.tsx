@@ -1,3 +1,4 @@
+import { HOVER_HINT_DELAY } from '@/lib/hoverIntent'
 import { Settings } from 'lucide-react'
 import {
   Popover,
@@ -28,7 +29,7 @@ export function AgentSettingsRailButton() {
   const setOpen = setAgentSettingsOpen
 
   return (
-    <TooltipProvider delay={300}>
+    <TooltipProvider delay={HOVER_HINT_DELAY} timeout={0}>
       <Popover open={open} onOpenChange={setOpen}>
         <Tooltip>
           <TooltipTrigger

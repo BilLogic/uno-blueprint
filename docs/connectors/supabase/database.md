@@ -684,6 +684,52 @@ because a keyword search presented as the same search everyone else has is
 worse than no tool. A person on an Anthropic key is always in that group:
 Anthropic has no embedding model.
 
+
+### Agent search on your own vector index
+
+For a cell-only Gemini index at 768 dimensions, an operator may apply
+`scripts/recipes/cell-search.sql` to the deployment database. It installs
+`cell_search_embeddings`, its cosine index and the `search_blueprint` function
+with keyword fallback. It is an optional deployment recipe, not a template
+migration; it neither creates cells nor changes existing blueprint rows. The
+function runs as its caller, and only authenticated callers can execute it.
+
+After applying the recipe, run `npm run build:tool-server` and deploy
+`index-cell-search` alongside `uno-tools`. Both functions use the same four secrets: `BLUEPRINT_EMBEDDING_API_KEY`,
+`BLUEPRINT_EMBEDDING_PROVIDER`, `BLUEPRINT_EMBEDDING_MODEL` and
+`BLUEPRINT_EMBEDDING_DIMENSIONS`; this indexer requires Google,
+`gemini-embedding-001` and 768 dimensions. Set `BLUEPRINT_EMBEDDING_PROVIDER=google` for this recipe.
+Unsupported search levels explicitly report that this recipe searches cells only.
+
+### Operate the cell search index
+
+`index:tool-search` is an operator action that writes embedding rows, not a check.
+Run `npm run index:tool-search`
+with the existing synthetic test login in ignored `.env`, linked to a profile
+that may confirm. The handler validates the caller and checks their own
+profile before sending document text to the provider. The storage function
+independently checks confirmation rights and writes only embedding rows.
+
+Each batch embeds up to five existing cells' content plus summary as
+`RETRIEVAL_DOCUMENT`, storing the vector, cell id, model and content hash.
+No provider key is stored in the index or sent to PostgREST. The CLI reports
+indexed and stale counts, with a bounded run that can be resumed. A provider
+quota or billing refusal is quoted with credentials and document text redacted.
+No services, cells, profiles or stakeholders are created or changed. A changed
+cell stops using its old vector until the indexer refreshes it; a concurrent
+edit makes the store refuse the stale vector and leaves the cell pending.
+Other models, dimensions or search granularities need the deployment's own
+function and index.
+
+The tool server reads the `BLUEPRINT_EMBEDDING_*` function secrets described
+below and embeds questions as `RETRIEVAL_QUERY`. After configuring the secrets
+and indexing existing cells, run `npm run test:tool-search:project`. It uses
+the existing synthetic test login from ignored `.env`, makes only reads and
+prints no business replies or credentials. An empty project, keyword-only
+answer or missing document embeddings reports unverified. A successful
+question embedding alone does not prove ranked cells. The smoke proof does
+not infer quota or billing failure from a generic keyword fallback.
+
 ## Migration desync: the repair
 
 **Who needs this**: forks created before the reserved band existed, whose local

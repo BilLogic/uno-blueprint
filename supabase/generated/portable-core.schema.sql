@@ -3294,9 +3294,14 @@ begin
   if n<>cardinality(ids) or memberships is distinct from named_paths then raise exception 'This change cannot be undone. Reload the canvas'; end if;
   for p,rows in select key::uuid,value from jsonb_each(snapshot->'after') order by key loop
     if jsonb_typeof(rows) is distinct from 'array' or jsonb_typeof(snapshot->'before'->p::text) is distinct from 'array'
-      or exists(select 1 from jsonb_array_elements(snapshot->'before'->p::text) with ordinality q(value,n)
-        where coalesce(q.value->>'position','') !~ '^(0|[1-9][0-9]*)$'
-           or (q.value->>'position')::numeric is distinct from q.n-1)
+      or exists(select 1 from jsonb_array_elements(snapshot->'before'->p::text) q(value)
+        where coalesce(q.value->>'position','') !~ '^(0|[1-9][0-9]*)$')
+      -- The array order is the path order: its numbering must strictly rise.
+      or exists(select 1 from (
+          select (q.value->>'position')::numeric as position,
+                 lag((q.value->>'position')::numeric) over (order by q.n) as previous
+          from jsonb_array_elements(snapshot->'before'->p::text) with ordinality q(value,n)) w
+        where w.position<=w.previous)
       or (select count(*) from jsonb_array_elements(snapshot->'before'->p::text)) <>
          (select count(distinct q->>'id') from jsonb_array_elements(snapshot->'before'->p::text) q)
       or (select array_agg(q->>'id' order by q->>'id') from jsonb_array_elements(snapshot->'before'->p::text) q) is distinct from

@@ -452,7 +452,8 @@ readers remain refused. The private order helper is not exposed.
 
 Creation saves complete fields, memberships and validated path orders in one
 transaction. `undo_structure_add` verifies every new identity's complete path
-membership, matching current orders and non-negative contiguous before positions;
+membership, matching current orders and before positions that are non-negative
+integers strictly increasing in path order (since 323; 311 required 0, 1, 2, …);
 it refuses any later cell, preserving its evidence, resources and dependencies.
 Successful Undo removes only the new items and restores the stored order.
 
@@ -474,6 +475,16 @@ remain for the cell's lifetime so a change-sheet Undo has no arbitrary expiry;
 successful Undo consumes its receipt and cell deletion cascades it. Uploaded
 Storage objects are retained on Cancel and Undo, matching the existing
 attachment lifecycle. No deployment data backfill is required.
+
+| `21000323000000_undo_of_an_add_keeps_the_numbering_it_found.sql` | `undo_structure_add` accepts any `before` numbering that strictly increases in path order, so Undo of an Add works on paths numbered from 1 or with gaps; every other guard and the grant are unchanged |
+
+Apply 323 on its own; no app change and no database-type change. Before it, a
+path whose steps or lanes were not numbered 0, 1, 2, … refused Undo of every
+Add with `This change cannot be undone. Reload the canvas`, because the Add
+renumbers the path from 0 and its receipt keeps the numbering it found.
+`undo_structure_order` and `undo_step_path_change` already restored stored
+positions and are unchanged; the migration proves all three round trips on a
+path numbered from 1 and on one with gaps.
 
 
 ## Reserved migration timestamp band

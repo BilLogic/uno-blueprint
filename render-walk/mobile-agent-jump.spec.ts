@@ -28,8 +28,8 @@ import { VIEW_SCREENSHOT_DIR } from './playwright.config'
  *      asserts the overlay's weight and files the screenshot a person reads.
  *   3. **The destination rendered above the sheet, legibly.** The board the
  *      agent was asked for has a box, the sheet has a box, a strip-full of
- *      the first is above the second, and cells with words in them are wholly
- *      inside the strip. It renders there because the phone's fit floor
+ *      the first is above the second, and the first line of a cell's words is
+ *      wholly inside the strip. It renders there because the phone's fit floor
  *      anchors the board to its top-left, NOT because the sheet's height was
  *      handed to the camera — the slice owns that the number is delivered,
  *      the camera hook's flight test owns what a number like it frames, and
@@ -84,6 +84,10 @@ declare function getComputedStyle(node: unknown): {
   opacity: string
 }
 declare const document: {
+  createTreeWalker(
+    root: unknown,
+    whatToShow: number,
+  ): { nextNode(): unknown }
   createRange(): {
     selectNodeContents(node: unknown): void
     getClientRects(): ArrayLike<{
@@ -330,8 +334,8 @@ test.describe('the phone agent jump', () => {
     //
     // What is left is still worth a browser: that the destination the agent
     // was asked for is the board on screen, that a strip-full of it sits
-    // above the sheet rather than a sliver, and that cells with words in them
-    // land wholly inside the visible strip — a fact about layout and a
+    // above the sheet rather than a sliver, and that a cell's first line of
+    // words lands wholly inside the visible strip — a fact about layout and a
     // compositor that jsdom cannot answer either way.
     const viewport = page.viewportSize()
     expect(viewport, 'the phone project sets a viewport').toBeTruthy()
@@ -354,47 +358,76 @@ test.describe('the phone agent jump', () => {
     // overlap only, which scored a cell 90% off the side of the screen as
     // legible, and that tightening is kept.
     //
-    // What is measured is the WORDS, not the cell that holds them. A cell's
-    // box carries its padding and its row's height, and both of those belong
-    // to the destination BOARD rather than to the camera that framed it: a
-    // deployment whose first row is a little taller would score zero on a
-    // jump that put a perfectly readable strip on screen, which is a fact
-    // about the board's own spacing and nothing this case is asking about.
-    // A range over the cell's contents answers where the text actually
-    // landed, and it does so whatever markup the cell is built from — they
-    // differ. The horizontal protection survives the move unharmed, because
-    // words carried off the side of the screen go off it with their cell.
+    // What is measured is a cell's FIRST LINE of words, not the cell and not
+    // all of its words. A cell's box carries its padding and its row's
+    // height, and both of those belong to the destination BOARD rather than
+    // to the camera that framed it. All of its words are the board's too:
+    // the canvas clamps a long cell to a few lines, but the text it clips
+    // still has line boxes, so a range over the whole cell ran on under the
+    // sheet for any board whose top-left cells say a lot — and a jump that
+    // put a perfectly readable strip on screen scored zero. How much a cell
+    // says is the content's business, and nothing this case is asking about.
+    //
+    // The first line is the camera's: the fit anchors the board, so where a
+    // cell's words begin moves with the framing and with nothing else. A jump
+    // that left the board under the sheet, or off the side of the screen,
+    // leaves every first line there with it and scores zero, so this stays
+    // the check it was. Line boxes are read off the cell's text nodes, which
+    // answers where the words landed whatever markup the cell is built from —
+    // they differ — and the topmost of them, with whatever shares its line,
+    // is the first line.
     const cells = board.locator('[data-blueprint-cell]')
     let readable = 0
     for (let index = 0; index < (await cells.count()); index += 1) {
       const cell = cells.nth(index)
       const words = (await cell.innerText()).trim()
       if (words.length === 0) continue
-      const box = await cell.evaluate((node) => {
+      const line = await cell.evaluate((node) => {
+        const SHOW_TEXT = 4
+        const walker = document.createTreeWalker(node, SHOW_TEXT)
         const range = document.createRange()
-        range.selectNodeContents(node)
-        const rects = Array.from(range.getClientRects()).filter(
-          (rect) => rect.width > 0 && rect.height > 0,
-        )
+        const rects: Array<{
+          left: number
+          right: number
+          top: number
+          bottom: number
+          height: number
+        }> = []
+        for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+          range.selectNodeContents(text)
+          for (const rect of Array.from(range.getClientRects())) {
+            if (rect.width > 0 && rect.height > 0) rects.push(rect)
+          }
+        }
         if (rects.length === 0) return null
-        const left = Math.min(...rects.map((rect) => rect.left))
-        const right = Math.max(...rects.map((rect) => rect.right))
-        const top = Math.min(...rects.map((rect) => rect.top))
-        const bottom = Math.max(...rects.map((rect) => rect.bottom))
-        return { x: left, y: top, width: right - left, height: bottom - top }
+        const first = rects.reduce((top, rect) =>
+          rect.top < top.top ? rect : top,
+        )
+        const sameLine = rects.filter(
+          (rect) => rect.top < first.top + first.height / 2,
+        )
+        const left = Math.min(...sameLine.map((rect) => rect.left))
+        const right = Math.max(...sameLine.map((rect) => rect.right))
+        const bottom = Math.max(...sameLine.map((rect) => rect.bottom))
+        return {
+          x: left,
+          y: first.top,
+          width: right - left,
+          height: bottom - first.top,
+        }
       })
-      if (!box) continue
+      if (!line) continue
       if (
-        box.y >= 0 &&
-        box.y + box.height <= sheetBox!.y &&
-        box.x >= 0 &&
-        box.x + box.width <= viewport!.width
+        line.y >= 0 &&
+        line.y + line.height <= sheetBox!.y &&
+        line.x >= 0 &&
+        line.x + line.width <= viewport!.width
       )
         readable += 1
     }
     expect(
       readable,
-      'cells of the destination are wholly on screen above the sheet',
+      'a cell of the destination starts wholly on screen above the sheet',
     ).toBeGreaterThan(0)
 
     // AND THE SEND WAS WELL FORMED. The canned answer above exercises only

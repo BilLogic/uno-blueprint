@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.9.1
+
+**Enables links no longer draw as arrows.** An `enables` between two cells of
+one path now reads in the cell panel only, as a precondition should; in-path
+`leads_to` arrows are unchanged. The render walk's phone agent-jump case no
+longer fails a correct jump on a board whose top-left cells carry long
+content, and the unused `BlueprintDependencyArrows` component is retired.
+
+### Upgrading a deployment
+
+- **Bump the pin; no migration.** No database, IR or seed change. A
+  deployment whose render walk failed the agent-jump case on a long cell
+  passes it again.
+
+### Patch Changes
+
+- 6e1d8b9: Enables links no longer draw as arrows. An `enables` between two cells of one path was drawn on the board like a `leads_to`, in Stacked and Merged; it now reads in the cell panel only, as the domain model says a precondition should. In-path `leads_to` arrows are unchanged.
+- 5ca8576: The phone jump check holds on a long cell. The render walk's agent-jump case asked for a cell whose words sit wholly above the sheet, and it measured the clipped lines of a clamped cell too, so a board whose top-left cells say a lot failed a jump that landed correctly. It now asks for a cell's first line of words on screen above the sheet, which moves with the camera and not with the content; a jump that lands under the sheet or off the side of the screen still fails it.
+- 33a333f: The unused dependency arrows component is retired. `BlueprintDependencyArrows` was no longer rendered anywhere — the canvas draws every arrow through `IntegratedDependencyArrows` — so it is deleted, with its claim in the canvas guideline and its mention in the arrow situation catalog. Nothing on the board changes.
+
 ## 2.9.0
 
 **A link may cross paths within one service.** A `leads_to` or an `enables`
@@ -11019,8 +11039,8 @@ accent: BRAND.accent }, content: { workspaceTitle: coverContent.title } }`. The
   constraint violation rather than as anything the authoring tools had said
   (#204):
 
-                                                                                                                                                                                                                                                                          ERROR: new row for relation "lanes" violates check constraint
-                                                                                                                                                                                                                                                                          "lanes_lane_role_check" … compliance_review
+                                                                                                                                                                                                                                                                            ERROR: new row for relation "lanes" violates check constraint
+                                                                                                                                                                                                                                                                            "lanes_lane_role_check" … compliance_review
 
   That error at least names the value. Meeting it after validation has passed is
   the wrong moment.

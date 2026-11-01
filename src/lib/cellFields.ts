@@ -259,7 +259,7 @@ export const CELL_FIELDS = [
     writeRoute: 'content',
     required: false,
     agentArg: 'owner',
-    agentHint: 'Owner tag — the team accountable (an existing tag; see list_owner_tags)',
+    agentHint: 'Owner tag — the team accountable (reuse a tag from list_owner_tags unless starting a new one deliberately)',
     editor: { control: 'ownerTag', row: 'owners' },
   },
   {
@@ -270,7 +270,7 @@ export const CELL_FIELDS = [
     writeRoute: 'content',
     required: false,
     agentArg: 'perceived_owner',
-    agentHint: 'Perceived-owner tag — who the person on the other side thinks they are dealing with (an existing tag; see list_owner_tags)',
+    agentHint: 'Perceived-owner tag — who the person on the other side thinks they are dealing with (reuse a tag from list_owner_tags unless starting a new one deliberately)',
     editor: { control: 'ownerTag', row: 'owners' },
   },
 ] as const satisfies readonly AnyCellField[]

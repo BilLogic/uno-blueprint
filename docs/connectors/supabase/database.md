@@ -1134,14 +1134,26 @@ that person's explicit yes. Otherwise it becomes a pending row in the existing
 `suggested_changes` table. Cell-content contributions keep the Profiles
 `record_contribution` path, including evidence in their giver's name; cell-spec
 and structural proposals carry the tool name and arguments. Approval checks the
-original tool's current admission and schema again, compares the named target
-rows with their proposal-time values, and runs the same transaction as a direct
-call under the approver's identity. A missing or changed target is a refusal;
-the proposal stays pending and nothing is written. List and decline include
-both existing cell-content suggestions and general tool proposals.
+original tool's current admission and schema again, compares every row the
+proposal names with its proposal-time value, and runs the same transaction as
+a direct call under the approver's identity. The named rows are the top-level
+targets, the path a new path copies its lanes from, each cell a slice cites or
+a slide holds, and a named step's place on its paths; a slice's other slides
+and a cell beside a cited one are not named, so they may change freely, and
+neither are the rows a duplication copies. A step's place is the set of paths
+holding it: a step inserted before it changes its column, not its place. A
+missing, changed or moved row is refused with a sentence naming it; the
+proposal stays pending and nothing is written. A proposal recorded before a
+row kind was snapshotted is checked against the rows its state holds. List and
+decline include both existing cell-content suggestions and general tool
+proposals.
 
 The durable `authoring_changes` row carries the authenticated caller and, on
-approval, `proposed_by` and `approved_by`. This is the minimum attribution
+approval, `proposed_by` and `approved_by`. An approval through the tool gateway
+is logged as the approver's agent write in that call's session, which the
+tool server mints per request and the canvas agent takes from its
+conversation; a direct `approve_suggested_change` call, or any gateway call
+without a session, is logged as a person's. This is the minimum attribution
 needed for server writes. Each tool transaction also captures the actual
 changed rows under `revert: {kind: "captured_rows", rows: [...]}`: every row
 names its table and holds `before` and `after` values, with null on the absent

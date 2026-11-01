@@ -16,10 +16,14 @@ export const listSuggestedChangesTool = defineTool({
 
 export const approveSuggestedChangeTool = defineWriteTool({
   name: 'approve_suggested_change',
-  description: 'Approve a reviewed proposal as the signed-in confirmer. Revalidates the proposal; a changed target is refused without writing. Call only after the person explicitly approves.',
+  description: 'Approve a reviewed proposal as the signed-in confirmer. Re-checks every row the proposal names, cells inside slides included; one that changed or moved is refused without writing. Call only after the person explicitly approves.',
   args: z.object({ suggested_change_id: z.string().uuid() }),
   run: async ({ suggested_change_id }, ctx) => {
-    const { data, error } = await ctx.client.rpc('approve_suggested_change', { p_id: suggested_change_id })
+    // Through the tool gateway, so the log row names this agent session as the
+    // approver's; a direct approval is recorded as a person's.
+    const { data, error } = await ctx.client.rpc('run_agent_tool', {
+      p_tool: 'approve_suggested_change', p_args: { suggested_change_id }, p_session_id: ctx.session.id,
+    })
     if (error) throw new Error(error.message)
     // The database has already appended the audit row. This local entry
     // records the action, without importing any durable inverse into undo.

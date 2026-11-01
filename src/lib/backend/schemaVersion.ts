@@ -11,7 +11,9 @@
  * The list below is the whole compatibility rule: a version is supported or it
  * is not. Ranges were the alternative and are a promise nobody can keep —
  * "2026.07.16 and later" claims compatibility with shapes that do not exist
- * yet. Each entry earns its place by having a migration behind it.
+ * yet. Each entry earns its place by having a step in `scripts/migrate_ir.py`
+ * that carries a file to the next one. Some steps only move the stamp, and
+ * some versions are never stamped into a database at all.
  *
  * **Nothing at runtime asks this module.** The check against a live target is
  * `npm run check:target` (`scripts/check-target-schema.mjs`), which reads the
@@ -23,13 +25,13 @@
  * forget, so the copy carries the test that will not let it drift.
  */
 
-/** The shape this checkout builds. Bumped by the migration that changes it. */
+/** The shape this checkout builds. Bumped with the IR schema when that shape changes. */
 export const TEMPLATE_SCHEMA_VERSION = '2026.09.12'
 
 /**
  * Every version this checkout can read and write, newest first.
  *
- * A version leaves this list when the migration that would carry it forward
+ * A version leaves this list when the `migrate_ir.py` step that would carry it forward
  * stops existing — which is a deliberate act, not an omission.
  */
 export const SUPPORTED_SCHEMA_VERSIONS: readonly string[] = [

@@ -69,6 +69,7 @@ import json
 import re
 import sys
 import unicodedata
+from typing import NamedTuple
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -394,15 +395,48 @@ def check_touchpoint(touchpoint, jp: str, rep: Report, locales: list) -> None:
                 check_resource(resource, f"{jp}.resources[{i}]", rep, locales)
 
 
-def check_cell_ref(ref, jp: str, rep: Report):
-    """Return (scenario_key, path_key, lane_key, step_key) or None.
+class LinkEnd(NamedTuple):
+    """One end of a dependency, resolved to the cell it names."""
 
-    The two qualifiers are None when the reference leaves them out: an end
-    with no `path` is on the path that lists the link, and an end with a
-    `path` but no `scenario` is on that path of the same scenario. A
-    `scenario` without a `path` names nothing — a scenario holds several
-    paths — so it is refused. There is no `service`: the file is one service,
-    and a link may not leave it.
+    scenario: str
+    path: str
+    lane: str
+    step: str
+
+    @property
+    def on(self) -> tuple:
+        """(scenario, path): the path this end sits on."""
+        return self.scenario, self.path
+
+    @property
+    def cell(self) -> tuple:
+        """(lane, step): the cell's place on that path."""
+        return self.lane, self.step
+
+
+def resolve_end(ref: dict, listing_scenario: str, listing_path: str) -> LinkEnd:
+    """The one reading of a dependency end's qualifiers (ADR 0035).
+
+    No `path`: the cell is on the path that lists the link. A `path` and no
+    `scenario`: that path of the listing path's scenario. Both: that path of
+    the named scenario. A `scenario` with no `path` names no path, and is
+    refused rather than guessed. The validator, the seed generator and the
+    slice tools all read an end through here, so the rule is said once.
+    """
+    if "path" not in ref:
+        if "scenario" in ref:
+            raise ValueError("a dependency end names a scenario but no path")
+        return LinkEnd(listing_scenario, listing_path, ref["lane"], ref["step"])
+    return LinkEnd(ref.get("scenario", listing_scenario), ref["path"], ref["lane"], ref["step"])
+
+
+def check_cell_ref(ref, jp: str, rep: Report):
+    """Check one dependency end's shape; True when it is well-formed, else None.
+
+    What its qualifiers MEAN is `resolve_end`'s; this checks only that they
+    can be read. A `scenario` without a `path` names nothing — a scenario
+    holds several paths — so it is refused here, with the fix. There is no
+    `service`: the file is one service, and a link may not leave it.
     """
     if not isinstance(ref, dict):
         rep.error(jp, f"cell reference must be an object {{lane, step}}, got {type_name(ref)}")
@@ -427,7 +461,7 @@ def check_cell_ref(ref, jp: str, rep: Report):
         return None
     if ("path" in ref and path is None) or ("scenario" in ref and scenario is None):
         return None
-    return scenario, path, lane, step
+    return True
 
 
 def check_unique(kind: str, key, seen: dict, jp: str, rep: Report) -> None:
@@ -709,8 +743,8 @@ def validate_path(path, jp: str, rep: Report, locales: list, scenario_step_keys:
         if source is None or target is None or path_key is None:
             continue
         links["edges"].append(
-            {"jp": tjp, "host": (scenario_key, path_key), "source": source,
-             "target": target, "kind": kind}
+            {"jp": tjp, "listing_path": (scenario_key, path_key),
+             "source": edge["source"], "target": edge["target"], "kind": kind}
         )
 
 
@@ -726,55 +760,49 @@ def resolve_links(links: dict, scenario_paths: dict, rep: Report) -> None:
     """
     seen: dict = {}
     for edge in links["edges"]:
-        tjp, host, kind = edge["jp"], edge["host"], edge["kind"]
-        ends = {}
-        for end_name in ("source", "target"):
-            scenario_key, path_key, lane_key, step_key = edge[end_name]
-            qualified = path_key is not None
-            scenario_key = scenario_key if scenario_key is not None else host[0]
-            path_key = path_key if path_key is not None else host[1]
-            ends[end_name] = (scenario_key, path_key, lane_key, step_key, qualified)
+        tjp, listing_path, kind = edge["jp"], edge["listing_path"], edge["kind"]
+        ends = {name: resolve_end(edge[name], *listing_path) for name in ("source", "target")}
 
         resolved = True
-        for end_name, (scenario_key, path_key, lane_key, step_key, qualified) in ends.items():
+        for end_name, end in ends.items():
             ejp = f"{tjp}.{end_name}"
-            if scenario_key not in scenario_paths:
+            if end.scenario not in scenario_paths:
                 rep.error(
                     f"{ejp}.scenario",
-                    f"dependency {end_name} names unknown scenario '{scenario_key}' — a link "
+                    f"dependency {end_name} names unknown scenario '{end.scenario}' — a link "
                     "reaches any scenario of this service, and this service has none by that key",
                 )
                 resolved = False
-            elif path_key not in scenario_paths[scenario_key]:
+            elif end.path not in scenario_paths[end.scenario]:
                 rep.error(
                     f"{ejp}.path",
-                    f"dependency {end_name} names unknown path '{path_key}' in scenario "
-                    f"'{scenario_key}' (its paths: {', '.join(sorted(scenario_paths[scenario_key]))})",
+                    f"dependency {end_name} names unknown path '{end.path}' in scenario "
+                    f"'{end.scenario}' (its paths: {', '.join(sorted(scenario_paths[end.scenario]))})",
                 )
                 resolved = False
-            elif (lane_key, step_key) not in links["cells"].get((scenario_key, path_key), set()):
+            elif end.cell not in links["cells"].get(end.on, set()):
                 hint = (
-                    "" if qualified else
+                    "" if "path" in edge[end_name] else
                     " — an end with no `path` is on the path that lists the link; a cell on "
                     "another path of this service is named with `path` (and `scenario`)"
                 )
                 rep.error(
                     ejp,
-                    f"dependency {end_name} references cell (lane '{lane_key}', step '{step_key}') "
-                    f"which does not exist on path '{path_key}'{hint}",
+                    f"dependency {end_name} references cell (lane '{end.lane}', step '{end.step}') "
+                    f"which does not exist on path '{end.path}'{hint}",
                 )
                 resolved = False
         if not resolved:
             continue
 
-        source, target = ends["source"][:4], ends["target"][:4]
+        source, target = ends["source"], ends["target"]
         if source == target:
-            rep.error(tjp, f"dependency source equals target (lane '{source[2]}', step '{source[3]}') — a self-edge is invalid")
+            rep.error(tjp, f"dependency source equals target (lane '{source.lane}', step '{source.step}') — a self-edge is invalid")
             continue
-        if source[:2] != host and target[:2] != host:
+        if listing_path not in (source.on, target.on):
             rep.error(
                 tjp,
-                f"neither end of this dependency is on path '{host[1]}', which lists it — "
+                f"neither end of this dependency is on path '{listing_path[1]}', which lists it — "
                 "list a link on the path of one of its cells (the source's, by convention)",
             )
             continue
@@ -785,19 +813,18 @@ def resolve_links(links: dict, scenario_paths: dict, rep: Report) -> None:
         if identity in seen:
             rep.error(
                 tjp,
-                f"duplicate {kind} edge {describe_end(source, host)} -> "
-                f"{describe_end(target, host)} — first declared at {seen[identity]}",
+                f"duplicate {kind} edge {describe_end(source, listing_path)} -> "
+                f"{describe_end(target, listing_path)} — first declared at {seen[identity]}",
             )
         else:
             seen[identity] = tjp
 
 
-def describe_end(end: tuple, host: tuple) -> str:
+def describe_end(end: LinkEnd, listing_path: tuple) -> str:
     """A resolved end as the author wrote it: (lane, step), qualified when away."""
-    scenario_key, path_key, lane_key, step_key = end
-    if (scenario_key, path_key) == host:
-        return str((lane_key, step_key))
-    return f"{scenario_key}/{path_key}:{(lane_key, step_key)}"
+    if end.on == listing_path:
+        return str(end.cell)
+    return f"{end.scenario}/{end.path}:{end.cell}"
 
 
 def validate_scenario(scenario, jp: str, rep: Report, locales: list, scenarios_seen: dict,

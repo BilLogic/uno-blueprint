@@ -1509,6 +1509,33 @@ grep -q "asset-audit/as-designed" "$TMP/slice-cross.err" \
   || fail "slice-cross: the note does not name the other end's scenario and path — $(cat "$TMP/slice-cross.err")"
 pass "slice-cross (a companion on another path is outside the slice, and said)"
 
+# The audit export is a blueprint file: it validates, cross-path links and all.
+# A scoped export keeps a link to another path of its scenario, qualified as
+# authored. A link whose other end is in a scenario the export leaves out
+# cannot be kept — the validator refuses an end the file does not hold — so
+# it is dropped and said, on either end.
+AUDIT_TOOLS="$REPO_ROOT/skills/audit/scripts/audit_tools.py"
+python3 "$AUDIT_TOOLS" export "$TMP/cross-scenario.json" --out "$TMP/export-cross.json" > /dev/null \
+  || fail "audit-export-cross: full export failed"
+python3 "$VALIDATE" "$TMP/export-cross.json" > "$TMP/export-cross.out" 2>&1 \
+  || fail "audit-export-cross: a full export does not validate — $(cat "$TMP/export-cross.out")"
+python3 "$AUDIT_TOOLS" export "$TMP/cross-path.json" --scenario asset-repair --out "$TMP/export-cross-path.json" > /dev/null \
+  || fail "audit-export-cross: scoped export failed"
+python3 "$VALIDATE" "$TMP/export-cross-path.json" > "$TMP/export-cross-path.out" 2>&1 \
+  || fail "audit-export-cross: a scoped export with a cross-path link does not validate — $(cat "$TMP/export-cross-path.out")"
+grep -q '"path": "as-done"' "$TMP/export-cross-path.json" \
+  || fail "audit-export-cross: the scoped export lost the qualified end of a link to another path"
+for fixture in cross-scenario cross-scenario-hosted-on-target; do
+  python3 "$AUDIT_TOOLS" export "$TMP/$fixture.json" --scenario asset-repair --out "$TMP/export-$fixture-scoped.json" \
+    > /dev/null 2> "$TMP/export-$fixture-scoped.err" \
+    || fail "audit-export-cross: scoped export of $fixture failed — $(cat "$TMP/export-$fixture-scoped.err")"
+  python3 "$VALIDATE" "$TMP/export-$fixture-scoped.json" > "$TMP/export-$fixture-scoped.out" 2>&1 \
+    || fail "audit-export-cross: scoped export of $fixture left a dangling end — $(cat "$TMP/export-$fixture-scoped.out")"
+  [ "$(grep -c 'outside the export' "$TMP/export-$fixture-scoped.err")" = 2 ] \
+    || fail "audit-export-cross: $fixture's two links into asset-audit were not both said — $(cat "$TMP/export-$fixture-scoped.err")"
+done
+pass "audit-export-cross (exports validate; a link to a scenario left out is dropped and said)"
+
 # ---------------------------------------------------------------------------
 # 8. Schema-version migration: an old IR is refused by name and carried
 #    forward, and sign-off survives the bump (#61)

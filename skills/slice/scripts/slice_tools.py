@@ -47,6 +47,7 @@ sys.path.insert(0, str(SHARED_SCRIPTS))
 # copied: two definitions of this constant is exactly the bug that would make
 # slices point at nothing.
 from generate_seed_sql import entity_uuid, pick_text  # noqa: E402
+from validate_ir import LinkEnd, resolve_end  # noqa: E402
 
 SLICE_KINDS = ("journey", "step", "lane", "cell", "custom")
 ORIGINS = ("generated", "customized", "human")
@@ -116,19 +117,14 @@ def index_ir(doc: dict) -> dict:
                     # registered has no column and cannot be selected.
                     "step_order": list(path["path_steps"]),
                     "cells": cells,
-                    # Each edge's two ends resolved to (scenario, path, lane,
-                    # step): an end with no `path` is on this path, and one
-                    # with no `scenario` is in this scenario. A link may join
-                    # two paths of the service (ADR 0035), so an end's
-                    # (lane, step) alone does not say which cell it is.
+                    # Each edge's two ends as LinkEnds, read by the one
+                    # resolver the validator uses. A link may join two paths
+                    # of the service (ADR 0035), so an end's (lane, step)
+                    # alone does not say which cell it is.
                     "dependencies": [
                         tuple(
-                            (
-                                qualified.get(edge[end].get("scenario"), scenario_key)
-                                if "scenario" in edge[end] else scenario_key,
-                                edge[end].get("path", path["key"]),
-                                edge[end]["lane"],
-                                edge[end]["step"],
+                            _slice_end(
+                                resolve_end(edge[end], scenario["key"], path["key"]), qualified
                             )
                             for end in ("source", "target")
                         )
@@ -145,6 +141,18 @@ def index_ir(doc: dict) -> dict:
             }
 
     return {"service_key": service_key, "scenarios": scenarios, "locales": doc["locales"]}
+
+
+def _slice_end(end: LinkEnd, qualified: dict) -> LinkEnd:
+    """The end with its scenario keyed `<phase>/<scenario>`, as slices key it.
+
+    An unknown scenario is an error, never a quiet fall-back to this one: the
+    validator refuses such a file, and a slice cut from an unvalidated one
+    must not match a cell it does not name.
+    """
+    if end.scenario not in qualified:
+        raise SliceError(f"a dependency end names unknown scenario '{end.scenario}'")
+    return end._replace(scenario=qualified[end.scenario])
 
 
 def cell_key(index: dict, scenario_key: str, path_key: str, lane_key: str, step_key: str) -> str:
@@ -256,14 +264,14 @@ def select_journey(index: dict, scenario_key: str, path_key: str, lane_key: str,
         for other_path in other_scenario["paths"].values():
             for source, target in other_path["dependencies"]:
                 for near, far in ((source, target), (target, source)):
-                    if near[:2] != here:
+                    if near.on != here:
                         continue
-                    if far[:2] == here:
-                        touching.setdefault(near[2:], set()).add(far[2:])
-                    elif notes is not None and near[2] == lane_key:
+                    if far.on == here:
+                        touching.setdefault(near.cell, set()).add(far.cell)
+                    elif notes is not None and near.lane == lane_key:
                         notes.append(
-                            f"({near[2]}, {near[3]}) touches {far[0]}/{far[1]}:"
-                            f"({far[2]}, {far[3]}) on another path — outside the slice"
+                            f"({near.lane}, {near.step}) touches {far.scenario}/{far.path}:"
+                            f"({far.lane}, {far.step}) on another path — outside the slice"
                         )
 
     rows = {lane["key"]: lane["row"] for lane in path["lanes"].values()}

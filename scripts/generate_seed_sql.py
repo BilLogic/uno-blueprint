@@ -586,18 +586,20 @@ def build_model(doc: dict, locale: str) -> dict:
                     # Absent kind means 'leads_to' — the column default, and
                     # what every edge authored before 2026.08.26 meant.
                     kind = edge.get("kind", "leads_to")
-                    src_q = end_key(edge["source"], scenario["key"], path["key"], scenario_prefixes)
-                    tgt_q = end_key(edge["target"], scenario["key"], path["key"], scenario_prefixes)
-                    src_path_q, tgt_path_q = src_q.rsplit("/", 2)[0], tgt_q.rsplit("/", 2)[0]
-                    if src_path_q == tgt_path_q:
+                    src = validate_ir.resolve_end(edge["source"], scenario["key"], path["key"])
+                    tgt = validate_ir.resolve_end(edge["target"], scenario["key"], path["key"])
+                    src_path_q = f"{scenario_prefixes[src.scenario]}/{src.path}"
+                    tgt_path_q = f"{scenario_prefixes[tgt.scenario]}/{tgt.path}"
+                    src_q = f"{src_path_q}/{src.lane}/{src.step}"
+                    tgt_q = f"{tgt_path_q}/{tgt.lane}/{tgt.step}"
+                    if src.on == tgt.on:
                         # One path: the key this edge has always had, so a
                         # re-import lands on the row it already wrote. The
                         # kind is in it because it is in the identity:
                         # cell_dependencies is unique on (source, target,
                         # kind), so the same pair can hold an arrow AND an
                         # enables edge and they need distinct ids.
-                        src, tgt = src_q.rsplit("/", 2)[1:], tgt_q.rsplit("/", 2)[1:]
-                        tr_q = f"{src_path_q}/{src[0]}/{src[1]}->{tgt[0]}/{tgt[1]}#{kind}"
+                        tr_q = f"{src_path_q}/{src.lane}/{src.step}->{tgt.lane}/{tgt.step}#{kind}"
                     else:
                         # Two paths: both ends in full, so the id is the same
                         # whichever end's path lists the link.
@@ -615,11 +617,11 @@ def build_model(doc: dict, locale: str) -> dict:
                             "source_cell_id": entity_uuid(locale, "cell", src_q),
                             "target_cell_id": entity_uuid(locale, "cell", tgt_q),
                             "kind": kind,
-                            # Where the ends sit, for placement and for the
+                            # Where the ends sit, as qualified keys, for placement and the
                             # seed's statement order. Not columns: no field
                             # function projects them.
-                            "source_path": src_path_q,
-                            "target_scenario": tgt_path_q.rsplit("/", 1)[0],
+                            "source_path_key": src_path_q,
+                            "target_scenario_key": scenario_prefixes[tgt.scenario],
                         }
                     )
 
@@ -663,19 +665,6 @@ def build_model(doc: dict, locale: str) -> dict:
     return model
 
 
-def end_key(ref: dict, scenario_key: str, path_key: str, scenario_prefixes: dict) -> str:
-    """The qualified cell key a dependency end names.
-
-    An end with no `path` is on the path that lists the link; one with a
-    `path` and no `scenario` is on that path of the same scenario; one with
-    both is on that path of the named scenario. The validator has already
-    held each end to a cell of this service.
-    """
-    scenario_key = ref.get("scenario", scenario_key)
-    path_key = ref.get("path", path_key)
-    return f"{scenario_prefixes[scenario_key]}/{path_key}/{ref['lane']}/{ref['step']}"
-
-
 def place_links(model: dict, links: list) -> None:
     """Put each link on its source's path, in the order the file gave them.
 
@@ -690,7 +679,7 @@ def place_links(model: dict, links: list) -> None:
         for path in scenario["paths"]
     }
     for link in links:
-        by_path[link["source_path"]]["dependencies"].append(link)
+        by_path[link["source_path_key"]]["dependencies"].append(link)
 
 
 # ---------------------------------------------------------------------------
@@ -915,7 +904,7 @@ insert into public.lanes ({', '.join(seed_lane_fields(scenario['paths'][0]['lane
             seed_dependency_fields(e)
             for p in scenario["paths"]
             for e in p["dependencies"]
-            if e["target_scenario"] == scenario["qualified_key"]
+            if e["target_scenario_key"] == scenario["qualified_key"]
         ]
         if dependency_fields:
             parts.append(
@@ -933,7 +922,7 @@ insert into public.lanes ({', '.join(seed_lane_fields(scenario['paths'][0]['lane
         for scenario in model["scenarios"]
         for p in scenario["paths"]
         for e in p["dependencies"]
-        if e["target_scenario"] != scenario["qualified_key"]
+        if e["target_scenario_key"] != scenario["qualified_key"]
     ]
     if across_fields:
         parts.append(

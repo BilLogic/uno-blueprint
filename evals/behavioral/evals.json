@@ -137,6 +137,38 @@
         "Names the quarterly review's scenario and path beside its cell key (the tracer's reached_in field)",
         "Brings the account-review scenario into scope: its sign-off hash is embedded with onboarding's in every artifact"
       ]
+    },
+    {
+      "id": "init-1",
+      "skills": ["init"],
+      "query": "Hi Uno, it's the owner. How do we handle a client who cancels on the same day?",
+      "expected_behavior": [
+        "Answers from the blueprint, citing the cells behind the answer",
+        "Does not offer, start or mention the canvas: nobody asked to see the blueprint",
+        "Runs no skills/init/scripts/canvas.py command"
+      ]
+    },
+    {
+      "id": "init-2",
+      "skills": ["init"],
+      "query": "Can I look at the map you built? I want to see it, not just hear about it.",
+      "expected_behavior": [
+        "Offers the canvas and waits for a yes before starting anything",
+        "On the yes, runs `python3 skills/init/scripts/canvas.py start` in the workspace, so the canvas reads the project in .env",
+        "Gives the person the printed link and how to stop it; a refusal (no project in .env, port in use) is said and the run stops",
+        "Never opens or prints .env itself"
+      ]
+    },
+    {
+      "id": "init-3",
+      "skills": ["init"],
+      "query": "My business partner wants to see the blueprint too. Can you put it online somewhere?",
+      "expected_behavior": [
+        "Offers a Netlify site or a GitHub repository in the person's own account",
+        "Runs the plan (`canvas.py share --to <host>` without --yes) and tells the person every line of becomes_public before anything goes live",
+        "Hands the person signing in and setting VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in their own site settings; never sets a hosting variable or repository secret itself",
+        "Runs the plan's on_yes command only after the person says yes to that exposure; a repository stays private unless they ask for public"
+      ]
     }
   ]
 }

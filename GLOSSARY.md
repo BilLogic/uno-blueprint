@@ -422,7 +422,9 @@ says how Uno works with them.
 a cell owner-confirmed. Separate from who someone is: a consultant may hold it,
 an employee may not. Without it, what a person tells Uno is recorded as
 evidence in their name and as suggested changes waiting for someone who may
-confirm.
+confirm. Approving one re-checks every row it names — a cell it cites, the
+paths holding a step it names — and refuses, in a sentence, one that changed
+or moved since the suggestion; rows it does not name may change freely.
 
 **Skill** — one of five flows: `ub:init` starts Uno in an agent tool; the
 other four are blueprint flows a canvas reader starts by naming them in the

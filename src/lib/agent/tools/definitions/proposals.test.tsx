@@ -20,6 +20,11 @@ it('a canvas approval gets a distinct session entry without duplicating its serv
   const client = { rpc } as unknown as SupabaseClient<Database>
   await runTool(approveSuggestedChangeTool, { suggested_change_id: 'a0000000-0000-4000-8000-000000000001' }, fakeToolContext({ client }))
   expect(rpc).toHaveBeenCalledOnce()
+  expect(rpc).toHaveBeenCalledWith('run_agent_tool', {
+    p_tool: 'approve_suggested_change',
+    p_args: { suggested_change_id: 'a0000000-0000-4000-8000-000000000001' },
+    p_session_id: 'test-session',
+  })
   expect(sessionSnapshot()).toHaveLength(1)
   expect(describeChange(sessionSnapshot()[0])).toBe('Approved a suggested change')
   expect(sessionSnapshot()[0].revert).toBeUndefined()

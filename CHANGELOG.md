@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.10.0
+
+**A signed-out visitor reads the board alone.** Evidence and its counts, the
+edit history and its deletions list, audit findings and agent transcripts are
+now refused to signed-out visitors. The board, its slices and slides stay
+public, and every signed-in reader keeps exactly the reads it had. The Evidence
+tab asks a signed-out visitor to sign in.
+
+### Upgrading a deployment
+
+- **Bump the pin and apply one migration:**
+  `21000328000000_a_signed_out_visitor_reads_the_board_alone.sql`. It revokes
+  the anon key's reads on `evidence`, `evidence_counts`, `authoring_changes`,
+  `trash`, `audit_findings`, `agent_sessions` and `agent_messages`, and
+  recreates the edit-history and audit-findings read policies for signed-in
+  users only. No data change and no database-type change.
+- **Check any public page of your own.** A deployment page that reads one of
+  those tables without a session now gets no rows; gate it on sign-in.
+
+### Minor Changes
+
+- 8363df0: A signed-out visitor reads the board alone. Evidence and its counts, the edit history and its recovery list, audit findings and agent transcripts are now refused to the anon key; every signed-in reader keeps exactly the reads it had, and the board itself stays public. Apply migration `21000328000000` with this app: the Evidence tab asks a signed-out visitor to sign in, and the app no longer sends a read the database would refuse them.
+
 ## 2.9.1
 
 **Enables links no longer draw as arrows.** An `enables` between two cells of
@@ -11039,8 +11062,8 @@ accent: BRAND.accent }, content: { workspaceTitle: coverContent.title } }`. The
   constraint violation rather than as anything the authoring tools had said
   (#204):
 
-                                                                                                                                                                                                                                                                            ERROR: new row for relation "lanes" violates check constraint
-                                                                                                                                                                                                                                                                            "lanes_lane_role_check" … compliance_review
+                                                                                                                                                                                                                                                                              ERROR: new row for relation "lanes" violates check constraint
+                                                                                                                                                                                                                                                                              "lanes_lane_role_check" … compliance_review
 
   That error at least names the value. Meeting it after validation has passed is
   the wrong moment.

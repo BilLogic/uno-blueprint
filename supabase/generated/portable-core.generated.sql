@@ -16781,3 +16781,41 @@ begin
   end if;
 end
 $cross_path_archive$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000328000000_a_signed_out_visitor_reads_the_board_alone.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- A signed-out visitor reads the board alone.
+--
+-- Authored 2026-11-01.
+--
+-- The anon key is the deployed app's key, so whatever `anon` may select is
+-- published to anyone holding the URL. Until now that included three things
+-- that are not the board:
+--
+--   * evidence (20260818000000's `evidence_select_anon`) and the
+--     `evidence_counts` view over it. An excerpt can hold interview content.
+--   * the edit history, `authoring_changes` (21000215000000's
+--     `authoring_changes_select`, role `public`, which includes anon), and the
+--     `trash` view over it — security-invoker, so readable wherever the log is.
+--   * audit findings, `audit_findings_select`, also role `public`.
+--
+-- `agent_sessions` and `agent_messages` carried anon grants too, inherited
+-- from the platform's default privileges. Their only policy names
+-- `authenticated`, so anon already read zero rows; the grants served no
+-- reader and are revoked in the same spirit.
+--
+-- After this, `anon` is refused on all seven, and every signed-in reader keeps
+-- exactly the reads it had: the two `public` policies are recreated for
+-- `authenticated` with the same `using (true)`, and `evidence_select_auth` is
+-- untouched. A refusal rather than an empty answer, because only a refusal is
+-- something the client can gate on before it asks (`canReadPrivate`).
+--
+-- The board and the slices cut from it are unchanged: services, phases,
+-- scenarios, paths, steps, path_steps, lanes, cells, cell_dependencies,
+-- touchpoints, cell_touchpoints, resources and stakeholders, and slices,
+-- slides and slide_images, stay readable signed-out. The post-conditions
+-- below prove the closed half; the seed-load check proves both as the roles.
+--
+-- Nothing here changes a table's shape, so the database types are unchanged.

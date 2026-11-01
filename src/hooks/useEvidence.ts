@@ -4,11 +4,11 @@ import type { Evidence } from '@/types/database'
 import { queryKeys } from '@/lib/queryKeys'
 
 /**
- * Evidence rows for one cell, newest first. Evidence is deliberately
- * public-readable (decision 2026-08-06, access-model plan): the research
- * behind a published blueprint ships with it, and anon SELECT is granted by
- * policy. Mount with the Evidence tab open; the evidence writes refetch it
- * for the cell they touched.
+ * Evidence rows for one cell, newest first. Evidence is for signed-in
+ * readers: an excerpt can hold interview content, so `anon` holds no SELECT
+ * on it and the Evidence tab does not mount this for a signed-out reader.
+ * Mount with the Evidence tab open; the evidence writes refetch it for the
+ * cell they touched.
  */
 export function useEvidence(cellId: string): QueryResult<Evidence[]> {
   const fallback = useCallback(() => null, [])

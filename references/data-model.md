@@ -251,9 +251,9 @@ where status = 'open'` allows at most one OPEN finding per fingerprint.
 It backstops the dedupe table in audit-playbook §3; a reopen that collides
 with an open row surfaces as 23505 by design.
 
-**Public count surface**: the `evidence_counts` view (`cell_id → n`)
-exposes evidence row counts — never content — to anonymous readers; it
-powers the assumption lens on public deploys.
+**Count surface**: the `evidence_counts` view (`cell_id → n`) gives
+evidence row counts without content. Like `evidence` itself, it is for
+signed-in readers: `anon` holds no SELECT on either.
 
 ## Service spec: business_models
 

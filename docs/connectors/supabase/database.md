@@ -283,9 +283,19 @@ required to hold the same content.
 
 ## Row Level Security
 
-All blueprint tables have RLS **enabled** with public `SELECT` policies, and
-the `anon` role stays read-only: a deployed site can render everything but
-write nothing. **Anything you deploy with an anon key is publicly readable.**
+All blueprint tables have RLS **enabled**; the board's tables carry public
+`SELECT` policies, and the `anon` role stays read-only: a deployed site can
+render the board but write nothing. **Anything you deploy with an anon key is publicly readable.**
+
+That covers the board and the slices cut from it: `services`, `phases`,
+`scenarios`, `paths`, `steps`, `path_steps`, `lanes`, `cells`,
+`cell_dependencies`, `touchpoints`, `cell_touchpoints`, `resources` and
+`stakeholders`, and `slices`, `slides` and `slide_images`. `anon` is refused outright on `evidence`, `evidence_counts`,
+`authoring_changes`, `trash`, `audit_findings`, `agent_sessions`,
+`agent_messages` and `business_models` — a revoked grant rather than a policy
+that matches nothing, so the client can skip the read instead of sending one
+that fails (`canReadPrivate`). `npm run check:seed-load` asks both halves as
+the roles.
 
 Writes are layered on top for signed-in sessions (`authenticated`):
 
@@ -498,6 +508,18 @@ deleting either end removes the edge. It also proves that deleting a path or a
 scenario archives the links coming into it, as many as `deletion_impact`
 counts, and that re-inserting the archive brings them back unless the other end
 has been deleted since, when the foreign key refuses it ([ADR 0035](../../adr/0035-a-link-may-cross-paths-within-one-service.md)).
+
+| `21000328000000_a_signed_out_visitor_reads_the_board_alone.sql` | Revokes every `anon` privilege on `evidence`, `evidence_counts`, `authoring_changes`, `trash`, `audit_findings`, `agent_sessions` and `agent_messages`; drops `evidence_select_anon`; recreates `authoring_changes_select` and `audit_findings_select` for `authenticated` with the same `using (true)`; the board and its slices keep their anon reads |
+
+Apply 328 with the matching app; no database-type change. Before it, a
+signed-out visitor could read evidence excerpts, the edit history and the
+recovery list, and audit findings. After it, those reads are refused to
+`anon`, every signed-in reader keeps exactly the reads it had, and the app
+sends neither the Evidence tab's read nor the recovery-archive probe for a
+signed-out visitor. An older app against 328 still renders the board; its
+signed-out Evidence tab reads "Evidence requires a connected editor." and
+its archive probe is refused, which it reads as a database without the
+archive.
 
 ## Reserved migration timestamp band
 

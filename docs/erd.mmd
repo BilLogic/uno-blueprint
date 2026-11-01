@@ -29,8 +29,8 @@
 %% Derived layer: slices/audit_findings/evidence reference cells SOFTLY (uuid / uuid[] with paired
 %%            cell_keys, no FK) — scenario re-import deletes and recreates cells; the authored
 %%            cell_key is the identity that survives. A cell with zero evidence rows is an
-%%            ASSUMPTION (derived state, never stored). evidence_counts (view) exposes
-%%            cell_id → count publicly without content.
+%%            ASSUMPTION (derived state, never stored). evidence_counts (view) gives
+%%            cell_id → count without content, to signed-in readers only.
 %% Writes: structural shape goes through SECURITY DEFINER RPCs only (create/duplicate/rename/
 %%            delete operations). Every authoring write is recorded in authoring_changes —
 %%            the client appends through record_authoring_change, and the delete RPCs append

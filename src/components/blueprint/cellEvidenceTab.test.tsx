@@ -43,7 +43,7 @@ const draftOf = (call: number): Draft => {
   return args[1]
 }
 vi.mock('@/contexts/SupabaseProvider', () => ({
-  useSupabase: () => ({ client: {}, configured: true, canWrite: true }),
+  useSupabase: () => ({ client: {}, configured: true, canWrite: true, canReadPrivate: true }),
 }))
 // The service is the resolved store's; the root that would set it is stood
 // in for below.

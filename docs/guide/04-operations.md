@@ -13,10 +13,14 @@ Capability follows the account a surface uses, not the surface itself.
 
 | Account | Can |
 | --- | --- |
-| no account, published blueprint | read what is published |
+| no account, published blueprint | read the board — services, scenarios, paths, steps, lanes, cells, links, touchpoints, resources, stakeholders — and its slices and slides |
 | a signed-in member outside the editing tier | read, and chat to the agent read-only |
 | a signed-in member in the editing tier | read, and author through the app or its agent |
 | the service account used by an import | write a whole blueprint transactionally |
+
+Evidence, the edit history and its recovery list, audit findings and agent
+transcripts are for signed-in members only: the anon key is refused on each,
+so nothing of them is published with the board.
 
 Whether those middle two rows are one row or two is the deployment's choice.
 The optional service-account tier is what splits them, and applying every

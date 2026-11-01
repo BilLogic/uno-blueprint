@@ -9,7 +9,9 @@ hosts are interchangeable.
 ## ⚠ REQUIRED — public-exposure warning, BEFORE anything goes live
 
 Deploying makes the content **public**: the static site is world-readable
-and, in live-DB mode, anon SELECT is enabled on all tables. Client
+and, in live-DB mode, anon SELECT is enabled on the board and its slices
+(evidence, edit history, audit findings and business models stay signed-in
+only). Client
 operational data often qualifies as sensitive. Surface this warning and get
 explicit confirmation before the first deploy (and again if the audience
 changes). Access-control options, costs stated honestly:

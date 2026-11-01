@@ -41,7 +41,7 @@ const HEAT_PUMPS = { id: 'svc-2', slug: 'heat-pump-grants', name: 'Heat Pump Gra
 const client = {} as unknown as SupabaseClient<Database>
 
 vi.mock('@/contexts/SupabaseProvider', () => ({
-  useSupabase: () => ({ client, configured: true, canWrite: true, isEditPreview: false }),
+  useSupabase: () => ({ client, configured: true, canWrite: true, canReadPrivate: true, isEditPreview: false }),
 }))
 
 /** The writes, captured at the mutation seam: which service each was given. */

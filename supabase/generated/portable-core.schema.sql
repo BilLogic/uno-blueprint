@@ -450,12 +450,18 @@ begin
         select jsonb_agg(jsonb_build_object('cell_ids',v->'cells','cell_keys',v->'cells','title',v->>'title','caption',v->>'caption','shows_all_images',true,'images','[]'::jsonb) order by ord) into slides from jsonb_array_elements(a->'slides') with ordinality x(v,ord);
         result:=public.replace_slides((a->>'slice_id')::uuid,slides);
       when 'share_slice' then
+        if p_service_id is not null and exists(select 1 from public.slices sl where sl.id=(a->>'slice_id')::uuid and sl.service_id<>p_service_id) then
+          raise exception 'That slice is filed under another service; choose its service_id from list_slices.';
+        end if;
         id := gen_random_uuid();
         value := to_jsonb(replace(gen_random_uuid()::text,'-','') || replace(gen_random_uuid()::text,'-',''));
         insert into public.slice_shares(id,slice_id,token_hash,created_by)
           values(id,(a->>'slice_id')::uuid,sha256(convert_to(value#>>'{}','UTF8')),profile);
         result := jsonb_build_object('share_id',id,'token',value);
       when 'unshare_slice' then
+        if p_service_id is not null and exists(select 1 from public.slices sl where sl.id=(a->>'slice_id')::uuid and sl.service_id<>p_service_id) then
+          raise exception 'That slice is filed under another service; choose its service_id from list_slices.';
+        end if;
         update public.slice_shares set revoked_at=now() where slice_id=(a->>'slice_id')::uuid and revoked_at is null;
         get diagnostics n = row_count;
         if n = 0 then raise exception 'This slice has no working link to stop; nothing was changed.'; end if;
@@ -5428,13 +5434,13 @@ CREATE TABLE public.slice_shares (
 -- Name: TABLE slice_shares; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.slice_shares IS 'One share link to a slice. Holds only the SHA-256 of the link token, never the token. A link opens the slice through read_shared_slice and stops working once revoked_at is set or its slice is deleted.';
+COMMENT ON TABLE public.slice_shares IS 'One share link to a slice. Holds only the SHA-256 of the link token, never the token itself. A link opens the slice through read_shared_slice and stops working once revoked_at is set or its slice is deleted.';
 
 --
 -- Name: COLUMN slice_shares.token_hash; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.slice_shares.token_hash IS 'SHA-256 of the link token. The token itself is returned once, to the person who shared the slice, and is not stored.';
+COMMENT ON COLUMN public.slice_shares.token_hash IS 'SHA-256 of the link token. The token itself is returned once, to the person who shared the slice, and is not kept in any blueprint table.';
 
 --
 -- Name: COLUMN slice_shares.created_by; Type: COMMENT; Schema: public; Owner: -

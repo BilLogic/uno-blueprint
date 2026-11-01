@@ -34,7 +34,7 @@ describe('a shared slice', () => {
   it('the link is read through read_shared_slice with the token and no person', async () => {
     const { asked, fetcher } = project({ status: 200, body: SLICE })
     const response = await serveSharedSlice(new Request(`https://example.test/functions/v1/uno-tools/shared/${TOKEN}?format=json`),
-      { url: 'https://example.test', publishableKey: 'sb_publishable_test', fetch: fetcher })
+      { url: 'https://example.test', publishableKey: 'sb_publishable_test', resourceUrl: 'https://example.test/functions/v1/uno-tools', fetch: fetcher })
     expect(response!.status).toBe(200)
     expect(response!.headers.get('cache-control')).toBe('no-store')
     expect(await response!.json()).toEqual(SLICE)
@@ -45,8 +45,8 @@ describe('a shared slice', () => {
 
   it('without a format the link reads as plain text', async () => {
     const { fetcher } = project({ status: 200, body: SLICE })
-    const response = await serveSharedSlice(new Request(`https://example.test/shared/${TOKEN}`),
-      { url: 'https://example.test', publishableKey: 'sb_publishable_test', fetch: fetcher })
+    const response = await serveSharedSlice(new Request(`https://example.test/functions/v1/uno-tools/shared/${TOKEN}`),
+      { url: 'https://example.test', publishableKey: 'sb_publishable_test', resourceUrl: 'https://example.test/functions/v1/uno-tools', fetch: fetcher })
     expect(response!.headers.get('content-type')).toContain('text/plain')
     expect(await response!.text()).toBe(sharedSliceText(SLICE))
     expect(sharedSliceText(SLICE)).toContain('- Partner team, Confirm (Partner service): Partner confirms the booking')
@@ -54,17 +54,39 @@ describe('a shared slice', () => {
 
   it('a refused link answers 404 with the database sentence', async () => {
     const { fetcher } = project({ status: 404, body: { code: 'PT404', message: 'This link does not open a slice. Ask the person who sent it for a new one.' } })
-    const response = await serveSharedSlice(new Request(`https://example.test/shared/${TOKEN}`),
-      { url: 'https://example.test', publishableKey: 'sb_publishable_test', fetch: fetcher })
+    const response = await serveSharedSlice(new Request(`https://example.test/functions/v1/uno-tools/shared/${TOKEN}`),
+      { url: 'https://example.test', publishableKey: 'sb_publishable_test', resourceUrl: 'https://example.test/functions/v1/uno-tools', fetch: fetcher })
     expect(response!.status).toBe(404)
     expect(await response!.text()).toContain('This link does not open a slice')
+  })
+
+  it('any other failure answers a fixed sentence, never the detail', async () => {
+    const { fetcher } = project({ status: 500, body: { code: '57014', message: 'canceling statement due to statement timeout' } })
+    const response = await serveSharedSlice(new Request(`https://example.test/functions/v1/uno-tools/shared/${TOKEN}`),
+      { url: 'https://example.test', publishableKey: 'sb_publishable_test', resourceUrl: 'https://example.test/functions/v1/uno-tools', fetch: fetcher })
+    expect(response!.status).toBe(503)
+    expect(await response!.text()).not.toContain('statement')
+    const unreachable: typeof fetch = async () => { throw new TypeError('fetch failed') }
+    const down = await serveSharedSlice(new Request(`https://example.test/functions/v1/uno-tools/shared/${TOKEN}`),
+      { url: 'https://example.test', publishableKey: 'k', resourceUrl: 'https://example.test/functions/v1/uno-tools', fetch: unreachable })
+    expect(down!.status).toBe(503)
+  })
+
+  it('a malformed escape is passed to the database as written, not decoded', async () => {
+    const { asked, fetcher } = project({ status: 404, body: { code: 'PT404', message: 'refused' } })
+    const response = await serveSharedSlice(new Request('https://example.test/functions/v1/uno-tools/shared/%E0'),
+      { url: 'https://example.test', publishableKey: 'k', resourceUrl: 'https://example.test/functions/v1/uno-tools', fetch: fetcher })
+    expect(response!.status).toBe(404)
+    expect(asked[0].body).toEqual({ p_token: '%E0' })
   })
 
   it('every other request is left to the tool server', async () => {
     const { asked, fetcher } = project({ status: 200, body: SLICE })
     for (const request of [new Request('https://example.test/functions/v1/uno-tools'),
-      new Request(`https://example.test/shared/${TOKEN}`, { method: 'POST', body: '{}' })]) {
-      expect(await serveSharedSlice(request, { url: 'https://example.test', publishableKey: 'k', fetch: fetcher })).toBeNull()
+      new Request(`https://example.test/elsewhere/shared/${TOKEN}`),
+      new Request(`https://example.test/functions/v1/uno-tools/shared/${TOKEN}/more`),
+      new Request(`https://example.test/functions/v1/uno-tools/shared/${TOKEN}`, { method: 'POST', body: '{}' })]) {
+      expect(await serveSharedSlice(request, { url: 'https://example.test', publishableKey: 'k', resourceUrl: 'https://example.test/functions/v1/uno-tools', fetch: fetcher })).toBeNull()
     }
     expect(asked).toEqual([])
   })

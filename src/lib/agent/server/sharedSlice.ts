@@ -21,7 +21,8 @@ export type SharedSlice = {
   }[]
 }
 
-const SHARED_PATH = /\/shared\/([^/]+)\/?$/
+const REFUSED = 'This link does not open a slice. Ask the person who sent it for a new one.'
+const UNAVAILABLE = 'This slice cannot be opened right now. Try the link again in a minute.'
 
 /** The link for one token, under the tool server's own URL. */
 export function sharedSliceLink(toolServerUrl: string, token: string): string {
@@ -66,32 +67,39 @@ export function sharedSliceText(slice: SharedSlice): string {
 }
 
 /**
- * Answer a GET for `…/shared/<token>`, or return null for any other request.
- * The read goes out under the publishable key alone: the link is the reader's
- * only credential, and the database decides what it opens.
+ * Answer a GET for `<tool server>/shared/<token>`, or return null for any other
+ * request. The read goes out under the publishable key alone: the link is the
+ * reader's only credential, and the database decides what it opens. Only the
+ * database's refusal is shown to the reader; any other failure is a fixed
+ * sentence, so no internal detail reaches someone without an account.
  */
 export async function serveSharedSlice(request: Request, options: {
   url: string
   publishableKey: string
+  resourceUrl: string
   fetch?: typeof fetch
 }): Promise<Response | null> {
   if (request.method !== 'GET') return null
   const requestUrl = new URL(request.url)
-  const match = SHARED_PATH.exec(requestUrl.pathname)
-  if (!match) return null
+  const prefix = `${new URL(options.resourceUrl).pathname.replace(/\/+$/, '')}/shared/`
+  if (!requestUrl.pathname.startsWith(prefix)) return null
+  const token = requestUrl.pathname.slice(prefix.length).replace(/\/$/, '')
+  if (token.includes('/')) return null
   const client = createClient<Database>(options.url, options.publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     global: { fetch: options.fetch },
   })
-  const { data, error } = await client.rpc('read_shared_slice', { p_token: decodeURIComponent(match[1]) })
   const headers = { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'X-Robots-Tag': 'noindex' }
-  if (error || !data) {
-    return new Response(`${error?.message ?? 'This link does not open a slice. Ask the person who sent it for a new one.'}\n`,
-      { status: 404, headers: { ...headers, 'Content-Type': 'text/plain; charset=utf-8' } })
-  }
+  const text = (status: number, body: string) =>
+    new Response(`${body}\n`, { status, headers: { ...headers, 'Content-Type': 'text/plain; charset=utf-8' } })
+  const answer = await client.rpc('read_shared_slice', { p_token: token }).then(reply => reply, () => null)
+  if (!answer) return text(503, UNAVAILABLE)
+  const { data, error } = answer
+  if (error?.code === 'PT404') return text(404, REFUSED)
+  if (error || !data) return text(503, UNAVAILABLE)
   const slice = data as unknown as SharedSlice
   if (requestUrl.searchParams.get('format') === 'json') {
     return new Response(JSON.stringify(slice), { headers: { ...headers, 'Content-Type': 'application/json' } })
   }
-  return new Response(sharedSliceText(slice), { headers: { ...headers, 'Content-Type': 'text/plain; charset=utf-8' } })
+  return text(200, sharedSliceText(slice).trimEnd())
 }

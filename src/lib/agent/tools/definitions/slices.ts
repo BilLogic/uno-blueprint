@@ -200,14 +200,15 @@ export const replaceSlidesTool = defineWriteTool({
 export const shareSliceTool = defineWriteTool({
   name: 'share_slice',
   description:
-    'Make a link that opens this slice, and only the cells it cites, for someone without an account. Changes to those cells show through the link. Name who it is for and get a yes from someone who may approve first; other callers record a proposal. Returns the link once: hand it over as given.',
+    'Make a link that opens this slice, and only the cells it cites, for someone without an account. Changes to those cells show through the link. Say who the link is for when you ask for a yes from someone who may confirm; other callers record a proposal. Returns the link once: hand it over as given.',
   args: z.object({
     slice_id: arg.text('Slice id from list_slices'),
   }),
   run: async ({ slice_id }, ctx) => {
-    await refuseForeignSlice(ctx.client, requireActiveService(ctx), slice_id)
+    const serviceId = requireActiveService(ctx)
+    await refuseForeignSlice(ctx.client, serviceId, slice_id)
     return withSharedSliceLink(await executeServerWrite(ctx.client, 'share_slice', { slice_id }, {
-      sessionId: ctx.session.id, serviceId: requireActiveService(ctx), confirmed: ctx.confirmed === true,
+      sessionId: ctx.session.id, serviceId, confirmed: ctx.confirmed === true,
     }), browserToolServerUrl())
   },
 })
@@ -215,14 +216,15 @@ export const shareSliceTool = defineWriteTool({
 export const unshareSliceTool = defineWriteTool({
   name: 'unshare_slice',
   description:
-    'Stop every link to this slice from working. The slice itself stays. Get a yes from someone who may approve first; other callers record a proposal.',
+    'Stop every link to this slice from working. The slice itself stays. Get a yes from someone who may confirm first; other callers record a proposal.',
   args: z.object({
     slice_id: arg.text('Slice id from list_slices'),
   }),
   run: async ({ slice_id }, ctx) => {
-    await refuseForeignSlice(ctx.client, requireActiveService(ctx), slice_id)
+    const serviceId = requireActiveService(ctx)
+    await refuseForeignSlice(ctx.client, serviceId, slice_id)
     return executeServerWrite(ctx.client, 'unshare_slice', { slice_id }, {
-      sessionId: ctx.session.id, serviceId: requireActiveService(ctx), confirmed: ctx.confirmed === true,
+      sessionId: ctx.session.id, serviceId, confirmed: ctx.confirmed === true,
     })
   },
 })

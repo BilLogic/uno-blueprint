@@ -282,7 +282,7 @@ a changed cell shows its new value. It opens nothing else — not the cell
 beside a cited one, not the rest of either service. Someone who may confirm
 makes one with `share_slice` and stops every link to a slice with
 `unshare_slice`. Table `slice_shares` keeps only a hash of each link's token;
-the link itself is handed over once, to the person who shared.
+the link itself is handed over once, in the reply to the person who shared.
 
 **Audience** — the reader, or group of readers, a slice is cut for: a new
 hire, a partner, a customer. What a slice shows is what its audience may see;

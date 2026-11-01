@@ -5,9 +5,10 @@
 --
 -- What a link holds: a token of 64 lowercase hex characters, made of two
 -- `gen_random_uuid()` values (122 random bits each, from the server's strong
--- random source; 244 bits together). Only its SHA-256 is stored, so neither a
--- database read nor the change log can give a working link back. A link stops
--- working when it is revoked or its slice is deleted.
+-- random source; 244 bits together). The blueprint tables keep only its
+-- SHA-256, so neither a table read nor the change log gives a working link
+-- back; the reply that hands the link over lives in the sharer's own
+-- transcript. A link stops working when it is revoked or its slice is deleted.
 --
 -- Why a function and not a table policy: the template's blueprint tables carry
 -- public SELECT policies, and Postgres ORs a table's policies together, so a
@@ -29,9 +30,9 @@ create table public.slice_shares (
 create index slice_shares_slice_id_idx on public.slice_shares (slice_id);
 
 comment on table public.slice_shares is
-  'One share link to a slice. Holds only the SHA-256 of the link token, never the token. A link opens the slice through read_shared_slice and stops working once revoked_at is set or its slice is deleted.';
+  'One share link to a slice. Holds only the SHA-256 of the link token, never the token itself. A link opens the slice through read_shared_slice and stops working once revoked_at is set or its slice is deleted.';
 comment on column public.slice_shares.token_hash is
-  'SHA-256 of the link token. The token itself is returned once, to the person who shared the slice, and is not stored.';
+  'SHA-256 of the link token. The token itself is returned once, to the person who shared the slice, and is not kept in any blueprint table.';
 comment on column public.slice_shares.revoked_at is
   'When the link stopped working; null while it works.';
 comment on column public.slice_shares.created_by is
@@ -107,12 +108,18 @@ begin
   body := replace(body,
     $old$      when 'create_finding' then$old$,
     $new$      when 'share_slice' then
+        if p_service_id is not null and exists(select 1 from public.slices sl where sl.id=(a->>'slice_id')::uuid and sl.service_id<>p_service_id) then
+          raise exception 'That slice is filed under another service; choose its service_id from list_slices.';
+        end if;
         id := gen_random_uuid();
         value := to_jsonb(replace(gen_random_uuid()::text,'-','') || replace(gen_random_uuid()::text,'-',''));
         insert into public.slice_shares(id,slice_id,token_hash,created_by)
           values(id,(a->>'slice_id')::uuid,sha256(convert_to(value#>>'{}','UTF8')),profile);
         result := jsonb_build_object('share_id',id,'token',value);
       when 'unshare_slice' then
+        if p_service_id is not null and exists(select 1 from public.slices sl where sl.id=(a->>'slice_id')::uuid and sl.service_id<>p_service_id) then
+          raise exception 'That slice is filed under another service; choose its service_id from list_slices.';
+        end if;
         update public.slice_shares set revoked_at=now() where slice_id=(a->>'slice_id')::uuid and revoked_at is null;
         get diagnostics n = row_count;
         if n = 0 then raise exception 'This slice has no working link to stop; nothing was changed.'; end if;
@@ -206,7 +213,7 @@ grant execute on function public.read_shared_slice(text) to anon, authenticated;
 do $grants$
 declare privilege text;
 begin
-  foreach privilege in array array['select','insert','update','delete'] loop
+  foreach privilege in array array['select','insert','update','delete','truncate','references','trigger'] loop
     if has_table_privilege('anon', 'public.slice_shares', privilege)
       or has_table_privilege('authenticated', 'public.slice_shares', privilege) then
       raise exception 'slice_shares is open to a request role (%)', privilege;

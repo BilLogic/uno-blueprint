@@ -3163,7 +3163,7 @@ grant execute on function public.read_shared_slice(text) to anon, authenticated;
 do $grants$
 declare privilege text;
 begin
-  foreach privilege in array array['select','insert','update','delete'] loop
+  foreach privilege in array array['select','insert','update','delete','truncate','references','trigger'] loop
     if has_table_privilege('anon', 'public.slice_shares', privilege)
       or has_table_privilege('authenticated', 'public.slice_shares', privilege) then
       raise exception 'slice_shares is open to a request role (%)', privilege;

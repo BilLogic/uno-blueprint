@@ -52,11 +52,22 @@ begin
   if position(token in logged)>0 then raise exception 'the change log holds a working link'; end if;
   insert into shared_link values (slice,token,beside,cited);
 
-  -- Someone who may not approve records a proposal; no link is made.
+  -- A slice is shared under the service it is filed under, and no other.
+  begin
+    perform public.run_agent_tool('share_slice',jsonb_build_object('slice_id',slice),session,'f0000000-0000-4000-8000-0000000000a0',true);
+    raise exception 'a slice was shared under another service';
+  exception when others then if sqlerrm not like 'That slice is filed under another service%' then raise; end if; end;
+
+  -- Someone who may not confirm records a proposal; no link is made until it is approved.
   perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
   result:=public.run_agent_tool('share_slice',jsonb_build_object('slice_id',slice),session,service,true);
   if result->>'outcome'<>'proposed' or result::text like '%token%' then raise exception 'a contributor made a link: %',result; end if;
   perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+  result:=public.run_agent_tool('approve_suggested_change',jsonb_build_object('suggested_change_id',result->>'suggested_change_id'),session,null,true);
+  if result->'result'->>'token' !~ '^[0-9a-f]{64}$' or result->'result'->>'token'=token then raise exception 'approving a share returned %',result; end if;
+  select string_agg(args::text||coalesce(revert::text,''),' ') into logged from public.authoring_changes;
+  if position(token in logged)>0 or position(result->'result'->>'token' in logged)>0 then raise exception 'the change log holds a working link'; end if;
+  if exists(select 1 from public.suggested_changes sc where position(result->'result'->>'token' in to_jsonb(sc)::text)>0) then raise exception 'a proposal holds a working link'; end if;
 end $$;
 
 -- The table of links is no request role's to read.
@@ -100,7 +111,7 @@ do $$
 declare result jsonb; slice uuid:=(select slice from shared_link);
 begin
   result:=public.run_agent_tool('unshare_slice',jsonb_build_object('slice_id',slice),gen_random_uuid(),'f0000000-0000-4000-8000-000000000010',true);
-  if (result->'result'->>'links_stopped')::int<>1 then raise exception 'unsharing returned %',result; end if;
+  if (result->'result'->>'links_stopped')::int<>2 then raise exception 'unsharing returned %',result; end if;
   begin
     perform public.run_agent_tool('unshare_slice',jsonb_build_object('slice_id',slice),gen_random_uuid(),'f0000000-0000-4000-8000-000000000010',true);
     raise exception 'a second unshare stopped something';

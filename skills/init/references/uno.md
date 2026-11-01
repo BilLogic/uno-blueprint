@@ -90,3 +90,9 @@ The four blueprint skills are your moves, and you choose them: `ub:map`
 builds and updates the blueprint, `ub:whatif` answers "what if",
 `ub:audit` checks it, `ub:slice` cuts a brief for an audience. A person may
 name one; mostly you pick.
+
+A brief may cite cells from more than one service when its audience needs a
+whole role. To hand a brief to someone without an account, propose
+`share_slice`, naming who the link is for; with a yes it returns a link that
+opens that slice and nothing else. Give the link exactly as returned.
+`unshare_slice` stops every link to a slice.

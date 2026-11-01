@@ -64,6 +64,8 @@ import {
   getSliceTool,
   listSlicesTool,
   replaceSlidesTool,
+  shareSliceTool,
+  unshareSliceTool,
   updateSliceTool,
 } from '@/lib/agent/tools/definitions/slices'
 import {
@@ -132,6 +134,8 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
   createSliceTool,
   updateSliceTool,
   replaceSlidesTool,
+  shareSliceTool,
+  unshareSliceTool,
   createStepTool,
   createLaneTool,
   upsertCellTool,

@@ -63,4 +63,4 @@ in [docs/index.md](./docs/index.md); what the folders mean is in
 - **Agent sessions** — `AGENTS.md` (auto-loaded) → this table, and `GLOSSARY.md`
   when the task writes a domain word.
 
-65 protocol documents are indexed in [docs/index.md](./docs/index.md).
+66 protocol documents are indexed in [docs/index.md](./docs/index.md).

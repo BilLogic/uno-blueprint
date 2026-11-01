@@ -968,6 +968,46 @@ export type Database = {
         }
         Relationships: []
       }
+      slice_shares: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          revoked_at: string | null
+          slice_id: string
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          revoked_at?: string | null
+          slice_id: string
+          token_hash: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          revoked_at?: string | null
+          slice_id?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slice_shares_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slice_shares_slice_id_fkey"
+            columns: ["slice_id"]
+            referencedRelation: "slices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       slices: {
         Row: {
           actor: string | null
@@ -1576,6 +1616,7 @@ export type Database = {
       }
       read_cell_storyboard: { Args: { p_cell_id: string }; Returns: Json }
       read_service_blueprint: { Args: { p_service_id: string }; Returns: Json }
+      read_shared_slice: { Args: { p_token: string }; Returns: Json }
       record_authoring_change: {
         Args: {
           agent_session_id?: string

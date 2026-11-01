@@ -136,7 +136,7 @@ describe('every write is a definition on the write surface, off the trial and of
   it('the writes and proposal decisions are on the write surface', () => {
     expect(WRITES.map((tool) => tool.name)).toEqual([
       'create_service', 'create_stakeholder', 'update_stakeholder', 'create_phase', 'create_scenario', 'create_path',
-      'duplicate_path', 'duplicate_scenario', 'create_slice', 'update_slice', 'replace_slides',
+      'duplicate_path', 'duplicate_scenario', 'create_slice', 'update_slice', 'replace_slides', 'share_slice', 'unshare_slice',
       'create_step', 'create_lane', 'upsert_cell', 'update_cell', 'create_cell_dependency',
       'update_path', 'update_phase', 'update_scenario', 'update_step', 'update_lane', 'create_evidence', 'update_evidence', 'create_finding', 'update_finding',
       'approve_suggested_change', 'decline_suggested_change',
@@ -430,25 +430,25 @@ describe('the slice writes', () => {
     expect(ledger).toEqual(['create_slice'])
   })
 
-  it('create_slice asks only after cells of the active service', async () => {
+  it('create_slice asks only whether its cells exist, in any service', async () => {
     const { calls } = await write(createSliceTool, { title: 'Caller view', kind: 'journey', cell_ids: [C1] }, { cells: serviceCells(C1), slices: sliceRow, slides: [] })
     const read = calls.find((call) => call.table === 'cells')!
     expect(read.ops).toContainEqual(['in', 'id', [C1]])
-    expect(read.ops).toContainEqual(['eq', 'paths.scenarios.phases.service_id', 'svc-1'])
+    expect(read.ops.some(([op, column]) => op === 'eq' && String(column).includes('service_id'))).toBe(false)
   })
 
   it('create_slice refuses a truncated id before any write, naming it', async () => {
     const truncated = 'a0000000-0000-4000-8000-00040106'
     const { message, writes, rpcs, ledger } = await refused(createSliceTool, { title: 'Caller view', kind: 'journey', cell_ids: [C1, truncated] }, { cells: serviceCells(C1), slices: sliceRow })
-    expect(message).toBe(`"${truncated}" is not a cell in this service — copy ids verbatim from get_slice or list_blueprint.`)
+    expect(message).toBe(`"${truncated}" is not a cell in this blueprint — copy ids verbatim from get_slice or list_blueprint.`)
     expect(writes).toEqual([])
     expect(rpcs).toEqual([])
     expect(ledger).toEqual([])
   })
 
-  it('create_slice refuses a well-formed id the active service does not hold, naming every bad one', async () => {
+  it('create_slice refuses a well-formed id that names no cell, naming every bad one', async () => {
     const { message, writes, ledger } = await refused(createSliceTool, { title: 'Caller view', kind: 'journey', cell_ids: [C1, C2, 'c-9'] }, { cells: serviceCells(C1), slices: sliceRow })
-    expect(message).toBe(`"${C2}" is not a cell in this service; "c-9" is not a cell in this service — copy ids verbatim from get_slice or list_blueprint.`)
+    expect(message).toBe(`"${C2}" is not a cell in this blueprint; "c-9" is not a cell in this blueprint — copy ids verbatim from get_slice or list_blueprint.`)
     expect(writes).toEqual([])
     expect(ledger).toEqual([])
   })
@@ -490,15 +490,15 @@ describe('the slice writes', () => {
   it('replace_slides refuses a truncated id before any write', async () => {
     const truncated = 'a0000000-0000-4000-8000-00040106'
     const { message, writes, rpcs, ledger } = await refused(replaceSlidesTool, { slice_id: 'sl-1', slides: [{ cells: [C1] }, { cells: [truncated] }] }, { cells: serviceCells(C1), slices: sliceRow, slides: [] })
-    expect(message).toBe(`"${truncated}" is not a cell in this service — copy ids verbatim from get_slice or list_blueprint.`)
+    expect(message).toBe(`"${truncated}" is not a cell in this blueprint — copy ids verbatim from get_slice or list_blueprint.`)
     expect(writes).toEqual([])
     expect(rpcs).toEqual([])
     expect(ledger).toEqual([])
   })
 
-  it('replace_slides refuses a well-formed id the active service does not hold, before any write', async () => {
+  it('replace_slides refuses a well-formed id that names no cell, before any write', async () => {
     const { message, writes, ledger } = await refused(replaceSlidesTool, { slice_id: 'sl-1', slides: [{ cells: [C1, C2] }] }, { cells: serviceCells(C1), slices: sliceRow, slides: [] })
-    expect(message).toBe(`"${C2}" is not a cell in this service — copy ids verbatim from get_slice or list_blueprint.`)
+    expect(message).toBe(`"${C2}" is not a cell in this blueprint — copy ids verbatim from get_slice or list_blueprint.`)
     expect(writes).toEqual([])
     expect(ledger).toEqual([])
   })

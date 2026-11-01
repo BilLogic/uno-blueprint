@@ -10,7 +10,7 @@ const run = (command, args, input) => execFileSync(command, args, { env, input, 
 let created = false
 try {
   run('createdb', [database]); created = true
-  for (const file of [...STACK, 'scripts/tests/fixtures/tool-writes.sql', 'scripts/tests/tool-writes.sql'])
+  for (const file of [...STACK, 'scripts/tests/fixtures/tool-writes.sql', 'scripts/tests/tool-writes.sql', 'scripts/tests/slice-shares.sql'])
     run('psql', ['-X', '-q', '-v', 'ON_ERROR_STOP=1', '-d', database, '-f', file])
   const psql = ['-X', '-q', '-v', 'ON_ERROR_STOP=1', '-d', database]
   const original = run('psql', [...psql, '-Atc', "select pg_get_functiondef('public.is_service_account()'::regprocedure)"])

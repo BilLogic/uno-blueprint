@@ -134,7 +134,7 @@
       "expected_behavior": [
         "Traces the base export of the whole service, not only the onboarding scenario",
         "Follows the leads_to edge into the account-review scenario and keeps walking there, under the same visited set and depth cap",
-        "Names the quarterly review's scenario and path beside its cell key (the tracer's elsewhere field)",
+        "Names the quarterly review's scenario and path beside its cell key (the tracer's reached_in field)",
         "Brings the account-review scenario into scope: its sign-off hash is embedded with onboarding's in every artifact"
       ]
     }

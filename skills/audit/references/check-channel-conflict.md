@@ -10,10 +10,10 @@ Where do simultaneous cells compete for the same actor or the same channel
 Column by column (a step is simultaneity). Within each step: which cells
 name the same actor across lanes; which name the same tool/channel. Then
 dependencies that fan out from one cell to multiple same-step targets on
-one path. Simultaneity stays a step on one path: a dependency may reach
-another path or scenario of the service, but a journey walks one path at a
-time, so targets on two different paths, or in another scenario, never
-compete for one moment.
+one path. Simultaneity stays a step on one path, whatever a dependency
+reaches (CONTEXT.md **Dependency**): a journey walks one path at a time,
+so targets on two different paths, or in another scenario, never compete
+for one moment.
 
 ## Finding shape
 One finding per (step × contested resource). cell_keys = the competing

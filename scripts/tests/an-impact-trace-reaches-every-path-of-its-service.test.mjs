@@ -32,6 +32,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 const read = (path) => readFileSync(`${ROOT}${path}`, 'utf8')
+const TRACER = read('agents/impact-tracer.md')
 
 /** The fenced JSON block a prompt ends with: the shape its caller parses. */
 function outputShape(markdown) {
@@ -41,26 +42,27 @@ function outputShape(markdown) {
 }
 
 test('the tracer follows an edge into another path or scenario, under the same bounds', () => {
-  const tracer = read('agents/impact-tracer.md')
-  assert.doesNotMatch(tracer, /same-path edges only/i)
-  assert.match(tracer, /another path,? or another scenario/)
-  assert.match(tracer, /same visited set, same depth cap/)
-  assert.match(tracer, /\*\*Depth cap: 8\.\*\*/)
-  assert.match(tracer, /\*\*Visited set, always\.\*\*/)
+  assert.doesNotMatch(TRACER, /same-path edges only/i)
+  assert.match(TRACER, /another path,? or another scenario/)
+  assert.match(TRACER, /same visited set, same depth cap/)
+  assert.match(TRACER, /\*\*Depth cap: 8\.\*\*/)
+  assert.match(TRACER, /\*\*Visited set, always\.\*\*/)
 })
 
-test('an affected cell elsewhere carries its scenario and path', () => {
-  const shape = outputShape(read('agents/impact-tracer.md'))
-  assert.match(shape, /"elsewhere": null \| \{ "scenario": "<scenario key>", "path": "<path key>" \}/)
+test('an affected cell off the seed’s path carries its scenario and path', () => {
+  const shape = outputShape(TRACER)
+  assert.match(shape, /"reached_in": null \| \{ "scenario": "<scenario key>", "path": "<path key>" \}/)
   // The keys stay fully qualified, which is what keeps a cross-path chain
   // unambiguous: two paths may share a lane and a step name.
-  assert.match(read('agents/impact-tracer.md'), /<service>\/<phase>\/<scenario>\/<path>\/<lane>\/<step>/)
+  assert.match(TRACER, /<service>\/<phase>\/<scenario>\/<path>\/<lane>\/<step>/)
 })
 
 test('what-if traces the whole service and signs for every scenario the trace reaches', () => {
   const playbook = read('skills/whatif/references/whatif-playbook.md')
   assert.match(playbook, /BASE export of\s+the whole service/)
-  assert.match(playbook, /A scenario is in scope when the change touches it or the trace\s+reaches a cell in it\./)
+  // Prioritize's upstream walk reads the same whole-service export as replay.
+  assert.match(playbook, /upstream` on the base export of the whole service/)
+  assert.match(playbook, /A scenario is in scope when the change touches it or the trace\s+reaches a cell in it:/)
   assert.match(read('skills/whatif/SKILL.md'), /every path and scenario of the service is in reach/)
 })
 
@@ -72,7 +74,7 @@ test('map’s update mode sends a chain question to the tracer over the whole se
 
 test('the audit checks that read edges say how they read one that leaves its path', () => {
   const gaps = read('skills/audit/references/check-gap-sweep.md')
-  assert.match(gaps, /an edge coming in from\s+another path or scenario is an incoming edge/)
+  assert.match(gaps, /an edge coming in from\s+another\s+path\s+or\s+scenario\s+is\s+an\s+incoming\s+edge/)
   const conflict = read('skills/audit/references/check-channel-conflict.md')
   assert.match(conflict, /Simultaneity stays a step on one path/)
   assert.match(conflict, /edges into other paths\s+and scenarios followed like any other/)

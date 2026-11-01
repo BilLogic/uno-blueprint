@@ -41,8 +41,10 @@ the change-request handoff.
   (playbook §4), which re-verifies the base sign-off hashes and refuses on
   drift. Whatif itself never edits the IR, however small the change.
 - ⚠ **REQUIRED — capture base sign-off hashes at analysis time** and embed
-  them in every artifact. An analysis that cannot prove which blueprint it
-  analyzed cannot be promoted, only re-run.
+  them in every artifact: the changed scenarios' at frame, and each
+  scenario the trace reaches right after the trace, before any judgement.
+  An analysis that cannot prove which blueprint it analyzed cannot be
+  promoted, only re-run.
 - ⚠ **REQUIRED — claims are traced, then verified.** Consequence claims
   come from `impact-tracer` output plus the variant walk, and
   `blueprint-reviewer` (whatif-claim mode) checks every one cites cells
@@ -66,11 +68,13 @@ the change-request handoff.
 
 ```
 imported blueprint + a hypothetical
-  → frame     (operation, scope, base sign-off hashes captured)
+  → frame     (operation, scope, the changed scenarios' base sign-off
+               hashes captured)
   → variant   (IR copy in whatif/<key>/ — replay/restage only)
   → trace     (impact-tracer: affected cells, strained assumptions,
                displaced demand; visited set + depth cap — cycles legal;
-               every path and scenario of the service is in reach)
+               every path and scenario of the service is in reach;
+               hashes of the scenarios it reaches captured here)
   → judge     (operation-specific reasoning, playbook §2)
   → verify    (blueprint-reviewer, whatif-claim mode — cut what fails)
   → record    (findings rows source=whatif; comparison.md, cites only)
@@ -91,9 +95,10 @@ imported blueprint + a hypothetical
 ## Agents
 
 - `impact-tracer` — the graph walk: affected cells, strained assumptions,
-  displaced demand. Read-only, visited set, depth cap 8. It follows a
-  dependency into another path or scenario of the service and names that
-  cell's scenario and path (`elsewhere`); the report carries both.
+  displaced demand. Read-only, visited set, depth cap 8. It follows every
+  dependency of the service (CONTEXT.md **Dependency**) and names an
+  affected cell's scenario and path when they differ from the seed's
+  (`reached_in`); the report carries both.
 - `blueprint-reviewer` (whatif-claim mode) — adversarial pass over the
   claims before they surface; anything untraceable dies here.
 

@@ -8,10 +8,10 @@ where does the blueprint go silent while the service keeps happening?
 
 ## Read
 Per path, in step order: the step list vs each lane's cells. Then the
-dependency graph — the whole service's, since a dependency may join cells
-on any path or scenario of one service. An edge's receiving end on another
-path or scenario is a cell at the receiving end, and an edge coming in from
-another path or scenario is an incoming edge.
+dependency graph — the whole service's (reach: CONTEXT.md **Dependency**).
+An edge's receiving end on another path or scenario is a cell at the
+receiving end, and an edge coming in from another path or scenario is an
+incoming edge.
 
 ## Finding shape
 Emit one finding per contiguous silent stretch, not per empty cell:

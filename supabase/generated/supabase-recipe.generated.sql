@@ -3152,7 +3152,26 @@ begin
 end $grants$;
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 21000325000000_a_slice_may_cross_services_and_be_shared_by_a_link.sql
+-- 21000325000000_an_approval_rechecks_every_row_it_touches.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- the helpers stay private; the signed-in approval keeps its grant.
+revoke all on function public.agent_state_noun(text),public.agent_state_subject(text),public.agent_state_drift(jsonb,jsonb),public.agent_state_moved(jsonb,jsonb),
+  public.approve_cell_content_in_session(uuid,uuid),public.approve_proposal_in_session(uuid,uuid) from anon,authenticated;
+-- Proof: only the approval is callable, and only when signed in.
+do $$ declare signature text; begin
+  if has_function_privilege('anon','public.approve_suggested_change(uuid)','execute') then raise exception 'anon can approve'; end if;
+  if not has_function_privilege('authenticated','public.approve_suggested_change(uuid)','execute') then raise exception 'signed-in approval is missing'; end if;
+  foreach signature in array array['public.agent_state_noun(text)','public.agent_state_subject(text)','public.agent_state_drift(jsonb,jsonb)',
+    'public.agent_state_moved(jsonb,jsonb)','public.approve_cell_content_in_session(uuid,uuid)',
+    'public.approve_proposal_in_session(uuid,uuid)'] loop
+    if has_function_privilege('authenticated',signature,'execute') or has_function_privilege('anon',signature,'execute') then
+      raise exception 'caller can reach the approval helper %',signature; end if;
+  end loop;
+end $$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000326000000_a_slice_may_cross_services_and_be_shared_by_a_link.sql
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- a link is opened by anyone holding it; the table is no role's to read.

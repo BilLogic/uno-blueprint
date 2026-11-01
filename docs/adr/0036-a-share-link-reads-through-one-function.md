@@ -5,7 +5,7 @@ summary: A slice is shared as a link whose token is read by one security-definer
 # 36. A share link reads through one function
 
 **Status** Accepted — 2026-11-01.
-**Context** `supabase/migrations/21000325000000_a_slice_may_cross_services_and_be_shared_by_a_link.sql`,
+**Context** `supabase/migrations/21000326000000_a_slice_may_cross_services_and_be_shared_by_a_link.sql`,
 the **Share link** entry in [`GLOSSARY.md`](../../GLOSSARY.md),
 [0032](0032-the-owner-agent-stays-in-the-template-for-v0.md)
 

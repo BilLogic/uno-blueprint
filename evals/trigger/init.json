@@ -7,6 +7,9 @@
   {"query": "set this chat up as our business agent for the day, im the consultant on this account", "should_trigger": true},
   {"query": "good morning, pick up where we left off with the business — what did the team edit in the canvas?", "should_trigger": true},
   {"query": "i'm the employee who runs intake, can i tell the agent how we actually do it now?", "should_trigger": true},
+  {"query": "uno can i actually look at the map you built of the bakery? like see it, not just hear about it", "should_trigger": true},
+  {"query": "show me our business blueprint in the canvas pls", "should_trigger": true},
+  {"query": "my business partner wants to see what the agent mapped — can you put it online on our own netlify, and tell me what people will be able to see?", "should_trigger": true},
   {"query": "/init — write an AGENTS.md for this repo", "should_trigger": false},
   {"query": "initialise a new vite + react project in this folder", "should_trigger": false},
   {"query": "run git init and make the first commit", "should_trigger": false},
@@ -14,5 +17,8 @@
   {"query": "what breaks downstream if we drop the reminder emails?", "should_trigger": false},
   {"query": "translate this FigJam blueprint export into the app format", "should_trigger": false},
   {"query": "cut a brief of the technician lane for the new hire", "should_trigger": false},
-  {"query": "npm create uno-blueprint my-workspace — scaffold a template clone", "should_trigger": false}
+  {"query": "npm create uno-blueprint my-workspace — scaffold a template clone", "should_trigger": false},
+  {"query": "deploy this vite portfolio site to netlify for me", "should_trigger": false},
+  {"query": "create a new private github repo from this folder and push it", "should_trigger": false},
+  {"query": "open the Canvas component in storybook, the board layout is broken at 1280px", "should_trigger": false}
 ]

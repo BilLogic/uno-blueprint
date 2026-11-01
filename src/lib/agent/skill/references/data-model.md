@@ -229,7 +229,7 @@ reference them at all, so the importer's scenario-scoped
 delete-and-reinsert never cascades into user-authored rows. `evidence` uses a
 paired `cell_id` / `cell_key`; `audit_findings` and `slides` use `cell_ids
 uuid[]` paired 1:1 with `cell_keys text[]`; `slices` reaches those references
-through its `slides`. None has a cell FK. `evidence`, `audit_findings`, and
+through its `slides`, and may cite cells of more than one service; its `service_id` is the service it is filed under. None has a cell FK. `evidence`, `audit_findings`, and
 `slices` carry a hard `service_id` FK (cascade), while `slides` carries a
 hard `slice_id` FK. Services are upserted, never deleted, by the importer, and
 for `evidence` the service FK is the retention/deletion story for whatever
@@ -242,6 +242,7 @@ deliberately never stored.
 | `slices` | A saved 1D cut through the grid that REFERENCES cells (never copies them) | `title`, `summary`, `kind` (`journey`\|`step`\|`lane`\|`cell`\|`custom`), `actor`, `locale`, `position`, `authorship` (`generated` \| `customized` \| `human`; what each allows on regeneration: `skills/slice/references/slice-playbook.md` §6) |
 | `slides` | One slide of a slice | `position` (unique per slice, deferrable), `cell_ids`/`cell_keys` (equal cardinality enforced; empty = title-only divider slide), `title`, `caption`, `shows_all_images` (untouched default: every cited cell's frames). Full-replacement semantics on rework |
 | `slide_images` | One member of a slide's authored image set | Exactly one of `cell_id` or `image_url`; unique `(slide_id, position)`. Replaced as a set, not patched. Empty with `shows_all_images` false means show nothing. Changing `slides.cell_ids` deletes members whose `cell_id` is no longer cited; remaining positions stay put |
+| `slice_shares` | One share link to a slice | `slice_id` (hard FK, cascade), `token_hash` (SHA-256 of the link token; the token is returned once by `share_slice` and never stored), `created_by`, `revoked_at` (null while the link works). No request role may read it; a link is opened only through `read_shared_slice(p_token)`, which returns the slice and its cited cells read at call time, and refuses a revoked, unknown or malformed token with one sentence |
 | `audit_findings` | One triageable audit/whatif finding | `source` (`audit`\|`whatif`\|`import-sweep`), `check_key`, `severity` (`info`\|`warn`\|`critical`), `impact` and `effort` (each `low`\|`medium`\|`high`; null on a finding recorded before the ratings existed, which reads as unrated and sorts last — audit-playbook §3.5), `summary`, `cell_ids`/`cell_keys`, `status` (`open`\|`resolved`\|`dismissed`), `run_id` (FK-less by design — no runs table), `fingerprint` (check_key + sorted-cell_keys hash + reason slug — audit-playbook §2) |
 | `evidence` | One provenance row for a cell OR a proposition question | Exactly one of `cell_id` / `proposition_question_key` (`understand`\|`value`\|`usability`); `cell_id` ⇄ `cell_key` always paired; `kind` (`interview`\|`survey`\|`analytics`\|`doc`\|`meeting`\|`decision`\|`observation`\|`other`); `observed_at` is date-only by design (timestamps could re-identify participants); one general-purpose `note` — a quotation, an observation, or a URL, which renders as a link; restricted SELECT — a note may hold interview content |
 

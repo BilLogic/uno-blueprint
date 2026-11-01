@@ -83,6 +83,8 @@ it.runIf(live)('every write works over MCP; contributions are proposals, approva
     await write('update_slice', { slice_id: sliceId, title: 'Incoming request brief' })
     await write('replace_slides', { slice_id: sliceId, slides: [{ cells: [second, cell], title: 'Review the sequence' }] })
     expect((await db.from('slides').select('cell_ids').eq('slice_id', sliceId).order('position')).data).toEqual([{ cell_ids: [second, cell] }])
+    expect((await write('share_slice', { slice_id: sliceId })).result.link).toMatch(/\/shared\/[0-9a-f]{64}$/)
+    expect((await write('unshare_slice', { slice_id: sliceId })).result).toEqual({ links_stopped: 1 })
     const finding = (await write('create_finding', { source: 'audit', check_key: 'source-gap', severity: 'warn', impact: 'medium', effort: 'low', summary: 'The follow-up source is missing.', cell_ids: [second] })).result
     const originalFinding = (await db.from('audit_findings').select('*').eq('id', finding).single()).data
     const unchanged = await call(contributor, 'create_finding', { source: 'whatif', check_key: 'source-gap', severity: 'critical', impact: 'high', effort: 'high', summary: 'Another person replaced this observation.', cell_ids: [second] }, false)

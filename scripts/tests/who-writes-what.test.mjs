@@ -53,8 +53,8 @@ const read = (path) => readFileSync(join(ROOT, path), 'utf8')
  */
 export const RECORD_OWNERS = [
   {
-    records: ['slices', 'slides'],
-    tools: ['create_slice', 'update_slice', 'replace_slides'],
+    records: ['slices', 'slides', 'slice_shares'],
+    tools: ['create_slice', 'update_slice', 'replace_slides', 'share_slice', 'unshare_slice'],
     owner: 'the slice',
   },
   {

@@ -11,6 +11,7 @@ const cases = {
   '--search': { test: 'src/lib/agent/server/search.postgrest.test.ts', fixtures: ['mcp-sessions','cell-search'], recipe: 'scripts/recipes/cell-search.sql' },
   '--structure': { test: 'src/lib/agent/server/structure.postgrest.test.tsx', fixtures: ['tool-writes'] },
   '--validation': { test: 'src/lib/agent/server/validation.postgrest.test.ts', fixtures: ['tool-writes','blueprint-validation'] },
+  '--shares': { test: 'src/lib/agent/server/shares.postgrest.test.ts', fixtures: ['tool-writes'] },
   '--services': { test: 'src/lib/agent/server/services.postgrest.test.ts', fixtures: ['tool-writes','services'] },
   '--authoring': { test: 'src/lib/agent/server/authoring.postgrest.test.tsx', fixtures: ['mcp-sessions','authoring'] },
 }

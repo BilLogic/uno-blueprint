@@ -71,6 +71,7 @@
     "test:structure:postgrest": "node scripts/run-tool-server-over-postgrest.mjs --structure",
     "test:services:db": "node scripts/run-service-db.mjs",
     "test:services:postgrest": "node scripts/run-tool-server-over-postgrest.mjs --services",
+    "test:shares:postgrest": "node scripts/run-tool-server-over-postgrest.mjs --shares",
     "test:tool-writes:db": "node scripts/run-tool-write-db.mjs",
     "test:tool-writes:postgrest": "node scripts/run-tool-server-over-postgrest.mjs --writes",
     "test:tool-server:postgrest": "node scripts/run-tool-server-over-postgrest.mjs",

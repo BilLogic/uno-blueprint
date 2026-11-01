@@ -355,7 +355,7 @@ begin
   elsif p_tool='duplicate_scenario' then select count(*) into n from public.cells c join public.paths p on p.id=c.path_id where p.scenario_id=(a->>'source_scenario_id')::uuid; end if;
   if n>50 then raise exception 'This call touches more than 50 cells. Split it into calls touching at most 50 cells each.'; end if;
   if exists(select 1 from unnest(ids) x where not exists(select 1 from public.cells c where c.id=x)) then raise exception 'A named cell no longer exists; read the blueprint and try again.'; end if;
-  if p_service_id is not null and exists(select 1 from public.cells c join public.paths p on p.id=c.path_id join public.scenarios s on s.id=p.scenario_id join public.phases ph on ph.id=s.phase_id where c.id=any(ids) and ph.service_id<>p_service_id) then raise exception 'A named cell belongs to another service.'; end if;
+  if p_service_id is not null and p_tool not in ('create_slice','replace_slides') and exists(select 1 from public.cells c join public.paths p on p.id=c.path_id join public.scenarios s on s.id=p.scenario_id join public.phases ph on ph.id=s.phase_id where c.id=any(ids) and ph.service_id<>p_service_id) then raise exception 'A named cell belongs to another service.'; end if;
   -- The private gate widens legacy authoring RPCs only inside this checked
   -- transaction. It never alters a JWT or a person's stored permissions.
   begin
@@ -449,6 +449,17 @@ begin
         if jsonb_array_length(a->'slides')=0 then raise exception 'slides must be a non-empty array.'; end if;
         select jsonb_agg(jsonb_build_object('cell_ids',v->'cells','cell_keys',v->'cells','title',v->>'title','caption',v->>'caption','shows_all_images',true,'images','[]'::jsonb) order by ord) into slides from jsonb_array_elements(a->'slides') with ordinality x(v,ord);
         result:=public.replace_slides((a->>'slice_id')::uuid,slides);
+      when 'share_slice' then
+        id := gen_random_uuid();
+        value := to_jsonb(replace(gen_random_uuid()::text,'-','') || replace(gen_random_uuid()::text,'-',''));
+        insert into public.slice_shares(id,slice_id,token_hash,created_by)
+          values(id,(a->>'slice_id')::uuid,sha256(convert_to(value#>>'{}','UTF8')),profile);
+        result := jsonb_build_object('share_id',id,'token',value);
+      when 'unshare_slice' then
+        update public.slice_shares set revoked_at=now() where slice_id=(a->>'slice_id')::uuid and revoked_at is null;
+        get diagnostics n = row_count;
+        if n = 0 then raise exception 'This slice has no working link to stop; nothing was changed.'; end if;
+        result := jsonb_build_object('links_stopped',n);
       when 'create_finding' then
         if p_service_id is null then raise exception using message=public.agent_service_required_message(); end if;
         if n=0 and coalesce(a->>'scope','')='' then raise exception 'A zero-cell finding needs a scope.'; end if;
@@ -484,7 +495,7 @@ begin
       else raise exception 'This write has no transactional implementation: %',p_tool;
     end case;
     insert into public.authoring_changes(fn,args,author,author_id,agent_session_id,proposed_by,approved_by,revert)
-      values(case when p_proposer is null then p_tool else 'approve_suggested_change' end,a||jsonb_build_object('tool_name',p_tool,'service_id',p_service_id,'result',result),'agent',(select user_id from public.profiles where profiles.id=profile),p_session_id,p_proposer,
+      values(case when p_proposer is null then p_tool else 'approve_suggested_change' end,a||jsonb_build_object('tool_name',p_tool,'service_id',p_service_id,'result',case when p_tool='share_slice' then result-'token' else result end),'agent',(select user_id from public.profiles where profiles.id=profile),p_session_id,p_proposer,
         case when free then null else profile end,
         jsonb_build_object('kind','captured_rows','rows',current_setting('ub.agent_prior_rows')::jsonb));
     perform set_config('ub.capture_agent_prior',coalesce(old_capture,''),true);
@@ -503,7 +514,7 @@ end $$;
 CREATE FUNCTION public.agent_write_contracts() RETURNS jsonb
     LANGUAGE sql IMMUTABLE
     SET search_path TO 'pg_catalog', 'pg_temp'
-    AS $_$ select '{"create_service":{"type":"object","properties":{"name":{"type":"string","minLength":1,"description":"Service name"},"summary":{"type":"string","description":"What this service offers; omit for none"}},"required":["name"],"additionalProperties":false},"create_stakeholder":{"type":"object","properties":{"name":{"type":"string","minLength":1,"description":"How this actor is written on the canvas, e.g. \"Blueprint owner\""},"kind":{"type":"string","enum":["recipient","staff","partner","provider"],"description":"recipient | staff | partner | provider"},"summary":{"type":"string","description":"Who they are, in one line; omit for none"},"aliases":{"type":"array","items":{"type":"string"},"description":"Other spellings already present in this blueprint"}},"required":["name","kind"],"additionalProperties":false},"update_stakeholder":{"type":"object","properties":{"stakeholder_id":{"type":"string","minLength":1,"description":"Stakeholder id"},"name":{"type":"string","description":"New name; omit to keep"},"kind":{"type":"string","enum":["recipient","staff","partner","provider"],"description":"recipient | staff | partner | provider; omit to keep"},"summary":{"type":"string","description":"One line; omit to keep"},"aliases":{"type":"array","items":{"type":"string"},"description":"Replaces the alias list; omit to keep"}},"required":["stakeholder_id"],"additionalProperties":false},"create_phase":{"type":"object","properties":{"name":{"type":"string","minLength":1,"description":"Phase name"},"summary":{"type":"string","description":"One-line summary; omit for none"}},"required":["name"],"additionalProperties":false},"create_scenario":{"type":"object","properties":{"phase_id":{"type":"string","minLength":1,"description":"Phase id from list_blueprint"},"name":{"type":"string","minLength":1,"description":"Short stage label; put the explanation in summary"},"summary":{"type":"string","description":"Explanation of this scenario; an empty string leaves it blank; omit for none"},"path_name":{"type":"string","description":"First path name; defaults to \"Happy Path\""},"step_count":{"type":"integer","description":"Initial step columns (default 5, or the number of step_names)","minimum":1},"step_names":{"minItems":1,"type":"array","items":{"type":"string","minLength":1,"description":"Step name"},"description":"Initial step names in order; step_count must match when supplied"},"lane_source_path_id":{"type":"string","description":"Path id whose lanes to copy; omit for none"}},"required":["phase_id","name"],"additionalProperties":false},"create_path":{"type":"object","properties":{"scenario_id":{"type":"string","minLength":1,"description":"Scenario id"},"name":{"type":"string","minLength":1,"description":"Path name"},"kind":{"type":"string","enum":["happy","variant","exception"],"description":"Default variant"},"lane_source_path_id":{"type":"string","description":"Sibling path id whose lanes to copy; omit for none"}},"required":["scenario_id","name"],"additionalProperties":false},"duplicate_path":{"type":"object","properties":{"source_path_id":{"type":"string","minLength":1,"description":"Path to copy"},"name":{"type":"string","minLength":1,"description":"New path name"},"kind":{"type":"string","enum":["happy","variant","exception"],"description":"Default variant"},"copy_cells":{"type":"boolean","description":"Default true"}},"required":["source_path_id","name"],"additionalProperties":false},"duplicate_scenario":{"type":"object","properties":{"source_scenario_id":{"type":"string","minLength":1,"description":"Scenario id from list_blueprint"},"name":{"type":"string","minLength":1,"description":"Name for the copy; the UI convention is \"<source name> (copy)\""}},"required":["source_scenario_id","name"],"additionalProperties":false},"create_slice":{"type":"object","properties":{"title":{"type":"string","minLength":1,"description":"Slice title"},"summary":{"type":"string","description":"One-line summary; omit for none"},"kind":{"type":"string","enum":["journey","lane","step","custom"],"description":"Kind of cut"},"actor":{"type":"string","description":"Whose view this is; omit for none"},"cell_ids":{"type":"array","items":{"type":"string"},"description":"Existing cell ids, in journey order"}},"required":["title","kind","cell_ids"],"additionalProperties":false},"update_slice":{"type":"object","properties":{"slice_id":{"type":"string","minLength":1,"description":"Slice id from list_slices"},"title":{"type":"string","description":"omit to keep"},"summary":{"type":"string","description":"omit to keep"},"actor":{"type":"string","description":"omit to keep"},"kind":{"type":"string","enum":["journey","lane","step","custom"],"description":"omit to keep"}},"required":["slice_id"],"additionalProperties":false},"replace_slides":{"type":"object","properties":{"slice_id":{"type":"string","minLength":1,"description":"Slice id"},"slides":{"type":"array","items":{"type":"object","properties":{"cells":{"type":"array","items":{"type":"string"},"description":"Cell ids on this slide"},"title":{"type":"string","description":"Slide title; omit for none"},"caption":{"type":"string","description":"Slide caption; omit for none"}},"required":["cells"],"additionalProperties":false},"description":"Full replacement, in order"}},"required":["slice_id","slides"],"additionalProperties":false},"create_step":{"type":"object","properties":{"path_id":{"type":"string","minLength":1,"description":"Path id"},"name":{"type":"string","minLength":1,"description":"Short label for what happens; put the explanation in summary"},"summary":{"type":"string","description":"Explanation of this step; an empty string leaves it blank; omit for none"},"at_position":{"type":"integer","description":"Insert position (1-based); omit to append","minimum":0}},"required":["path_id","name"],"additionalProperties":false},"create_lane":{"type":"object","properties":{"scenario_id":{"type":"string","minLength":1,"description":"Scenario id"},"name":{"type":"string","minLength":1,"description":"Lane label"},"lane_role":{"type":"string","description":"Semantic role (e.g. frontstage_actions, backstage_touchpoints); omit if none fits","enum":["customer_actions","frontstage_actions","backstage_actions","partner_actions","frontstage_touchpoints","backstage_touchpoints","support_actions","storyboard"]},"at_position":{"type":"integer","description":"Insert row (1-based); omit to append","minimum":0}},"required":["scenario_id","name"],"additionalProperties":false},"upsert_cell":{"type":"object","properties":{"path_id":{"type":"string","minLength":1,"description":"Path id"},"lane_id":{"type":"string","minLength":1,"description":"Lane id from get_blueprint"},"step_id":{"type":"string","minLength":1,"description":"Step id (from get_blueprint)"},"content":{"type":"string","minLength":1,"description":"The cell text — a journey moment, not a system capability. Aim for the canvas budget: the canvas reads at a glance and shows what fits, so put detail in the summary. Longer text is written in full and comes back with a note naming the thresholds. Good: \"Dispatcher confirms the address and books a crew\". Bad: \"Scheduling module\"."}},"required":["path_id","lane_id","step_id","content"],"additionalProperties":false},"update_cell":{"type":"object","properties":{"cell_id":{"type":"string","minLength":1,"description":"Cell id"},"content":{"type":"string","description":"The cell text — a journey moment, not a system capability. Aim for the canvas budget: the canvas reads at a glance and shows what fits, so put detail in the summary. Longer text is written in full and comes back with a note naming the thresholds. Good: \"Dispatcher confirms the address and books a crew\". Bad: \"Scheduling module\".; omit to keep"},"summary":{"type":"string","description":"The tl;dr — never a copy of the text; omit to keep"},"owner":{"type":"string","description":"Owner tag — the team accountable (an existing tag; see list_owner_tags); omit to keep"},"perceived_owner":{"type":"string","description":"Perceived-owner tag — who the person on the other side thinks they are dealing with (an existing tag; see list_owner_tags); omit to keep"},"function":{"type":"string","description":"What this cell has to accomplish; omit to keep"},"form":{"type":"string","description":"How it comes across; omit to keep"},"value_props":{"type":"array","items":{"type":"object","properties":{"for":{"type":"string","description":"Audience"},"value":{"type":"string","description":"The value delivered"}},"required":["for","value"],"additionalProperties":false},"description":"Full replacement list of {for, value} — who gets what from it; omit to keep"}},"required":["cell_id"],"additionalProperties":false},"create_cell_dependency":{"type":"object","properties":{"source_cell_id":{"type":"string","minLength":1,"description":"Source cell id"},"target_cell_id":{"type":"string","minLength":1,"description":"Target cell id"},"kind":{"type":"string","enum":["leads_to","enables"],"description":"Default leads_to"},"label":{"type":"string","description":"Anything worth knowing about this dependency, in a sentence. Saved as the edge NOTE and shown on its row in the cell panel — it is not a badge on the arrow. The argument keeps its published spelling; what it writes is the note. Omit for none"}},"required":["source_cell_id","target_cell_id"],"additionalProperties":false},"update_path":{"type":"object","properties":{"path_id":{"type":"string","minLength":1,"description":"Path id"},"name":{"type":"string","minLength":1,"description":"New name"}},"required":["path_id","name"],"additionalProperties":false},"update_phase":{"type":"object","properties":{"phase_id":{"type":"string","minLength":1,"description":"Phase id"},"name":{"type":"string","minLength":1,"description":"Short label; put the explanation in summary"},"summary":{"type":"string","description":"Explanation; an empty string clears it; omit to keep"}},"required":["phase_id","name"],"additionalProperties":false},"update_scenario":{"type":"object","properties":{"scenario_id":{"type":"string","minLength":1,"description":"Scenario id"},"name":{"type":"string","minLength":1,"description":"Short label; put the explanation in summary"},"summary":{"type":"string","description":"Explanation; an empty string clears it; omit to keep"}},"required":["scenario_id","name"],"additionalProperties":false},"update_step":{"type":"object","properties":{"step_id":{"type":"string","minLength":1,"description":"Step id"},"name":{"type":"string","minLength":1,"description":"Short label; put the explanation in summary"},"summary":{"type":"string","description":"Explanation; an empty string clears it; omit to keep"}},"required":["step_id","name"],"additionalProperties":false},"update_lane":{"type":"object","properties":{"lane_id":{"type":"string","minLength":1,"description":"Lane id"},"name":{"type":"string","minLength":1,"description":"New name"}},"required":["lane_id","name"],"additionalProperties":false},"create_evidence":{"type":"object","properties":{"cell_id":{"type":"string","minLength":1,"description":"Cell the source supports"},"kind":{"type":"string","enum":["interview","survey","analytics","doc","meeting","decision","observation","other"],"description":"interview | survey | analytics | doc | meeting | decision | observation | other"},"title":{"type":"string","minLength":1,"description":"What the source IS, e.g. \"Onboarding interview #4\" — required"},"note":{"type":"string","description":"Anything worth keeping about the source — a quotation, an observation, or a URL, which renders as a link; omit if none"}},"required":["cell_id","kind","title"],"additionalProperties":false},"update_evidence":{"type":"object","properties":{"evidence_id":{"type":"string","minLength":1,"description":"Evidence id from list_evidence"},"kind":{"type":"string","enum":["interview","survey","analytics","doc","meeting","decision","observation","other"],"description":"interview | survey | analytics | doc | meeting | decision | observation | other; omit to keep"},"title":{"type":"string","description":"New title; omit to keep"},"note":{"type":"string","description":"New note; omit to keep"}},"required":["evidence_id"],"additionalProperties":false},"create_finding":{"type":"object","properties":{"source":{"type":"string","enum":["audit","whatif"],"description":"Which skill produced it"},"check_key":{"type":"string","minLength":1,"description":"Roster check key, e.g. \"gap-sweep\""},"severity":{"type":"string","enum":["info","warn","critical"],"description":"Per the check doc default unless evidence says otherwise"},"impact":{"type":"string","enum":["low","medium","high"],"description":"How much fixing it matters to the service, rated from the check doc''s rubric. Required on every finding."},"effort":{"type":"string","enum":["low","medium","high"],"description":"How much work the fix takes, rated from the check doc''s rubric. Required on every finding."},"summary":{"type":"string","minLength":1,"description":"The finding itself — what is wrong, where, and why it matters. No raw ids in this text."},"cell_ids":{"type":"array","items":{"type":"string"},"description":"Cells the finding is about; omit only for zero-cell findings"},"scope":{"type":"string","description":"Zero-cell fingerprint scope, required when cell_ids is empty. Include a short reason slug so two zero-cell findings from one check cannot collide, e.g. \"scenario:Intake Call:orphan-step-cooldown\""},"run_id":{"type":"string","description":"The run identity returned by the first create_finding of this run"}},"required":["source","check_key","severity","impact","effort","summary"],"additionalProperties":false},"update_finding":{"type":"object","properties":{"finding_id":{"type":"string","minLength":1,"description":"Finding id from list_findings"},"status":{"type":"string","enum":["open","resolved","dismissed"],"description":"New status"}},"required":["finding_id","status"],"additionalProperties":false},"approve_suggested_change":{"type":"object","properties":{"suggested_change_id":{"type":"string","format":"uuid","pattern":"^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"}},"required":["suggested_change_id"],"additionalProperties":false},"decline_suggested_change":{"type":"object","properties":{"suggested_change_id":{"type":"string","format":"uuid","pattern":"^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"}},"required":["suggested_change_id"],"additionalProperties":false}}'::jsonb $_$;
+    AS $_$ select '{"create_service":{"type":"object","properties":{"name":{"type":"string","minLength":1,"description":"Service name"},"summary":{"type":"string","description":"What this service offers; omit for none"}},"required":["name"],"additionalProperties":false},"create_stakeholder":{"type":"object","properties":{"name":{"type":"string","minLength":1,"description":"How this actor is written on the canvas, e.g. \"Blueprint owner\""},"kind":{"type":"string","enum":["recipient","staff","partner","provider"],"description":"recipient | staff | partner | provider"},"summary":{"type":"string","description":"Who they are, in one line; omit for none"},"aliases":{"type":"array","items":{"type":"string"},"description":"Other spellings already present in this blueprint"}},"required":["name","kind"],"additionalProperties":false},"update_stakeholder":{"type":"object","properties":{"stakeholder_id":{"type":"string","minLength":1,"description":"Stakeholder id"},"name":{"type":"string","description":"New name; omit to keep"},"kind":{"type":"string","enum":["recipient","staff","partner","provider"],"description":"recipient | staff | partner | provider; omit to keep"},"summary":{"type":"string","description":"One line; omit to keep"},"aliases":{"type":"array","items":{"type":"string"},"description":"Replaces the alias list; omit to keep"}},"required":["stakeholder_id"],"additionalProperties":false},"create_phase":{"type":"object","properties":{"name":{"type":"string","minLength":1,"description":"Phase name"},"summary":{"type":"string","description":"One-line summary; omit for none"}},"required":["name"],"additionalProperties":false},"create_scenario":{"type":"object","properties":{"phase_id":{"type":"string","minLength":1,"description":"Phase id from list_blueprint"},"name":{"type":"string","minLength":1,"description":"Short stage label; put the explanation in summary"},"summary":{"type":"string","description":"Explanation of this scenario; an empty string leaves it blank; omit for none"},"path_name":{"type":"string","description":"First path name; defaults to \"Happy Path\""},"step_count":{"type":"integer","description":"Initial step columns (default 5, or the number of step_names)","minimum":1},"step_names":{"minItems":1,"type":"array","items":{"type":"string","minLength":1,"description":"Step name"},"description":"Initial step names in order; step_count must match when supplied"},"lane_source_path_id":{"type":"string","description":"Path id whose lanes to copy; omit for none"}},"required":["phase_id","name"],"additionalProperties":false},"create_path":{"type":"object","properties":{"scenario_id":{"type":"string","minLength":1,"description":"Scenario id"},"name":{"type":"string","minLength":1,"description":"Path name"},"kind":{"type":"string","enum":["happy","variant","exception"],"description":"Default variant"},"lane_source_path_id":{"type":"string","description":"Sibling path id whose lanes to copy; omit for none"}},"required":["scenario_id","name"],"additionalProperties":false},"duplicate_path":{"type":"object","properties":{"source_path_id":{"type":"string","minLength":1,"description":"Path to copy"},"name":{"type":"string","minLength":1,"description":"New path name"},"kind":{"type":"string","enum":["happy","variant","exception"],"description":"Default variant"},"copy_cells":{"type":"boolean","description":"Default true"}},"required":["source_path_id","name"],"additionalProperties":false},"duplicate_scenario":{"type":"object","properties":{"source_scenario_id":{"type":"string","minLength":1,"description":"Scenario id from list_blueprint"},"name":{"type":"string","minLength":1,"description":"Name for the copy; the UI convention is \"<source name> (copy)\""}},"required":["source_scenario_id","name"],"additionalProperties":false},"create_slice":{"type":"object","properties":{"title":{"type":"string","minLength":1,"description":"Slice title"},"summary":{"type":"string","description":"One-line summary; omit for none"},"kind":{"type":"string","enum":["journey","lane","step","custom"],"description":"Kind of cut"},"actor":{"type":"string","description":"Whose view this is; omit for none"},"cell_ids":{"type":"array","items":{"type":"string"},"description":"Existing cell ids, in journey order"}},"required":["title","kind","cell_ids"],"additionalProperties":false},"update_slice":{"type":"object","properties":{"slice_id":{"type":"string","minLength":1,"description":"Slice id from list_slices"},"title":{"type":"string","description":"omit to keep"},"summary":{"type":"string","description":"omit to keep"},"actor":{"type":"string","description":"omit to keep"},"kind":{"type":"string","enum":["journey","lane","step","custom"],"description":"omit to keep"}},"required":["slice_id"],"additionalProperties":false},"replace_slides":{"type":"object","properties":{"slice_id":{"type":"string","minLength":1,"description":"Slice id"},"slides":{"type":"array","items":{"type":"object","properties":{"cells":{"type":"array","items":{"type":"string"},"description":"Cell ids on this slide"},"title":{"type":"string","description":"Slide title; omit for none"},"caption":{"type":"string","description":"Slide caption; omit for none"}},"required":["cells"],"additionalProperties":false},"description":"Full replacement, in order"}},"required":["slice_id","slides"],"additionalProperties":false},"share_slice":{"type":"object","properties":{"slice_id":{"type":"string","minLength":1,"description":"Slice id from list_slices"}},"required":["slice_id"],"additionalProperties":false},"unshare_slice":{"type":"object","properties":{"slice_id":{"type":"string","minLength":1,"description":"Slice id from list_slices"}},"required":["slice_id"],"additionalProperties":false},"create_step":{"type":"object","properties":{"path_id":{"type":"string","minLength":1,"description":"Path id"},"name":{"type":"string","minLength":1,"description":"Short label for what happens; put the explanation in summary"},"summary":{"type":"string","description":"Explanation of this step; an empty string leaves it blank; omit for none"},"at_position":{"type":"integer","description":"Insert position (1-based); omit to append","minimum":0}},"required":["path_id","name"],"additionalProperties":false},"create_lane":{"type":"object","properties":{"scenario_id":{"type":"string","minLength":1,"description":"Scenario id"},"name":{"type":"string","minLength":1,"description":"Lane label"},"lane_role":{"type":"string","description":"Semantic role (e.g. frontstage_actions, backstage_touchpoints); omit if none fits","enum":["customer_actions","frontstage_actions","backstage_actions","partner_actions","frontstage_touchpoints","backstage_touchpoints","support_actions","storyboard"]},"at_position":{"type":"integer","description":"Insert row (1-based); omit to append","minimum":0}},"required":["scenario_id","name"],"additionalProperties":false},"upsert_cell":{"type":"object","properties":{"path_id":{"type":"string","minLength":1,"description":"Path id"},"lane_id":{"type":"string","minLength":1,"description":"Lane id from get_blueprint"},"step_id":{"type":"string","minLength":1,"description":"Step id (from get_blueprint)"},"content":{"type":"string","minLength":1,"description":"The cell text — a journey moment, not a system capability. Aim for the canvas budget: the canvas reads at a glance and shows what fits, so put detail in the summary. Longer text is written in full and comes back with a note naming the thresholds. Good: \"Dispatcher confirms the address and books a crew\". Bad: \"Scheduling module\"."}},"required":["path_id","lane_id","step_id","content"],"additionalProperties":false},"update_cell":{"type":"object","properties":{"cell_id":{"type":"string","minLength":1,"description":"Cell id"},"content":{"type":"string","description":"The cell text — a journey moment, not a system capability. Aim for the canvas budget: the canvas reads at a glance and shows what fits, so put detail in the summary. Longer text is written in full and comes back with a note naming the thresholds. Good: \"Dispatcher confirms the address and books a crew\". Bad: \"Scheduling module\".; omit to keep"},"summary":{"type":"string","description":"The tl;dr — never a copy of the text; omit to keep"},"owner":{"type":"string","description":"Owner tag — the team accountable (an existing tag; see list_owner_tags); omit to keep"},"perceived_owner":{"type":"string","description":"Perceived-owner tag — who the person on the other side thinks they are dealing with (an existing tag; see list_owner_tags); omit to keep"},"function":{"type":"string","description":"What this cell has to accomplish; omit to keep"},"form":{"type":"string","description":"How it comes across; omit to keep"},"value_props":{"type":"array","items":{"type":"object","properties":{"for":{"type":"string","description":"Audience"},"value":{"type":"string","description":"The value delivered"}},"required":["for","value"],"additionalProperties":false},"description":"Full replacement list of {for, value} — who gets what from it; omit to keep"}},"required":["cell_id"],"additionalProperties":false},"create_cell_dependency":{"type":"object","properties":{"source_cell_id":{"type":"string","minLength":1,"description":"Source cell id"},"target_cell_id":{"type":"string","minLength":1,"description":"Target cell id"},"kind":{"type":"string","enum":["leads_to","enables"],"description":"Default leads_to"},"label":{"type":"string","description":"Anything worth knowing about this dependency, in a sentence. Saved as the edge NOTE and shown on its row in the cell panel — it is not a badge on the arrow. The argument keeps its published spelling; what it writes is the note. Omit for none"}},"required":["source_cell_id","target_cell_id"],"additionalProperties":false},"update_path":{"type":"object","properties":{"path_id":{"type":"string","minLength":1,"description":"Path id"},"name":{"type":"string","minLength":1,"description":"New name"}},"required":["path_id","name"],"additionalProperties":false},"update_phase":{"type":"object","properties":{"phase_id":{"type":"string","minLength":1,"description":"Phase id"},"name":{"type":"string","minLength":1,"description":"Short label; put the explanation in summary"},"summary":{"type":"string","description":"Explanation; an empty string clears it; omit to keep"}},"required":["phase_id","name"],"additionalProperties":false},"update_scenario":{"type":"object","properties":{"scenario_id":{"type":"string","minLength":1,"description":"Scenario id"},"name":{"type":"string","minLength":1,"description":"Short label; put the explanation in summary"},"summary":{"type":"string","description":"Explanation; an empty string clears it; omit to keep"}},"required":["scenario_id","name"],"additionalProperties":false},"update_step":{"type":"object","properties":{"step_id":{"type":"string","minLength":1,"description":"Step id"},"name":{"type":"string","minLength":1,"description":"Short label; put the explanation in summary"},"summary":{"type":"string","description":"Explanation; an empty string clears it; omit to keep"}},"required":["step_id","name"],"additionalProperties":false},"update_lane":{"type":"object","properties":{"lane_id":{"type":"string","minLength":1,"description":"Lane id"},"name":{"type":"string","minLength":1,"description":"New name"}},"required":["lane_id","name"],"additionalProperties":false},"create_evidence":{"type":"object","properties":{"cell_id":{"type":"string","minLength":1,"description":"Cell the source supports"},"kind":{"type":"string","enum":["interview","survey","analytics","doc","meeting","decision","observation","other"],"description":"interview | survey | analytics | doc | meeting | decision | observation | other"},"title":{"type":"string","minLength":1,"description":"What the source IS, e.g. \"Onboarding interview #4\" — required"},"note":{"type":"string","description":"Anything worth keeping about the source — a quotation, an observation, or a URL, which renders as a link; omit if none"}},"required":["cell_id","kind","title"],"additionalProperties":false},"update_evidence":{"type":"object","properties":{"evidence_id":{"type":"string","minLength":1,"description":"Evidence id from list_evidence"},"kind":{"type":"string","enum":["interview","survey","analytics","doc","meeting","decision","observation","other"],"description":"interview | survey | analytics | doc | meeting | decision | observation | other; omit to keep"},"title":{"type":"string","description":"New title; omit to keep"},"note":{"type":"string","description":"New note; omit to keep"}},"required":["evidence_id"],"additionalProperties":false},"create_finding":{"type":"object","properties":{"source":{"type":"string","enum":["audit","whatif"],"description":"Which skill produced it"},"check_key":{"type":"string","minLength":1,"description":"Roster check key, e.g. \"gap-sweep\""},"severity":{"type":"string","enum":["info","warn","critical"],"description":"Per the check doc default unless evidence says otherwise"},"impact":{"type":"string","enum":["low","medium","high"],"description":"How much fixing it matters to the service, rated from the check doc''s rubric. Required on every finding."},"effort":{"type":"string","enum":["low","medium","high"],"description":"How much work the fix takes, rated from the check doc''s rubric. Required on every finding."},"summary":{"type":"string","minLength":1,"description":"The finding itself — what is wrong, where, and why it matters. No raw ids in this text."},"cell_ids":{"type":"array","items":{"type":"string"},"description":"Cells the finding is about; omit only for zero-cell findings"},"scope":{"type":"string","description":"Zero-cell fingerprint scope, required when cell_ids is empty. Include a short reason slug so two zero-cell findings from one check cannot collide, e.g. \"scenario:Intake Call:orphan-step-cooldown\""},"run_id":{"type":"string","description":"The run identity returned by the first create_finding of this run"}},"required":["source","check_key","severity","impact","effort","summary"],"additionalProperties":false},"update_finding":{"type":"object","properties":{"finding_id":{"type":"string","minLength":1,"description":"Finding id from list_findings"},"status":{"type":"string","enum":["open","resolved","dismissed"],"description":"New status"}},"required":["finding_id","status"],"additionalProperties":false},"approve_suggested_change":{"type":"object","properties":{"suggested_change_id":{"type":"string","format":"uuid","pattern":"^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"}},"required":["suggested_change_id"],"additionalProperties":false},"decline_suggested_change":{"type":"object","properties":{"suggested_change_id":{"type":"string","format":"uuid","pattern":"^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"}},"required":["suggested_change_id"],"additionalProperties":false}}'::jsonb $_$;
 
 --
 -- Name: apply_structure_order(uuid, text, uuid[], uuid[]); Type: FUNCTION; Schema: public; Owner: -
@@ -1853,6 +1864,52 @@ CREATE FUNCTION public.read_service_blueprint(p_service_id uuid) RETURNS jsonb
     ) order by ph.position,ph.id) from public.phases ph where ph.service_id=service.id),'[]')
   ) from public.services service where service.id=p_service_id;
 $$;
+
+--
+-- Name: read_shared_slice(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.read_shared_slice(p_token text) RETURNS jsonb
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'pg_temp'
+    AS $_$
+declare share public.slice_shares; slice public.slices;
+begin
+  if p_token is null or p_token !~ '^[0-9a-f]{64}$' then
+    raise exception 'This link does not open a slice. Ask the person who sent it for a new one.' using errcode = 'PT404';
+  end if;
+  select s.* into share from public.slice_shares s
+   where s.token_hash = sha256(convert_to(p_token, 'UTF8')) and s.revoked_at is null;
+  if share.id is null then
+    raise exception 'This link does not open a slice. Ask the person who sent it for a new one.' using errcode = 'PT404';
+  end if;
+  select sl.* into strict slice from public.slices sl where sl.id = share.slice_id;
+  return jsonb_build_object(
+    'title', slice.title, 'summary', slice.summary, 'kind', slice.kind, 'actor', slice.actor,
+    'slides', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'position', sd.position, 'title', sd.title, 'caption', sd.caption,
+        'cells', coalesce((
+          select jsonb_agg(jsonb_build_object(
+            'id', c.id, 'service', sv.name, 'scenario', sc.name, 'lane', l.name, 'step', st.name,
+            'content', c.content, 'summary', c.summary) order by cited.ord)
+            from unnest(sd.cell_ids) with ordinality cited(cell_id, ord)
+            join public.cells c on c.id = cited.cell_id
+            join public.lanes l on l.id = c.lane_id
+            join public.steps st on st.id = c.step_id
+            join public.paths p on p.id = c.path_id
+            join public.scenarios sc on sc.id = p.scenario_id
+            join public.phases ph on ph.id = sc.phase_id
+            join public.services sv on sv.id = ph.service_id), '[]'::jsonb))
+        order by sd.position)
+        from public.slides sd where sd.slice_id = slice.id), '[]'::jsonb));
+end $_$;
+
+--
+-- Name: FUNCTION read_shared_slice(p_token text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.read_shared_slice(p_token text) IS 'What a share link shows: the slice''s title, summary, kind and actor, and each slide with the cells it cites, read at call time. Refuses a revoked, unknown or malformed token with one sentence.';
 
 --
 -- Name: record_authoring_change(text, jsonb, jsonb, text, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -5354,6 +5411,44 @@ COMMENT ON COLUMN public.services.entity_examples IS 'Per-service authored examp
 COMMENT ON COLUMN public.services.slug IS 'A service''s stable route slug: `/<slug>` opens it, and a scoped agent read names it. Its own identity, not derived from the name — a rename does not move the URL, and the unique constraint stops two services colliding. Backfilled from the name-derived slug (public.key_slug) when added; nullable so a cleared slug falls back to the name-derived route in the app. Editable by the deployer through a later panel write, which adds the UPDATE grant then.';
 
 --
+-- Name: slice_shares; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.slice_shares (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    slice_id uuid NOT NULL,
+    token_hash bytea NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    revoked_at timestamp with time zone,
+    CONSTRAINT slice_shares_token_hash_is_sha256 CHECK ((octet_length(token_hash) = 32))
+);
+
+--
+-- Name: TABLE slice_shares; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.slice_shares IS 'One share link to a slice. Holds only the SHA-256 of the link token, never the token. A link opens the slice through read_shared_slice and stops working once revoked_at is set or its slice is deleted.';
+
+--
+-- Name: COLUMN slice_shares.token_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.slice_shares.token_hash IS 'SHA-256 of the link token. The token itself is returned once, to the person who shared the slice, and is not stored.';
+
+--
+-- Name: COLUMN slice_shares.created_by; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.slice_shares.created_by IS 'The profile that shared the slice.';
+
+--
+-- Name: COLUMN slice_shares.revoked_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.slice_shares.revoked_at IS 'When the link stopped working; null while it works.';
+
+--
 -- Name: slices; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5966,6 +6061,20 @@ ALTER TABLE ONLY public.services
 COMMENT ON CONSTRAINT services_slug_key ON public.services IS 'One slug per service, per deployment. Two services whose names slugify alike are refused rather than colliding on a shared route.';
 
 --
+-- Name: slice_shares slice_shares_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.slice_shares
+    ADD CONSTRAINT slice_shares_pkey PRIMARY KEY (id);
+
+--
+-- Name: slice_shares slice_shares_token_hash_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.slice_shares
+    ADD CONSTRAINT slice_shares_token_hash_unique UNIQUE (token_hash);
+
+--
 -- Name: slices slices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6242,6 +6351,12 @@ CREATE INDEX scenarios_phase_id_idx ON public.scenarios USING btree (phase_id);
 CREATE INDEX scenarios_phase_order_idx ON public.scenarios USING btree (phase_id, "position");
 
 --
+-- Name: slice_shares_slice_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX slice_shares_slice_id_idx ON public.slice_shares USING btree (slice_id);
+
+--
 -- Name: slices_service_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6366,6 +6481,12 @@ CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.sc
 --
 
 CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.services FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
+
+--
+-- Name: slice_shares capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER capture_agent_prior AFTER INSERT OR DELETE OR UPDATE ON public.slice_shares FOR EACH ROW EXECUTE FUNCTION public.capture_agent_prior_rows();
 
 --
 -- Name: slices capture_agent_prior; Type: TRIGGER; Schema: public; Owner: -
@@ -6755,6 +6876,20 @@ ALTER TABLE ONLY public.resources
 
 ALTER TABLE ONLY public.scenarios
     ADD CONSTRAINT scenarios_phase_id_fkey FOREIGN KEY (phase_id) REFERENCES public.phases(id) ON DELETE CASCADE;
+
+--
+-- Name: slice_shares slice_shares_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.slice_shares
+    ADD CONSTRAINT slice_shares_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id) ON DELETE SET NULL;
+
+--
+-- Name: slice_shares slice_shares_slice_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.slice_shares
+    ADD CONSTRAINT slice_shares_slice_id_fkey FOREIGN KEY (slice_id) REFERENCES public.slices(id) ON DELETE CASCADE;
 
 --
 -- Name: slices slices_service_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -

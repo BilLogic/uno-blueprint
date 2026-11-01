@@ -9,6 +9,7 @@ import { admitToolCall } from '@/lib/agent/tools/admission'
 import { findToolDefinition, TOOL_DEFINITIONS } from '@/lib/agent/tools/definitions'
 import { noSuchToolRefusal } from '@/lib/agent/tools/refusals'
 import { executeServerWrite, namedCells, refuseSecrets } from '@/lib/agent/server/writes'
+import { withSharedSliceLink } from '@/lib/agent/server/sharedSlice'
 
 function noCanvas(): never {
   throw new Error('There is no canvas in a server tool context.')
@@ -48,6 +49,8 @@ export function createServerToolContext(options: {
   fetch?: typeof fetch
   allowWrites?: boolean
   search?: NonNullable<ToolContext['meaning']>
+  /** This server's own URL, under which a shared slice's link is made. */
+  toolServerUrl?: string
 }): ServerToolContext {
   const client = createClient<Database>(options.url, options.publishableKey, {
     accessToken: async () => options.jwt,
@@ -120,11 +123,11 @@ export function createServerToolContext(options: {
       if (!admission.admitted) return admission.refusal
       if (!tool) return noSuchToolRefusal(name)
       return runTool(tool, args, { ...context,
-        serverWrite: (toolName, parsed, callContext) => executeServerWrite(client, toolName, parsed, {
+        serverWrite: async (toolName, parsed, callContext) => withSharedSliceLink(await executeServerWrite(client, toolName, parsed, {
           sessionId: options.sessionId,
           serviceId: typeof args.service_id === 'string' ? args.service_id : undefined,
           confirmed: callContext.confirmed === true,
-        }),
+        }), options.toolServerUrl),
       })
     },
   }

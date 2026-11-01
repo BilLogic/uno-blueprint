@@ -20,7 +20,7 @@
 //
 // Dimensions:
 //   Find the template and see what it does · A first look: 7 lanes, 5 steps, 15 cells, 10 dependencies
-//   Map your service · From your documents: 8 lanes, 9 steps, 36 cells, 10 dependencies
+//   Map your service · From your documents: 8 lanes, 9 steps, 36 cells, 11 dependencies
 //   Map your service · From someone else’s diagram: 8 lanes, 9 steps, 36 cells, 10 dependencies
 //   Audit the check roster · Findings triaged: 7 lanes, 7 steps, 22 cells, 7 dependencies
 //   Audit the check roster · A critical finding reopens: 7 lanes, 7 steps, 22 cells, 8 dependencies
@@ -205,6 +205,7 @@ export const SAMPLE_MAP_SERVICE_DOCS_PATH_FALLBACK: BlueprintData = {
     {"id":"f0000000-0000-4000-8000-210400080000","source_cell_id":"f0000000-0000-4000-8000-210300050008","target_cell_id":"f0000000-0000-4000-8000-210300020008","kind":"enables","note":"Sign-off is bound to a content hash, not to a feeling."},
     {"id":"f0000000-0000-4000-8000-210400090000","source_cell_id":"f0000000-0000-4000-8000-210300050009","target_cell_id":"f0000000-0000-4000-8000-210300040009","kind":"enables","note":"The import consumes the generated seed; the fallback module is registered in the same pass."},
     {"id":"f0000000-0000-4000-8000-210400100000","source_cell_id":"f0000000-0000-4000-8000-210300050004","target_cell_id":"f0000000-0000-4000-8000-210300060004","kind":"enables","note":"The reader follows the ingest playbook rather than improvising a reading order."},
+    {"id":"f0000000-0000-4000-8000-210409010000","source_cell_id":"f0000000-0000-4000-8000-210300020010","target_cell_id":"f0000000-0000-4000-8000-310300010001","note":"A deployed scenario is the next one the check roster is run against."},
   ],
 }
 

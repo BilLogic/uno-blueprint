@@ -105,6 +105,21 @@ The console-error rule below covers this case too, including the
 `RENDER_WALK_INJECT_CONSOLE_ERROR` self-test. It screenshots the dragged mark to
 `render-walk-output/annotation-drag.png`.
 
+## The cross-path link case
+
+`cross-path-link.spec.ts` follows a link that leaves its path. Such a link is
+never an arrow; the cell at each end wears a marker naming the other end, and
+the marker goes there. The case opens every scenario on its default board,
+takes the first leaving marker it finds, and follows it by a click and then
+from the keyboard with Enter. Each time the address has to land on the far
+cell, the far cell has to be drawn with its panel open, and the board it
+landed on has to mark the same link arriving. The landed jump is filed as
+`views/cross-path-link-landed.png`.
+
+A sample board with no cross-path link has nothing to follow, and the case
+says so and skips rather than passing on nothing. This repository's sample
+carries one, from Map your service to the audit roster.
+
 ## Served from a path
 
 `served-from-a-path.spec.ts` holds the app inside the path it is served from.
@@ -377,6 +392,8 @@ from here. It is listed so a rename knows what it breaks:
 | `aria-label="Ask the agent"`, `New session`, `textarea[data-agent-composer]`, `aria-label="Send"` | the phone's ✦ affordance and the agent panel's session, composer and send controls |
 | the `Messages` region, and a tool row's own name inside it | the transcript, and the expandable row a tool call is disclosed from |
 | the `Jump to…` dialog, opened by ⌘K | the top nav's Jump to… palette; the walk presses Enter on its first row |
+| `[data-cross-path-link]` (`out` / `in`) and `data-cross-path-target` | a cell's cross-path link marker, and the far cell's id it goes to — read by the cross-path link case |
+| `[data-cell-detail-panel]`, and `cell=` in the address | the open cell panel, and the address naming the open cell |
 
 Renaming one of these does not fail a type check or a lint rule; it fails this
 walk, with a locator that found nothing. If you are the one renaming it, the

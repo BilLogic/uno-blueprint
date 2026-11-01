@@ -177,3 +177,71 @@ export function withRemoteCells(
   }
   return remoteCells.length > 0 ? { ...board, remoteCells } : board
 }
+
+/**
+ * The bundled sample's boards, each carrying every link that touches it and
+ * the named far ends of the ones that leave it — what a database read gives a
+ * board, built from the bundle instead.
+ *
+ * The bundle lists a link once, on its source's path, the way the seed places
+ * it. So the board at the far end of a cross-path link would not know the link
+ * arrived: it is added there, by id, once. Each board is told its scenario,
+ * which a bundled board does not say, and far ends are named from the boards
+ * themselves with `scenarioNames` for the words.
+ *
+ * @param boardsByPathId - Every bundled board the canvas asked for.
+ * @param scenarioIdByPathId - Which scenario each of those paths is in.
+ */
+export function withBundledCrossPathLinks(
+  boardsByPathId: ReadonlyMap<string, BlueprintData>,
+  scenarioIdByPathId: ReadonlyMap<string, string>,
+  scenarioNames: ScenarioNames,
+): Map<string, BlueprintData> {
+  const tagged = new Map<string, BlueprintData>()
+  for (const [pathId, board] of boardsByPathId) {
+    const scenarioId = scenarioIdByPathId.get(pathId)
+    tagged.set(
+      pathId,
+      scenarioId && board.path.scenarioId !== scenarioId
+        ? { ...board, path: { ...board.path, scenarioId } }
+        : board,
+    )
+  }
+
+  const everyEdge = [...tagged.values()].flatMap((board) => board.dependencies)
+  const arrived = new Map<string, BlueprintData>()
+  for (const [pathId, board] of tagged) {
+    const own = new Set(board.cells.map((cell) => cell.id))
+    const listed = new Set(board.dependencies.map((edge) => edge.id))
+    const arrivals = everyEdge.filter(
+      (edge) =>
+        !listed.has(edge.id) &&
+        (own.has(edge.source_cell_id) || own.has(edge.target_cell_id)),
+    )
+    const deduped = [...new Map(arrivals.map((edge) => [edge.id, edge])).values()]
+    arrived.set(
+      pathId,
+      deduped.length > 0
+        ? { ...board, dependencies: [...board.dependencies, ...deduped] }
+        : board,
+    )
+  }
+
+  const named = remoteCellsFromBoards(arrived.values(), scenarioNames)
+  return new Map(
+    [...arrived].map(([pathId, board]) => [pathId, withRemoteCells(board, named)]),
+  )
+}
+
+/** Scenario and phase names read off a navigation list. */
+export function scenarioNamesFromNav(
+  nav: readonly { id: string; label: string; parentId?: string }[],
+): ScenarioNames {
+  const byId = new Map(nav.map((item) => [item.id, item]))
+  return (scenarioId) => {
+    const scenario = byId.get(scenarioId)
+    if (!scenario) return null
+    const phase = scenario.parentId ? byId.get(scenario.parentId) : undefined
+    return { scenarioName: scenario.label, phaseName: phase?.label ?? null }
+  }
+}

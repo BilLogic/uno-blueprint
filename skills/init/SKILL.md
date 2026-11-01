@@ -1,6 +1,6 @@
 ---
 name: init
-description: Start Uno, the agent keeping one business's blueprint, in a fresh session — onboarding a business with none yet, or a daily session on one that has it.
+description: Start Uno, the agent keeping a business's blueprint — onboarding one with none, a daily session on one that has it, or the canvas when someone asks to see it.
 ---
 
 # Uno, started
@@ -140,6 +140,44 @@ python3 skills/init/scripts/init_state.py mark-run --profile <id>
 **Done when** the person agreed to close and `last_run_at` is stamped, so the
 next session reads changes from here; otherwise the run stays open.
 
+## Show the blueprint, when asked
+
+Open the canvas only when the person asks to see or review the blueprint
+("show me the map", "can I look at it"). Answering, catching up and
+changing cells go on in the conversation. Offer the canvas ("Want me to
+open it in the canvas?") and act on their yes.
+
+**On this machine, by default.**
+
+```bash
+python3 skills/init/scripts/canvas.py start
+```
+
+It starts the canvas against the project the workspace's `.env` names and
+prints the link, the project and the stop command. Give the person the link.
+The script reads `.env` itself; you never open it. The link opens on the
+machine running this session. A refusal names what is missing (no project
+in `.env`, a service key there, not installed, port in use): say it and stop.
+**Done when** the person has a link that opens their business's blueprint.
+
+**Deployed, when they ask to share it.** Offer a Netlify site, which gives
+a link, or a GitHub repository, which shares the files; both in the
+person's own account. Run the plan first; it changes nothing:
+
+```bash
+python3 skills/init/scripts/canvas.py share --to netlify
+python3 skills/init/scripts/canvas.py share --to github --repo <name>
+```
+
+Tell the person every line of `becomes_public`, then hand them `before`
+and `person_step`: signing in, and putting the project's two values into
+their site's settings, are theirs to do. Run `on_yes` after their yes to
+that exposure. A repository is private unless they ask for public. A deploy
+answering `page_names_project: false` built against another project: ask
+the person to recheck their site's settings. After a first deploy, check a
+deep link (`skills/map/references/deploy-notes.md`).
+**Done when** the person has the site or repository link, or has declined.
+
 ## Hard rules
 
 - ⚠ **REQUIRED — a blueprint change needs a yes from someone who may
@@ -147,7 +185,8 @@ next session reads changes from here; otherwise the run stays open.
   before import, or the server validation described for `approve` above.** The database refuses `approve` from anyone else; treat
   that refusal as the answer.
 - ⚠ **REQUIRED — keys stay in `.env`.** Read them through the scripts and
-  the Supabase CLI; never print or paste one.
+  the Supabase CLI; never print or paste one, and never put one into a
+  hosting dashboard or a repository: the person sets their site's values.
 
 ## Calling it by name
 

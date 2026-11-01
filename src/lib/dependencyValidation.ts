@@ -75,6 +75,7 @@ export type DraftDependency = {
 /** Enough about the other end to check a draft without another read. */
 export type DependencyEndpoint = {
   cellId: string
+  /** The path the cell sits on. The two ends of a link may differ. */
   pathId: string
   label: string
 }
@@ -82,14 +83,14 @@ export type DependencyEndpoint = {
 /**
  * Problems worth showing, in the order they should be fixed.
  *
- * The same-version rule is the one people hit. An arrow between two versions
- * of a journey would render as a line leaving the grid it belongs to — the
- * versions are alternatives, not stages, so a handoff between them describes
- * something that cannot happen.
+ * There is no path rule here. A link may join any two cells of one service —
+ * another path, another scenario — and the one wall left, another service, is
+ * the database's to refuse ("Both cells must be in the same service"). The
+ * panel offers only cells of the service it has open, so a draft never reaches
+ * that refusal from here.
  */
 export function validateDraftDependency(
   draft: DraftDependency,
-  source: DependencyEndpoint,
   target: DependencyEndpoint | null,
   existing: Array<{ targetCellId: string; kind: string }>,
 ): string[] {
@@ -102,12 +103,6 @@ export function validateDraftDependency(
 
   if (draft.targetCellId === draft.sourceCellId) {
     problems.push('A cell cannot depend on itself.')
-  }
-
-  if (target.pathId !== source.pathId) {
-    problems.push(
-      'Both cells must be on the same path — paths are alternatives, so a handoff between them cannot happen.',
-    )
   }
 
   if (

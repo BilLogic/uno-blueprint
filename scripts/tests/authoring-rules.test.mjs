@@ -36,7 +36,7 @@ const draft = (patch) => ({
 
 test('a valid handoff has no problems', () => {
   assert.deepEqual(
-    validateDraftDependency(draft(), source, sameVersion, []),
+    validateDraftDependency(draft(), sameVersion, []),
     [],
   )
 })
@@ -45,26 +45,28 @@ test('a cell cannot depend on itself', () => {
   const problems = validateDraftDependency(
     draft({ targetCellId: 'a' }),
     source,
-    source,
     [],
   )
   assert.ok(problems.some((p) => /cannot depend on itself/.test(p)))
 })
 
-test('an arrow may not cross paths', () => {
-  const problems = validateDraftDependency(
-    draft({ targetCellId: 'c' }),
-    source,
-    otherVersion,
+test('a link may cross paths: the service rule is the database\'s', () => {
+  // A link may join two paths, or two scenarios, of one service. Whether the
+  // other end is in the same service is the database's to refuse, in its own
+  // sentence; the panel only ever offers cells of the service it has open.
+  assert.deepEqual(
+    validateDraftDependency(
+      draft({ targetCellId: 'c' }),
+      otherVersion,
+      [],
+    ),
     [],
   )
-  assert.ok(problems.some((p) => /same path/.test(p)))
 })
 
 test('no target is reported before anything else', () => {
   const problems = validateDraftDependency(
     draft({ targetCellId: null }),
-    source,
     null,
     [],
   )
@@ -72,7 +74,7 @@ test('no target is reported before anything else', () => {
 })
 
 test('the same connection is not added twice', () => {
-  const problems = validateDraftDependency(draft(), source, sameVersion, [
+  const problems = validateDraftDependency(draft(), sameVersion, [
     { targetCellId: 'b', kind: 'leads_to' },
   ])
   assert.ok(problems.some((p) => /already exists/.test(p)))
@@ -81,7 +83,6 @@ test('the same connection is not added twice', () => {
 test('the same pair may hold both a leads_to and an enables', () => {
   const problems = validateDraftDependency(
     draft({ kind: 'enables' }),
-    source,
     sameVersion,
     [{ targetCellId: 'b', kind: 'leads_to' }],
   )

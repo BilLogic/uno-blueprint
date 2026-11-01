@@ -282,7 +282,7 @@ type CellPanelFacts = {
   cellId: string | null
   blueprint: BlueprintData | null
   lane: SelectedLaneResolution | null
-  /** Every other cell in this version, as somewhere a dependency could point. */
+  /** Every other cell on this path, as somewhere a dependency could point. */
   dependencyCandidates: DependencyEndpoint[]
   existingDependencies: ExistingDependency[]
   dependencySource: DependencyEndpoint | null
@@ -299,9 +299,10 @@ export function useCellPanelFacts({
   positionLabel,
 }: SelectedCell): CellPanelFacts {
   /**
-   * Scoped to the version on purpose — the RPC refuses a cross-version
-   * dependency, and offering one here would only be a way to reach that
-   * refusal. Versions are alternatives, not stages.
+   * The cells of the path open. The database accepts a link to any cell of
+   * the same service, so another path's cells are a wider list, not a
+   * refused one; until the board can show where a cross-path link lands,
+   * the picker offers the cells it can show.
    *
    * Labels lead with the column number because step *names* repeat: Discovery
    * holds several columns all named the same thing, so name-and-lane alone

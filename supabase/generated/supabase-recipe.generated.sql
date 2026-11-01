@@ -2938,3 +2938,22 @@ begin
     raise exception 'undo_structure_add lost its author-only grant';
   end if;
 end $grants$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000324000000_a_link_may_cross_paths_within_one_service.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- `create or replace` keeps both grants: authors only.
+do $grants$
+begin
+  if not has_function_privilege('authenticated',
+       'public.set_cell_dependency(uuid, uuid, text, text, text)', 'execute')
+    or has_function_privilege('anon',
+       'public.set_cell_dependency(uuid, uuid, text, text, text)', 'execute')
+    or not has_function_privilege('authenticated',
+       'public.update_cell_dependency(uuid, text, uuid, text)', 'execute')
+    or has_function_privilege('anon',
+       'public.update_cell_dependency(uuid, text, uuid, text)', 'execute') then
+    raise exception 'a dependency write lost its author-only grant';
+  end if;
+end $grants$;

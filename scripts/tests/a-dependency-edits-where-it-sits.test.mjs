@@ -219,7 +219,9 @@ test('the drawn kind the proof counts is the kind the canvas filters on', () => 
   // change" is two claims in two places. The migration proves the data half —
   // the count of `leads_to` rows goes to 0 and back to 1 across the change —
   // and this is the line that makes that count the thing that draws.
-  const arrows = read('src/components/blueprint/BlueprintDependencyArrows.tsx')
+  // Both arrangements draw from `getComparePathArrowData`; the filter there is
+  // the one the canvas runs.
+  const arrows = read('src/lib/sideBySideCompareLayout.ts')
   assert.match(arrows, /kind \?\? 'leads_to'\) === 'leads_to'/)
   assert.match(read(EDIT_MIGRATION), /kind = 'leads_to'/)
 })

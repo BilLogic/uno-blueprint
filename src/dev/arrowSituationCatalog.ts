@@ -23,14 +23,15 @@
  * the part every view shares and every Direction-B slice touches.
  *
  * Three view modes, one per way the board is drawn:
- *   - `single`        one path, one cell per slot (`BlueprintDependencyArrows`);
+ *   - `single`        one path, one cell per slot;
  *   - `side-by-side`  the same band with a second, unrelated band present —
  *                     locks the invariant that a neighbour band never perturbs
  *                     a route;
  *   - `integrated`    the merged grid's distinguishing feature: a slot stacks a
  *                     sub-cell per path, so a route that used to run straight
  *                     down a column now meets a stacked neighbour and detours
- *                     (`IntegratedDependencyArrows`).
+ *                     (`IntegratedDependencyArrows`, which draws every
+ *                     mode on the canvas).
  */
 
 import {

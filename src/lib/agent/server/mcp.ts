@@ -2,6 +2,7 @@ import { createMcpHandler, McpServer } from '@modelcontextprotocol/server'
 import { withOAuthProtectedResource, withSupabase } from '@supabase/server'
 import type { SupabaseEnv } from '@supabase/server'
 import { createServerToolContext } from '@/lib/agent/tools/serverContext'
+import { serveSharedSlice } from '@/lib/agent/server/sharedSlice'
 import { findToolDefinition } from '@/lib/agent/tools/definitions'
 import { SCOPE_ALL } from '@/lib/agent/tools/serviceScope'
 import type { Database } from '@/types/database'
@@ -25,7 +26,7 @@ export function createToolServer(options: {
   fetch?: typeof fetch
   search?: NonNullable<ToolContext['meaning']>
 }) {
-  return withOAuthProtectedResource({
+  const tools = withOAuthProtectedResource({
     resourceServer: options.resourceUrl,
     authorizationServer: `${options.url}/auth/v1`,
   }, withSupabase<Database>({
@@ -41,6 +42,7 @@ export function createToolServer(options: {
       sessionId: crypto.randomUUID(), scope: SCOPE_ALL, signal: request.signal, fetch: options.fetch,
       allowWrites: true,
       search: options.search,
+      toolServerUrl: options.resourceUrl,
     })
     const handler = createMcpHandler(() => {
       const server = new McpServer({ name: 'uno-blueprint', version: '1.0.0' })
@@ -70,4 +72,6 @@ export function createToolServer(options: {
     })
     return handler.fetch(request)
   }))
+  // A share link carries no sign-in: it is answered before the OAuth gate.
+  return async (request: Request) => await serveSharedSlice(request, options) ?? tools(request)
 }

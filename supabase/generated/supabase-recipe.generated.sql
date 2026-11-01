@@ -3169,3 +3169,26 @@ do $$ declare signature text; begin
       raise exception 'caller can reach the approval helper %',signature; end if;
   end loop;
 end $$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000326000000_a_slice_may_cross_services_and_be_shared_by_a_link.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- a link is opened by anyone holding it; the table is no role's to read.
+alter table public.slice_shares enable row level security;
+revoke all on public.slice_shares from public, anon, authenticated;
+revoke all on function public.read_shared_slice(text) from public;
+grant execute on function public.read_shared_slice(text) to anon, authenticated;
+do $grants$
+declare privilege text;
+begin
+  foreach privilege in array array['select','insert','update','delete','truncate','references','trigger'] loop
+    if has_table_privilege('anon', 'public.slice_shares', privilege)
+      or has_table_privilege('authenticated', 'public.slice_shares', privilege) then
+      raise exception 'slice_shares is open to a request role (%)', privilege;
+    end if;
+  end loop;
+  if not has_function_privilege('anon', 'public.read_shared_slice(text)', 'execute') then
+    raise exception 'a link cannot be opened without signing in';
+  end if;
+end $grants$;

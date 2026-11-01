@@ -244,7 +244,7 @@ table's owner is whoever may change it, not whoever reads it most:
 
 | record | written by | belongs to |
 | --- | --- | --- |
-| `slices`, `slides` | `create_slice`, `update_slice`, `replace_slides` | the slice |
+| `slices`, `slides`, `slice_shares` | `create_slice`, `update_slice`, `replace_slides`, `share_slice`, `unshare_slice` | the slice |
 | `audit_findings` | `create_finding`, `update_finding` | the audit |
 | `evidence` | `create_evidence`, `update_evidence` | the cell |
 
@@ -275,6 +275,14 @@ audience: an actor's journey, a single moment, one lane, one cell, or a custom
 selection. A slice *references* the cells it presents and never copies them,
 so the blueprint stays the single source of the text. A slice may cut across
 more than one service's blueprint when its audience needs it.
+
+**Share link** — a link that opens one slice for its audience, with no
+account: the slice and the cells it cites, read when the link is opened, so
+a changed cell shows its new value. It opens nothing else — not the cell
+beside a cited one, not the rest of either service. Someone who may confirm
+makes one with `share_slice` and stops every link to a slice with
+`unshare_slice`. Table `slice_shares` keeps only a hash of each link's token;
+the link itself is handed over once, in the reply to the person who shared.
 
 **Audience** — the reader, or group of readers, a slice is cut for: a new
 hire, a partner, a customer. What a slice shows is what its audience may see;

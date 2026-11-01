@@ -11,6 +11,8 @@ import { getSlice, listSlices, UUID } from '@/lib/agent/tools/read'
 import { sampleGetSlice, sampleListSlices } from '@/lib/agent/tools/sampleRead'
 import { toAuthoringError } from '@/lib/authoringErrors'
 import { createSlice, patchSliceMeta, replaceSlides } from '@/lib/sliceMutations'
+import { executeServerWrite } from '@/lib/agent/server/writes'
+import { browserToolServerUrl, withSharedSliceLink } from '@/lib/agent/server/sharedSlice'
 import type { Database } from '@/types/database'
 
 type Client = SupabaseClient<Database>
@@ -53,40 +55,35 @@ const AGENT_SLICE_KIND = z.enum(['journey', 'lane', 'step', 'custom'])
 const SUMMARY_ALIAS = { description: 'summary' }
 
 /**
- * Refuse every cell id that is not a cell of the active service, before the
- * slice write is asked for.
+ * Refuse every cell id that names no cell, before the slice write is asked for.
  *
- * The authority is the database: `replace_slides`, which `create_slice` runs
- * too, refuses a cell that is not an id in its own transaction, so nothing
- * lands either way. This check is the agent's fail-fast. A model copying a
- * seeded id drops a run of zeros, and the function's refusal names the slide
- * but not where real ids come from; and an id that is well formed but names
- * another service's cell, or no cell, the function has no foreign key to
- * catch. So a malformed id is refused here without asking the database, and
- * a well-formed one must name a cell under the active service. The refusal
- * names each bad id and says where the real ones are to be copied from.
+ * A slice may cite cells from any service of the business, so a well-formed
+ * id is checked for existence only. The authority is the database:
+ * `replace_slides`, which `create_slice` runs too, refuses a cell that is not
+ * an id in its own transaction, so nothing lands either way. This check is the
+ * agent's fail-fast. A model copying a seeded id drops a run of zeros, and the
+ * function's refusal names the slide but not where real ids come from; and an
+ * id that is well formed but names no cell the function has no foreign key to
+ * catch. So a malformed id is refused here without asking the database, and a
+ * well-formed one must name a cell. The refusal names each bad id and says
+ * where the real ones are to be copied from.
  */
 async function refuseUnknownCells(
   client: Client,
-  serviceId: string,
   cellIds: readonly string[],
 ): Promise<void> {
   const distinct = [...new Set(cellIds)]
   const wellFormed = distinct.filter((id) => UUID.test(id))
   const held = new Set<string>()
   if (wellFormed.length > 0) {
-    const { data, error } = await client
-      .from('cells')
-      .select('id, paths!inner(scenarios!inner(phases!inner(service_id)))')
-      .in('id', wellFormed)
-      .eq('paths.scenarios.phases.service_id', serviceId)
+    const { data, error } = await client.from('cells').select('id').in('id', wellFormed)
     if (error) throw toAuthoringError(error)
     for (const row of data ?? []) held.add(row.id)
   }
   const bad = distinct.filter((id) => !held.has(id))
   if (bad.length === 0) return
   throw new Error(
-    `${bad.map((id) => `"${id}" is not a cell in this service`).join('; ')} — copy ids verbatim from get_slice or list_blueprint.`,
+    `${bad.map((id) => `"${id}" is not a cell in this blueprint`).join('; ')} — copy ids verbatim from get_slice or list_blueprint.`,
   )
 }
 
@@ -112,7 +109,7 @@ async function refuseForeignSlice(client: Client, serviceId: string, sliceId: st
 export const createSliceTool = defineWriteTool({
   name: 'create_slice',
   description:
-    'Create a slice (stakeholder view) that REFERENCES existing cells — never copies. cell_ids in journey order, one slide per cell by default. Propose members by name and get a nod first.',
+    'Create a slice (stakeholder view) that REFERENCES existing cells — never copies. cell_ids in journey order, one slide per cell by default; they may come from more than one service when the audience needs it, and service_id is the service the slice is filed under. Propose members by name and get a nod first.',
   args: z.object({
     title: arg.text('Slice title'),
     summary: arg.optionalText('One-line summary; omit for none'),
@@ -125,7 +122,7 @@ export const createSliceTool = defineWriteTool({
     if (cell_ids.length === 0)
       throw new Error('cell_ids must be a non-empty array of existing cell ids.')
     const serviceId = requireActiveService(ctx)
-    await refuseUnknownCells(ctx.client, serviceId, cell_ids)
+    await refuseUnknownCells(ctx.client, cell_ids)
     const slice = await createSlice(ctx.client, {
       serviceId,
       title,
@@ -185,7 +182,6 @@ export const replaceSlidesTool = defineWriteTool({
     await refuseForeignSlice(ctx.client, serviceId, slice_id)
     await refuseUnknownCells(
       ctx.client,
-      serviceId,
       slides.flatMap((slide) => slide.cells),
     )
     await replaceSlides(
@@ -198,5 +194,37 @@ export const replaceSlidesTool = defineWriteTool({
       })),
     )
     return `Replaced the slice's slides (${slides.length}).`
+  },
+})
+
+export const shareSliceTool = defineWriteTool({
+  name: 'share_slice',
+  description:
+    'Make a link that opens this slice, and only the cells it cites, for someone without an account. Changes to those cells show through the link. Say who the link is for when you ask for a yes from someone who may confirm; other callers record a proposal. Returns the link once: hand it over as given.',
+  args: z.object({
+    slice_id: arg.text('Slice id from list_slices'),
+  }),
+  run: async ({ slice_id }, ctx) => {
+    const serviceId = requireActiveService(ctx)
+    await refuseForeignSlice(ctx.client, serviceId, slice_id)
+    return withSharedSliceLink(await executeServerWrite(ctx.client, 'share_slice', { slice_id }, {
+      sessionId: ctx.session.id, serviceId, confirmed: ctx.confirmed === true,
+    }), browserToolServerUrl())
+  },
+})
+
+export const unshareSliceTool = defineWriteTool({
+  name: 'unshare_slice',
+  description:
+    'Stop every link to this slice from working. The slice itself stays. Get a yes from someone who may confirm first; other callers record a proposal.',
+  args: z.object({
+    slice_id: arg.text('Slice id from list_slices'),
+  }),
+  run: async ({ slice_id }, ctx) => {
+    const serviceId = requireActiveService(ctx)
+    await refuseForeignSlice(ctx.client, serviceId, slice_id)
+    return executeServerWrite(ctx.client, 'unshare_slice', { slice_id }, {
+      sessionId: ctx.session.id, serviceId, confirmed: ctx.confirmed === true,
+    })
   },
 })

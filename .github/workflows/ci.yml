@@ -523,6 +523,8 @@ jobs:
       - run: npm run test:services:db
       - name: A confirmer starts a service and contributors propose over MCP
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:services:postgrest
+      - name: A shared slice's link opens its cited cells and refuses every other
+        run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:shares:postgrest
       - run: npm run check:tool-contracts
       - name: Every server read and resource crosses MCP with the caller identity
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:tool-reads:postgrest

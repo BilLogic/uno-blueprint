@@ -32,6 +32,8 @@ const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   create_slice: { title: 'Caller view', kind: 'journey', cell_ids: [CELL_1, CELL_2] },
   update_slice: { slice_id: 'sl-1', title: 'Renamed' },
   replace_slides: { slice_id: 'sl-1', slides: [{ cells: [CELL_1], title: 'Arrive' }] },
+  share_slice: { slice_id: 'sl-1' },
+  unshare_slice: { slice_id: 'sl-1' },
   create_step: { path_id: 'p-1', name: 'Verify' },
   create_lane: { scenario_id: 'sc-1', name: 'Backstage', lane_role: 'backstage_actions' },
   upsert_cell: { path_id: 'p-1', lane_id: 'l-1', step_id: 's-1', content: 'Caller books a slot' },

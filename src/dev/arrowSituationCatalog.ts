@@ -22,7 +22,8 @@
  * suffixes the hand-tuned routes key on), so it exercises the GENERIC router —
  * the part every view shares and every Direction-B slice touches.
  *
- * Three view modes, one per way the board is drawn:
+ * Three view modes, one per way the board is drawn (the canvas draws all three
+ * through `IntegratedDependencyArrows`):
  *   - `single`        one path, one cell per slot;
  *   - `side-by-side`  the same band with a second, unrelated band present —
  *                     locks the invariant that a neighbour band never perturbs
@@ -30,8 +31,7 @@
  *   - `integrated`    the merged grid's distinguishing feature: a slot stacks a
  *                     sub-cell per path, so a route that used to run straight
  *                     down a column now meets a stacked neighbour and detours
- *                     (`IntegratedDependencyArrows`, which draws every
- *                     mode on the canvas).
+ *                     (`IntegratedDependencyArrows`).
  */
 
 import {

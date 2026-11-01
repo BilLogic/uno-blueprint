@@ -549,7 +549,11 @@ name; that list only ever shrinks.
 1. Take the next unused day inside the band — one migration per day, in order.
    Use the time field when several land in one release.
 2. Write the real authoring date in the file header.
-3. `npm run check:band`.
+3. While a long-lived branch such as `next/owner-agent` carries migrations of
+   its own, "next unused" counts that branch too: a migration on `main` takes a
+   number after the highest on either branch, so the next sync merges two
+   series that never share a number.
+4. `npm run check:band`.
 
 ## Did the migration run
 

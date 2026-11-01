@@ -32,7 +32,10 @@ package is deliberately not required):
                 cells_validate_path_match trigger, which would otherwise
                 abort mid-import); no duplicate steps in path_steps
                 (duplicate position); dependency edges reference existing
-                cells on the SAME path (cross-path edges are invalid);
+                cells of this service — an unqualified end on the path that
+                lists the edge, a qualified one on the path (and scenario) it
+                names, at least one end on the listing path, never another
+                service (ADR 0035);
                 source != target; a dependency edge's optional `kind` is
                 one of leads_to/enables, and (source, target, kind) is unique
                 — the database's own uniqueness key, so one pair may carry
@@ -392,20 +395,39 @@ def check_touchpoint(touchpoint, jp: str, rep: Report, locales: list) -> None:
 
 
 def check_cell_ref(ref, jp: str, rep: Report):
-    """Return (lane_key, step_key) or None."""
+    """Return (scenario_key, path_key, lane_key, step_key) or None.
+
+    The two qualifiers are None when the reference leaves them out: an end
+    with no `path` is on the path that lists the link, and an end with a
+    `path` but no `scenario` is on that path of the same scenario. A
+    `scenario` without a `path` names nothing — a scenario holds several
+    paths — so it is refused. There is no `service`: the file is one service,
+    and a link may not leave it.
+    """
     if not isinstance(ref, dict):
         rep.error(jp, f"cell reference must be an object {{lane, step}}, got {type_name(ref)}")
         return None
-    check_extra_keys(ref, {"lane", "step"}, jp, rep)
+    check_extra_keys(ref, {"lane", "step", "path", "scenario"}, jp, rep)
     lane = check_key(ref.get("lane"), f"{jp}.lane", rep) if "lane" in ref else None
     step = check_key(ref.get("step"), f"{jp}.step", rep) if "step" in ref else None
+    path = check_key(ref.get("path"), f"{jp}.path", rep) if "path" in ref else None
+    scenario = check_key(ref.get("scenario"), f"{jp}.scenario", rep) if "scenario" in ref else None
     if "lane" not in ref:
         rep.error(jp, "missing required field 'lane'")
     if "step" not in ref:
         rep.error(jp, "missing required field 'step'")
+    if "scenario" in ref and "path" not in ref:
+        rep.error(
+            jp,
+            f"cell reference names a scenario but no path — scenario '{ref.get('scenario')}' "
+            "holds several paths, so add `path` to say which one the cell is on",
+        )
+        return None
     if lane is None or step is None:
         return None
-    return lane, step
+    if ("path" in ref and path is None) or ("scenario" in ref and scenario is None):
+        return None
+    return scenario, path, lane, step
 
 
 def check_unique(kind: str, key, seen: dict, jp: str, rep: Report) -> None:
@@ -557,7 +579,7 @@ def validate_cell(cell, jp: str, rep: Report, locales: list):
 
 
 def validate_path(path, jp: str, rep: Report, locales: list, scenario_step_keys: set,
-                  paths_seen: dict):
+                  paths_seen: dict, links: dict, scenario_key):
     if not isinstance(path, dict):
         rep.error(jp, f"path must be an object, got {type_name(path)}")
         return
@@ -650,12 +672,17 @@ def validate_path(path, jp: str, rep: Report, locales: list, scenario_step_keys:
                 "trigger would abort this import mid-transaction",
             )
 
+    # The path's cells, for the links that resolve once every path is read.
+    # A link may name a path declared later in the file, so nothing about its
+    # ends is judged here beyond its own shape.
+    if path_key is not None and (scenario_key, path_key) not in links["cells"]:
+        links["cells"][(scenario_key, path_key)] = set(cell_pairs)
+
     # Dependencies ---------------------------------------------------------------
     dependencies = path.get("dependencies", [])
     if not isinstance(dependencies, list):
         rep.error(f"{jp}.dependencies", "'dependencies' must be an array")
         dependencies = []
-    edge_pairs: dict = {}
     for i, edge in enumerate(dependencies):
         tjp = f"{jp}.dependencies[{i}]"
         if not isinstance(edge, dict):
@@ -679,33 +706,102 @@ def validate_path(path, jp: str, rep: Report, locales: list, scenario_step_keys:
                 "only. Both read source-first",
             )
             kind = DEFAULT_DEPENDENCY_KIND
-        if source is None or target is None:
+        if source is None or target is None or path_key is None:
             continue
+        links["edges"].append(
+            {"jp": tjp, "host": (scenario_key, path_key), "source": source,
+             "target": target, "kind": kind}
+        )
+
+
+def resolve_links(links: dict, scenario_paths: dict, rep: Report) -> None:
+    """Every link's two ends, judged once the whole service has been read.
+
+    The reach of a link is one service (ADR 0035): its ends may sit on any
+    two paths of any scenarios here. An unqualified end is on the path that
+    lists the link; at least one end must be, so a link is listed where one
+    of its cells is. Identity is the two resolved ends plus the kind — the
+    database's `(source_cell_id, target_cell_id, kind)` — so one link listed
+    on both of its paths is a duplicate, however each listing spells it.
+    """
+    seen: dict = {}
+    for edge in links["edges"]:
+        tjp, host, kind = edge["jp"], edge["host"], edge["kind"]
+        ends = {}
+        for end_name in ("source", "target"):
+            scenario_key, path_key, lane_key, step_key = edge[end_name]
+            qualified = path_key is not None
+            scenario_key = scenario_key if scenario_key is not None else host[0]
+            path_key = path_key if path_key is not None else host[1]
+            ends[end_name] = (scenario_key, path_key, lane_key, step_key, qualified)
+
+        resolved = True
+        for end_name, (scenario_key, path_key, lane_key, step_key, qualified) in ends.items():
+            ejp = f"{tjp}.{end_name}"
+            if scenario_key not in scenario_paths:
+                rep.error(
+                    f"{ejp}.scenario",
+                    f"dependency {end_name} names unknown scenario '{scenario_key}' — a link "
+                    "reaches any scenario of this service, and this service has none by that key",
+                )
+                resolved = False
+            elif path_key not in scenario_paths[scenario_key]:
+                rep.error(
+                    f"{ejp}.path",
+                    f"dependency {end_name} names unknown path '{path_key}' in scenario "
+                    f"'{scenario_key}' (its paths: {', '.join(sorted(scenario_paths[scenario_key]))})",
+                )
+                resolved = False
+            elif (lane_key, step_key) not in links["cells"].get((scenario_key, path_key), set()):
+                hint = (
+                    "" if qualified else
+                    " — an end with no `path` is on the path that lists the link; a cell on "
+                    "another path of this service is named with `path` (and `scenario`)"
+                )
+                rep.error(
+                    ejp,
+                    f"dependency {end_name} references cell (lane '{lane_key}', step '{step_key}') "
+                    f"which does not exist on path '{path_key}'{hint}",
+                )
+                resolved = False
+        if not resolved:
+            continue
+
+        source, target = ends["source"][:4], ends["target"][:4]
         if source == target:
-            rep.error(tjp, f"dependency source equals target (lane '{source[0]}', step '{source[1]}') — a self-edge is invalid")
+            rep.error(tjp, f"dependency source equals target (lane '{source[2]}', step '{source[3]}') — a self-edge is invalid")
+            continue
+        if source[:2] != host and target[:2] != host:
+            rep.error(
+                tjp,
+                f"neither end of this dependency is on path '{host[1]}', which lists it — "
+                "list a link on the path of one of its cells (the source's, by convention)",
+            )
             continue
         # Uniqueness is (source, target, kind), matching the database's
         # cell_dependencies_source_target_kind_unique: one pair may carry an
         # arrow AND an `enables` edge, and those are two rows, not a duplicate.
-        if (source, target, kind) in edge_pairs:
+        identity = (source, target, kind)
+        if identity in seen:
             rep.error(
                 tjp,
-                f"duplicate {kind} edge {source} -> {target} — first declared at "
-                f"{edge_pairs[(source, target, kind)]}",
+                f"duplicate {kind} edge {describe_end(source, host)} -> "
+                f"{describe_end(target, host)} — first declared at {seen[identity]}",
             )
         else:
-            edge_pairs[(source, target, kind)] = tjp
-        for end_name, (lane_key, step_key) in (("source", source), ("target", target)):
-            if (lane_key, step_key) not in cell_pairs:
-                rep.error(
-                    f"{tjp}.{end_name}",
-                    f"dependency {end_name} references cell (lane '{lane_key}', step '{step_key}') "
-                    f"which does not exist on path '{path_key}' — a dependency must connect two "
-                    "cells on the SAME path (cross-path edges are invalid)",
-                )
+            seen[identity] = tjp
 
 
-def validate_scenario(scenario, jp: str, rep: Report, locales: list, scenarios_seen: dict):
+def describe_end(end: tuple, host: tuple) -> str:
+    """A resolved end as the author wrote it: (lane, step), qualified when away."""
+    scenario_key, path_key, lane_key, step_key = end
+    if (scenario_key, path_key) == host:
+        return str((lane_key, step_key))
+    return f"{scenario_key}/{path_key}:{(lane_key, step_key)}"
+
+
+def validate_scenario(scenario, jp: str, rep: Report, locales: list, scenarios_seen: dict,
+                      links: dict, scenario_paths: dict):
     if not isinstance(scenario, dict):
         rep.error(jp, f"scenario must be an object, got {type_name(scenario)}")
         return
@@ -746,7 +842,11 @@ def validate_scenario(scenario, jp: str, rep: Report, locales: list, scenarios_s
         paths = []
     paths_seen: dict = {}
     for i, path in enumerate(paths):
-        validate_path(path, f"{jp}.paths[{i}]", rep, locales, step_keys, paths_seen)
+        validate_path(path, f"{jp}.paths[{i}]", rep, locales, step_keys, paths_seen, links, key)
+    if key is not None and key not in scenario_paths:
+        scenario_paths[key] = {
+            p["key"] for p in paths if isinstance(p, dict) and isinstance(p.get("key"), str)
+        }
 
 
 IR_SCHEMA = Path(__file__).resolve().parent.parent / "references" / "ir-schema.json"
@@ -866,6 +966,8 @@ def validate_document(doc, rep: Report) -> None:
     phase_keys: set = set()
     loops: list = []
     scenarios_seen: dict = {}
+    links: dict = {"cells": {}, "edges": []}
+    scenario_paths: dict = {}
     for i, phase in enumerate(phases):
         pjp = f"{jp}.phases[{i}]"
         if not isinstance(phase, dict):
@@ -894,11 +996,14 @@ def validate_document(doc, rep: Report) -> None:
             rep.error(f"{pjp}.scenarios", f"'scenarios' must be an array, got {type_name(scenarios)}")
             continue
         for j, scenario in enumerate(scenarios):
-            validate_scenario(scenario, f"{pjp}.scenarios[{j}]", rep, locales, scenarios_seen)
+            validate_scenario(scenario, f"{pjp}.scenarios[{j}]", rep, locales, scenarios_seen,
+                              links, scenario_paths)
 
     for loop_key, loop_jp in loops:
         if loop_key not in phase_keys:
             rep.error(loop_jp, f"loops_to references unknown phase '{loop_key}'")
+
+    resolve_links(links, scenario_paths, rep)
 
 
 # ---------------------------------------------------------------------------

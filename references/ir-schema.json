@@ -14,6 +14,7 @@
     "schema_version": {
       "type": "string",
       "enum": [
+        "2026.09.12",
         "2026.09.11",
         "2026.09.10",
         "2026.09.09",
@@ -98,9 +99,22 @@
         },
         "step": {
           "$ref": "#/$defs/key"
+        },
+        "path": {
+          "$ref": "#/$defs/key",
+          "description": "The path the cell is on, when it is not the path that lists the link. Absent means that path. Without `scenario`, a path of the same scenario."
+        },
+        "scenario": {
+          "$ref": "#/$defs/key",
+          "description": "The scenario the cell's path is in, when it is not the listing path's scenario. Needs `path`: a scenario holds several paths, so it names none on its own."
         }
       },
-      "description": "Reference to a cell on the same path by its (lane, step) key pair."
+      "dependentRequired": {
+        "scenario": [
+          "path"
+        ]
+      },
+      "description": "Reference to a cell of this service by its (lane, step) key pair, on the path that lists the link unless `path` (and `scenario`) say otherwise — since 2026.09.12, when a link's reach became one service (ADR 0035). There is no `service` qualifier: the file is one service, and a link may not leave it."
     },
     "resource": {
       "type": "object",
@@ -373,7 +387,7 @@
           "items": {
             "$ref": "#/$defs/dependency"
           },
-          "description": "Directed dependency edges between cells on THIS path. Called `triggers` until 2026.09.09: the database has said `cell_dependencies` since 21000103000000 and the domain layer since release 1.5.0, and the interchange format was the estate left over. scripts/migrate_ir.py carries a document authored with the old name across."
+          "description": "Directed dependency edges with at least one end on THIS path; the other end may be on any path of the service, named by its cellRef's `path` (and `scenario`). By convention a link is listed on its source's path and its target is qualified; listing it on both of its paths is a duplicate. Called `triggers` until 2026.09.09: the database has said `cell_dependencies` since 21000103000000 and the domain layer since release 1.5.0, and the interchange format was the estate left over. scripts/migrate_ir.py carries a document authored with the old name across."
         }
       }
     },
@@ -553,7 +567,7 @@
           "description": "What kind of dependency this edge is. leads_to: the source makes the target HAPPEN, and the canvas draws an arrow. enables: the source makes the target POSSIBLE without causing it, and the canvas draws nothing — it reads in the cell panel only. Both read source-first and upstream-first, so an edge's direction can be read without checking its kind; the retired `needs` pointed the other way, which is why 2026.09.01 turned those edges around rather than renaming them where they lay. ABSENCE MEANS 'leads_to': that is the cell_dependencies.kind column default and the meaning every edge authored before 2026.08.26 already carried, so a file of bare edges migrates by its stamp alone. The pair alone is no longer an identity — a source->target pair may carry BOTH kinds as two rows, so the UUIDv5 derivation and the duplicate check both read the kind."
         }
       },
-      "description": "Directed dependency edge between two cells on the SAME path (cross-path edges are invalid). source != target, whatever the kind. `kind: leads_to` (the default) is the drawn arrow, and the kind this array held alone when it was called `triggers`; `kind: enables` is the panel-only dependency the database has stored since cell_dependencies grew the column, and which the IR could not express — and therefore silently dropped on export — until 2026.08.26."
+      "description": "Directed dependency edge between two cells of this service — on one path, or on two paths in any scenarios (ADR 0035), never in two services. Identity is the two resolved ends plus the kind, whichever path lists it. source != target, whatever the kind. `kind: leads_to` (the default) is the drawn arrow, and the kind this array held alone when it was called `triggers`; `kind: enables` is the panel-only dependency the database has stored since cell_dependencies grew the column, and which the IR could not express — and therefore silently dropped on export — until 2026.08.26."
     },
     "registryTouchpoint": {
       "type": "object",

@@ -34,7 +34,10 @@ vi.mock('@/lib/authoringRpc', async (importOriginal) => ({
   clearCellDependency: rpc.clear,
   updateCellDependency: rpc.update,
 }))
-vi.mock('@/hooks/useJumpToCell', () => ({ useJumpToCell: () => jump }))
+vi.mock('@/hooks/useJumpToCell', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/useJumpToCell')>()),
+  useJumpToCell: () => jump,
+}))
 
 import { CellDependencySections } from '@/components/blueprint/CellDependencySections'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -63,13 +66,15 @@ const elsewhere = (
   isTech: false,
   techItems: [],
   contentPreview: 'Writes the weekly report',
-  elsewhere: {
+  reachedIn: {
     pathId: 'path-report',
     pathName: 'Main route',
     scenarioId: 'scenario-report',
     scenarioName: 'Weekly class report',
     phaseName: 'Week',
     placeName: 'Weekly class report',
+    placeLabel: 'Weekly class report › Main route',
+    placeDetail: 'Main route · Weekly class report · Week',
   },
   ...patch,
 })

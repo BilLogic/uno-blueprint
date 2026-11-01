@@ -1,6 +1,7 @@
 import type {
   BlueprintCellDependency,
   BlueprintData,
+  BlueprintPath,
   BlueprintRemoteCell,
 } from '@/types/blueprint'
 
@@ -32,6 +33,8 @@ export type CrossPathLink = {
   placeName: string
   /** "Continues in …" or "Comes from …". */
   label: string
+  /** The far end's path, scenario and phase, as one line ({@link placeDetail}). */
+  placeDetail: string
 }
 
 /**
@@ -60,6 +63,18 @@ export function inPathDependencies(
 }
 
 /**
+ * Whether a far end is in the same scenario as the board looking at it —
+ * decided by id, never by name: a scenario and a path may share one.
+ * A board that does not know its scenario answers false.
+ */
+export function isSameScenario(
+  from: Pick<BlueprintPath, 'scenarioId'>,
+  scenarioId: string | undefined,
+): boolean {
+  return from.scenarioId !== undefined && from.scenarioId === scenarioId
+}
+
+/**
  * The name a marker uses for the far end: the path when the far end is on
  * another path of this board's scenario, the scenario otherwise. A scenario's
  * paths share its name, so naming the scenario there would name the place the
@@ -67,12 +82,34 @@ export function inPathDependencies(
  */
 export function crossPathPlaceName(
   blueprint: Pick<BlueprintData, 'path'>,
-  other: BlueprintRemoteCell,
+  other: Pick<BlueprintRemoteCell, 'pathName' | 'scenarioId' | 'scenarioName'>,
 ): string {
-  const sameScenario =
-    blueprint.path.scenarioId !== undefined &&
-    blueprint.path.scenarioId === other.scenarioId
-  return sameScenario ? other.pathName : other.scenarioName
+  return isSameScenario(blueprint.path, other.scenarioId)
+    ? other.pathName
+    : other.scenarioName
+}
+
+/**
+ * Where another path is, said from this board, for a list that names cells on
+ * many paths: the path alone when it is this scenario's, else the scenario
+ * and the path — "Main route" is on every scenario.
+ */
+export function crossPathPlaceLabel(
+  from: Pick<BlueprintPath, 'scenarioId'>,
+  where: Pick<BlueprintRemoteCell, 'pathName' | 'scenarioId' | 'scenarioName'>,
+): string {
+  return isSameScenario(from, where.scenarioId)
+    ? where.pathName
+    : `${where.scenarioName} › ${where.pathName}`
+}
+
+/** A far end's path, scenario and phase, as one line. */
+export function placeDetail(
+  where: Pick<BlueprintRemoteCell, 'pathName' | 'scenarioName' | 'phaseName'>,
+): string {
+  return [where.pathName, where.scenarioName, where.phaseName]
+    .filter((part): part is string => Boolean(part))
+    .join(' · ')
 }
 
 export function crossPathLabel(
@@ -137,6 +174,7 @@ export function crossPathLinksByCell(
       other,
       placeName,
       label: crossPathLabel(direction, placeName),
+      placeDetail: placeDetail(other),
     }
     const list = byCell.get(cellId)
     if (list) list.push(link)
@@ -153,14 +191,25 @@ export function crossPathLinksByCell(
   return byCell
 }
 
-/** The cross-path links on one cell, or on every cell of a slot. */
+const NO_LINKS: readonly CrossPathLink[] = Object.freeze([])
+
+/**
+ * The cross-path links on one cell, or on every cell of a slot. The same
+ * array every time for a single cell, and a shared empty one for a cell with
+ * none, so a cell face handed it re-renders only when its links change.
+ */
 export function crossPathLinksFor(
   blueprint: BlueprintData,
   cellIds: readonly (string | undefined)[],
 ): readonly CrossPathLink[] {
   const byCell = crossPathLinksByCell(blueprint)
-  if (byCell.size === 0) return []
-  return cellIds.flatMap((cellId) =>
+  if (byCell.size === 0) return NO_LINKS
+  if (cellIds.length === 1) {
+    const only = cellIds[0]
+    return (only && byCell.get(only)) || NO_LINKS
+  }
+  const links = cellIds.flatMap((cellId) =>
     cellId ? (byCell.get(cellId) ?? []) : [],
   )
+  return links.length > 0 ? links : NO_LINKS
 }

@@ -143,11 +143,17 @@ at each end wears a small marker button on its lower edge instead —
 **Continues in …** where the link leaves, **Comes from …** where it arrives —
 naming the other path when it is this scenario's, the other scenario
 otherwise. It sits over the shell's bottom inset, so it moves no row, and it is
-a sibling of the cell's button, so it takes its own Tab stop and ring. Click or
-Enter goes where a **Jump to…** cell result goes: the scenario opens on the far
-cell's path unless that path is already on the board, the camera flies and the
-far cell's panel opens (`useJumpToCell`). `enables` draws no marker, as it
-draws no arrow; the panel lists both kinds.
+a sibling of the cell's button, so it takes its own Tab stop and ring, and its
+path · scenario · phase line is its description. It is drawn only on the board
+the detail view is scoped to — the overview and the phase rows, where cells are
+inert, draw none. Click or Enter goes where a **Jump to…** cell result goes:
+the far cell's path is added to what its scenario shows (never put in place of
+it), the camera flies and the far cell's panel opens (`useJumpToCell`).
+`enables` draws no marker, as it draws no arrow; the panel lists both kinds.
+
+The board query carries edge ids only. A far end on a board the canvas already
+holds is named from that board; the rest are named by one read of `cells`, and
+a canvas with no link off any path makes no such read (`remoteCells.ts`).
 
 ## The click grammar
 

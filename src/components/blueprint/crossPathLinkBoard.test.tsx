@@ -25,12 +25,17 @@ vi.mock('@/components/blueprint/IntegratedDependencyArrows', () => ({
 vi.mock('@/contexts/SupabaseProvider', () => ({
   useSupabase: () => ({ client: null, configured: false, canWrite: false }),
 }))
-vi.mock('@/hooks/useJumpToCell', () => ({ useJumpToCell: () => vi.fn() }))
+vi.mock('@/hooks/useJumpToCell', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/useJumpToCell')>()),
+  useJumpToCell: () => vi.fn(),
+}))
 
 import { MergedCompareGrid } from '@/components/blueprint/MergedCompareGrid'
 import { StackedCompareGrid } from '@/components/blueprint/StackedCompareGrid'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { BlueprintCellDetailProvider } from '@/contexts/BlueprintCellDetailContext'
 import { EntityDetailProvider } from '@/contexts/EntityDetailContext'
+import { ScenarioBoardScopeContext } from '@/contexts/scenarioBoardScopeContext'
 import { buildCompareModel } from '@/lib/compareSlots'
 import type { BlueprintData, BlueprintRemoteCell } from '@/types/blueprint'
 
@@ -145,7 +150,11 @@ describe.each([
   it('marks the link on the cells at both its ends', () => {
     const { container } = render(
       <EntityDetailProvider>
-        <TooltipProvider>{grid()}</TooltipProvider>
+        <BlueprintCellDetailProvider enabled>
+          <ScenarioBoardScopeContext.Provider value>
+            <TooltipProvider>{grid()}</TooltipProvider>
+          </ScenarioBoardScopeContext.Provider>
+        </BlueprintCellDetailProvider>
       </EntityDetailProvider>,
     )
     expect(markers(container)).toEqual([
@@ -157,7 +166,11 @@ describe.each([
   it('hands the arrows the in-path links and never the one between paths', () => {
     render(
       <EntityDetailProvider>
-        <TooltipProvider>{grid()}</TooltipProvider>
+        <BlueprintCellDetailProvider enabled>
+          <ScenarioBoardScopeContext.Provider value>
+            <TooltipProvider>{grid()}</TooltipProvider>
+          </ScenarioBoardScopeContext.Provider>
+        </BlueprintCellDetailProvider>
       </EntityDetailProvider>,
     )
     const all = handed.flat()

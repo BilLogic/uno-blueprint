@@ -540,4 +540,37 @@ describe('the picker across the service', () => {
         ?.targetLabel,
     ).toBe(label)
   })
+  it('scopes a far end by its scenario id, not by whether its scenario and path share a name', () => {
+    const own: BlueprintData = {
+      ...OWN,
+      dependencies: [
+        {
+          id: 'dependency-twin',
+          source_cell_id: 'cell-guest-arrives',
+          target_cell_id: 'cell-twin',
+          kind: 'leads_to',
+          note: null,
+        },
+      ],
+      remoteCells: [
+        {
+          id: 'cell-twin',
+          content: 'Picks up the report',
+          laneName: 'Guest',
+          stepName: 'Leaves',
+          pathId: 'path-twin',
+          // Another scenario, named exactly like its path.
+          pathName: 'Main route',
+          scenarioId: 'scenario-twin',
+          scenarioName: 'Main route',
+          phaseName: null,
+        },
+      ],
+    }
+    const facts = readAcross([own])
+    expect(
+      facts.existingDependencies.find((entry) => entry.id === 'dependency-twin')
+        ?.targetLabel,
+    ).toBe('Main route › Main route · Leaves · Guest')
+  })
 })

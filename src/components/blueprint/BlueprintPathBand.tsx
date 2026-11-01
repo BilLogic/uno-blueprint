@@ -14,7 +14,6 @@ import {
 } from '@/components/blueprint/BlueprintLabelRail'
 import { ComparePathSectionFrame } from '@/components/blueprint/ComparePathSectionFrame'
 import { IntegratedDependencyArrows } from '@/components/blueprint/IntegratedDependencyArrows'
-import { crossPathLinksFor } from '@/lib/crossPathLinks'
 import { BlueprintStoryboardPlayButton } from '@/components/blueprint/BlueprintStoryboardPlayButton'
 import {
   BLUEPRINT_LANE_ROW_GAP,
@@ -27,6 +26,7 @@ import {
 } from '@/lib/blueprintLayout'
 import { cellResources } from '@/lib/cellResources'
 import { cellTouchpoints } from '@/lib/cellTouchpoints'
+import { crossPathLinksFor, type CrossPathLink } from '@/lib/crossPathLinks'
 import {
   buildCellLookup,
   getCellAt,
@@ -334,6 +334,18 @@ function CompareLaneRow({
     [blueprint.steps],
   )
   const isTouchpointLane = shouldUseTouchpointCellContent(lane)
+  // Each step's cross-path links, worked out once per board and lane rather
+  // than per render of every cell — a slot's list is a fresh array otherwise.
+  const crossPathLinksByStep = useMemo(() => {
+    const byStep = new Map<string, readonly CrossPathLink[]>()
+    for (const step of blueprint.steps) {
+      const ids = getCellsAt(cellLookup, blueprintLane.id, step.id).map(
+        (entry) => entry.id,
+      )
+      byStep.set(step.id, crossPathLinksFor(blueprint, ids))
+    }
+    return byStep
+  }, [blueprint, blueprintLane.id, cellLookup])
   const laneStyle = getBlueprintLaneStyle(
     lane.name,
     getBlueprintLaneZone(lane, lanes),
@@ -403,10 +415,7 @@ function CompareLaneRow({
         compact={compact}
         storyboardPictures={storyboardPictures}
         slotCells={slotCells}
-        crossPathLinks={crossPathLinksFor(
-          blueprint,
-          slotCells ? slotCells.map((entry) => entry.id) : [cell?.id],
-        )}
+        crossPathLinks={crossPathLinksByStep.get(step.id)}
         selectionContext={
           scenarioName && (cell?.id || isStoryboardLane)
             ? {

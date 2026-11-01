@@ -131,6 +131,12 @@ export type OpenScenarioOptions = {
    * change is visible. No-op on desktop (no drawer is registered).
    */
   closeNav?: boolean
+  /**
+   * Also show this path of the scenario, beside the one it opens on — the far
+   * end of a link the reader followed. Added to the selection, never instead
+   * of it.
+   */
+  withPath?: string
 }
 
 /**
@@ -189,7 +195,7 @@ function useOpenScenarioAction(
       // leave the phase the reader had since collapsed shut.
       openPhaseForNavigation(scenarioId)
       selectScenario(scenarioId)
-      selectOpenScenarioDefaultPath(scenarioId)
+      selectOpenScenarioDefaultPath(scenarioId, opts?.withPath)
       if (opts?.closeNav) closeOpenScenarioNav()
     },
     [selectScenario, openPhaseForNavigation],

@@ -10,7 +10,11 @@ import type {
 } from '@/types/blueprint'
 import { cellResources } from '@/lib/cellResources'
 import { cellTouchpoints } from '@/lib/cellTouchpoints'
-import { crossPathPlaceName } from '@/lib/crossPathLinks'
+import {
+  crossPathPlaceLabel,
+  crossPathPlaceName,
+  placeDetail,
+} from '@/lib/crossPathLinks'
 
 export type BlueprintCellConnectionKind = 'interaction' | 'connection'
 
@@ -42,22 +46,29 @@ export type BlueprintCellConnection = {
   contentPreview: string
   /**
    * Set when the other end is on ANOTHER path: where it is, so the row can
-   * name it and go there. Absent for an end on this board. `stepIndex` is -1
-   * for such an end — its column is a fact about a board this one did not
-   * read — and `stepName` carries the step instead.
+   * name it and go there — the same `reached in` the impact tracer reports.
+   * Absent for an end on this board. `stepIndex` is -1 for such an end — its
+   * column is a fact about a board this one did not read — and `stepName`
+   * carries the step instead.
    */
-  elsewhere?: ConnectionElsewhere
+  reachedIn?: ConnectionReachedIn
 }
 
-/** Where a connection's other end sits when it is not on this board. */
-export type ConnectionElsewhere = {
-  pathId: string
-  pathName: string
-  scenarioId: string
-  scenarioName: string
-  phaseName: string | null
+/**
+ * Where a connection's other end sits when it is not on this board: the far
+ * cell's own place fields, and the three ways the panel says them, each
+ * decided once here.
+ */
+export type ConnectionReachedIn = Pick<
+  BlueprintRemoteCell,
+  'pathId' | 'pathName' | 'scenarioId' | 'scenarioName' | 'phaseName'
+> & {
   /** The path's name when it is this scenario's, else the scenario's. */
   placeName: string
+  /** The path alone when it is this scenario's, else "Scenario › Path". */
+  placeLabel: string
+  /** Path · scenario · phase. */
+  placeDetail: string
 }
 
 export type BlueprintCellConnections = {
@@ -111,13 +122,15 @@ function toRemoteConnection(
     isTech: false,
     techItems: [],
     contentPreview: contentPreview(remote.content),
-    elsewhere: {
+    reachedIn: {
       pathId: remote.pathId,
       pathName: remote.pathName,
       scenarioId: remote.scenarioId,
       scenarioName: remote.scenarioName,
       phaseName: remote.phaseName,
       placeName: crossPathPlaceName(blueprint, remote),
+      placeLabel: crossPathPlaceLabel(blueprint.path, remote),
+      placeDetail: placeDetail(remote),
     },
   }
 }

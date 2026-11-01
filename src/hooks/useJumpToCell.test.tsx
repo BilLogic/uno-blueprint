@@ -1,12 +1,11 @@
 // @vitest-environment jsdom
 /**
- * Going to a cell on another path: the scenario opens on that path when the
- * board is not showing it, and is left alone when it is.
+ * Going to a cell on another path: the path joins what the board shows —
+ * never replaces it — and nothing is written to the phone's path memory.
  *
  * Stubbed at the seams the hook calls through — the editor's `openScenario`,
- * the path store's selection, the path memory and the focus pipeline — so
- * what is asserted is the order of calls a reader's click turns into, which
- * is the whole of the hook.
+ * the path store and the focus pipeline — so what is asserted is the calls a
+ * reader's click turns into, which is the whole of the hook.
  */
 import { renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -21,18 +20,17 @@ const seams = vi.hoisted(() => ({
 vi.mock('@/contexts/EditorContext', () => ({
   useOpenScenarioOptional: () =>
     seams.editor
-      ? (scenarioId: string) => seams.calls.push(`open ${scenarioId}`)
+      ? (scenarioId: string, opts: { withPath?: string }) =>
+          seams.calls.push(`open ${scenarioId} with ${opts.withPath}`)
       : null,
   useSelectedScenarioIdOptional: () => seams.selectedScenarioId,
 }))
 vi.mock('@/contexts/PathSelectionContext', () => ({
   usePathSelectionContextOptional: () => ({
     getSelectedPathIds: () => seams.selectedPaths,
+    setSelectedPathIds: (scenarioId: string, ids: string[]) =>
+      seams.calls.push(`show ${scenarioId} ${ids.join('+')}`),
   }),
-}))
-vi.mock('@/lib/pathMemory', () => ({
-  writeLastViewedPath: (scenarioId: string, pathId: string) =>
-    seams.calls.push(`remember ${scenarioId} ${pathId}`),
 }))
 vi.mock('@/lib/openScenarioSeam', () => ({
   activateBaseView: () => seams.calls.push('base view'),
@@ -49,39 +47,41 @@ vi.mock('@/lib/canvasFocusCells', () => ({
 }))
 
 import { useJumpToCell } from '@/hooks/useJumpToCell'
+import { storageKey } from '@/lib/storageNamespace'
 
 afterEach(() => {
   seams.calls.length = 0
   seams.selectedScenarioId = 'scenario-goals'
   seams.selectedPaths = ['path-main']
   seams.editor = true
+  window.localStorage.clear()
 })
 
 const jumpWith = () => renderHook(() => useJumpToCell()).result.current
 
 describe('going to a cell on another path', () => {
-  it('opens another scenario on the far cell’s path, then flies there and opens its panel', () => {
+  it('opens another scenario with the far cell’s path beside the one it opens on, then flies and opens the panel', () => {
     jumpWith()!({
       cellId: 'cell-report',
       pathId: 'path-report',
       scenarioId: 'scenario-report',
     })
     expect(seams.calls).toEqual([
-      'remember scenario-report path-report',
-      'open scenario-report',
+      'open scenario-report with path-report',
       'focus scenario-report cell-report +panel',
     ])
   })
 
-  it('switches this scenario to a path the board is not showing', () => {
+  it('adds a path this scenario is not showing, keeping the ones it is', () => {
+    seams.selectedPaths = ['path-main', 'path-late']
     jumpWith()!({
       cellId: 'cell-detour',
       pathId: 'path-detour',
       scenarioId: 'scenario-goals',
     })
     expect(seams.calls).toEqual([
-      'remember scenario-goals path-detour',
-      'open scenario-goals',
+      'base view',
+      'show scenario-goals path-main+path-late+path-detour',
       'focus scenario-goals cell-detour +panel',
     ])
   })
@@ -97,6 +97,15 @@ describe('going to a cell on another path', () => {
       'base view',
       'focus scenario-goals cell-detour +panel',
     ])
+  })
+
+  it('writes nothing to the phone’s path memory', () => {
+    jumpWith()!({
+      cellId: 'cell-report',
+      pathId: 'path-report',
+      scenarioId: 'scenario-report',
+    })
+    expect(window.localStorage.getItem(storageKey('mobile-paths'))).toBeNull()
   })
 
   it('offers no jump where there is no editor to navigate with', () => {

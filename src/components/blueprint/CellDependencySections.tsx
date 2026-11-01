@@ -19,7 +19,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { useBlueprintCellDetailOptional } from '@/contexts/BlueprintCellDetailContext'
-import { useJumpToCell } from '@/hooks/useJumpToCell'
+import { cellJumpTarget, useJumpToCell } from '@/hooks/useJumpToCell'
 import type {
   BlueprintCellConnection,
   BlueprintCellConnections,
@@ -112,7 +112,7 @@ const WHY_LINE_QUIET_CLASS = '[@media(pointer:fine)]:sr-only'
  * step's name.
  */
 function connectionStepLabel(connection: BlueprintCellConnection): string {
-  return connection.elsewhere
+  return connection.reachedIn
     ? connection.stepName
     : `Step ${connection.stepIndex + 1}`
 }
@@ -120,19 +120,11 @@ function connectionStepLabel(connection: BlueprintCellConnection): string {
 /** Lane and step, as the row itself says them — and as the pencil names them. */
 function connectionRowLabel(connection: BlueprintCellConnection): string {
   const label = `${connection.laneName} · ${connectionStepLabel(connection)}`
-  return connection.elsewhere
-    ? `${label} in ${connection.elsewhere.placeName}`
+  return connection.reachedIn
+    ? `${label} in ${connection.reachedIn.placeName}`
     : label
 }
 
-/** The path, scenario and phase of an end on another path, as one line. */
-function elsewhereLine(connection: BlueprintCellConnection): string | null {
-  const elsewhere = connection.elsewhere
-  if (!elsewhere) return null
-  return [elsewhere.pathName, elsewhere.scenarioName, elsewhere.phaseName]
-    .filter((part): part is string => Boolean(part))
-    .join(' · ')
-}
 
 function DependencyRow({
   connection,
@@ -152,7 +144,7 @@ function DependencyRow({
 } & SelectHandlers) {
   const detail = useBlueprintCellDetailOptional()
   const jump = useJumpToCell()
-  const elsewhere = elsewhereLine(connection)
+  const reachedIn = connection.reachedIn
 
   const preview = (techItem: string | null) => {
     detail?.setPreviewHover({ cellId: connection.cellId, techItem })
@@ -171,17 +163,13 @@ function DependencyRow({
         clearPreview()
         // An end on another path is not on this board, so selecting it here
         // would select nothing: go there instead, as the cell's marker does.
-        if (connection.elsewhere) {
-          jump?.({
-            cellId: connection.cellId,
-            pathId: connection.elsewhere.pathId,
-            scenarioId: connection.elsewhere.scenarioId,
-          })
+        if (reachedIn) {
+          jump?.(cellJumpTarget(connection.cellId, reachedIn))
           return
         }
         onCellSelect(connection.cellId)
       }}
-      data-dependency-elsewhere={connection.elsewhere ? '' : undefined}
+      data-dependency-reached-in={reachedIn ? '' : undefined}
     >
       <span className="flex min-w-0 items-center gap-[7px]">
         <DirectionIcon direction={direction} />
@@ -193,9 +181,9 @@ function DependencyRow({
           </span>
         </span>
       </span>
-      {elsewhere ? (
+      {reachedIn ? (
         <span className={cn('truncate text-xs text-muted-foreground', detailIndentClass)}>
-          {elsewhere}
+          {reachedIn.placeDetail}
         </span>
       ) : null}
       {connection.contentPreview && !connection.isTech ? (
@@ -403,36 +391,32 @@ export function CellDependencySections({
     )
 
   /** An arriving row: flat text, and in edit mode the way to its owner. */
-  const arrivingRow = (connection: BlueprintCellConnection, keyPrefix: string) => (
-    <DependencyRow
-      key={`${keyPrefix}:${connection.dependencyId}`}
-      connection={connection}
-      direction={direction(connection, 'in')}
-      action={
-        rowEditing ? (
-          <InboundRowPencil
-            ownerCellId={connection.cellId}
-            ownerLabel={connectionRowLabel(connection)}
-            onEditFromOwner={
-              // The owner of an arrival from another path is on that path:
-              // the pencil goes there, where the row is the owner's to edit.
-              connection.elsewhere
-                ? (cellId) => {
-                    const elsewhere = connection.elsewhere!
-                    jump?.({
-                      cellId,
-                      pathId: elsewhere.pathId,
-                      scenarioId: elsewhere.scenarioId,
-                    })
-                  }
-                : rowEditing.onEditFromOwner
-            }
-          />
-        ) : undefined
-      }
-      {...handlers}
-    />
-  )
+  const arrivingRow = (connection: BlueprintCellConnection, keyPrefix: string) => {
+    const ownerReachedIn = connection.reachedIn
+    return (
+      <DependencyRow
+        key={`${keyPrefix}:${connection.dependencyId}`}
+        connection={connection}
+        direction={direction(connection, 'in')}
+        action={
+          rowEditing ? (
+            <InboundRowPencil
+              ownerCellId={connection.cellId}
+              ownerLabel={connectionRowLabel(connection)}
+              onEditFromOwner={
+                // The owner of an arrival from another path is on that path:
+                // the pencil goes there, where the row is the owner's to edit.
+                ownerReachedIn
+                  ? (cellId) => jump?.(cellJumpTarget(cellId, ownerReachedIn))
+                  : rowEditing.onEditFromOwner
+              }
+            />
+          ) : undefined
+        }
+        {...handlers}
+      />
+    )
+  }
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>

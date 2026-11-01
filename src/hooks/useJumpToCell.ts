@@ -6,7 +6,7 @@ import {
 import { usePathSelectionContextOptional } from '@/contexts/PathSelectionContext'
 import { requestScenarioCellFocus } from '@/lib/canvasFocusCells'
 import { activateBaseView } from '@/lib/openScenarioSeam'
-import { writeLastViewedPath } from '@/lib/pathMemory'
+import type { BlueprintRemoteCell } from '@/types/blueprint'
 
 /** Where a cell is, as much as going there needs. */
 export type CellJumpTarget = {
@@ -15,18 +15,28 @@ export type CellJumpTarget = {
   scenarioId: string
 }
 
+/** The jump target for a cell, from anything that says where it is. */
+export function cellJumpTarget(
+  cellId: string,
+  where: Pick<BlueprintRemoteCell, 'pathId' | 'scenarioId'>,
+): CellJumpTarget {
+  return { cellId, pathId: where.pathId, scenarioId: where.scenarioId }
+}
+
 /**
  * Go to a cell anywhere in the service: select it and bring the camera to it,
  * across scenarios, phases and paths — the jump a search result makes, plus
  * the path, because a link's far end may be on a path the board is not
  * showing.
  *
- * When the cell's path is already on the board — its scenario open, its path
- * among the ones shown — nothing about the board changes and the camera
- * flies, so a reader comparing two paths keeps both. Otherwise the scenario
- * opens on that path: it is remembered as the path last read there, which is
- * the path `openScenario` lands on. The focus request waits for the board if
- * it is not drawn yet, as a search result's does.
+ * The far cell's path is ADDED to what the board shows, never put in place of
+ * it: a reader comparing two paths who follows a link to a third keeps the
+ * two. When the scenario is open, the path joins its selection; when it is
+ * not, the scenario opens as it always does and the path joins the one it
+ * opens on. Nothing is remembered — the path memory is the phone's, and a
+ * link followed is not a path chosen. When the path is already on the board
+ * the camera just flies. The focus request waits for the board if it is not
+ * drawn yet, as a search result's does.
  *
  * Null where there is no editor to navigate with.
  */
@@ -37,17 +47,21 @@ export function useJumpToCell(): ((target: CellJumpTarget) => void) | null {
 
   const jump = useCallback(
     (target: CellJumpTarget) => {
-      const onBoard =
-        selectedScenarioId === target.scenarioId &&
-        (pathSelection?.getSelectedPathIds(target.scenarioId) ?? []).includes(
-          target.pathId,
-        )
-      if (onBoard) {
+      if (selectedScenarioId === target.scenarioId) {
         // A slice or presentation tab may be in front of the board.
         activateBaseView()
+        const shown = pathSelection?.getSelectedPathIds(target.scenarioId) ?? []
+        if (!shown.includes(target.pathId)) {
+          pathSelection?.setSelectedPathIds(target.scenarioId, [
+            ...shown,
+            target.pathId,
+          ])
+        }
       } else {
-        writeLastViewedPath(target.scenarioId, target.pathId)
-        openScenario?.(target.scenarioId, { closeNav: true })
+        openScenario?.(target.scenarioId, {
+          closeNav: true,
+          withPath: target.pathId,
+        })
       }
       requestScenarioCellFocus(target.scenarioId, target.cellId, {
         openDetail: true,

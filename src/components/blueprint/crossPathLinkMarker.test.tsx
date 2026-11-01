@@ -16,12 +16,15 @@ const jump = vi.hoisted(() => ({
   fn: vi.fn(),
   available: true,
 }))
-vi.mock('@/hooks/useJumpToCell', () => ({
+vi.mock('@/hooks/useJumpToCell', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/useJumpToCell')>()),
   useJumpToCell: () => (jump.available ? jump.fn : null),
 }))
 
 import { CompareCellBlock } from '@/components/blueprint/CompareCellBlock'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { BlueprintCellDetailProvider } from '@/contexts/BlueprintCellDetailContext'
+import { ScenarioBoardScopeContext } from '@/contexts/scenarioBoardScopeContext'
 import { getBlueprintLaneStyle } from '@/lib/blueprintTheme'
 import type { CrossPathLink } from '@/lib/crossPathLinks'
 import type { BlueprintRemoteCell } from '@/types/blueprint'
@@ -62,6 +65,7 @@ const out: CrossPathLink = {
   other: REPORT,
   placeName: 'Weekly class report',
   label: 'Continues in Weekly class report',
+  placeDetail: 'Main route · Weekly class report · Week',
 }
 const arriving: CrossPathLink = {
   dependencyId: 'edge-in',
@@ -70,20 +74,33 @@ const arriving: CrossPathLink = {
   other: CATCH_UP,
   placeName: 'Missed session',
   label: 'Comes from Missed session',
+  placeDetail: 'Missed session · Goal setting · Week',
 }
 
-function draw(links: readonly CrossPathLink[] | undefined) {
+/**
+ * One cell face. By default on the board the detail view is scoped to, where
+ * cells are live; `live: false` is the overview and the phase rows, where they
+ * are inert.
+ */
+function draw(
+  links: readonly CrossPathLink[] | undefined,
+  { live = true, inScope = true } = {},
+) {
   return render(
-    <TooltipProvider>
-      <CompareCellBlock
-        cellId="cell-b"
-        stepIndex={1}
-        content="Reviews the goal"
-        laneStyle={laneStyle}
-        variant="default"
-        crossPathLinks={links}
-      />
-    </TooltipProvider>,
+    <BlueprintCellDetailProvider enabled={live}>
+      <ScenarioBoardScopeContext.Provider value={inScope}>
+        <TooltipProvider>
+          <CompareCellBlock
+            cellId="cell-b"
+            stepIndex={1}
+            content="Reviews the goal"
+            laneStyle={laneStyle}
+            variant="default"
+            crossPathLinks={links}
+          />
+        </TooltipProvider>
+      </ScenarioBoardScopeContext.Provider>
+    </BlueprintCellDetailProvider>,
   )
 }
 
@@ -152,6 +169,25 @@ describe('the cross-path marker', () => {
     expect(marker.getAttribute('aria-disabled')).toBe('true')
     fireEvent.click(marker)
     expect(jump.fn).not.toHaveBeenCalled()
+  })
+
+  it('says exactly where the far end is to a reader who cannot hover', () => {
+    draw([out])
+    const marker = screen.getByRole('button', { name: /Continues in/ })
+    const described = document.getElementById(
+      marker.getAttribute('aria-describedby')!,
+    )
+    expect(described?.textContent).toBe('Main route · Weekly class report · Week')
+  })
+
+  it('is not drawn where cells are inert — the overview and the phase rows', () => {
+    const { container } = draw([out], { live: false })
+    expect(container.querySelector('[data-cross-path-link]')).toBeNull()
+  })
+
+  it('is not drawn on a board that is not the one in scope', () => {
+    const { container } = draw([out], { inScope: false })
+    expect(container.querySelector('[data-cross-path-link]')).toBeNull()
   })
 
   it('draws nothing on a cell whose links stay on its path', () => {

@@ -9,6 +9,7 @@ import {
   type BlueprintCellConnection,
   type BlueprintCellConnections,
 } from '@/lib/blueprintCellConnections'
+import { crossPathPlaceLabel } from '@/lib/crossPathLinks'
 import { getBlueprintStepTechItems } from '@/lib/blueprintStepTech'
 import {
   getBlueprintLaneStyle,
@@ -56,15 +57,14 @@ function cellPositionLabel(
 }
 
 /**
- * Where another board is, said from this one: the path's name when it is
- * another path of the same scenario, else the scenario's name and the path's.
+ * Where another board is, said from this one — `crossPathPlaceLabel`'s words,
+ * so a loaded board and a far end the canvas did not load read alike. A board
+ * that cannot say its scenario is named by its path alone.
  */
 function boardPlaceLabel(from: BlueprintData, board: BlueprintData): string {
-  const sameScenario =
-    from.path.scenarioId !== undefined &&
-    from.path.scenarioId === board.path.scenarioId
-  if (sameScenario || !board.path.scenarioName) return board.path.name
-  return `${board.path.scenarioName} › ${board.path.name}`
+  const { scenarioId, scenarioName, name } = board.path
+  if (!scenarioId || !scenarioName) return name
+  return crossPathPlaceLabel(from.path, { pathName: name, scenarioId, scenarioName })
 }
 
 /**
@@ -97,17 +97,11 @@ function boardCandidates(
     .map(({ cellId, label }) => ({ cellId, label }))
 }
 
-/** A far end on a board the canvas did not load, named from the edge's embed. */
-function elsewhereEndpointLabel(connection: BlueprintCellConnection): string {
+/** A far end on another path, named where it is — scope decided by scenario id. */
+function reachedInEndpointLabel(connection: BlueprintCellConnection): string {
   const position = `${connection.stepName} · ${connection.laneName}`
-  const elsewhere = connection.elsewhere
-  if (!elsewhere) return position
-  // The same place words a loaded board gets from `boardPlaceLabel`.
-  const place =
-    elsewhere.placeName === elsewhere.pathName
-      ? elsewhere.pathName
-      : `${elsewhere.scenarioName} › ${elsewhere.pathName}`
-  return `${place} · ${position}`
+  const reachedIn = connection.reachedIn
+  return reachedIn ? `${reachedIn.placeLabel} · ${position}` : position
 }
 
 /**
@@ -401,11 +395,11 @@ export function useCellPanelFacts({
     const recorded = [...connections.outgoing, ...connections.incoming]
       .filter(
         (connection) =>
-          connection.elsewhere && !offered.has(connection.cellId),
+          connection.reachedIn && !offered.has(connection.cellId),
       )
       .map((connection) => ({
         cellId: connection.cellId,
-        label: elsewhereEndpointLabel(connection),
+        label: reachedInEndpointLabel(connection),
       }))
     const seen = new Set<string>()
     return [...own, ...others, ...recorded].filter((entry) => {
@@ -423,8 +417,8 @@ export function useCellPanelFacts({
       connections.outgoing.map((connection) => ({
         id: connection.dependencyId,
         targetCellId: connection.cellId,
-        targetLabel: connection.elsewhere
-          ? elsewhereEndpointLabel(connection)
+        targetLabel: connection.reachedIn
+          ? reachedInEndpointLabel(connection)
           : cellPositionLabel(
               connection.stepIndex,
               connection.stepName,

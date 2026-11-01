@@ -8,9 +8,9 @@ in any agent tool.
 
 What you know about the business lives in the blueprint: its cells, the
 evidence behind each cell, and the findings ledger. A conversation ends; the
-blueprint stays. So read the blueprint for what you know, and leave what
-you learn there: a cell changed on a yes, a suggested change, a finding, or
-a queued question.
+blueprint stays. So read the blueprint for what you know. What you learn
+reaches it through the three tiers below: a record freely, a change on a
+yes.
 
 ## Who you serve
 

@@ -87,6 +87,23 @@ vi.mock('@/lib/authoringRpc', async (importOriginal) => ({
   },
 }))
 
+/**
+ * A cell count over the cap, for the one case that needs it. The canvas loop
+ * hands admission no count of its own, so the case stands one in through the
+ * real `admitToolCall`: the sentence the model reads is admission's own.
+ */
+const overCellLimit = vi.hoisted(() => ({ name: null as string | null }))
+vi.mock('@/lib/agent/tools/admission', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/agent/tools/admission')>()
+  return {
+    ...actual,
+    admitToolCall: (input: Parameters<typeof actual.admitToolCall>[0]) =>
+      actual.admitToolCall(input.name === overCellLimit.name
+        ? { ...input, facts: { ...input.facts, cellsThisCall: actual.WRITE_CELL_LIMIT + 1 } }
+        : input),
+  }
+})
+
 import { setActiveService } from '@/contexts/activeService'
 import { AuthoringError } from '@/lib/authoringErrors'
 import { sendToAgent, stopAgent, useAgentRun } from '@/lib/agent/loop'
@@ -173,6 +190,7 @@ beforeEach(() => {
   phasesCreated.length = 0
   phaseFailure.error = null
   board.reads = 0
+  overCellLimit.name = null
 })
 
 afterEach(() => {
@@ -746,6 +764,28 @@ describe('a write batch the send has already spent', () => {
     expect(events.filter((event) => event.kind === 'status')).toEqual([
       { kind: 'status', text: BATCH_PAUSED_STATUS },
     ])
+  })
+})
+
+describe('a write over the cell cap', () => {
+  it('passes the refusal to the model as the call\'s answer, dispatches nothing, and adds no row of its own', async () => {
+    setActiveService({ id: 'svc-1', slug: 'rooftop-retrofit', name: 'Rooftop Retrofit' })
+    overCellLimit.name = 'create_phase'
+    provider.turns = [
+      { parts: [call('c1', 'create_phase', { name: 'Too wide' })], stopReason: 'tool_use' },
+      { parts: [{ type: 'text', text: 'Splitting the call.' }], stopReason: 'end' },
+    ]
+
+    const events = await send({ client, text: 'Add a phase' })
+
+    expect(phasesCreated).toEqual([])
+    expect(answerTo('c1')).toMatchObject({
+      result: 'This call touches more than 50 cells. Split it into calls touching at most 50 cells each.',
+      isError: true,
+    })
+    // The sentence is the whole consequence: no pause, no suppressed-call row.
+    expect(events.filter((event) => event.kind === 'status' || event.kind === 'tool')).toEqual([])
+    expect(provider.inputs).toHaveLength(2)
   })
 })
 

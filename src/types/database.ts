@@ -1433,6 +1433,15 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      agent_state_drift: {
+        Args: { p_base: Json; p_now: Json }
+        Returns: string
+      }
+      agent_state_moved: {
+        Args: { p_now: Json; p_was: Json }
+        Returns: boolean
+      }
+      agent_state_noun: { Args: { p_key: string }; Returns: string }
       agent_tool_state: { Args: { p_args: Json }; Returns: Json }
       agent_tool_transaction: {
         Args: {
@@ -1455,7 +1464,15 @@ export type Database = {
         }
         Returns: Json
       }
+      approve_cell_content_in_session: {
+        Args: { p_id: string; p_session_id: string }
+        Returns: Json
+      }
       approve_cell_content_suggestion: { Args: { p_id: string }; Returns: Json }
+      approve_proposal_in_session: {
+        Args: { p_id: string; p_session_id: string }
+        Returns: Json
+      }
       approve_suggested_change: { Args: { p_id: string }; Returns: Json }
       caller_profile_id: { Args: Record<PropertyKey, never>; Returns: string }
       cell_natural_key: { Args: { cell_id: string }; Returns: string }

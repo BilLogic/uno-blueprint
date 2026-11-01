@@ -125,3 +125,104 @@ begin
   end;
 end $$;
 rollback;
+
+-- Approval re-checks every row a proposal names, nested cells and a step's
+-- place included, and logs the approver's own session and author kind.
+begin;
+select set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+set local role authenticated;
+do $$
+declare service uuid:='f0000000-0000-4000-8000-000000000010'; session uuid:=gen_random_uuid(); approver_session uuid:=gen_random_uuid();
+  reviewer text:='{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}';
+  contributor text:='{"sub":"c0000000-0000-4000-8000-000000000002","role":"authenticated"}';
+  result jsonb; phase uuid; scenario uuid; path uuid; lane uuid; first_step uuid; second_step uuid; third_step uuid;
+  cell uuid; second uuid; slice uuid; proposal uuid; records int; logged public.authoring_changes; seen uuid[];
+begin
+  result:=public.run_agent_tool('create_phase','{"name":"Recheck phase"}',session,service,true); phase:=(result->>'result')::uuid;
+  result:=public.run_agent_tool('create_scenario',jsonb_build_object('phase_id',phase,'name','Recheck scenario','step_count',3),session,service,true);
+  scenario:=(result->'result'->>'scenario_id')::uuid; path:=(result->'result'->>'path_id')::uuid;
+  perform public.run_agent_tool('create_lane',jsonb_build_object('scenario_id',scenario,'name','Team','lane_role','frontstage_actions'),session,service,true);
+  select id into lane from public.lanes where path_id=path order by position limit 1;
+  select step_id into first_step from public.path_steps where path_id=path order by position limit 1;
+  select step_id into second_step from public.path_steps where path_id=path order by position offset 1 limit 1;
+  select step_id into third_step from public.path_steps where path_id=path order by position offset 2 limit 1;
+  perform public.run_agent_tool('upsert_cell',jsonb_build_object('path_id',path,'lane_id',lane,'step_id',first_step,'content','First action'),session,service,true);
+  perform public.run_agent_tool('upsert_cell',jsonb_build_object('path_id',path,'lane_id',lane,'step_id',second_step,'content','Second action'),session,service,true);
+  select id into cell from public.cells where path_id=path and step_id=first_step;
+  select id into second from public.cells where path_id=path and step_id=second_step;
+  result:=public.run_agent_tool('create_slice',jsonb_build_object('title','Recheck brief','kind','journey','cell_ids',jsonb_build_array(cell)),session,service,true);
+  slice:=(result->'result'->>'id')::uuid;
+
+  -- A slice's cited cell changed.
+  perform set_config('request.jwt.claims',contributor,true);
+  proposal:=(public.run_agent_tool('create_slice',jsonb_build_object('title','Proposed brief','kind','journey','cell_ids',jsonb_build_array(cell,second)),session,service,true)->>'suggested_change_id')::uuid;
+  perform set_config('request.jwt.claims',reviewer,true);
+  perform public.run_agent_tool('update_cell',jsonb_build_object('cell_id',second,'content','Second action, reworded'),session,service,true);
+  select count(*) into records from public.authoring_changes;
+  begin perform public.approve_suggested_change(proposal); raise exception 'approval ignored a cited cell that changed';
+  exception when others then if sqlerrm<>'A cell this proposal cites changed since this proposal. Read it and propose again; nothing was written.' then raise; end if; end;
+  if exists(select 1 from public.slices where title='Proposed brief') or (select status from public.suggested_changes where id=proposal)<>'pending'
+    or (select count(*) from public.authoring_changes)<>records then raise exception 'a refused approval wrote'; end if;
+
+  -- The step a proposal names moved along its path.
+  perform set_config('request.jwt.claims',contributor,true);
+  proposal:=(public.run_agent_tool('upsert_cell',jsonb_build_object('path_id',path,'lane_id',lane,'step_id',third_step,'content','Proposed action'),session,service,true)->>'suggested_change_id')::uuid;
+  perform set_config('request.jwt.claims',reviewer,true);
+  perform public.run_agent_tool('create_step',jsonb_build_object('path_id',path,'name','Earlier step','at_position',0),session,service,true);
+  select count(*) into records from public.authoring_changes;
+  begin perform public.approve_suggested_change(proposal); raise exception 'approval ignored a step that moved';
+  exception when others then if sqlerrm<>'The proposed step moved since this proposal. Read it and propose again; nothing was written.' then raise; end if; end;
+  if exists(select 1 from public.cells where content='Proposed action') or (select count(*) from public.authoring_changes)<>records then raise exception 'a refused step approval wrote'; end if;
+
+  -- A cell inside a slide moved.
+  perform set_config('request.jwt.claims',contributor,true);
+  proposal:=(public.run_agent_tool('replace_slides',jsonb_build_object('slice_id',slice,'slides',jsonb_build_array(jsonb_build_object('cells',jsonb_build_array(cell)))),session,service,true)->>'suggested_change_id')::uuid;
+  perform set_config('request.jwt.claims',reviewer,true);
+  execute 'reset role';
+  update public.cells set step_id=third_step where id=cell;
+  execute 'set local role authenticated';
+  select count(*) into records from public.authoring_changes;
+  begin perform public.approve_suggested_change(proposal); raise exception 'approval ignored a slide cell that moved';
+  exception when others then if sqlerrm<>'A cell this proposal cites moved since this proposal. Read it and propose again; nothing was written.' then raise; end if; end;
+  if (select count(*) from public.authoring_changes)<>records then raise exception 'a refused slide approval wrote'; end if;
+
+  -- The path a new path copies its lanes from changed.
+  perform set_config('request.jwt.claims',contributor,true);
+  proposal:=(public.run_agent_tool('create_path',jsonb_build_object('scenario_id',scenario,'name','Proposed path','lane_source_path_id',path),session,service,true)->>'suggested_change_id')::uuid;
+  perform set_config('request.jwt.claims',reviewer,true);
+  perform public.run_agent_tool('update_path',jsonb_build_object('path_id',path,'name','Renamed path'),session,service,true);
+  begin perform public.approve_suggested_change(proposal); raise exception 'approval ignored a lane source that changed';
+  exception when others then if sqlerrm<>'The proposed path changed since this proposal. Read it and propose again; nothing was written.' then raise; end if; end;
+  if exists(select 1 from public.paths where name='Proposed path') then raise exception 'a refused path approval wrote'; end if;
+
+  -- An approval through the tool server is the approver's agent session.
+  perform set_config('request.jwt.claims',contributor,true);
+  proposal:=(public.run_agent_tool('update_cell',jsonb_build_object('cell_id',second,'form','Written request'),session,service,true)->>'suggested_change_id')::uuid;
+  perform set_config('request.jwt.claims',reviewer,true);
+  select array_agg(id) into seen from public.authoring_changes;
+  perform public.run_agent_tool('approve_suggested_change',jsonb_build_object('suggested_change_id',proposal),approver_session,service,true);
+  select * into logged from public.authoring_changes where fn='approve_suggested_change' and id<>all(seen);
+  if logged.args->>'tool_name' is distinct from 'update_cell' or logged.author<>'agent' or logged.agent_session_id is distinct from approver_session then
+    raise exception 'tool approval logged % in session %, not the approver''s agent session',logged.author,logged.agent_session_id; end if;
+
+  -- So is a cell-content contribution approved through the tool server.
+  perform set_config('request.jwt.claims',contributor,true);
+  proposal:=(public.run_agent_tool('update_cell',jsonb_build_object('cell_id',second,'content','A sourced contribution'),session,service,true)->>'suggested_change_id')::uuid;
+  perform set_config('request.jwt.claims',reviewer,true);
+  select array_agg(id) into seen from public.authoring_changes;
+  perform public.run_agent_tool('approve_suggested_change',jsonb_build_object('suggested_change_id',proposal),approver_session,service,true);
+  select * into logged from public.authoring_changes where fn='approve_suggested_change' and id<>all(seen);
+  if logged.author<>'agent' or logged.agent_session_id is distinct from approver_session then
+    raise exception 'content approval logged % in session %, not the approver''s agent session',logged.author,logged.agent_session_id; end if;
+
+  -- An approval made outside any agent session is a person's.
+  perform set_config('request.jwt.claims',contributor,true);
+  proposal:=(public.run_agent_tool('update_cell',jsonb_build_object('cell_id',second,'summary','A direct summary'),session,service,true)->>'suggested_change_id')::uuid;
+  perform set_config('request.jwt.claims',reviewer,true);
+  select array_agg(id) into seen from public.authoring_changes;
+  perform public.approve_suggested_change(proposal);
+  select * into logged from public.authoring_changes where fn='approve_suggested_change' and id<>all(seen);
+  if logged.args->>'tool_name' is distinct from 'update_cell' or logged.author<>'human' or logged.agent_session_id is not null then
+    raise exception 'direct approval logged % in session %',logged.author,logged.agent_session_id; end if;
+end $$;
+rollback;

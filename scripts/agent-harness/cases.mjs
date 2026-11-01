@@ -7,7 +7,7 @@
  * injections). `mocks` overrides a tool per case (value, or fn —
  * throw/Error for failures). Writes are ALWAYS dry-run in the harness.
  *
- * Every case is written against the SHIPPED SAMPLE FIXTURE — the
+ * Every canvas case (A–E) is written against the SHIPPED SAMPLE FIXTURE — the
  * META-BLUEPRINT: the service blueprint of this template itself. Six
  * scenarios across four phases (Discover → Setup → Operate → Maintain), all
  * on ONE 7-lane roster: Stakeholders, Blueprint owner, App &
@@ -82,6 +82,32 @@ const upsertsHaveContent = {
     )
     return empty.length === 0 || `${empty.length} upsert(s) with empty content`
   },
+}
+
+/** The reads that look at the blueprint itself, as a host would to answer a question. */
+const BLUEPRINT_READS = new Set(['list_blueprint', 'search_blueprint', 'get_blueprint', 'compare_blueprint', 'get_cell'])
+
+/**
+ * `list_blueprint`'s cell rows, in the app's own line shape:
+ * `[cell] "<content>" · Phase › Scenario › Path › Step › Lane (<id>)`.
+ */
+function parseCellListing(text) {
+  return String(text)
+    .split('\n')
+    .flatMap((line) => {
+      const row = /^\[cell\] (.*) · (.+) \(([0-9a-f-]{36})\)$/.exec(line)
+      if (!row) return []
+      const crumbs = row[2].split(' › ')
+      if (crumbs.length < 5) return []
+      return [{ id: row[3], content: row[1], step: crumbs.at(-2), lane: crumbs.at(-1), where: crumbs.slice(0, -1).join(' › ') }]
+    })
+}
+
+/** The step with the most cells, which is the step the blueprint has most to say about. */
+function busiestStep(cells) {
+  const byStep = Map.groupBy(cells, (cell) => cell.where)
+  const [where, members] = [...byStep].sort((a, b) => b[1].length - a[1].length)[0] ?? []
+  return where ? { step: members[0].step, cells: members } : null
 }
 
 const NOTES = `Notes from sitting with a teammate while they audited a scenario:
@@ -577,5 +603,66 @@ Active tab: base blueprint view (no slice tab)`,
       { id: 'cites-by-name', text: 'Reply 1 cites cells by name/step/lane. (CA exit conditions / etiquette: ids are plumbing)' },
       { id: 'markdown-shape', text: 'Compact, well-shaped markdown in reply 1.' },
     ],
+  },
+
+  // --- O. owner agent, against the tool server (run with --tool-server) --
+  //
+  // These play an agent tool after `/ub:init`, so they ask the blueprint the
+  // server holds, whatever business that is: O1 takes its question from that
+  // blueprint in `prepare`, and O2 asks what no service blueprint answers.
+  {
+    id: 'O1', title: 'covered-question-cites-cells', host: 'tool-server',
+    prepare: async (read) => {
+      const busiest = busiestStep(parseCellListing(await read('list_blueprint', { granularity: ['cell'], limit: 500 })))
+      if (!busiest) throw new Error('the server holds no cells to ask about')
+      return {
+        turns: [`/ub:init\n\nHow do we handle "${busiest.step}"? Who does what there?`],
+        facts: busiest,
+      }
+    },
+    traceChecks: [
+      noWritesAtAll,
+      noUuidInReply(0),
+      {
+        id: 'reads-the-cells',
+        fn: (trace, replies, facts) =>
+          toolCalls(trace).some((t) => !WRITES.has(t.name) && facts.cells.some((cell) => String(t.result ?? '').includes(cell.id))) ||
+          `no read returned a cell of "${facts.step}"`,
+      },
+      {
+        id: 'names-the-step-or-who',
+        fn: (trace, replies, facts) => {
+          const reply = (replies[0] ?? '').toLowerCase()
+          return [facts.step, ...facts.cells.map((cell) => cell.lane)].some((name) => reply.includes(name.toLowerCase())) ||
+            `the reply names neither "${facts.step}" nor anyone who works in it`
+        },
+      },
+    ],
+    judgeLines: [
+      { id: 'grounded', text: "Every claim the reply makes about how this business handles the step traces to cell content a read in the trace returned; anything beyond the reads is labelled general advice. (uno.md: Answer from the blueprint)" },
+      { id: 'cites-cells', text: 'The reply points to the cells behind the answer: it names each one it relies on by its step and who does it, and carries along the source a cell names when it names one. (uno.md: Answer from the blueprint, step 2)' },
+    ],
+    smokeCalls: [['list_blueprint', { granularity: ['cell'], limit: 500 }]],
+    smokeReply: (facts) => `At **${facts.step}**, ${facts.cells[0].lane} does it.`,
+  },
+  {
+    id: 'O2', title: 'uncovered-question-offers-to-map', host: 'tool-server',
+    turns: ['/ub:init\n\nWhat is our policy when someone on the team wants to bring their dog to work?'],
+    traceChecks: [
+      noWritesAtAll,
+      {
+        id: 'looks-before-saying',
+        fn: (trace) =>
+          toolCalls(trace).some((t) => BLUEPRINT_READS.has(t.name) && !t.isError) ||
+          'answered without reading the blueprint',
+      },
+    ],
+    judgeLines: [
+      { id: 'names-the-gap', text: 'The reply says plainly that the blueprint does not cover this question. (uno.md: Answer from the blueprint, step 4)' },
+      { id: 'offers-to-map', text: 'The reply offers to map it into the blueprint and asks the question that would fill it: who does it or decides it, and how it is done today. (uno.md: Answer from the blueprint, step 4)' },
+      { id: 'no-invented-policy', text: "The reply presents no policy as this business's own; any suggestion is clearly labelled general advice. (uno.md: Answer from the blueprint, done when)" },
+    ],
+    smokeCalls: [['search_blueprint', { query: 'dog at work' }], ['list_blueprint', { granularity: ['scenario'] }]],
+    smokeReply: "Your blueprint doesn't cover that yet. Want me to map it? Who decides, and what do you do today?",
   },
 ]

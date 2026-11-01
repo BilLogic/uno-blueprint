@@ -298,7 +298,7 @@ Writes are layered on top for signed-in sessions (`authenticated`):
 - **New cell columns need an explicit UPDATE grant.** `cells` carries
   column-level UPDATE grants, including for the service role; a migration
   adding a writable column grants UPDATE on that column explicitly. New
-  confirmation columns stay closed unless a guarded RPC owns their writes.
+  approval columns stay closed unless a guarded RPC owns their writes.
 - **Ordinary text edits use column-scoped grants**: `cells.content/
   summary`, `cell_touchpoints.name/position/summary/role`,
   `resources.kind/name/url/position`, `lanes.name/lane_role`, `steps.name`,
@@ -736,7 +736,7 @@ Run `npm run index:tool-search`
 with the existing synthetic test login in ignored `.env`, linked to a profile
 that may approve. The handler validates the caller and checks their own
 profile before sending document text to the provider. The storage function
-independently checks confirmation rights and writes only embedding rows.
+independently checks that the caller may approve and writes only embedding rows.
 
 Each batch embeds up to five existing cells' content plus summary as
 `RETRIEVAL_DOCUMENT`, storing the vector, cell id, model and content hash.

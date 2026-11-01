@@ -417,5 +417,5 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 verify_jwt = false
 
 [functions.index-cell-search]
-# The handler verifies the person and requires confirmation rights before indexing.
+# The handler verifies the person and requires that they may approve before indexing.
 verify_jwt = false

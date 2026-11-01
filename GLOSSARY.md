@@ -338,10 +338,12 @@ that cell came from, and when it was observed. A cell with no evidence is an
 assumption; that state is derived from the absence of evidence rows and is
 never stored as a flag.
 
-**Approved** — a cell whose value a person who may approve set or approved.
-It outranks anything Uno inferred: Uno never overwrites it without asking,
-and such an edit sends Uno to check what depends on it. **Not evidence**:
-evidence says where a claim came from, an approval says who stands behind it.
+**Approved** — a cell a person who may approve has set or approved. It
+outranks anything Uno inferred: Uno never overwrites it without asking, and
+such an edit sends Uno to check what depends on it. **Not evidence**: evidence
+says where a claim came from, an approval says who stands behind it. **Not a
+proposal's status**: an approved proposal has been applied; an approved cell
+has someone standing behind its value.
 
 ## The writing vocabulary
 

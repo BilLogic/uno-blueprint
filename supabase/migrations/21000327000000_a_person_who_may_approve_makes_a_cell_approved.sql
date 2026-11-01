@@ -59,13 +59,13 @@ begin
       (15, 'public.run_agent_tool(text,jsonb,uuid,uuid,boolean)', 'profile.may_confirm', 'profile.may_approve'),
       (16, 'public.run_agent_tool(text,jsonb,uuid,uuid,boolean)', 'A person who may confirm must review and approve it.',
           'A person who may approve must review and approve it.'),
-      (18, 'public.agent_tool_transaction(text,jsonb,uuid,uuid,boolean,uuid)', 'public.confirming_profile_id()', 'public.approving_profile_id()'),
-      (19, 'public.agent_tool_transaction(text,jsonb,uuid,uuid,boolean,uuid)', 'confirmed_by=profile,confirmed_at=now()',
+      (17, 'public.agent_tool_transaction(text,jsonb,uuid,uuid,boolean,uuid)', 'public.confirming_profile_id()', 'public.approving_profile_id()'),
+      (18, 'public.agent_tool_transaction(text,jsonb,uuid,uuid,boolean,uuid)', 'confirmed_by=profile,confirmed_at=now()',
           'approved_by=profile,approved_at=now()'),
-      (20, 'public.agent_tool_transaction(text,jsonb,uuid,uuid,boolean,uuid)', 'p.may_confirm', 'p.may_approve'),
-      (21, 'public.agent_tool_transaction(text,jsonb,uuid,uuid,boolean,uuid)', 'someone who may confirm can revise it',
+      (19, 'public.agent_tool_transaction(text,jsonb,uuid,uuid,boolean,uuid)', 'p.may_confirm', 'p.may_approve'),
+      (20, 'public.agent_tool_transaction(text,jsonb,uuid,uuid,boolean,uuid)', 'someone who may confirm can revise it',
           'someone who may approve can revise it'),
-      (22, null, null, null)
+      (21, null, null, null)
     ) as edits(n, signature, old, new)
     order by n
   loop
@@ -123,8 +123,11 @@ comment on function public.approve_cell_content_suggestion(uuid) is
 
 revoke all on function public.approving_profile_id(), public.approve_cell(uuid) from public;
 
--- Proof: no core function body or comment says an old name, and the guard
--- refuses with the new sentence.
+-- Proof: no rewritten body and no comment says an old name, and the guard
+-- refuses with the new sentence. The body check names the functions it
+-- rewrote rather than sweeping the schema: a deployment's own installed
+-- recipe (cell search) still calls the old guard until it is re-applied,
+-- and that is the upgrade step, not a reason to stop this migration.
 do $proof$
 declare
   stale text;
@@ -179,4 +182,3 @@ begin
   end if;
 end
 $grant_proof$;
--- @core

@@ -92,6 +92,30 @@ test('a function rename follows into an earlier recipe grant', () => {
   assert.doesNotMatch(recipe, /confirm_cell/)
 })
 
+test('a function created again under its old name keeps the earlier grant', () => {
+  // A public RPC renamed to a private checked helper, and a new RPC created
+  // under the old name: the recipe's grant was always meant for the RPC.
+  const { recipe } = generate([
+    {
+      name: '001_fn.sql',
+      sql: [
+        'create function public.rename_lane(p uuid) returns void language sql as $$ select $$;',
+        '-- @recipe',
+        'grant execute on function public.rename_lane(uuid) to authenticated;',
+      ].join('\n'),
+    },
+    {
+      name: '002_split.sql',
+      sql: [
+        'alter function public.rename_lane(uuid) rename to rename_lane_checked;',
+        'create function public.rename_lane(p uuid) returns void language sql as $$ select $$;',
+      ].join('\n'),
+    },
+  ])
+  assert.match(recipe, /grant execute on function public\.rename_lane\(uuid\) to authenticated;/)
+  assert.doesNotMatch(recipe, /rename_lane_checked/)
+})
+
 test('a column rename stops at the table it happened on', () => {
   // 21000116000000 renamed `findings.note` to `summary`. `paths.note` is a
   // different column that happens to share the spelling, and the grant list

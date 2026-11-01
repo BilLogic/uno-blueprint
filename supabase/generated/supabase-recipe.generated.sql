@@ -2729,7 +2729,7 @@ grant execute on function public.update_step_with_details(uuid,text,text) to aut
 grant execute on function public.update_lane_with_details(uuid,uuid[],text,jsonb) to authenticated;
 grant execute on function public.restore_step_details(jsonb) to authenticated;
 grant execute on function public.restore_lane_details(jsonb) to authenticated;
-grant execute on function public.rename_lane_checked(uuid,text) to authenticated;
+grant execute on function public.rename_lane(uuid,text) to authenticated;
 
 -- The new writes and their inverse refuse a caller without the author tier.
 do $draft_permissions$
@@ -2974,8 +2974,8 @@ revoke execute on function public.list_profile_stakeholders() from public, anon;
 grant execute on function public.list_profile_stakeholders() to authenticated;
 revoke execute on function public.record_contribution(uuid, text, text, text) from public, anon;
 grant execute on function public.record_contribution(uuid, text, text, text) to authenticated;
-revoke execute on function public.approve_cell_content_suggestion(uuid) from public, anon;
-grant execute on function public.approve_cell_content_suggestion(uuid) to authenticated;
+revoke execute on function public.approve_suggested_change(uuid) from public, anon;
+grant execute on function public.approve_suggested_change(uuid) to authenticated;
 revoke execute on function public.approve_cell(uuid) from public, anon;
 grant execute on function public.approve_cell(uuid) to authenticated;
 revoke execute on function public.decline_suggested_change(uuid) from public, anon;
@@ -3017,7 +3017,7 @@ begin
       'public.approving_profile_id()'::regprocedure,
       'public.list_profile_stakeholders()'::regprocedure,
       'public.record_contribution(uuid,text,text,text)'::regprocedure,
-      'public.approve_cell_content_suggestion(uuid)'::regprocedure,
+      'public.approve_suggested_change(uuid)'::regprocedure,
       'public.approve_cell(uuid)'::regprocedure,
       'public.decline_suggested_change(uuid)'::regprocedure)
       and has_function_privilege('anon', p.oid, 'execute');

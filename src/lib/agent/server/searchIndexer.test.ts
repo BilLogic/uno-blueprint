@@ -55,7 +55,7 @@ it('an unsigned request sends no provider request and writes nothing', async () 
   expect((await handler(new Request('https://function.example.test', { method: 'POST' }))).status).toBe(401)
 })
 
-it('a signed-in person without confirmation rights cannot spend the document embedding key', async () => {
+it('a signed-in person who may not approve cannot spend the document embedding key', async () => {
   const handler = createCellSearchIndexer({ url: 'https://database.example.test', publishableKey: 'public-project-key', search: { apiKey: 'held-on-server', index: { provider: 'google', model: 'gemini-embedding-001', dimensions: 768 } },
     fetch: async input => {
       const url = String(input)

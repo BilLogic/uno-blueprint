@@ -1259,10 +1259,14 @@ async function judge(caseDef, trace, replies) {
   if (!caseDef.judgeLines?.length) return []
   if (SMOKE)
     return caseDef.judgeLines.map((line) => ({ id: line.id, pass: null, note: 'smoke: judge skipped' }))
+  // How much of each result the judge sees. A line that grades the reply
+  // against what the reads RETURNED needs the whole read, not its head: a
+  // grounded answer quoting a cell past the cut reads to the judge as invented.
+  const resultChars = caseDef.judgeResultChars ?? 300
   const traceSummary = trace
     .map(
       (t, i) =>
-        `${i + 1}. [turn ${t.turn + 1}] ${t.name}(${JSON.stringify(t.args)})${t.dryRun ? ' [dry-run]' : ''}${t.isError ? ' [ERROR]' : ''}\n   → ${String(t.result ?? '').replace(/\s+/g, ' ').slice(0, 300)}`,
+        `${i + 1}. [turn ${t.turn + 1}] ${t.name}(${JSON.stringify(t.args)})${t.dryRun ? ' [dry-run]' : ''}${t.isError ? ' [ERROR]' : ''}\n   → ${String(t.result ?? '').replace(/\s+/g, ' ').slice(0, resultChars)}`,
     )
     .join('\n')
   const prompt = `You are grading an AI agent's behavior against a rubric.

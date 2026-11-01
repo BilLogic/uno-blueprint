@@ -640,6 +640,8 @@ Active tab: base blueprint view (no slice tab)`,
       { id: 'grounded', text: "Every claim the reply makes about how this business handles the step traces to cell content a read in the trace returned; anything beyond the reads is labelled general advice. (uno.md: Answer from the blueprint)" },
       { id: 'cites-cells', text: 'The reply points to the cells behind the answer: it names each one it relies on by its step and who does it, and carries along the source a cell names when it names one. (uno.md: Answer from the blueprint, step 2)' },
     ],
+    // `grounded` holds the reply to the reads, so the judge sees them whole.
+    judgeResultChars: 6000,
     smokeCalls: [['list_blueprint', { granularity: ['cell'], limit: 500 }]],
     smokeReply: (facts) => `At **${facts.step}**, ${facts.cells[0].lane} does it.`,
   },

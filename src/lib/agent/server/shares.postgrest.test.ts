@@ -48,7 +48,10 @@ it.runIf(live)('a slice across two services is shared by a link that opens its c
     const contributor = await connect(process.env.MCP_TEST_OTHER_JWT!)
 
     // Two cells on one path of the seeded service: one cited, one beside it.
-    const seeded = (await db.from('cells').select('id, path_id, content').like('id', 'f0000000-%').order('id')).data!
+    const held = await db.from('cells').select('id, path_id, content, paths!inner(scenarios!inner(phases!inner(service_id)))')
+      .eq('paths.scenarios.phases.service_id', service).neq('path_id', 'd0000000-0000-4000-8000-000000000050').order('id')
+    expect(held.error).toBeNull()
+    const seeded = held.data!
     const cited = seeded.find(cell => seeded.some(peer => peer.path_id === cell.path_id && peer.id !== cell.id && peer.content !== cell.content))!
     const beside = seeded.find(cell => cell.path_id === cited.path_id && cell.id !== cited.id && cell.content !== cited.content)!
     expect(beside.content).not.toBe(cited.content)

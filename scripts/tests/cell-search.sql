@@ -37,7 +37,7 @@ do $$ declare n int; begin
   if n<>1 then raise exception 'A stale document vector was used'; end if;
   begin
     perform public.store_cell_search_embedding((select id from public.cells order by id limit 1),'gemini-embedding-001','[1,0]','old-hash');
-    raise exception 'A caller without a confirming profile wrote an embedding';
+    raise exception 'A caller whose profile may not approve wrote an embedding';
   exception when insufficient_privilege then null;
   end;
 end $$;
@@ -49,7 +49,7 @@ do $$ declare target uuid; hash text; question text := '[1,0,' || array_to_strin
   if public.store_cell_search_embedding(target,'gemini-embedding-001',question,'stale-hash') then
     raise exception 'A stale embedding replaced the index'; end if;
   if not public.store_cell_search_embedding(target,'gemini-embedding-001',question,hash) then
-    raise exception 'A confirming caller could not index an existing cell'; end if;
+    raise exception 'An approving caller could not index an existing cell'; end if;
   if exists(select 1 from public.cell_search_pending() where cell_id=target) then
     raise exception 'A freshly indexed cell is still pending'; end if;
 end $$;
@@ -59,7 +59,7 @@ set local role authenticated;
 do $$ begin
   begin
     perform public.store_cell_search_embedding((select id from public.cells order by id limit 1),'gemini-embedding-001','[1,0]','old-hash');
-    raise exception 'A non-confirming caller wrote an embedding';
+    raise exception 'A caller who may not approve wrote an embedding';
   exception when insufficient_privilege then null; end;
 end $$;
 reset role;

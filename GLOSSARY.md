@@ -63,9 +63,9 @@ tree it runs in is.
 offers; the top container of a blueprint. A deployment is one business and
 holds as many services as it runs. Uno sorts what it hears into services:
 each topic lands in the service it belongs to, and a topic that fits none
-becomes a proposed new service requiring a yes from someone who may confirm.
-A contributor's proposal is a suggestion awaiting that yes. Owners hear "part of
-your business".
+becomes a proposed new service requiring a yes from someone who may approve.
+A contributor's proposal is a suggestion awaiting that yes. People hear "part
+of your business".
 
 **Phase** — an ordered stage of a service. A phase may point back at an
 earlier phase (`loops_to_phase_id`), which is how a renewal or a repeat visit
@@ -279,7 +279,7 @@ more than one service's blueprint when its audience needs it.
 **Share link** — a link that opens one slice for its audience, with no
 account: the slice and the cells it cites, read when the link is opened, so
 a changed cell shows its new value. It opens nothing else — not the cell
-beside a cited one, not the rest of either service. Someone who may confirm
+beside a cited one, not the rest of either service. Someone who may approve
 makes one with `share_slice` and stops every link to a slice with
 `unshare_slice`. Table `slice_shares` keeps only a hash of each link's token;
 the link itself is handed over once, in the reply to the person who shared.
@@ -338,11 +338,12 @@ that cell came from, and when it was observed. A cell with no evidence is an
 assumption; that state is derived from the absence of evidence rows and is
 never stored as a flag.
 
-**Owner-confirmed** — a cell value set or approved by someone who may
-confirm. It outranks anything Uno inferred: Uno never overwrites it without
-asking, and such an edit sends Uno to check what depends on it.
-**Not evidence**: evidence says where a claim came from, owner-confirmed
-says who stands behind it.
+**Approved** — a cell a person who may approve has set or approved. It
+outranks anything Uno inferred: Uno never overwrites it without asking, and
+such an edit sends Uno to check what depends on it. **Not evidence**: evidence
+says where a claim came from, an approval says who stands behind it. **Not a
+proposal's status**: an approved proposal has been applied; an approved cell
+has someone standing behind its value.
 
 ## The writing vocabulary
 
@@ -421,16 +422,16 @@ service.
 
 **Profile** — one person who talks to Uno: the stakeholder they are in the
 business, the register they want (everyday or precise), the nudges they have
-dismissed, when Uno last ran with them, and whether they **may confirm**. Held
+dismissed, when Uno last ran with them, and whether they **may approve**. Held
 beside the blueprint, never in a file on someone's machine. **Not a
 stakeholder**: the stakeholder says who someone is in the service, the profile
 says how Uno works with them.
 
-**May confirm** — the right to approve a change to the blueprint and to make
-a cell owner-confirmed. Separate from who someone is: a consultant may hold it,
+**May approve** — the right to approve a change to the blueprint and to make
+a cell approved. Separate from who someone is: a consultant may hold it,
 an employee may not. Without it, what a person tells Uno is recorded as
 evidence in their name and as suggested changes waiting for someone who may
-confirm. Approving one re-checks every row it names — a cell it cites, the
+approve. Approving one re-checks every row it names — a cell it cites, the
 paths holding a step it names — and refuses, in a sentence, one that changed
 or moved since the suggestion; rows it does not name may change freely.
 

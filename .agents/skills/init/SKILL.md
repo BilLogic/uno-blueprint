@@ -20,7 +20,7 @@ Paths resolve against the plugin root (`${CLAUDE_PLUGIN_ROOT}` in Claude Code) o
 **Remote connection first.** When the host exposes the `uno` MCP server,
 call `get_profile` and `list_blueprint` through it before any shell command.
 The authenticated profile is who is talking: use its register and
-`may_confirm`; never offer another person's profile or pass a profile id to
+`may_approve`; never offer another person's profile or pass a profile id to
 impersonate them. No linked profile means an operator must link this account;
 say that and stop. A failed remote call is the answer, not a reason to fall
 back to a privileged local credential. Do not read `.env` in a remote session.
@@ -32,7 +32,7 @@ route. For daily catch-up use `get_change_history` after the profile's
 If a required capability is absent from the server, say which one is needed
 and keep that step pending. Remote sessions use only exposed MCP tools for
 writes, with the person's yes and the server's admission, validation and
-may-confirm checks; a contributor's proposal waits for approval. Never run
+may-approve checks; a contributor's proposal waits for approval. Never run
 local import, approval, contribution, seed or mark-run commands as a remote
 fallback. Closing stays unstamped until a remote close capability exists.
 The remaining CLI commands below apply only to a local linked workspace
@@ -67,7 +67,7 @@ When `profiles` is empty, an operator seeds them first
 (`node scripts/seed-pilot-profiles.mjs --test-project`, shaped by
 `supabase/pilot/profiles.example.json`);
 until then answer and suggest, and keep every write for later.
-**Done when** you know the person's profile id and whether they may confirm.
+**Done when** you know the person's profile id and whether they may approve.
 
 ## 4a. Onboarding — no blueprint yet
 
@@ -78,7 +78,7 @@ learned from each. Sort what you hear into services. A `workspace_blueprint`
 of `true` means onboarding started before; `ub:map` resumes it.
 
 The map lands through `ub:map`'s own gates: `scripts/validate_ir.py` exit 0,
-the person's sign-off, then import. Only someone who may confirm signs off;
+the person's sign-off, then import. Only someone who may approve signs off;
 for anyone else, stop at a validated draft and name who can.
 **Done when** the first map is imported and you have shown the person what
 it now knows plus one useful thing (a gap, a suggestion or a brief) — or,
@@ -92,19 +92,19 @@ when they stop early, the draft is saved and you have said where it resumes.
    (`ub:whatif`, downstream) before changing anything.
 2. **Work with them.** Answer from the blueprint citing cells; suggest;
    run what-ifs through `ub:whatif`, which changes nothing until accepted.
-3. **Change the blueprint on a yes.** For a person who may confirm: state
+3. **Change the blueprint on a yes.** For a person who may approve: state
    the change, get their yes, and make it through `ub:map`'s update route
    (`scripts/validate_ir.py` exit 0, then import). A suggested change they
    accept instead goes through the approval RPC:
    `init_state.py approve --profile <id> --suggestion <id>`.
-   **Approve writes the cell and confirmation stamps itself**, and records
+   **Approve writes the cell and its approval stamps itself**, and records
    the authoring change. Call it once, without importing the change first.
    This content-only update preserves structure and is validated by the
    server's `cells_validate_path_match` trigger and cell constraints in the
    same transaction. Structural changes use the full IR validation route.
-   For a person who may not confirm, record what they said:
+   For a person who may not approve, record what they said:
    `init_state.py contribute --profile <id> --cell <id> --title "<where it came from>" --note "<their words>" --proposed "<new content>"`,
-   and tell them it waits for someone who may confirm.
+   and tell them it waits for someone who may approve.
 
 **Done when** the person's question is answered or their change is landed,
 recorded, or declined.
@@ -123,7 +123,7 @@ ratings explicitly. This writes `audit/findings-report.json`, using the
 audit writer's validation, fingerprint and dedupe rules, even when the
 linked database has a blueprint. It changes no blueprint row. Keep summaries
 free of verbatim source excerpts. A contributor's new-service proposal stays
-here as a suggestion until a confirmer says yes; a new service is itself a
+here as a suggestion until an approver says yes; a new service is itself a
 blueprint change. Then use the map route and its validation before import.
 **Done when** the command returns the ledger path and applied counts.
 
@@ -181,7 +181,7 @@ deep link (`skills/map/references/deploy-notes.md`).
 ## Hard rules
 
 - ⚠ **REQUIRED — a blueprint change needs a yes from someone who may
-  confirm, in this conversation, and passes `scripts/validate_ir.py`
+  approve, in this conversation, and passes `scripts/validate_ir.py`
   before import, or the server validation described for `approve` above.** The database refuses `approve` from anyone else; treat
   that refusal as the answer.
 - ⚠ **REQUIRED — keys stay in `.env`.** Read them through the scripts and

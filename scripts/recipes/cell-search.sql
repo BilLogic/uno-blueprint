@@ -80,7 +80,7 @@ end;
 $$;
 revoke all on function public.search_blueprint(text,text[],integer,text,text,text,text,text,text) from public, anon;
 grant execute on function public.search_blueprint(text,text[],integer,text,text,text,text,text,text) to authenticated;
--- Indexers can read pending document text as the caller, but only a confirmer
+-- Indexers can read pending document text as the caller, but only an approver
 -- can store a vector. A cell changed during its provider call is left pending.
 create or replace function public.cell_search_pending(p_limit integer default 5)
 returns table(cell_id uuid, document text, content_hash text)
@@ -99,7 +99,7 @@ create or replace function public.store_cell_search_embedding(
 set search_path = pg_catalog, public, extensions, pg_temp as $$
 declare current_hash text;
 begin
-  perform public.confirming_profile_id();
+  perform public.approving_profile_id();
   if p_model is distinct from 'gemini-embedding-001' then raise exception 'embedding model mismatch'; end if;
   select md5(coalesce(c.content,'') || E'\n' || coalesce(c.summary,'')) into current_hash
     from public.cells c where c.id=p_cell_id for share;

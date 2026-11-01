@@ -93,7 +93,7 @@ def workspace_project(workspace, mode="development"):
     if mode == "development" and values.get(SERVICE_KEY):
         raise Refused(
             f"The workspace's .env files set {SERVICE_KEY}: a canvas started with it writes with "
-            "full database access, past who may confirm. An operator removes it before Uno starts the canvas."
+            "full database access, past who may approve. An operator removes it before Uno starts the canvas."
         )
     host = project_host(values.get("VITE_SUPABASE_URL"))
     if not host or not values.get("VITE_SUPABASE_ANON_KEY"):

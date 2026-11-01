@@ -3,8 +3,8 @@
  * Seed the three pilot profiles on a test project, re-runnably.
  *
  * A pilot business starts with three people who talk to Uno: the consultant
- * running it (a partner, may confirm), the business owner (staff, may
- * confirm), and an employee who knows one part of the work well (staff,
+ * running it (a partner, may approve), the business owner (staff, may
+ * approve), and an employee who knows one part of the work well (staff,
  * contributes only). Their first names and login emails are real people's,
  * so they live in a gitignored file, `supabase/pilot/profiles.json`, shaped
  * like the committed `supabase/pilot/profiles.example.json`.
@@ -28,25 +28,25 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseEnv } from 'node:util'
 
-/** The three pilot people: who each is in the business, and whether they may confirm. */
+/** The three pilot people: who each is in the business, and whether they may approve. */
 export const PILOT_ROLES = {
   consultant: {
     profileId: 'b0000000-0000-4000-8000-000000000001',
     stakeholder: 'Consultant',
     kind: 'partner',
-    mayConfirm: true,
+    mayApprove: true,
   },
   owner: {
     profileId: 'b0000000-0000-4000-8000-000000000002',
     stakeholder: 'Business owner',
     kind: 'staff',
-    mayConfirm: true,
+    mayApprove: true,
   },
   expert: {
     profileId: 'b0000000-0000-4000-8000-000000000003',
     stakeholder: 'Subject-matter expert',
     kind: 'staff',
-    mayConfirm: false,
+    mayApprove: false,
   },
 }
 
@@ -86,8 +86,8 @@ do $kind$ begin
     raise exception 'the ${role} stakeholder kind does not fit the role';
   end if;
 end $kind$;
-insert into public.profiles (id, stakeholder_id, display_name, may_confirm)
-  select ${literal(spec.profileId)}, s.id, ${literal(person.name)}, ${spec.mayConfirm}
+insert into public.profiles (id, stakeholder_id, display_name, may_approve)
+  select ${literal(spec.profileId)}, s.id, ${literal(person.name)}, ${spec.mayApprove}
     from public.stakeholders s where s.name = ${literal(person.stakeholder)}
   on conflict (id) do update set
     stakeholder_id = excluded.stakeholder_id,

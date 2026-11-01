@@ -5,7 +5,7 @@ import { createToolServer } from '@/lib/agent/server/mcp'
 import { POSTGREST_URL, postgrestClientAs, postgrestFetch } from '@/test/postgrestDatabase'
 import { openMcpHttp } from '@/test/mcpHttp'
 
-it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('a confirmer starts a service from an empty business, discovers its id and creates a phase; a contributor only proposes', async () => {
+it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('an approver starts a service from an empty business, discovers its id and creates a phase; a contributor only proposes', async () => {
   const http = await openMcpHttp(request => handler(request))
   const handler = createToolServer({ url: POSTGREST_URL, publishableKey: 'sb_publishable_test', resourceUrl: http.url,
     jwks: JSON.parse(process.env.MCP_TEST_JWKS!), fetch: postgrestFetch(POSTGREST_URL) })

@@ -4,7 +4,7 @@ insert into auth.users(id,email) values
  ('c0000000-0000-4000-8000-000000000002','other-reader@example.test');
 insert into public.stakeholders(id,name,kind) values
  ('e0000000-0000-4000-8000-000000000001','Reviewing partner','partner');
-insert into public.profiles(id,stakeholder_id,user_id,display_name,may_confirm) values
+insert into public.profiles(id,stakeholder_id,user_id,display_name,may_approve) values
  ('b0000000-0000-4000-8000-000000000001','e0000000-0000-4000-8000-000000000001','c0000000-0000-4000-8000-000000000001','Reader profile',true);
 update public.cells set owner='Fixture owner' where id='f0000000-0000-4000-8000-110300010001';
 insert into public.business_models(service_id,pricing) values

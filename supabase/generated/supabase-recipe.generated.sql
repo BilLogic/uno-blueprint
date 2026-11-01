@@ -2969,15 +2969,15 @@ create policy "suggested_changes_select_in_business" on public.suggested_changes
 
 revoke execute on function public.caller_profile_id() from public, anon;
 grant execute on function public.caller_profile_id() to authenticated;
-revoke execute on function public.confirming_profile_id() from public, anon, authenticated;
+revoke execute on function public.approving_profile_id() from public, anon, authenticated;
 revoke execute on function public.list_profile_stakeholders() from public, anon;
 grant execute on function public.list_profile_stakeholders() to authenticated;
 revoke execute on function public.record_contribution(uuid, text, text, text) from public, anon;
 grant execute on function public.record_contribution(uuid, text, text, text) to authenticated;
 revoke execute on function public.approve_suggested_change(uuid) from public, anon;
 grant execute on function public.approve_suggested_change(uuid) to authenticated;
-revoke execute on function public.confirm_cell(uuid) from public, anon;
-grant execute on function public.confirm_cell(uuid) to authenticated;
+revoke execute on function public.approve_cell(uuid) from public, anon;
+grant execute on function public.approve_cell(uuid) to authenticated;
 revoke execute on function public.decline_suggested_change(uuid) from public, anon;
 grant execute on function public.decline_suggested_change(uuid) to authenticated;
 
@@ -2990,7 +2990,7 @@ declare
 begin
   select string_agg(quote_ident(attname), ', ' order by attnum) into columns
     from pg_attribute where attrelid = 'public.cells'::regclass and attnum > 0
-      and not attisdropped and attname not in ('confirmed_by', 'confirmed_at');
+      and not attisdropped and attname not in ('approved_by', 'approved_at');
   for r in select distinct x.grantee, roles.rolname
     from pg_class c cross join lateral aclexplode(c.relacl) x
     left join pg_roles roles on roles.oid = x.grantee
@@ -3014,11 +3014,11 @@ begin
   select string_agg(p.proname, ', ') into reachable from pg_proc p
     where p.oid in (
       'public.caller_profile_id()'::regprocedure,
-      'public.confirming_profile_id()'::regprocedure,
+      'public.approving_profile_id()'::regprocedure,
       'public.list_profile_stakeholders()'::regprocedure,
       'public.record_contribution(uuid,text,text,text)'::regprocedure,
       'public.approve_suggested_change(uuid)'::regprocedure,
-      'public.confirm_cell(uuid)'::regprocedure,
+      'public.approve_cell(uuid)'::regprocedure,
       'public.decline_suggested_change(uuid)'::regprocedure)
       and has_function_privilege('anon', p.oid, 'execute');
   if reachable is not null then
@@ -3027,8 +3027,8 @@ begin
   if exists (
     select from pg_attribute a join pg_class c on c.oid = a.attrelid
     cross join lateral aclexplode(coalesce(a.attacl, '{}'::aclitem[]) || coalesce(c.relacl, '{}'::aclitem[])) x
-    where (a.attrelid = 'public.profiles'::regclass and a.attname = 'may_confirm'
-      or a.attrelid = 'public.cells'::regclass and a.attname in ('confirmed_by', 'confirmed_at'))
+    where (a.attrelid = 'public.profiles'::regclass and a.attname = 'may_approve'
+      or a.attrelid = 'public.cells'::regclass and a.attname in ('approved_by', 'approved_at'))
       and x.privilege_type = 'UPDATE' and x.grantee <> c.relowner
   ) then
     raise exception 'proof: a role holds UPDATE on a protected profile or cell column';
@@ -3192,3 +3192,35 @@ begin
     raise exception 'a link cannot be opened without signing in';
   end if;
 end $grants$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000327000000_a_person_who_may_approve_makes_a_cell_approved.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- the renamed functions keep their callers: a signed-in person
+-- approves a cell; nobody calls the guard directly.
+revoke execute on function public.approving_profile_id() from public, anon, authenticated;
+revoke execute on function public.approve_cell(uuid) from public, anon;
+grant execute on function public.approve_cell(uuid) to authenticated;
+
+do $grant_proof$
+begin
+  if has_function_privilege('anon', 'public.approve_cell(uuid)', 'execute')
+      or has_function_privilege('anon', 'public.approving_profile_id()', 'execute')
+      or has_function_privilege('authenticated', 'public.approving_profile_id()', 'execute') then
+    raise exception 'proof: a caller can reach the approval guard directly';
+  end if;
+  if not has_function_privilege('authenticated', 'public.approve_cell(uuid)', 'execute') then
+    raise exception 'proof: a signed-in person cannot approve a cell';
+  end if;
+  if exists (
+    select from pg_attribute a join pg_class c on c.oid = a.attrelid
+    cross join lateral aclexplode(coalesce(a.attacl, '{}'::aclitem[]) || coalesce(c.relacl, '{}'::aclitem[])) x
+    where (a.attrelid = 'public.profiles'::regclass and a.attname = 'may_approve'
+      or a.attrelid = 'public.cells'::regclass and a.attname in ('approved_by', 'approved_at'))
+      and x.privilege_type = 'UPDATE' and x.grantee <> c.relowner
+  ) then
+    raise exception 'proof: a role holds UPDATE on a renamed approval column';
+  end if;
+end
+$grant_proof$;

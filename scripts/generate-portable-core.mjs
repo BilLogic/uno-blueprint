@@ -49,10 +49,12 @@
  * So the renames the core performs are followed through into every recipe
  * fragment that predates them. The map is not hand-written — a second
  * hand-maintained artifact is the thing this script exists to delete. It is
- * read out of the core stream itself, from the two statements that do the
+ * read out of the core stream itself, from the statements that do the
  * renaming:
  *
  *   alter table public.X rename to Y            identifier X → Y
+ *   alter function public.f(…) rename to g      identifier f → g, unless the
+ *                                               core creates f again later
  *   alter table public.T rename column A to B   identifier A → B
  *   select public.__rename_schema_objects(a, b) substring a → b, in the names
  *                                               of dependent objects only
@@ -140,6 +142,11 @@ export function renamesIn(sql) {
   const table = /^\s*alter table (?:if exists )?(?:public\.)?(\w+)\s+rename to (\w+);/gim
   const column = /^\s*alter table (?:if exists )?(?:public\.)?(\w+)\s+rename column\s+(\w+)\s+to\s+(\w+);/gim
   const objects = /^\s*select public\.__rename_schema_objects\(\s*'([^']+)'\s*,\s*'([^']+)'\s*\);/gim
+  // A function rename moves the function out from under its old name. Whether
+  // an earlier recipe fragment's mention follows it depends on whether the
+  // core later creates a NEW function under the old name, which only the
+  // whole series can say — `generate` decides that, not this reader.
+  const fn = /^\s*alter function (?:public\.)?(\w+)\s*\([^)]*\)\s+rename to (\w+);/gim
   // One `alter table` may drop several columns in one statement.
   const alter = /^\s*alter table (?:if exists )?(?:public\.)?(\w+)\b([^;]*);/gim
   const dropped = /\bdrop column (?:if exists )?(\w+)/gi
@@ -150,6 +157,9 @@ export function renamesIn(sql) {
   }
   for (const [match, table_, from, to] of sql.matchAll(column)) {
     found.push([sql.indexOf(match), { kind: 'column', table: table_, from, to }])
+  }
+  for (const [match, from, to] of sql.matchAll(fn)) {
+    found.push([sql.indexOf(match), { kind: 'function', from, to }])
   }
   for (const [match, from, to] of sql.matchAll(objects)) {
     found.push([sql.indexOf(match), { kind: 'object-name', from, to }])
@@ -211,7 +221,7 @@ export function statements(sql) {
 
 /** One rename, applied to a recipe fragment that predates it. */
 export function applyRename(sql, op) {
-  if (op.kind === 'identifier') {
+  if (op.kind === 'identifier' || op.kind === 'function') {
     return sql.replace(new RegExp(`\\b${op.from}\\b`, 'g'), op.to)
   }
   if (op.kind === 'column') {
@@ -363,14 +373,26 @@ export function supabaseLeaks(sql) {
   return [...new Set(leaks)]
 }
 
+/** Whether core SQL creates a function under this name. */
+function createsFunction(sql, name) {
+  return new RegExp(`\\bcreate\\s+(?:or\\s+replace\\s+)?function\\s+(?:public\\.)?${name}\\s*\\(`, 'i').test(sql)
+}
+
 export function generate(files) {
   const coreParts = [CORE_HEADER]
   const recipeParts = [RECIPE_HEADER]
   // Recipe fragments are held until every later migration's renames are known.
   const pending = []
-  for (const { name, sql } of files) {
+  const cores = files.map(({ sql }) => partition(sql).core.join('\n'))
+  for (const [index, { name, sql }] of files.entries()) {
     const { core, recipe } = partition(sql)
-    const ops = renamesIn(core.join('\n'))
+    // A function renamed away and then created again under its old name — a
+    // checked helper split out of a public RPC — leaves a recipe grant on the
+    // old name meaning the NEW function. Following that rename would move the
+    // grant onto the private helper instead.
+    const ops = renamesIn(core.join('\n')).filter(
+      (op) => op.kind !== 'function' || !cores.slice(index).some((later) => createsFunction(later, op.from)),
+    )
     for (const held of pending) {
       for (const op of ops) held.text = applyRename(held.text, op)
     }

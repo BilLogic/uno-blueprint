@@ -35,8 +35,8 @@ export function createCellSearchIndexer(options: {
     try {
       const identity = await client.auth.getUser(jwt)
       if (identity.error || !identity.data.user) return new Response(null, { status: 401 })
-      const confirmer = await client.from('profiles').select('may_confirm').eq('user_id', identity.data.user.id).maybeSingle()
-      if (confirmer.error || !confirmer.data?.may_confirm) return new Response(null, { status: 403 })
+      const approver = await client.from('profiles').select('may_approve').eq('user_id', identity.data.user.id).maybeSingle()
+      if (approver.error || !approver.data?.may_approve) return new Response(null, { status: 403 })
       const pending = await client.rpc('cell_search_pending', { p_limit: BATCH_SIZE })
       if (pending.error || !Array.isArray(pending.data)) throw new Error()
       const cells = pending.data as PendingCell[]

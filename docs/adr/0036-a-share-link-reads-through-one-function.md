@@ -12,7 +12,7 @@ the **Share link** entry in [`GLOSSARY.md`](../../GLOSSARY.md),
 ## Decision
 
 A slice may cite cells from any service of the business; its `service_id` is
-the service it is filed under. Someone who may confirm shares it with
+the service it is filed under. Someone who may approve shares it with
 `share_slice`, which returns a link once. The link carries a 64-character
 token (two `gen_random_uuid()` values, 244 random bits); `slice_shares` keeps
 only its SHA-256, and no blueprint table keeps the token. The reply that hands
@@ -49,9 +49,9 @@ table reads; links keep working unchanged, because they never used them.
 Choosing that posture for a deployment is a separate decision.
 
 Revoking is per slice: `unshare_slice` stops every link to it, and there is
-no way to stop one link and keep another. Someone who may not confirm can
+no way to stop one link and keep another. Someone who may not approve can
 only propose an unshare, so a link handed to the wrong reader stays open until
-someone who may confirm approves. The token sits in the URL path, so the
+someone who may approve approves. The token sits in the URL path, so the
 hosted functions' request logs record it; that is why a link is revoked
 rather than trusted to stay secret.
 

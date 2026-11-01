@@ -16,7 +16,7 @@ export const listSuggestedChangesTool = defineTool({
 
 export const approveSuggestedChangeTool = defineWriteTool({
   name: 'approve_suggested_change',
-  description: 'Approve a reviewed proposal as the signed-in confirmer. Re-checks every row the proposal names, cells inside slides included; one that changed or moved is refused without writing. Call only after the person explicitly approves.',
+  description: 'Approve a reviewed proposal as the signed-in approver. Re-checks every row the proposal names, cells inside slides included; one that changed or moved is refused without writing. Call only after the person explicitly approves.',
   args: z.object({ suggested_change_id: z.string().uuid() }),
   run: async ({ suggested_change_id }, ctx) => {
     // Through the tool gateway, so the log row names this agent session as the
@@ -35,7 +35,7 @@ export const approveSuggestedChangeTool = defineWriteTool({
 
 export const declineSuggestedChangeTool = defineWriteTool({
   name: 'decline_suggested_change',
-  description: 'Decline a pending proposal as the signed-in confirmer; leaves the blueprint unchanged.',
+  description: 'Decline a pending proposal as the signed-in approver; leaves the blueprint unchanged.',
   args: z.object({ suggested_change_id: z.string().uuid() }),
   run: async ({ suggested_change_id }, ctx) => {
     const { error } = await ctx.client.rpc('decline_suggested_change', { p_id: suggested_change_id })

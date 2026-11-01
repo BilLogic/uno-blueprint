@@ -29,16 +29,16 @@ const test = sweep({
 }).locate(TEST)
 const people = JSON.parse(readFileSync(resolve(ROOT, 'supabase/pilot/profiles.example.json'), 'utf8'))
 
-/** The fixture's accounts: the consultant may confirm, the expert contributes only. */
+/** The fixture's accounts: the consultant may approve, the expert contributes only. */
 // The fixture is the single source of account ids.
 const accounts = readFileSync(resolve(ROOT, 'scripts/tests/fixtures/profiles.sql'), 'utf8')
   .match(/c0000000-[0-9a-f-]+/g)
-const [CONFIRMER, OWNER, CONTRIBUTOR] = accounts
+const [APPROVER, OWNER, CONTRIBUTOR] = accounts
 const EXPERT_PROFILE = PILOT_ROLES.expert.profileId
 
 await runPostgrestTest({
   test,
-  label: 'profiles and who may confirm',
+  label: 'profiles and who may approve',
   prepare(psql) {
     psql(['-f', resolve(ROOT, 'scripts/tests/fixtures/profiles.sql')])
     const seed = pilotProfilesSql(people)
@@ -47,18 +47,18 @@ await runPostgrestTest({
     assert.throws(() => psql(['-f', '-'], seed), /expert stakeholder kind does not fit/)
     psql(['-c', "update public.stakeholders set kind = 'staff' where name = 'Subject-matter expert'"])
     psql(['-f', '-'], seed)
-    // Re-running must preserve an operator changing who may confirm.
-    psql(['-c', `update public.profiles set may_confirm = true where id = '${EXPERT_PROFILE}'`])
+    // Re-running must preserve an operator changing who may approve.
+    psql(['-c', `update public.profiles set may_approve = true where id = '${EXPERT_PROFILE}'`])
     psql(['-f', '-'], seed)
     psql(['-c', `do $$ begin
-      if not (select may_confirm from public.profiles where id = '${EXPERT_PROFILE}') then
-        raise exception 'seed reset may_confirm';
+      if not (select may_approve from public.profiles where id = '${EXPERT_PROFILE}') then
+        raise exception 'seed reset may_approve';
       end if;
     end $$;
-    update public.profiles set may_confirm = false where id = '${EXPERT_PROFILE}';`])
+    update public.profiles set may_approve = false where id = '${EXPERT_PROFILE}';`])
   },
   env: (secret) => ({
-    PROFILES_CONFIRMER_JWT: mintPersonClaim({ secret, sub: CONFIRMER }),
+    PROFILES_APPROVER_JWT: mintPersonClaim({ secret, sub: APPROVER }),
     PROFILES_OWNER_JWT: mintPersonClaim({ secret, sub: OWNER }),
     PROFILES_CONTRIBUTOR_JWT: mintPersonClaim({ secret, sub: CONTRIBUTOR }),
   }),

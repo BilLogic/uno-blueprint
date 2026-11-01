@@ -11,7 +11,7 @@ Usage:
         --title <where it came from> [--note <their words>] [--proposed <cell content>]
         # evidence in the person's name, plus a suggested change when --proposed
     python3 skills/init/scripts/init_state.py approve --profile <id> --suggestion <id>
-        # writes the cell and confirmation stamps; refused unless may-confirm
+        # writes the cell and approval stamps; refused unless may-approve
     python3 skills/init/scripts/init_state.py record --profile <id> --kind question \
         --scope topic:reason --summary <question> --severity info --impact medium --effort low
         # audit file ledger, no cell required
@@ -21,7 +21,7 @@ Usage:
 Every command takes `--db-url <postgres url>`; without it the query runs on
 the project this workspace is linked to (`supabase db query --linked`).
 `contribute` and `approve` act AS the person: they set the request's claim to
-the profile's login, so the database's own may-confirm check decides.
+the profile's login, so the database's own may-approve check decides.
 
 Entry state: `daily` when the database holds at least one service, else
 `onboarding`. `workspace_blueprint` says whether `blueprint/*.json` exists
@@ -57,7 +57,7 @@ select json_build_object(
   'services', (select coalesce(json_agg(json_build_object('id', s.id, 'name', s.name) order by s.name), '[]') from public.services s),
   'profiles', (select coalesce(json_agg(json_build_object(
       'id', p.id, 'name', p.display_name, 'stakeholder', st.name, 'kind', st.kind,
-      'may_confirm', p.may_confirm, 'register', p.register,
+      'may_approve', p.may_approve, 'register', p.register,
       'last_run_at', p.last_run_at, 'can_sign_in', p.user_id is not null
     ) order by p.display_name), '[]')
     from public.profiles p join public.stakeholders st on st.id = p.stakeholder_id),

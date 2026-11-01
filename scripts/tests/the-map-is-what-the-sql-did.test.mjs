@@ -32,10 +32,11 @@
  *                               renames move the column while the table is
  *                               being renamed around it — `slice_items.caption`
  *                               became `slides.title` in two statements.
- *   `a` → `b` (bare, or `*_a`)  a bare name is a table, a column or a lane
- *                               role, so any of the three literal forms will
- *                               do: `rename to`, `rename column … to`, or an
- *                               update that turns one value into the other.
+ *   `a` → `b` (bare, or `*_a`)  a bare name is a table, a function, a column
+ *                               or a lane role, so any of the literal forms
+ *                               will do: `alter table … rename to`, `alter
+ *                               function … rename to`, `rename column … to`, or
+ *                               an update that turns one value into the other.
  *
  * ── THE ESCAPE, AND WHY IT HAS TEETH ───────────────────────────────────────
  *
@@ -162,6 +163,12 @@ const renamesTable = (statements, from, to) =>
     new RegExp(`^alter table (?:only )?public\\.${escape(from)} rename to ${escape(to)}$`).test(statement),
   )
 
+// A function is a bare name too: `alter function public.f(…) rename to g`.
+const renamesFunction = (statements, from, to) =>
+  statements.some((statement) =>
+    new RegExp(`^alter function public\\.${escape(from)}\\([^)]*\\) rename to ${escape(to)}$`).test(statement),
+  )
+
 const movesValue = (statements, from, to) =>
   updates(statements, null).some(
     (statement) => statement.includes(`= '${to}'`) && statement.includes(`= '${from}'`),
@@ -198,6 +205,7 @@ export function performs(pair, statements) {
   if (fromBare && toBare && !pair.from.includes('.') && !pair.to.includes('.')) {
     return (
       renamesTable(statements, fromBare[1], toBare[1]) ||
+      renamesFunction(statements, fromBare[1], toBare[1]) ||
       renamesColumn(statements, fromBare[1], toBare[1]) ||
       movesValue(statements, fromBare[1], toBare[1])
     )

@@ -3,7 +3,7 @@ select set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-00000000
 set local role authenticated;
 do $$ declare result jsonb; service uuid; session uuid:=gen_random_uuid(); begin
   result:=public.run_agent_tool('create_service','{"name":"Request support","summary":"Help with an existing request"}',session,null,true);
-  if result->>'outcome'<>'applied' then raise exception 'A confirmer did not create the service'; end if;
+  if result->>'outcome'<>'applied' then raise exception 'An approver did not create the service'; end if;
   service:=(result->>'result')::uuid;
   if not exists(select 1 from public.services where id=service and name='Request support') then raise exception 'Service is not readable as its caller'; end if;
   perform public.run_agent_tool('create_phase','{"name":"Arrival"}',session,service,true);
@@ -18,7 +18,7 @@ do $$ declare proposal jsonb; applied jsonb; n int; begin
   if not exists(select 1 from public.suggested_changes where id=(proposal->>'suggested_change_id')::uuid and suggested_by='b0000000-0000-4000-8000-000000000002') then raise exception 'Proposal lost its recorder'; end if;
   perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
   applied:=public.approve_suggested_change((proposal->>'suggested_change_id')::uuid);
-  if applied->>'outcome'<>'applied' or (select count(*) from public.services)<>n+1 then raise exception 'A confirmer cannot approve the proposed service'; end if;
+  if applied->>'outcome'<>'applied' or (select count(*) from public.services)<>n+1 then raise exception 'An approver cannot approve the proposed service'; end if;
   begin
     perform public.run_agent_tool('create_phase','{"name":"No service"}',gen_random_uuid(),null,true);
     raise exception 'Missing service was accepted';

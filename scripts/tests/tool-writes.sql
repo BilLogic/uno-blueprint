@@ -69,8 +69,8 @@ begin
   if (select to_jsonb(f) from public.audit_findings f where f.id=own_finding) is distinct from before_finding then raise exception 'refused finding overwrite changed a row'; end if;
   if (select count(*) from public.authoring_changes)<>records then raise exception 'refused finding overwrite appended a log'; end if;
   perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
-  result:=public.run_agent_tool('create_finding',finding_args||'{"summary":"A confirmer revised the observation"}'::jsonb,session,service,true);
-  if result->>'outcome'<>'applied' or (select summary from public.audit_findings where id=own_finding)<>'A confirmer revised the observation' then raise exception 'confirmer could not revise an open finding'; end if;
+  result:=public.run_agent_tool('create_finding',finding_args||'{"summary":"An approver revised the observation"}'::jsonb,session,service,true);
+  if result->>'outcome'<>'applied' or (select summary from public.audit_findings where id=own_finding)<>'An approver revised the observation' then raise exception 'approver could not revise an open finding'; end if;
   if (select to_jsonb(f)->>'recorded_by' from public.audit_findings f where f.id=own_finding) is distinct from 'b0000000-0000-4000-8000-000000000002' then raise exception 'finding lost its original recorder'; end if;
   perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 

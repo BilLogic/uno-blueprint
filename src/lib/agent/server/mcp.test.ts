@@ -3,6 +3,7 @@ import { afterEach, expect, it } from 'vitest'
 import { exportJWK, generateKeyPair, SignJWT } from 'jose'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
 import { createToolServer } from '@/lib/agent/server/mcp'
+import { TOOL_DEFINITIONS } from '@/lib/agent/tools/definitions'
 import { openMcpHttp } from '@/test/mcpHttp'
 
 const servers: Awaited<ReturnType<typeof openMcpHttp>>[] = []
@@ -37,9 +38,12 @@ it('an MCP client reads with its JWT on every call, and unauthenticated calls re
   await client.connect(new StreamableHTTPClientTransport(new URL(url), { requestInit: { headers } }))
   const listed = await client.listTools()
   expect(listed.tools.some(tool => tool.name === 'get_session')).toBe(true)
-  expect(listed.tools.some(tool => tool.name === 'open_cell_panel')).toBe(false)
   expect(listed.tools.some(tool => tool.name === 'search_blueprint')).toBe(false)
-  expect(listed.tools.some(tool => tool.name === 'get_reference')).toBe(false)
+  const browserOnly = TOOL_DEFINITIONS.filter(tool => tool.surface === 'interface' || tool.resourceOnly ||
+    (tool.surface === 'read' && tool.browserBacked !== false)).map(tool => tool.name)
+  for (const name of ['open_cell_panel', 'ui_command', 'get_ui_state', 'list_ui_commands', 'list_references', 'get_reference'])
+    expect(browserOnly, name).toContain(name)
+  expect(listed.tools.map(tool => tool.name).filter(name => browserOnly.includes(name))).toEqual([])
   const resources = await client.listResources()
   expect(resources.resources.some(resource => resource.uri === 'uno://references/canvas-adapter')).toBe(false)
   await expect(client.readResource({ uri: 'uno://references/canvas-adapter' })).rejects.toThrow()

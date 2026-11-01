@@ -53,11 +53,12 @@ export type ComparePathArrowData = {
  *
  * Only the `leads_to` edges with BOTH ends on this path. `enables` is the
  * recorded kind, never drawn: a precondition causes nothing, so an arrow
- * would claim a handoff that never happens — the cell panel carries it. The overlay finds its endpoints
- * by sweeping the DOM under the container it draws over, and in the merged
- * grid that container holds every path's cells — so an edge to another path
- * of the same scenario would find both ends and draw an arrow between two
- * paths. A link that leaves its path is never an arrow; the cell's marker
+ * would claim a handoff that never happens — the cell panel carries it.
+ *
+ * The overlay finds its endpoints by sweeping the DOM under the container it
+ * draws over, and in the merged grid that container holds every path's cells
+ * — so an edge to another path of the same scenario would find both ends and
+ * draw an arrow between two paths. A link that leaves its path is never an arrow; the cell's marker
  * carries it (`crossPathLinks.ts`).
  */
 export function getComparePathArrowData(

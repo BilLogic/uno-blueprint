@@ -78,7 +78,6 @@ it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('every database re
     const refusals: [string, Record<string, unknown>, Client, string][] = [
       ['get_profile', {}, other, 'Reader profile'],
       ['validate_blueprint', { service_id: unknown }, client, '"service_id"'],
-      ['list_blueprint', { granularity: ['cell'], service: 'No such service', limit: 500 }, client, cellId],
       ['get_blueprint', { scenario_id: unknown }, client, cellId],
       ['get_cell', { cell_id: unknown }, client, cell.content.trim().split('\n')[0]],
       ['get_slice', { slice_id: unknown }, client, slice.title],

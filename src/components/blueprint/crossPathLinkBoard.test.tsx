@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 /**
  * Both arrangements of a scenario's board mark a link between two of its
- * paths on the cells at its ends, and neither draws it as an arrow.
+ * paths on the cells at its ends, and neither draws it as an arrow — nor an
+ * `enables` inside one path, the kind that is recorded and never drawn.
  *
  * Two paths of one scenario, with a `leads_to` from a cell on the first to a
  * cell on the second. Stacked, each path is its own band; Merged, every
@@ -119,14 +120,29 @@ const CROSS = {
   kind: 'leads_to' as const,
 }
 
+/** In-path, beside the `leads_to` over the same pair: a precondition, never an arrow. */
+const ENABLES = {
+  id: 'main-enables',
+  source_cell_id: 'main-c1',
+  target_cell_id: 'main-c2',
+  kind: 'enables' as const,
+}
+
+/** An edge that states no kind is a `leads_to`, and draws. */
+const DETOUR_UNKINDED = {
+  id: 'detour-in-path',
+  source_cell_id: 'detour-c1',
+  target_cell_id: 'detour-c2',
+}
+
 const MAIN: BlueprintData = {
   ...MAIN_BASE,
-  dependencies: [...MAIN_BASE.dependencies, CROSS],
+  dependencies: [...MAIN_BASE.dependencies, ENABLES, CROSS],
   remoteCells: [remote(DETOUR_BASE, 'detour-c2')],
 }
 const DETOUR: BlueprintData = {
   ...DETOUR_BASE,
-  dependencies: [...DETOUR_BASE.dependencies, CROSS],
+  dependencies: [DETOUR_UNKINDED, CROSS],
   remoteCells: [remote(MAIN_BASE, 'main-c2')],
 }
 
@@ -176,5 +192,21 @@ describe.each([
     const all = handed.flat()
     expect(all).toContain('main-in-path')
     expect(all).not.toContain('edge-cross')
+  })
+
+  it('hands the arrows a leads_to, stated or not, and never an enables', () => {
+    render(
+      <EntityDetailProvider>
+        <BlueprintCellDetailProvider enabled>
+          <ScenarioBoardScopeContext.Provider value>
+            <TooltipProvider>{grid()}</TooltipProvider>
+          </ScenarioBoardScopeContext.Provider>
+        </BlueprintCellDetailProvider>
+      </EntityDetailProvider>,
+    )
+    const all = handed.flat()
+    expect(all).toContain('main-in-path')
+    expect(all).toContain('detour-in-path')
+    expect(all).not.toContain('main-enables')
   })
 })

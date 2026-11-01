@@ -98,6 +98,13 @@ long unattended runs ("all 6 scenarios signed off") verifiable:
 Pilot `document-reader` on a few docs before a whole corpus. Per-scenario
 locale translation fans out to generic subagents.
 
+Updating a deployed blueprint, a chain question ("what else does this edit
+touch?") goes to `impact-tracer`, seeded with the edited cells, on the
+export of the whole service. A dependency may join cells on any path or
+scenario of one service, and the tracer follows it there; an affected cell
+it reports in another scenario puts that scenario's cells in the delta's
+review, named with their scenario and path.
+
 ## References
 
 | Read when | File |

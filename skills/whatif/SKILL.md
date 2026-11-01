@@ -69,7 +69,8 @@ imported blueprint + a hypothetical
   → frame     (operation, scope, base sign-off hashes captured)
   → variant   (IR copy in whatif/<key>/ — replay/restage only)
   → trace     (impact-tracer: affected cells, strained assumptions,
-               displaced demand; visited set + depth cap — cycles legal)
+               displaced demand; visited set + depth cap — cycles legal;
+               every path and scenario of the service is in reach)
   → judge     (operation-specific reasoning, playbook §2)
   → verify    (blueprint-reviewer, whatif-claim mode — cut what fails)
   → record    (findings rows source=whatif; comparison.md, cites only)
@@ -90,7 +91,9 @@ imported blueprint + a hypothetical
 ## Agents
 
 - `impact-tracer` — the graph walk: affected cells, strained assumptions,
-  displaced demand. Read-only, visited set, depth cap 8.
+  displaced demand. Read-only, visited set, depth cap 8. It follows a
+  dependency into another path or scenario of the service and names that
+  cell's scenario and path (`elsewhere`); the report carries both.
 - `blueprint-reviewer` (whatif-claim mode) — adversarial pass over the
   claims before they surface; anything untraceable dies here.
 

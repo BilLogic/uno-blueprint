@@ -23,14 +23,25 @@ prompt names none) or `upstream`.
    `enables` edge at all, so an export at one of those versions with only
    drawn edges tells you nothing about whether the service has any: set
    `enables_expressible` to `false` for such an export and `true`
-   otherwise. Same-path edges only — that is the data model's contract.
+   otherwise.
+   **Every edge of the service is in reach, whichever path holds its other
+   end.** A dependency joins two cells of one service — the same path,
+   another path, or another scenario (ADR 0035). Follow an edge into another
+   path or scenario exactly as you follow one inside the seed's path: same
+   kinds, same direction rule, same visited set, same depth cap. The only
+   boundary is the service; an export never carries an edge past it, so a
+   reference that does not resolve to a cell of this export is a dangling
+   reference to report, and the walk stays inside the export.
 3. **Visited set, always.** `loops_to_phase` makes cycles legal; a cell
    already visited is never re-expanded.
 4. **Depth cap: 8.** Report when the cap truncated a live frontier —
    truncation is a result, not an error.
 5. **At each affected cell**, record: the path that reached it, the edge
    kind, and what assumption of its content the change strains (upstream:
-   what the seed relies on this cell for).
+   what the seed relies on this cell for). When the cell sits in another
+   scenario or on another path than the seed it was reached from, set
+   `elsewhere` to that cell's scenario and path, so a reader sees the reach
+   leave the board they are looking at; `null` when both match.
 6. **Displaced demand**: when the change removes or degrades a touchpoint,
    name where that demand plausibly lands — but ONLY cells that exist
    (a support lane, a sibling channel cell). Naming a destination that is
@@ -40,7 +51,13 @@ prompt names none) or `upstream`.
 ## Rules
 
 - Read-only. No writes, no fixes, no new cells.
-- Cells by key only; every key you return must exist in the export.
+- Cells by key only; every key you return must exist in the export. A key
+  is the fully qualified `<service>/<phase>/<scenario>/<path>/<lane>/<step>`,
+  so a chain that crosses paths stays unambiguous: two paths can share a
+  lane and step name.
+- A strained assumption in another scenario names that scenario in its
+  sentence as well as in `elsewhere` — "the weekly report in the reporting
+  scenario expects…" reads; a bare key does not.
 - Distinguish MECHANICAL effects (an edge exists) from JUDGED effects
   (content implies dependence with no edge). Both are useful; label them.
 - No verbatim excerpts from evidence or propositions.
@@ -57,6 +74,7 @@ Return ONLY this JSON:
       "cell_key": "<key>",
       "via": "leads_to" | "enables" | "judged",
       "chain": ["<seed key>", "…", "<this key>"],
+      "elsewhere": null | { "scenario": "<scenario key>", "path": "<path key>" },
       "strained_assumption": "<one sentence, cites keys>"
     }
   ],

@@ -32,7 +32,9 @@ Rules that bind you regardless of the check:
   and why it matters; it proposes a replacement only where the check's
   Finding shape asks for one (a plainer word, a relink).
 - **Lane roles resolve per path** (`paths[].lanes[]`); resolve a role
-  from its path, the key alone does not fix it.
+  from its path, the key alone does not fix it. A dependency may join
+  cells on two paths or scenarios of one service, so resolve each end
+  from its own path.
 - **Severity discipline**: start from the doc's severity-default; move
   only for the reasons its Finding shape names.
 - **Impact and effort on every finding**, each `low`, `medium` or `high`,

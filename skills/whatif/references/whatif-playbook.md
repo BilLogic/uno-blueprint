@@ -24,7 +24,8 @@ cell keys from both versions and quotes nothing.
 
 Record at analysis time: the base sign-off hashes, **per scenario**
 (workspace-state.md is canonical: sign-off binds per scenario, not per
-file). For every scenario in scope, embed its recorded `content_hash`
+file). A scenario is in scope when the change touches it or the trace
+reaches a cell in it. For every scenario in scope, embed its recorded `content_hash`
 (from the workspace's `scenarios` entry; recompute with
 `scripts/compute_signoff_hash.py <ir> --scenario <key>` when checking)
 keyed by scenario key in `base_signoff_hashes`. Legacy workspaces that
@@ -47,10 +48,17 @@ on this route, and the findings exit condition is met by it.
 
 **replay** — "run scenario X as if CHANGE were true."
 1. Copy base IR → variant; apply the change.
-2. Dispatch `impact-tracer` (seed = changed cells) on the BASE export —
-   the trace tells you which claims need re-examination.
+2. Dispatch `impact-tracer` (seed = changed cells) on the BASE export of
+   the whole service, not the one scenario the change sits in — a
+   dependency may join cells on any path or scenario of the service, and
+   the tracer follows it there. The trace tells you which claims need
+   re-examination.
 3. Walk the affected chain in the variant: which cells' content is now
-   wrong, which dependencies dangle, which lanes gain/lose work.
+   wrong, which dependencies dangle, which lanes gain/lose work. An
+   affected cell whose `elsewhere` names another scenario or path is
+   reported with that scenario and path beside its key, and its scenario
+   joins the scope (§1): its sign-off hash is embedded with the rest, so a
+   promote refuses when that scenario moved too.
 4. `blueprint-reviewer` (whatif-claim mode) verifies every replay claim
    cites cells that exist in base or variant — unverified claims are cut,
    not hedged.

@@ -4,13 +4,14 @@
 Usage:
     python3 skills/init/scripts/canvas.py start [--port 5173] [--wait 60]
         # starts the canvas on this machine against the project in .env
-        # {url, project, pid, log, stop}
+        # {url, project, pid, log, stop}; refused while .env carries a service key
     python3 skills/init/scripts/canvas.py share --to netlify|github \
         [--repo <name>] [--visibility private|public] [--yes]
         # without --yes: the plan — what becomes public, the person's own step,
         #   the command to run on their yes. Runs nothing, reaches no network.
-        # with --yes: deploys to the person's Netlify site, or creates a GitHub
-        #   repository in their account and pushes the workspace to it.
+        # with --yes: deploys to the person's Netlify site and checks the built
+        #   page names the project, or creates a GitHub repository in their
+        #   account and pushes the workspace's commits to it.
 
 Every command takes `--workspace <path>` (default: the current directory).
 
@@ -26,19 +27,27 @@ step to take first; 2 on bad usage.
 import argparse
 import json
 import os
+import shlex
+import signal
 import socket
 import subprocess
 import sys
 import tempfile
 import time
+import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
 
 PROJECT_KEYS = ("VITE_SUPABASE_URL", "VITE_SUPABASE_ANON_KEY")
-# Vite's own order for `vite` in development: later files win, the shell wins over all.
-ENV_FILES = (".env", ".env.local", ".env.development", ".env.development.local")
+# Vite's own order per mode: later files win, the shell wins over all.
+ENV_FILES = {
+    "development": (".env", ".env.local", ".env.development", ".env.development.local"),
+    "production": (".env", ".env.local", ".env.production", ".env.production.local"),
+}
+SERVICE_KEY = "VITE_SUPABASE_DEV_SERVICE_KEY"
 SETTINGS_STEP = (
     "In Netlify, open the site, then Site configuration, then Environment variables, "
     "and add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY with the values from the "
@@ -50,9 +59,16 @@ class Refused(Exception):
     """A step the script will not take, or one the person takes first."""
 
 
-def read_env_files(workspace):
+def env_value(raw):
+    raw = raw.strip()
+    if raw[:1] in ("'", '"') and raw.count(raw[0]) >= 2:
+        return raw[1:raw.index(raw[0], 1)]
+    return raw.split(" #", 1)[0].strip()
+
+
+def read_env_files(workspace, mode="development"):
     values = {}
-    for name in ENV_FILES:
+    for name in ENV_FILES[mode]:
         path = workspace / name
         if not path.is_file():
             continue
@@ -61,8 +77,8 @@ def read_env_files(workspace):
             if not line or line.startswith("#") or "=" not in line:
                 continue
             key, value = line.removeprefix("export ").split("=", 1)
-            values[key.strip()] = value.strip().strip("'\"")
-    for key in PROJECT_KEYS:
+            values[key.strip()] = env_value(value)
+    for key in (*PROJECT_KEYS, SERVICE_KEY):
         if os.environ.get(key):
             values[key] = os.environ[key]
     return values
@@ -72,8 +88,13 @@ def project_host(url):
     return urlparse(url).hostname if url and "://" in url else None
 
 
-def workspace_project(workspace):
-    values = read_env_files(workspace)
+def workspace_project(workspace, mode="development"):
+    values = read_env_files(workspace, mode)
+    if mode == "development" and values.get(SERVICE_KEY):
+        raise Refused(
+            f"The workspace's .env files set {SERVICE_KEY}: a canvas started with it writes with "
+            "full database access, past who may confirm. An operator removes it before Uno starts the canvas."
+        )
     host = project_host(values.get("VITE_SUPABASE_URL"))
     if not host or not values.get("VITE_SUPABASE_ANON_KEY"):
         raise Refused(
@@ -93,9 +114,17 @@ def port_is_free(port):
     return True
 
 
+DIRECT = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def fetch(url, timeout=10):
+    with DIRECT.open(url, timeout=timeout) as response:
+        return response.read().decode("utf-8", errors="replace")
+
+
 def answers(url):
     try:
-        with urllib.request.urlopen(url, timeout=2):
+        with DIRECT.open(url, timeout=2):
             return True
     except urllib.error.HTTPError:
         return True
@@ -107,14 +136,19 @@ def start(args):
     workspace = args.workspace
     host = workspace_project(workspace)
     package = workspace / "package.json"
-    if not package.is_file() or "dev" not in json.loads(package.read_text()).get("scripts", {}):
+    try:
+        scripts = json.loads(package.read_text()).get("scripts", {}) if package.is_file() else {}
+    except json.JSONDecodeError:
+        scripts = {}
+    if "dev" not in scripts:
         raise Refused(f"{workspace} has no package.json with a dev script; it is not a canvas workspace.")
     if not (workspace / "node_modules").is_dir():
         raise Refused(f"The canvas is not installed in {workspace}; run `npm ci` there first.")
     if not port_is_free(args.port):
         raise Refused(f"Port {args.port} is in use; pass --port with a free one.")
-    log = Path(tempfile.gettempdir()) / f"uno-canvas-{args.port}.log"
-    with log.open("w") as out:
+    handle, name = tempfile.mkstemp(prefix=f"uno-canvas-{args.port}-", suffix=".log")
+    log = Path(name)
+    with os.fdopen(handle, "w") as out:
         server = subprocess.Popen(
             ["npm", "run", "dev", "--", "--port", str(args.port), "--strictPort", "--host", "127.0.0.1"],
             cwd=workspace, stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
@@ -125,12 +159,12 @@ def start(args):
     while not answers(local):
         if server.poll() is not None or time.monotonic() > deadline:
             if server.poll() is None:
-                os.killpg(server.pid, 15)
+                os.killpg(server.pid, signal.SIGTERM)
             tail = "\n".join(log.read_text(errors="replace").splitlines()[-15:])
             raise Refused(f"The canvas did not start; the last lines of {log}:\n{tail}")
         time.sleep(0.3)
     return {
-        "url": f"http://localhost:{args.port}/",
+        "url": local,
         "project": host,
         "pid": server.pid,
         "log": str(log),
@@ -142,11 +176,45 @@ def run_tool(command, workspace, env=None):
     return subprocess.run(command, cwd=workspace, capture_output=True, text=True, env=env)
 
 
-def tracked_files(workspace):
-    done = run_tool(["git", "ls-files", "-z"], workspace)
+def committed_files(workspace):
+    """The files the last commit holds, or None before the first commit."""
+    done = run_tool(["git", "ls-tree", "-r", "-z", "--name-only", "HEAD"], workspace)
     if done.returncode != 0:
         return None
     return [name for name in done.stdout.split("\0") if name]
+
+
+def env_files_in_history(workspace):
+    """Every .env file any commit ever held: a push carries the whole history."""
+    done = run_tool(["git", "log", "--all", "--name-only", "--format="], workspace)
+    names = {line for line in done.stdout.splitlines() if line}
+    return sorted(name for name in names
+                  if Path(name).name.startswith(".env") and Path(name).name != ".env.example")
+
+
+def parse_json(text, what):
+    """CLI output as JSON; a tool that mixes logs into stdout ends with the object."""
+    for start in (0, text.rfind("\n{") + 1):
+        try:
+            return json.loads(text[start:])
+        except json.JSONDecodeError:
+            continue
+    raise Refused(f"{what} did not answer in JSON; run it by hand to see why.")
+
+
+def bundle_names(url, host):
+    """Whether the deployed page's scripts carry the project's host; None if unreadable."""
+    try:
+        page = fetch(url)
+        scripts = re.findall(r'<script[^>]+src="([^"]+)"', page)
+        return any(host in fetch(urllib.parse.urljoin(url, src)) for src in scripts)
+    except (urllib.error.URLError, OSError, ValueError):
+        return None
+
+
+def on_yes(args, *extra):
+    return shlex.join(["python3", "skills/init/scripts/canvas.py", "share", "--to", args.to,
+                       *extra, "--workspace", str(args.workspace), "--yes"])
 
 
 def tracked_summary(files):
@@ -158,13 +226,15 @@ def tracked_summary(files):
 
 
 def netlify_plan(args):
-    workspace_project(args.workspace)
+    workspace_project(args.workspace, "production")
     return {
         "to": "netlify",
         "becomes_public": [
             "The canvas at the site's address: anyone with the link can open it.",
-            "Everything the business's Supabase project lets a signed-out visitor read: "
-            "its services and their steps, lanes and cells.",
+            "Everything the business's Supabase project lets a signed-out visitor read, which "
+            "is every blueprint table: each service's steps, lanes and cells; the evidence "
+            "behind them, excerpts of the documents and conversations they came from; the "
+            "edit history with who made each edit; findings, slices, and deleted items.",
             "The project's address and its anon key, which every page carries; a "
             "signed-out visitor cannot write.",
             "Netlify password protection is a paid feature; the free alternatives are "
@@ -175,27 +245,28 @@ def netlify_plan(args):
             "The person links this workspace to a site they own: `netlify link`, or `netlify sites:create`.",
         ],
         "person_step": SETTINGS_STEP,
-        "on_yes": "python3 skills/init/scripts/canvas.py share --to netlify --yes",
+        "on_yes": on_yes(args),
     }
 
 
 def netlify_deploy(args):
     workspace = args.workspace
-    host = workspace_project(workspace)
+    host = workspace_project(workspace, "production")
     listed = run_tool(["netlify", "env:list", "--json", "--context", "production"], workspace)
     if listed.returncode != 0:
         raise Refused(
             "Netlify is not signed in, or this workspace is not linked to a site the person owns. "
             "The person runs `netlify login`, then `netlify link` in the workspace; then ask again."
         )
-    settings = json.loads(listed.stdout or "{}")
+    settings = parse_json(listed.stdout or "{}", "`netlify env:list`")
     missing = [key for key in PROJECT_KEYS if not settings.get(key)]
     if missing:
         raise Refused(f"The site's settings lack {' and '.join(missing)}. {SETTINGS_STEP}")
     theirs = project_host(settings["VITE_SUPABASE_URL"])
-    if theirs and theirs != host:
+    if theirs != host:
         raise Refused(
-            f"The site's settings name the project {theirs}, but this workspace is linked to {host}. "
+            f"The site's settings name the project {theirs or 'by an unreadable address'}, "
+            f"but this workspace is linked to {host}. "
             "The person corrects VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in the site's settings."
         )
     # The build takes the project from the site's settings; none of ours rides along.
@@ -204,12 +275,14 @@ def netlify_deploy(args):
     if deployed.returncode != 0:
         tail = "\n".join((deployed.stderr or deployed.stdout).splitlines()[-15:])
         raise Refused(f"The deploy failed:\n{tail}")
-    result = json.loads(deployed.stdout)
-    return {"to": "netlify", "url": result.get("url"), "deploy_url": result.get("deploy_url"), "project": host}
+    result = parse_json(deployed.stdout, "`netlify deploy`")
+    url = result.get("url")
+    return {"to": "netlify", "url": url, "deploy_url": result.get("deploy_url"), "project": host,
+            "page_names_project": bundle_names(url, host) if url else None}
 
 
 def github_plan(args):
-    files = tracked_files(args.workspace)
+    files = committed_files(args.workspace)
     readers = ("Anyone on the internet" if args.visibility == "public"
                else "You and the people you add to the repository")
     public = (
@@ -221,26 +294,26 @@ def github_plan(args):
         "A repository holds files, not a running canvas; to share a link, connect it to a "
         "Netlify site, whose settings take the project's two values from the person.",
     ]
+    repo = args.repo or args.workspace.name
     return {
         "to": "github",
         "visibility": args.visibility,
-        "repo": args.repo or args.workspace.name,
-        "becomes_public": [line[0].upper() + line[1:] for line in public],
+        "repo": repo,
+        "becomes_public": public,
         "before": ["The person signs in: `gh auth login`."],
         "person_step": "None for the push: the repository needs no key.",
-        "on_yes": f"python3 skills/init/scripts/canvas.py share --to github --repo {args.repo or args.workspace.name} "
-                  f"--visibility {args.visibility} --yes",
+        "on_yes": on_yes(args, "--repo", repo, "--visibility", args.visibility),
     }
 
 
 def github_push(args):
     workspace = args.workspace
-    files = tracked_files(workspace)
-    if not files:
+    if not committed_files(workspace):
         raise Refused("The workspace has no commits to push; commit it first.")
-    leaked = [name for name in files if Path(name).name.startswith(".env") and Path(name).name != ".env.example"]
+    leaked = env_files_in_history(workspace)
     if leaked:
-        raise Refused(f"{', '.join(leaked)} is committed and would carry keys; remove it from git history first.")
+        raise Refused(f"{', '.join(leaked)} is in the git history and would carry keys; "
+                      "remove it from every commit first.")
     if run_tool(["gh", "auth", "status"], workspace).returncode != 0:
         raise Refused("GitHub is not signed in. The person runs `gh auth login`; then ask again.")
     repo = args.repo or workspace.name

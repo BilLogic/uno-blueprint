@@ -155,15 +155,14 @@ python3 skills/init/scripts/canvas.py start
 
 It starts the canvas against the project the workspace's `.env` names and
 prints the link, the project and the stop command. Give the person the link.
-The canvas reads only the project's address and anon key, so this runs in a
-remote session too; the script reads `.env`, you do not.
-A refusal names what is missing (no project in `.env`, not installed, port
-in use): say it and stop.
+The script reads `.env` itself; you never open it. The link opens on the
+machine running this session. A refusal names what is missing (no project
+in `.env`, a service key there, not installed, port in use): say it and stop.
 **Done when** the person has a link that opens their business's blueprint.
 
-**Deployed, when they ask to share it.** Offer a Netlify site or a GitHub
-repository, both in the person's own account. Run the plan first; it
-changes nothing:
+**Deployed, when they ask to share it.** Offer a Netlify site, which gives
+a link, or a GitHub repository, which shares the files; both in the
+person's own account. Run the plan first; it changes nothing:
 
 ```bash
 python3 skills/init/scripts/canvas.py share --to netlify
@@ -173,8 +172,10 @@ python3 skills/init/scripts/canvas.py share --to github --repo <name>
 Tell the person every line of `becomes_public`, then hand them `before`
 and `person_step`: signing in, and putting the project's two values into
 their site's settings, are theirs to do. Run `on_yes` after their yes to
-that exposure. A repository is private unless they ask for public. After a
-first deploy, check a deep link (`skills/map/references/deploy-notes.md`).
+that exposure. A repository is private unless they ask for public. A deploy
+answering `page_names_project: false` built against another project: ask
+the person to recheck their site's settings. After a first deploy, check a
+deep link (`skills/map/references/deploy-notes.md`).
 **Done when** the person has the site or repository link, or has declined.
 
 ## Hard rules

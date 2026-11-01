@@ -4,19 +4,22 @@
 //      what becomes public, and the one step only the person takes — and run only on --yes.
 // Every outside tool (npm, netlify, gh) is a fake on PATH that logs what it was asked,
 // so nothing here deploys, creates a repository or reaches a network.
-import { afterEach, test } from 'vitest'
+import { afterEach, test, vi } from 'vitest'
 import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
+import { createServer as createHttpServer } from 'node:http'
 
 const script = resolve('skills/init/scripts/canvas.py')
 const PROJECT = 'https://abcdefghijklmnop.supabase.co'
 const FILE_KEY = 'anon-key-from-the-env-file'
 const SETTINGS_KEY = 'anon-key-from-the-hosting-settings'
 const cleanups = []
+// Each test spawns Python and real processes; a loaded CI runner needs more than the default.
+vi.setConfig({ testTimeout: 30_000 })
 afterEach(() => { while (cleanups.length) cleanups.pop()() })
 
 /** A workspace with a dev script, installed modules, a project in .env, and fakes on PATH. */
@@ -49,7 +52,8 @@ if argv[:1] == ['env:list']:
         sys.exit('Not logged in. Run netlify login.')
     print(json.dumps(${JSON.stringify(settings ?? {})}))
 elif argv[:1] == ['deploy']:
-    print(json.dumps({'site_name': 'business', 'deploy_url': 'https://abc--business.netlify.app', 'url': 'https://business.netlify.app'}))
+    print('Building site...')
+    print(json.dumps({'site_name': 'business', 'deploy_url': 'https://abc--business.netlify.app', 'url': os.environ.get('FAKE_SITE_URL', 'http://127.0.0.1:9/')}))
 `)
   fake('gh', `
 if argv[:2] == ['auth', 'status']:
@@ -60,10 +64,17 @@ if argv[:2] == ['repo', 'create']:
   const calls = () => existsSync(log)
     ? readFileSync(log, 'utf8').trim().split('\n').map((line) => JSON.parse(line))
     : []
-  const run = (...args) => spawnSync('python3', [script, ...args, '--workspace', root], {
-    cwd: root, encoding: 'utf8', env: { ...process.env, PATH: `${root}/bin:${process.env.PATH}` },
+  const shellEnv = (extra = {}) => ({ ...process.env, PATH: `${root}/bin:${process.env.PATH}`, ...extra })
+  const run = (...args) => spawnSync('python3', [script, ...args, '--workspace', root], { cwd: root, encoding: 'utf8', env: shellEnv() })
+  // The same run without blocking this process, so a server in the test can answer it.
+  const runAsync = (extra, ...args) => new Promise((done) => {
+    const child = spawn('python3', [script, ...args, '--workspace', root], { cwd: root, env: shellEnv(extra) })
+    let stdout = ''; let stderr = ''
+    child.stdout.on('data', (chunk) => { stdout += chunk })
+    child.stderr.on('data', (chunk) => { stderr += chunk })
+    child.on('close', (status) => done({ status, stdout, stderr }))
   })
-  return { root, calls, run }
+  return { root, calls, run, runAsync }
 }
 
 const freePort = () => new Promise((done) => {
@@ -85,7 +96,7 @@ test('the canvas starts on this machine against the project in .env, and the ans
   assert.equal(started.status, 0, started.stderr)
   const answer = JSON.parse(started.stdout)
   cleanups.push(() => { try { process.kill(-answer.pid) } catch { /* already gone */ } })
-  assert.equal(answer.url, `http://localhost:${port}/`)
+  assert.equal(answer.url, `http://127.0.0.1:${port}/`)
   assert.equal(answer.project, 'abcdefghijklmnop.supabase.co')
   assert.equal((await fetch(`http://127.0.0.1:${port}/`)).status, 200)
   assert.deepEqual(calls()[0].argv, ['run', 'dev', '--', '--port', String(port), '--strictPort', '--host', '127.0.0.1'])
@@ -97,6 +108,16 @@ test('with no project in .env the canvas does not start, because it would show t
   const refused = run('start')
   assert.equal(refused.status, 1)
   assert.match(refused.stderr, /sample/)
+  assert.deepEqual(calls(), [])
+})
+
+test('a service key in .env.local keeps Uno from starting the canvas', () => {
+  const { root, run, calls } = workspace()
+  writeFileSync(join(root, '.env.local'), 'VITE_SUPABASE_DEV_SERVICE_KEY="service-key-value" # local authoring\n')
+  const refused = run('start')
+  assert.equal(refused.status, 1)
+  assert.match(refused.stderr, /VITE_SUPABASE_DEV_SERVICE_KEY/)
+  assert.ok(!refused.stderr.includes('service-key-value'))
   assert.deepEqual(calls(), [])
 })
 
@@ -116,6 +137,8 @@ test('a share plan says what becomes public and runs nothing', () => {
   assert.equal(plan.status, 0, plan.stderr)
   const answer = JSON.parse(plan.stdout)
   assert.match(answer.becomes_public.join(' '), /anyone with the link/i)
+  assert.match(answer.becomes_public.join(' '), /evidence/)
+  assert.match(answer.becomes_public.join(' '), /edit history with who made each edit/)
   assert.match(answer.person_step, /VITE_SUPABASE_URL/)
   assert.match(answer.on_yes, /--yes/)
   assert.deepEqual(calls(), [])
@@ -132,20 +155,28 @@ test('a deploy waits for the person to put the project in their own hosting sett
 })
 
 test('a signed-out host hands the person the sign-in step', () => {
-  const { run } = workspace()
+  const { run, calls } = workspace()
   const refused = run('share', '--to', 'netlify', '--yes')
   assert.equal(refused.status, 1)
   assert.match(refused.stderr, /netlify login/)
+  assert.ok(!calls().some((call) => call.argv[0] === 'deploy'))
 })
 
-test('a deploy builds from the person\'s hosting settings, and carries no project of its own', () => {
-  const { run, calls } = workspace({ settings: { VITE_SUPABASE_URL: PROJECT, VITE_SUPABASE_ANON_KEY: SETTINGS_KEY } })
+test('a deploy builds from the person\'s hosting settings, carries no project of its own, and checks the page', async () => {
+  const { runAsync, calls } = workspace({ settings: { VITE_SUPABASE_URL: PROJECT, VITE_SUPABASE_ANON_KEY: SETTINGS_KEY } })
+  // The deployed site, standing in for Netlify: its page loads a script that names the project.
+  const site = createHttpServer((request, response) => response.end(request.url === '/'
+    ? '<script type="module" crossorigin src="/assets/index-abc.js"></script>'
+    : `const url = "${PROJECT}"`)).listen(0, '127.0.0.1')
+  await new Promise((done) => site.once('listening', done))
+  cleanups.push(() => site.close())
+  const siteUrl = `http://127.0.0.1:${site.address().port}/`
   // A key in the agent's own shell must not ride into the build: the shell outranks the site's settings.
-  process.env.VITE_SUPABASE_ANON_KEY = FILE_KEY
-  let deployed
-  try { deployed = run('share', '--to', 'netlify', '--yes') } finally { delete process.env.VITE_SUPABASE_ANON_KEY }
+  const deployed = await runAsync({ VITE_SUPABASE_ANON_KEY: FILE_KEY, FAKE_SITE_URL: siteUrl }, 'share', '--to', 'netlify', '--yes')
   assert.equal(deployed.status, 0, deployed.stderr)
-  assert.equal(JSON.parse(deployed.stdout).url, 'https://business.netlify.app')
+  const answer = JSON.parse(deployed.stdout)
+  assert.equal(answer.url, siteUrl)
+  assert.equal(answer.page_names_project, true)
   const deploy = calls().find((call) => call.argv[0] === 'deploy')
   assert.deepEqual(deploy.argv, ['deploy', '--build', '--prod', '--json'])
   assert.equal(deploy.key, null)
@@ -159,6 +190,14 @@ test('hosting settings naming another project stop the deploy and name both', ()
   assert.equal(refused.status, 1)
   assert.match(refused.stderr, /another\.supabase\.co/)
   assert.match(refused.stderr, /abcdefghijklmnop\.supabase\.co/)
+  assert.ok(!calls().some((call) => call.argv[0] === 'deploy'))
+})
+
+test('a site address Uno cannot read is not taken for the same project', () => {
+  const { run, calls } = workspace({ settings: { VITE_SUPABASE_URL: 'abcdefghijklmnop.supabase.co', VITE_SUPABASE_ANON_KEY: SETTINGS_KEY } })
+  const refused = run('share', '--to', 'netlify', '--yes')
+  assert.equal(refused.status, 1)
+  assert.match(refused.stderr, /unreadable address/)
   assert.ok(!calls().some((call) => call.argv[0] === 'deploy'))
 })
 
@@ -180,6 +219,17 @@ test('a tracked .env stops the push', () => {
   const refused = run('share', '--to', 'github', '--yes', '--repo', 'clinic-blueprint')
   assert.equal(refused.status, 1)
   assert.match(refused.stderr, /\.env/)
+  assert.ok(!calls().some((call) => call.argv[0] === 'repo'))
+})
+
+test('a .env committed once and deleted since still stops the push', () => {
+  const { root, run, calls } = workspace()
+  writeFileSync(join(root, '.gitignore'), 'bin\nnode_modules\ncalls.jsonl\n')
+  git(root, 'init', '-q'); git(root, 'add', '-A'); git(root, 'commit', '-qm', 'with keys')
+  git(root, 'rm', '-q', '--cached', '.env'); git(root, 'commit', '-qm', 'drop keys')
+  const refused = run('share', '--to', 'github', '--yes', '--repo', 'clinic-blueprint')
+  assert.equal(refused.status, 1)
+  assert.match(refused.stderr, /\.env is in the git history/)
   assert.ok(!calls().some((call) => call.argv[0] === 'repo'))
 })
 

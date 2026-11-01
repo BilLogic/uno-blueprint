@@ -341,17 +341,25 @@ type CellEvidenceTabProps = {
 }
 
 /**
- * Evidence tab. Restricted SELECT means anonymous sessions must see a
- * sign-in prompt — never an all-assumption state derived from an empty
- * restricted read. No-DB sessions get an offline note.
+ * Evidence tab. Evidence is for signed-in readers — `anon` holds no SELECT on
+ * it — so a signed-out reader sees a sign-in prompt and no read is sent,
+ * never an all-assumption state derived from a refused one. No-DB sessions get
+ * an offline note.
  */
 export function CellEvidenceTab({ cellId }: CellEvidenceTabProps) {
-  const { client, configured, canWrite } = useSupabase()
+  const { client, configured, canWrite, canReadPrivate } = useSupabase()
 
   if (!configured || !client) {
     return (
       <p className="text-xs text-muted-foreground">
         Evidence is unavailable offline.
+      </p>
+    )
+  }
+  if (!canReadPrivate) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Sign in to see the evidence behind this cell.
       </p>
     )
   }

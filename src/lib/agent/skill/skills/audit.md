@@ -53,8 +53,9 @@ triage rules, and the check-authoring template.
   fails leaves its previous findings untouched. Never wipe the whole run's
   findings up front.
 - ⚠ **REQUIRED — no verbatim excerpts in a summary.** Findings are
-  public-read rows. Cite cell keys and titles; never paste evidence text,
-  proposition figures, or interviewee words.
+  read by every signed-in account and travel into shared docs. Cite cell
+  keys and titles; never paste evidence text, proposition figures, or
+  interviewee words.
 - ⚠ **REQUIRED — confirm the import target** before any DB write;
   `references/adapter-contract.md` applies unchanged — wrong-project
   protection. (Vacuous on the no-DB route — no DB write ever happens

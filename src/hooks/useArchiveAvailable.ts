@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { useSupabase } from '@/contexts/SupabaseProvider'
 import { useSupabaseQuery } from '@/hooks/useSupabaseQuery'
 import { queryKeys } from '@/lib/queryKeys'
 
@@ -28,11 +29,17 @@ import { queryKeys } from '@/lib/queryKeys'
  *
  * No-DB mode answers `false` through the fallback. There is nothing to delete
  * from and nowhere to put it back.
+ *
+ * A signed-out reader is not asked about at all. The recovery list is the
+ * edit log's, which `anon` may not read, so the probe would be refused on
+ * every load — and that reader has nothing to delete. `canReadPrivate` gates
+ * it the way it gates every other signed-in-only read.
  */
 export function useArchiveAvailable(): boolean {
+  const { canReadPrivate } = useSupabase()
   const fallback = useCallback(() => false, [])
   const result = useSupabaseQuery<boolean>(
-    queryKeys.archiveAvailable,
+    canReadPrivate ? queryKeys.archiveAvailable : null,
     async (client, signal) => {
       // Cast for the same reason `authoringRpc` casts `rpc`: the generated
       // `Database` type is regenerated from whichever schema was linked last,

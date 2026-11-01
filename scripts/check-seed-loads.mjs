@@ -86,7 +86,7 @@ export const STACK = [
  *
  * evidence and business_models are deliberately absent: the seed leaves them
  * empty (an offline reader could never see restricted rows), and the recipe
- * hides business_models from anon outright.
+ * hides business_models and evidence from anon outright (see SIGNED_IN_ONLY).
  */
 export const POPULATED = [
   'services',
@@ -104,6 +104,69 @@ export const POPULATED = [
   'slices',
   'slides',
 ]
+
+/**
+ * What a signed-out visitor may NOT read. Each relation is selected from as
+ * `anon` and must be refused with a permission error, then as `authenticated`
+ * and must answer. Evidence excerpts can carry interview content, the edit log
+ * and the recovery list are the record of who changed what, audit findings are
+ * the team's own triage, and an agent transcript belongs to its author — none
+ * of it is the published board.
+ *
+ * Refused, not empty: a policy that hides every row still answers 200, and a
+ * reader cannot tell "nothing here" from "nothing for you". A revoked grant is
+ * the one answer that says which it is, and it is the one a client can gate on
+ * before it asks (`canReadPrivate`).
+ */
+export const SIGNED_IN_ONLY = [
+  'evidence',
+  'evidence_counts',
+  'authoring_changes',
+  'trash',
+  'audit_findings',
+  'agent_sessions',
+  'agent_messages',
+]
+
+/**
+ * The public board: everything a signed-out visitor reads to see a blueprint.
+ * `POPULATED` already proves each of these that the seed fills comes back
+ * non-empty; this is the wider promise that none of them is refused, the two
+ * the sample seed leaves empty included.
+ */
+export const PUBLIC_BOARD = [...POPULATED, 'stakeholders', 'slide_images']
+
+/** One read of one relation as one role, as psql takes it on stdin. */
+export function buildRoleReadSql(role, relation) {
+  return `set role ${role};\nselect count(*) from public.${relation};\n`
+}
+
+/**
+ * What the role reads got wrong. `outcomes` maps `role:relation` to `'ok'` or
+ * the error text psql printed.
+ */
+export function evaluateRoleReads(outcomes) {
+  const problems = []
+  for (const relation of SIGNED_IN_ONLY) {
+    const anon = outcomes.get(`anon:${relation}`)
+    if (anon === 'ok') {
+      problems.push(`public.${relation} is readable as anon — a signed-out visitor can read it`)
+    } else if (anon !== undefined && !/permission denied/.test(anon)) {
+      problems.push(`public.${relation} failed as anon for a reason other than a refusal: ${anon}`)
+    }
+    const signedIn = outcomes.get(`authenticated:${relation}`)
+    if (signedIn !== undefined && signedIn !== 'ok') {
+      problems.push(`public.${relation} is refused to a signed-in reader: ${signedIn}`)
+    }
+  }
+  for (const relation of PUBLIC_BOARD) {
+    const anon = outcomes.get(`anon:${relation}`)
+    if (anon !== undefined && anon !== 'ok') {
+      problems.push(`public.${relation} is refused as anon — the public board must stay readable signed-out: ${anon}`)
+    }
+  }
+  return problems
+}
 
 /**
  * The reads the app performs to render, as raw counts. `@grid` is the
@@ -298,6 +361,40 @@ export function judge() {
           'as the role, against the database this run built.',
       }
     }
+    // Who may read what, asked by BECOMING each role — the catalog can say a
+    // grant exists, only the read says whether it is refused.
+    const outcomes = new Map()
+    const reads = [
+      ...SIGNED_IN_ONLY.flatMap((relation) => [
+        ['anon', relation],
+        ['authenticated', relation],
+      ]),
+      ...PUBLIC_BOARD.map((relation) => ['anon', relation]),
+    ]
+    for (const [role, relation] of reads) {
+      try {
+        psql(['-At', '-f', '-'], {}, buildRoleReadSql(role, relation))
+        outcomes.set(`${role}:${relation}`, 'ok')
+      } catch (error) {
+        outcomes.set(
+          `${role}:${relation}`,
+          (error.stderr?.toString() ?? String(error.message)).trim(),
+        )
+      }
+    }
+    const readProblems = evaluateRoleReads(outcomes)
+    if (readProblems.length > 0) {
+      return {
+        what,
+        opening: 'The recipe applied, but who may read what is not what it should be:\n',
+        findings: readProblems.map((problem) => `  ${problem}`),
+        closing:
+          '\nEvidence, the edit log and its recovery list, audit findings and ' +
+          'agent transcripts are for signed-in readers; the board is for ' +
+          'everyone. Revoke the anon grant (and any policy naming anon or ' +
+          'public) for the first kind; keep the anon grant on the second.',
+      }
+    }
     const stdout = psql(['-At', '-F', '|', '-c', buildInventorySql()])
     const counts = parseCounts(stdout)
     const problems = evaluate(counts)
@@ -322,6 +419,7 @@ export function judge() {
       line:
         `the generated seed loads on a fresh core + recipe and renders as anon ` +
         `(${POPULATED.length} tables populated, ${Object.keys(RENDER_READS).length} render reads return rows), ` +
+        `refuses anon on ${SIGNED_IN_ONLY.length} signed-in-only relations a signed-in reader still reads, ` +
         `and every write the editors make was attempted as the role and rolled back ` +
         `(${assertions.filter((one) => one.who === 'author').length} an author made, ` +
         `${assertions.filter((one) => one.who === 'viewer').length} a signed-in reader was refused, ` +

@@ -2961,3 +2961,70 @@ begin
     raise exception 'a rewritten write lost its author-only grant';
   end if;
 end $grants$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000328000000_a_signed_out_visitor_reads_the_board_alone.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- who may read what is Supabase's enforcement, roles and RLS.
+
+drop policy if exists evidence_select_anon on public.evidence;
+
+drop policy if exists "authoring_changes_select" on public.authoring_changes;
+create policy "authoring_changes_select" on public.authoring_changes
+  for select to authenticated using (true);
+
+drop policy if exists "audit_findings_select" on public.audit_findings;
+create policy "audit_findings_select" on public.audit_findings
+  for select to authenticated using (true);
+
+revoke all on
+  public.evidence,
+  public.evidence_counts,
+  public.authoring_changes,
+  public.trash,
+  public.audit_findings,
+  public.agent_sessions,
+  public.agent_messages
+from anon;
+
+do $closed$
+declare
+  relation text;
+  leak text;
+begin
+  foreach relation in array array[
+    'evidence', 'evidence_counts', 'authoring_changes', 'trash',
+    'audit_findings', 'agent_sessions', 'agent_messages'
+  ] loop
+    if has_table_privilege('anon', format('public.%I', relation), 'select') then
+      raise exception 'anon can still select public.%', relation;
+    end if;
+    if not has_table_privilege('authenticated', format('public.%I', relation), 'select') then
+      raise exception 'authenticated lost select on public.%', relation;
+    end if;
+  end loop;
+
+  -- No select policy on the signed-in-only tables may name anon or public.
+  select string_agg(format('%s.%s', tablename, policyname), ', ')
+    into leak
+  from pg_policies
+  where schemaname = 'public'
+    and tablename in ('evidence', 'authoring_changes', 'audit_findings',
+                      'agent_sessions', 'agent_messages')
+    and cmd in ('SELECT', 'ALL')
+    and (roles && array['anon', 'public']::name[]);
+  if leak is not null then
+    raise exception 'a select policy still admits signed-out readers: %', leak;
+  end if;
+
+  foreach relation in array array[
+    'services', 'phases', 'scenarios', 'paths', 'steps', 'path_steps',
+    'lanes', 'cells', 'cell_dependencies', 'touchpoints', 'cell_touchpoints',
+    'resources', 'stakeholders', 'slices', 'slides', 'slide_images'
+  ] loop
+    if not has_table_privilege('anon', format('public.%I', relation), 'select') then
+      raise exception 'the public board lost anon select on public.%', relation;
+    end if;
+  end loop;
+end $closed$;

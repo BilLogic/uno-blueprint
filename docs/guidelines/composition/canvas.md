@@ -143,8 +143,9 @@ at each end wears a small marker button on its lower edge instead —
 **Continues in …** where the link leaves, **Comes from …** where it arrives —
 naming the other path when it is this scenario's, the other scenario
 otherwise. It sits over the shell's bottom inset, so it moves no row, and it is
-a sibling of the cell's button, so it takes its own Tab stop and ring, and its
-path · scenario · phase line is its description. It is drawn only on the board
+a sibling of the cell's button, so it takes its own Tab stop and ring, and
+where the far end is (`Path › Scenario · Phase`, less what this board already
+is) is its description. It is drawn only on the board
 the detail view is scoped to — the overview and the phase rows, where cells are
 inert, draw none. Click or Enter goes where a **Jump to…** cell result goes:
 the far cell's path is added to what its scenario shows (never put in place of

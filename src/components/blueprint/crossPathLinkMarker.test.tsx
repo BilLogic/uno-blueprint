@@ -65,7 +65,7 @@ const out: CrossPathLink = {
   other: REPORT,
   placeName: 'Weekly class report',
   label: 'Continues in Weekly class report',
-  placeDetail: 'Main route · Weekly class report · Week',
+  placeDetail: 'Main route › Weekly class report · Week',
 }
 const arriving: CrossPathLink = {
   dependencyId: 'edge-in',
@@ -74,7 +74,7 @@ const arriving: CrossPathLink = {
   other: CATCH_UP,
   placeName: 'Missed session',
   label: 'Comes from Missed session',
-  placeDetail: 'Missed session · Goal setting · Week',
+  placeDetail: 'Missed session',
 }
 
 /**
@@ -177,7 +177,7 @@ describe('the cross-path marker', () => {
     const described = document.getElementById(
       marker.getAttribute('aria-describedby')!,
     )
-    expect(described?.textContent).toBe('Main route · Weekly class report · Week')
+    expect(described?.textContent).toBe('Main route › Weekly class report · Week')
   })
 
   it('is not drawn where cells are inert — the overview and the phase rows', () => {

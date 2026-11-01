@@ -1,10 +1,11 @@
-import { useState, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { PanelSectionLabel } from '@/components/blueprint/PanelSectionLabel'
 import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  ArrowUpRight,
   Plus,
 } from 'lucide-react'
 import {
@@ -81,32 +82,6 @@ function DirectionIcon({ direction }: { direction: RowDirection }) {
 }
 
 /**
- * The why-line waits for a reader, and asks one row's space to do it in.
- *
- * A dependency row already says WHAT it points at — the lane and the step. The
- * note says WHY the edge exists, which is worth reading one row at a time and
- * not worth reading down a list of eight. Revealed by opacity it still held
- * its line, so a list of eight rows drew sixteen and the list's shape depended
- * on how talkative its author had been. Read from a tooltip, eight rows draw
- * eight.
- *
- * A tooltip is not an accessible name — `IconTooltip` states that rule, and
- * this Base UI version is the proof of it: the popup carries neither
- * `role="tooltip"` nor an `aria-describedby` back to the trigger, and the
- * trigger's hover interaction is `mouseOnly`, so a touch never opens it at
- * all. The sentence therefore stays in the DOM, inside the row's own button,
- * and only a FINE pointer trades the printed line for the popup: a screen
- * reader reads the note as part of the row's name, a touch reader sees it
- * printed where it has always been, and a keyboard reader gets the popup
- * because the same trigger opens on focus as well as on hover.
- *
- * Conditioned on the pointer being fine rather than on its not being coarse,
- * so a device reporting no pointer at all — where nothing hovers and nothing
- * taps — keeps the printed line rather than losing it to a rule about mice.
- */
-const WHY_LINE_QUIET_CLASS = '[@media(pointer:fine)]:sr-only'
-
-/**
  * Where the other end is, after the lane: its step number on this board, or
  * — for an end on another path, whose column this board never read — its
  * step's name.
@@ -126,6 +101,23 @@ function connectionRowLabel(connection: BlueprintCellConnection): string {
 }
 
 
+/**
+ * One connection, as one line: the direction, then the lane and step of the
+ * cell at the other end. Nothing else at rest.
+ *
+ * The rest is read one row at a time, on hover or keyboard focus, from the
+ * app's tooltip: where the other end is when it is on another path, then
+ * what that cell says, then the note on the edge. A list that printed all of
+ * it drew three or four lines per row and read as a wall. The same words are
+ * the row's description (`aria-describedby`), because this tooltip is not an
+ * accessible name — its popup carries no role and no link back — and a
+ * screen reader has to reach them without a pointer.
+ *
+ * A connection to another path differs at rest by one muted mark at the end
+ * of the line, the "leaves this path" arrow, named for a screen reader. On
+ * touch nothing hovers: the line stays one line and a tap goes to the other
+ * cell, whose own panel says what it is and where.
+ */
 function DependencyRow({
   connection,
   direction,
@@ -144,7 +136,10 @@ function DependencyRow({
 } & SelectHandlers) {
   const detail = useBlueprintCellDetailOptional()
   const jump = useJumpToCell()
+  const describedById = useId()
   const reachedIn = connection.reachedIn
+  const cellText = connection.isTech ? '' : connection.contentPreview
+  const hasDetail = Boolean(reachedIn || cellText || connection.linkNote)
 
   const preview = (techItem: string | null) => {
     detail?.setPreviewHover({ cellId: connection.cellId, techItem })
@@ -154,7 +149,8 @@ function DependencyRow({
   const row = (
     <button
       type="button"
-      className="flex min-w-0 flex-col items-stretch gap-1 text-left text-foreground transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+      className="flex min-w-0 items-center gap-[7px] text-left text-foreground transition-colors duration-(--motion-micro) ease-arrive motion-reduce:transition-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+      aria-describedby={hasDetail ? describedById : undefined}
       onMouseEnter={() => preview(null)}
       onMouseLeave={clearPreview}
       onFocus={() => preview(null)}
@@ -171,32 +167,39 @@ function DependencyRow({
       }}
       data-dependency-reached-in={reachedIn ? '' : undefined}
     >
-      <span className="flex min-w-0 items-center gap-[7px]">
-        <DirectionIcon direction={direction} />
-        <span className="min-w-0 truncate font-normal text-foreground">
-          {connection.laneName}
-          <span className="text-muted-foreground">
-            {' '}
-            · {connectionStepLabel(connection)}
-          </span>
+      <DirectionIcon direction={direction} />
+      <span className="min-w-0 flex-1 truncate font-normal text-foreground">
+        {connection.laneName}
+        <span className="text-muted-foreground">
+          {' '}
+          · {connectionStepLabel(connection)}
         </span>
       </span>
       {reachedIn ? (
-        <span className={cn('truncate text-xs text-muted-foreground', detailIndentClass)}>
-          {reachedIn.placeDetail}
-        </span>
+        <>
+          <ArrowUpRight
+            className="size-3 shrink-0 text-muted-foreground"
+            aria-hidden
+            data-dependency-leaves-path=""
+          />
+          <span className="sr-only">On another path</span>
+        </>
       ) : null}
-      {connection.contentPreview && !connection.isTech ? (
-        <span className={cn('truncate text-xs text-muted-foreground', detailIndentClass)}>
-          {connection.contentPreview}
+    </button>
+  )
+
+  const detailLines = (
+    <>
+      {reachedIn ? <span>{reachedIn.placeDetail}</span> : null}
+      {cellText ? (
+        <span className={reachedIn ? 'text-muted-foreground' : undefined}>
+          {cellText}
         </span>
       ) : null}
       {connection.linkNote ? (
-        <span className={cn(WHY_LINE_QUIET_CLASS, 'text-xs text-muted-foreground italic', detailIndentClass)}>
-          {connection.linkNote}
-        </span>
+        <span className="text-muted-foreground italic">{connection.linkNote}</span>
       ) : null}
-    </button>
+    </>
   )
 
   return (
@@ -212,11 +215,18 @@ function DependencyRow({
           action ? 'pr-8' : undefined,
         )}
       >
-        {connection.linkNote ? (
-          <Tooltip>
-            <TooltipTrigger render={row} />
-            <TooltipContent>{connection.linkNote}</TooltipContent>
-          </Tooltip>
+        {hasDetail ? (
+          <>
+            <span id={describedById} className="sr-only" data-dependency-detail="">
+              {detailLines}
+            </span>
+            <Tooltip>
+              <TooltipTrigger render={row} />
+              <TooltipContent className="flex max-w-72 flex-col items-start gap-1 text-left">
+                {detailLines}
+              </TooltipContent>
+            </Tooltip>
+          </>
         ) : (
           row
         )}

@@ -33,7 +33,7 @@ export type CrossPathLink = {
   placeName: string
   /** "Continues in …" or "Comes from …". */
   label: string
-  /** The far end's path, scenario and phase, as one line ({@link placeDetail}). */
+  /** Where the far end is, as one line ({@link placeDetail}). */
   placeDetail: string
 }
 
@@ -103,13 +103,26 @@ export function crossPathPlaceLabel(
     : `${where.scenarioName} › ${where.pathName}`
 }
 
-/** A far end's path, scenario and phase, as one line. */
+/**
+ * Where a far end is, as one line, said from the board looking at it:
+ * `Path › Scenario · Phase`, dropping what that board already is. Another
+ * path of this scenario is its path alone; another scenario in this phase
+ * drops the phase. A board that does not know its own scenario or phase
+ * keeps them, since it cannot tell they are the same.
+ */
 export function placeDetail(
-  where: Pick<BlueprintRemoteCell, 'pathName' | 'scenarioName' | 'phaseName'>,
+  from: Pick<BlueprintPath, 'scenarioId' | 'phaseName'>,
+  where: Pick<BlueprintRemoteCell, 'pathName' | 'scenarioId' | 'scenarioName' | 'phaseName'>,
 ): string {
-  return [where.pathName, where.scenarioName, where.phaseName]
-    .filter((part): part is string => Boolean(part))
-    .join(' · ')
+  if (isSameScenario(from, where.scenarioId)) return where.pathName
+  const scenario = `${where.pathName} › ${where.scenarioName}`
+  const samePhase =
+    from.phaseName !== undefined &&
+    from.phaseName !== null &&
+    from.phaseName === where.phaseName
+  return where.phaseName && !samePhase
+    ? `${scenario} · ${where.phaseName}`
+    : scenario
 }
 
 export function crossPathLabel(
@@ -174,7 +187,7 @@ export function crossPathLinksByCell(
       other,
       placeName,
       label: crossPathLabel(direction, placeName),
-      placeDetail: placeDetail(other),
+      placeDetail: placeDetail(blueprint.path, other),
     }
     const list = byCell.get(cellId)
     if (list) list.push(link)

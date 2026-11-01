@@ -67,7 +67,7 @@ export type ConnectionReachedIn = Pick<
   placeName: string
   /** The path alone when it is this scenario's, else "Scenario › Path". */
   placeLabel: string
-  /** Path · scenario · phase. */
+  /** `Path › Scenario · Phase`, less what this board already is. */
   placeDetail: string
 }
 
@@ -130,7 +130,7 @@ function toRemoteConnection(
       phaseName: remote.phaseName,
       placeName: crossPathPlaceName(blueprint, remote),
       placeLabel: crossPathPlaceLabel(blueprint.path, remote),
-      placeDetail: placeDetail(remote),
+      placeDetail: placeDetail(blueprint.path, remote),
     },
   }
 }

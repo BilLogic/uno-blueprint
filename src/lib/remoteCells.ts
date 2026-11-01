@@ -200,10 +200,20 @@ export function withBundledCrossPathLinks(
   const tagged = new Map<string, BlueprintData>()
   for (const [pathId, board] of boardsByPathId) {
     const scenarioId = scenarioIdByPathId.get(pathId)
+    const names = scenarioId ? scenarioNames(scenarioId) : null
     tagged.set(
       pathId,
       scenarioId && board.path.scenarioId !== scenarioId
-        ? { ...board, path: { ...board.path, scenarioId } }
+        ? {
+            ...board,
+            path: {
+              ...board.path,
+              scenarioId,
+              ...(names
+                ? { scenarioName: names.scenarioName, phaseName: names.phaseName }
+                : {}),
+            },
+          }
         : board,
     )
   }

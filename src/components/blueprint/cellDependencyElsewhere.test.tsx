@@ -41,6 +41,7 @@ vi.mock('@/hooks/useJumpToCell', async (importOriginal) => ({
 
 import { CellDependencySections } from '@/components/blueprint/CellDependencySections'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { ROW_REVEAL_CLASS } from '@/lib/rowReveal'
 
 afterEach(() => {
   cleanup()
@@ -74,7 +75,7 @@ const elsewhere = (
     phaseName: 'Week',
     placeName: 'Weekly class report',
     placeLabel: 'Weekly class report › Main route',
-    placeDetail: 'Main route · Weekly class report · Week',
+    placeDetail: 'Main route › Weekly class report · Week',
   },
   ...patch,
 })
@@ -118,13 +119,22 @@ const group = (title: string) => {
 }
 
 describe('a link to another path, in the list', () => {
-  it('sits in its own group and names its lane, its step, its path, scenario and phase', () => {
+  it('is one line at rest — lane and step — with a muted mark that it leaves this path', () => {
     draw({ outgoing: [elsewhere()] })
-    const leadsTo = group('Leads to')
-    expect(within(leadsTo).getByText('Main route · Weekly class report · Week'))
-      .toBeTruthy()
-    expect(leadsTo.textContent).toContain('Tutor · Writes it up')
-    expect(leadsTo.textContent).not.toContain('Step 0')
+    const row = within(group('Leads to')).getByRole('button', { name: /Tutor/ })
+    expect(row.textContent).toBe('Tutor · Writes it upOn another path')
+    expect(row.querySelector('[data-dependency-leaves-path]')).not.toBeNull()
+    // Named for a screen reader, hidden from sight: the arrow is the mark.
+    expect(within(row).getByText('On another path').className).toContain('sr-only')
+  })
+
+  it('describes where it lands, then what the far cell says', () => {
+    draw({ outgoing: [elsewhere()] })
+    const row = within(group('Leads to')).getByRole('button', { name: /Tutor/ })
+    const description = document.getElementById(row.getAttribute('aria-describedby')!)
+    expect(description?.textContent).toBe(
+      'Main route › Weekly class report · WeekWrites the weekly report',
+    )
   })
 
   it('lists the recorded kind too, which no marker draws', () => {
@@ -157,6 +167,12 @@ describe('a link to another path, in edit mode', () => {
     await waitFor(() =>
       expect(rpc.clear).toHaveBeenCalledWith({}, 'edge-to-report'),
     )
+  })
+
+  it('reveals its pencil on hover and focus, and always where the pointer is coarse', () => {
+    draw({ incoming: [elsewhere({ dependencyId: 'edge-in' })], edit: true })
+    const pencil = within(group('Follows')).getByLabelText(/^Edit in /)
+    expect(pencil.closest('span')?.className).toContain(ROW_REVEAL_CLASS)
   })
 
   it('is edited from its owner on the other path, and the pencil goes there', () => {

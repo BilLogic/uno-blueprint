@@ -233,6 +233,28 @@ describe('the markers', () => {
     expect(links[0]?.label).toBe('Comes from Goal setting')
   })
 
+  it('say where the far end is from here: the path alone in this scenario, else path › scenario · phase', () => {
+    const links = crossPathLinksByCell(named()).get('cell-b') ?? []
+    expect(links.map((link) => link.placeDetail)).toEqual([
+      'Missed session',
+      'Main route › Weekly class report · Week',
+    ])
+  })
+
+  it('drop the phase when the far scenario is in this one', () => {
+    const board = named()
+    const samePhase = {
+      ...board,
+      remoteCells: board.remoteCells!.map((remote) =>
+        remote.id === 'cell-report' ? { ...remote, phaseName: 'Term' } : remote,
+      ),
+    }
+    const out = crossPathLinksFor(samePhase, ['cell-b']).find(
+      (link) => link.direction === 'out',
+    )
+    expect(out?.placeDetail).toBe('Main route › Weekly class report')
+  })
+
   it('tell a path from a scenario of the same name by id, not by name', () => {
     const board = named()
     // A scenario named like this board's own path: still another scenario.
@@ -248,6 +270,6 @@ describe('the markers', () => {
       (link) => link.direction === 'out',
     )
     expect(out?.label).toBe('Continues in Main route')
-    expect(out?.placeDetail).toBe('Main route · Main route · Week')
+    expect(out?.placeDetail).toBe('Main route › Main route · Week')
   })
 })

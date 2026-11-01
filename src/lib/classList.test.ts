@@ -27,7 +27,7 @@ const SEQUENCE_BADGE_FILE = 'components/blueprint/BlueprintCellButton.tsx'
 const EYEBROW_FILE = 'components/blueprint/ScenarioTitleBadge.tsx'
 const HEADER_TEXT_FILE = 'lib/canvasHeaderStyle.ts'
 const HEADER_CN_FILE = 'components/blueprint/StepHeaderAffordance.tsx'
-const NAMED_CN_FILE = 'components/blueprint/CellDependencySections.tsx'
+const NAMED_CN_FILE = 'components/blueprint/CompareDifferencesSurface.tsx'
 
 /**
  * The first `className="…"` in `file` whose value contains `needle`.
@@ -158,7 +158,7 @@ describe('classLists', () => {
       sites.some(
         (site) =>
           site.file === NAMED_CN_FILE &&
-          classListHas(site.classes, ['text-xs', 'truncate']),
+          classListHas(site.classes, ['text-xs', 'tabular-nums']),
       ),
     ).toBe(true)
   })

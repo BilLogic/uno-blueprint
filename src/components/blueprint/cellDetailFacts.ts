@@ -327,7 +327,6 @@ export function useCellPanelFacts({
         const step = stepOrder.get(cell.step_id)
         return {
           cellId: cell.id,
-          pathId,
           stepIndex: step?.index ?? Number.MAX_SAFE_INTEGER,
           label: cellPositionLabel(
             step?.index ?? -1,
@@ -340,11 +339,7 @@ export function useCellPanelFacts({
         (a, b) =>
           a.stepIndex - b.stepIndex || a.label.localeCompare(b.label),
       )
-      .map(({ cellId: id, pathId: path, label }) => ({
-        cellId: id,
-        pathId: path,
-        label,
-      }))
+      .map(({ cellId: id, label }) => ({ cellId: id, label }))
   }, [blueprint, cellId, pathEntry?.pathId])
 
   // Only outgoing dependencies: this cell owns the ones it is the source of,
@@ -369,7 +364,7 @@ export function useCellPanelFacts({
   const dependencySource = useMemo<DependencyEndpoint | null>(() => {
     const pathId = pathEntry?.pathId
     if (!cellId || !pathId || !positionLabel) return null
-    return { cellId, pathId, label: positionLabel }
+    return { cellId, label: positionLabel }
   }, [cellId, pathEntry?.pathId, positionLabel])
 
   const storyboardStepEntries = useMemo(() => {

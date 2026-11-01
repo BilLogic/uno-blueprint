@@ -60,7 +60,12 @@ an arrow to a cell that is not on screen cannot be drawn honestly.
 ## Consequences
 
 - A cross-path `leads_to` is not an arrow. "Leads to draws" now means "draws
-  when both ends are on the board". A cell's marker carries the rest.
+  when both ends are on the board". A cell's marker carries the rest; until
+  that marker lands (#1255), a cross-path link is recorded and listed but not
+  shown on the board.
+- Deleting a path or a scenario archives every link with either end inside
+  it, not only the ones that leave it, so a link that came in from elsewhere
+  is in the recovery record. Restoring it needs its other end to still exist.
 - The IR file must carry cross-path links, and its validator must stop
   rejecting them. That is a published-interface change, made separately
   (#1254); until it lands, an export of a cross-path link will not validate.

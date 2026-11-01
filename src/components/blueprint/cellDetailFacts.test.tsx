@@ -299,7 +299,6 @@ describe('the drawer’s reading', () => {
     ])
     expect(facts.dependencySource).toEqual({
       cellId: 'cell-guest-arrives',
-      pathId: 'path-main',
       label: '1. Arrives · Guest',
     })
   })

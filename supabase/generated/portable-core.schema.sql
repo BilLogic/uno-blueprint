@@ -692,8 +692,9 @@ begin
               from public.cells c where c.path_id = p.id),
     'dependencies', (select coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb)
                      from public.cell_dependencies t
-                     join public.cells c on c.id = t.source_cell_id
-                     where c.path_id = p.id)
+                     where exists (select 1 from public.cells c
+                                    where c.id in (t.source_cell_id, t.target_cell_id)
+                                      and c.path_id = p.id))
   ) into payload
   from public.paths p where p.id = path_id;
 
@@ -746,9 +747,10 @@ begin
               where p.scenario_id = sc.id),
     'dependencies', (select coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb)
                      from public.cell_dependencies t
-                     join public.cells c on c.id = t.source_cell_id
-                     join public.paths p on p.id = c.path_id
-                     where p.scenario_id = sc.id)
+                     where exists (select 1 from public.cells c
+                                    join public.paths p on p.id = c.path_id
+                                    where c.id in (t.source_cell_id, t.target_cell_id)
+                                      and p.scenario_id = sc.id))
   ) into payload
   from public.scenarios sc where sc.id = scenario_id;
 

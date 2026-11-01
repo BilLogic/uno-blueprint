@@ -21,9 +21,9 @@ import {
   describeVersionOutcome,
 } from '@/lib/versionValidation.ts'
 
-const source = { cellId: 'a', pathId: 'p1', label: 'Greet customer' }
-const sameVersion = { cellId: 'b', pathId: 'p1', label: 'Share screen' }
-const otherVersion = { cellId: 'c', pathId: 'p2', label: 'Escalate' }
+const source = { cellId: 'a', label: 'Greet customer' }
+const sameVersion = { cellId: 'b', label: 'Share screen' }
+const otherVersion = { cellId: 'c', label: 'Escalate' }
 
 const draft = (patch) => ({
   sourceCellId: 'a',

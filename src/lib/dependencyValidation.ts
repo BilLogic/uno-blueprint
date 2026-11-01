@@ -75,8 +75,6 @@ export type DraftDependency = {
 /** Enough about the other end to check a draft without another read. */
 export type DependencyEndpoint = {
   cellId: string
-  /** The path the cell sits on. The two ends of a link may differ. */
-  pathId: string
   label: string
 }
 

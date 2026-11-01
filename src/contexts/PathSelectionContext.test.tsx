@@ -160,4 +160,16 @@ describe('PathSelectionProvider', () => {
     act(() => result.current.syncScenarioPaths(CATALOG, [...CATALOG.keys()]))
     expect(result.current.getSelectedPathIds('adopt')).toEqual(['p-nodb'])
   })
+
+  it('selectDefaultPath shows a followed link’s path beside the default, now or once the catalog arrives', () => {
+    const now = renderStore().result
+    act(() => now.current.syncScenarioPaths(CATALOG, [...CATALOG.keys()]))
+    act(() => now.current.selectDefaultPath('adopt', 'p-supabase'))
+    expect(now.current.getSelectedPathIds('adopt')).toEqual(['p-nodb', 'p-supabase'])
+
+    const later = renderStore().result
+    act(() => later.current.selectDefaultPath('adopt', 'p-supabase'))
+    act(() => later.current.syncScenarioPaths(CATALOG, [...CATALOG.keys()]))
+    expect(later.current.getSelectedPathIds('adopt')).toEqual(['p-nodb', 'p-supabase'])
+  })
 })

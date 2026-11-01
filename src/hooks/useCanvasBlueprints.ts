@@ -1,12 +1,15 @@
 import { useMemo } from 'react'
-import { useQueries } from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
 import {
   filterPathsForScenarioUi,
   getBlueprintFallback,
   getFallbackPathsForScenario,
   type OfflineBoard,
 } from '@/data/blueprintFallbacks'
-import { useOfflineBoard } from '@/contexts/DeploymentConfigContext'
+import {
+  useOfflineBoard,
+  useSampleNavOptional,
+} from '@/contexts/DeploymentConfigContext'
 import { useSupabase } from '@/contexts/SupabaseProvider'
 import { queryKeys } from '@/lib/queryKeys'
 import { withSupabaseTimeout } from '@/lib/supabaseFetchTimeout'
@@ -15,8 +18,17 @@ import type { RawPath } from '@/lib/normalizeBlueprint'
 import { asEntityStatus, DEFAULT_ENTITY_STATUS } from '@/lib/entityStatus'
 import type { PathListItem } from '@/lib/pathSelection'
 import { pickPreferredPath } from '@/lib/pathSelection'
+import {
+  fetchRemoteCells,
+  remoteCellsFromBoards,
+  scenarioNamesFromNav,
+  unnamedFarEnds,
+  withBundledCrossPathLinks,
+  withRemoteCells,
+} from '@/lib/remoteCells'
 import { PATH_BLUEPRINT_SELECT } from '@/lib/workflowQueries'
 import type { BlueprintData } from '@/types/blueprint'
+import type { NavItem } from '@/types/nav'
 
 type CanvasRawPath = RawPath & {
   scenario_id: string
@@ -44,6 +56,7 @@ function pickPathForScenario(paths: CanvasRawPath[]): CanvasRawPath | null {
 function buildFallbackMaps(
   board: OfflineBoard,
   scenarioIds: string[],
+  nav: readonly NavItem[] | null,
 ): CanvasBlueprintMaps {
   const blueprintsByScenario = new Map<string, BlueprintData>()
   const pathsByScenario = new Map<string, PathListItem[]>()
@@ -73,10 +86,27 @@ function buildFallbackMaps(
     }
   }
 
+  // The bundle lists each link on its source's path; give every board the
+  // links that touch it and name the far ends, as a database read does.
+  const scenarioIdByPathId = new Map(
+    [...pathsByScenario].flatMap(([scenarioId, paths]) =>
+      paths.map((path) => [path.id, scenarioId] as const),
+    ),
+  )
+  const linked = withBundledCrossPathLinks(
+    blueprintsByPathId,
+    scenarioIdByPathId,
+    scenarioNamesFromNav(nav ?? []),
+  )
+  for (const [scenarioId, blueprint] of blueprintsByScenario) {
+    const withLinks = linked.get(blueprint.path.id)
+    if (withLinks) blueprintsByScenario.set(scenarioId, withLinks)
+  }
+
   return {
     blueprintsByScenario,
     pathsByScenario,
-    blueprintsByPathId,
+    blueprintsByPathId: linked,
     usingFallback: blueprintsByScenario.size > 0,
   }
 }
@@ -165,9 +195,10 @@ export function useCanvasBlueprints(scenarioIds: string[]) {
     [idsKey],
   )
   const board = useOfflineBoard()
+  const nav = useSampleNavOptional()
   const staticFallbacks = useMemo(
-    () => buildFallbackMaps(board, orderedScenarioIds),
-    [board, orderedScenarioIds],
+    () => buildFallbackMaps(board, orderedScenarioIds, nav),
+    [board, orderedScenarioIds, nav],
   )
 
   const { client, configured } = useSupabase()
@@ -239,6 +270,43 @@ export function useCanvasBlueprints(scenarioIds: string[]) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [board, orderedScenarioIds, noDb, allSettled, rowsKey, staticFallbacks])
 
+  /*
+    The far ends of links that leave a path. Named from the boards just read
+    wherever they can be — another path of a scenario on the canvas — and the
+    rest in ONE follow-up read. Keyed under the boards' own prefix, so a write
+    that refreshes the boards refreshes this with them; and with nothing to
+    name, it never runs.
+  */
+  const loadedNames = useMemo(
+    () => remoteCellsFromBoards(derived.blueprintsByPathId.values()),
+    [derived],
+  )
+  const unnamed = useMemo(
+    () => unnamedFarEnds(derived.blueprintsByPathId.values(), loadedNames),
+    [derived, loadedNames],
+  )
+  const farEnds = useQuery({
+    queryKey: [`${queryKeys.canvasBlueprints.prefix}far-ends:${unnamed.join(',')}`],
+    enabled: !noDb && allSettled && unnamed.length > 0,
+    queryFn: ({ signal }) =>
+      withSupabaseTimeout(signal, (deadline) =>
+        fetchRemoteCells(client!, unnamed, deadline),
+      ),
+  })
+  const named = useMemo<CanvasBlueprintMaps>(() => {
+    const all = new Map(loadedNames)
+    for (const remote of farEnds.data ?? []) all.set(remote.id, remote)
+    const attach = (boards: Map<string, BlueprintData>) =>
+      new Map(
+        [...boards].map(([key, board]) => [key, withRemoteCells(board, all)]),
+      )
+    return {
+      ...derived,
+      blueprintsByScenario: attach(derived.blueprintsByScenario),
+      blueprintsByPathId: attach(derived.blueprintsByPathId),
+    }
+  }, [derived, loadedNames, farEnds.data])
+
   const firstError = results.find((result) => result.error)?.error
   const error = anyError
     ? firstError instanceof Error
@@ -247,15 +315,15 @@ export function useCanvasBlueprints(scenarioIds: string[]) {
     : null
 
   return {
-    blueprintsByScenario: derived.blueprintsByScenario,
-    pathsByScenario: derived.pathsByScenario,
-    blueprintsByPathId: derived.blueprintsByPathId,
+    blueprintsByScenario: named.blueprintsByScenario,
+    pathsByScenario: named.pathsByScenario,
+    blueprintsByPathId: named.blueprintsByPathId,
     loading,
     error,
     /** The board on screen IS the bundled sample — only ever true with no
      *  database configured. A failed read against a real database is an
      *  outage, not a fallback, and `error` is what reports it. */
-    usingFallback: derived.usingFallback,
+    usingFallback: named.usingFallback,
     /** Real network progress: settled chunks over total chunks. A no-DB
      *  session has nothing on the wire — it reports complete, so the bar
      *  never parks below full while nothing is loading. */

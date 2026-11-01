@@ -62,6 +62,7 @@ import {
 import { resolveBlueprintLane } from '@/lib/laneCorridor'
 import { cellResources } from '@/lib/cellResources'
 import { cellTouchpoints } from '@/lib/cellTouchpoints'
+import { crossPathLinksFor } from '@/lib/crossPathLinks'
 import { getPathColor } from '@/lib/pathColorTheme'
 import { resolveStoryboardStripEntries } from '@/lib/storyboardWalkthrough'
 import { cn } from '@/lib/utils'
@@ -646,6 +647,11 @@ function MergedSubCellBlock({
   scenarioName?: string
   phaseName?: string
 }) {
+  // Before the early returns: a hook may not be skipped on some renders.
+  const crossPathLinks = useMemo(
+    () => (runtime ? crossPathLinksFor(runtime.blueprint, subCell.cellIds) : undefined),
+    [runtime, subCell.cellIds],
+  )
   if (!runtime) return null
   const { blueprint } = runtime
   const step = runtime.stepById.get(subCell.stepId)
@@ -687,6 +693,7 @@ function MergedSubCellBlock({
       storyboardPictures={storyboardPictures}
       slotCells={variant === 'touchpoints' ? cells : undefined}
       pathMembership={pathMembership}
+      crossPathLinks={crossPathLinks}
       selectionContext={
         scenarioName && cellId
           ? {

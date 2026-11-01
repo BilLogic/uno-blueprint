@@ -1,3 +1,4 @@
+import type { NavItem } from '@/types/nav'
 import {
   createContext,
   useContext,
@@ -331,6 +332,14 @@ export function DeploymentConfigProvider({
       </OfflineBoardContext.Provider>
     </DeploymentConfigContext.Provider>
   )
+}
+
+/**
+ * The bundled sample's phases and scenarios, or null outside a provider — for
+ * a reader that only names things from it and has a plain answer without it.
+ */
+export function useSampleNavOptional(): NavItem[] | null {
+  return useContext(DeploymentConfigContext)?.sample.nav ?? null
 }
 
 /** The resolved deployment config for the current app. Throws outside a provider. */

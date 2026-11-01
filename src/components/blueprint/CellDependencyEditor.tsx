@@ -24,6 +24,7 @@ import {
   type DraftDependency,
 } from '@/lib/dependencyValidation'
 import type { DependencyKind } from '@/lib/authoringRpc'
+import { ROW_REVEAL_CLASS } from '@/lib/rowReveal'
 import { cn, errorMessage } from '@/lib/utils'
 
 export type ExistingDependency = {
@@ -109,7 +110,7 @@ function RowAction({
         type="button"
         variant="ghost"
         size="icon-sm"
-        className="shrink-0 text-muted-foreground hover:text-foreground"
+        className={cn('shrink-0 text-muted-foreground hover:text-foreground', ROW_REVEAL_CLASS)}
         aria-label={label}
         onClick={onClick}
       >
@@ -263,7 +264,7 @@ export function DependencyEditRow({
 
   return (
     <li
-      className="border-b border-muted px-2 py-2 last:border-0"
+      className="group border-b border-muted px-2 py-2 last:border-0"
       data-dependency-row={dependencyId}
       onFocusCapture={() => editing.onActivate(dependencyId)}
       onPointerDownCapture={() => editing.onActivate(dependencyId)}
@@ -341,7 +342,7 @@ export function InboundRowPencil({
 }) {
   const label = `Edit in “${ownerLabel}”`
   return (
-    <span className="absolute top-1 right-1">
+    <span className={cn('absolute top-1 right-1', ROW_REVEAL_CLASS)}>
       <IconTooltip label={label}>
         <Button
           type="button"

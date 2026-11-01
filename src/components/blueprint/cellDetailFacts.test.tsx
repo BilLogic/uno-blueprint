@@ -453,3 +453,124 @@ describe('the tab row’s reading', () => {
       .toBe(1)
   })
 })
+
+describe('the picker across the service', () => {
+  const OWN: BlueprintData = {
+    ...BOARD,
+    path: { ...BOARD.path, scenarioId: 'scenario-booking', scenarioName: 'Booking' },
+  }
+  const DETOUR: BlueprintData = {
+    ...BOARD,
+    path: {
+      ...BOARD.path,
+      id: 'path-detour',
+      name: 'Walk-in',
+      kind: 'variant',
+      scenarioId: 'scenario-booking',
+      scenarioName: 'Booking',
+    },
+    cells: [{ ...BOARD.cells[2]!, id: 'cell-detour-chooses' }],
+    dependencies: [],
+  }
+  const ELSEWHERE: BlueprintData = {
+    ...DETOUR,
+    path: {
+      ...DETOUR.path,
+      id: 'path-visit',
+      name: 'Main route',
+      scenarioId: 'scenario-visit',
+      scenarioName: 'The visit',
+    },
+    cells: [{ ...BOARD.cells[0]!, id: 'cell-visit-arrives' }],
+  }
+
+  function readAcross(boards: BlueprintData[]) {
+    return renderHook(() => {
+      const resolved = useSelectedCell({
+        blueprints: boards,
+        selection: selectionFor('cell-guest-arrives'),
+        draft: null,
+      })
+      return useCellPanelFacts(resolved)
+    }).result.current
+  }
+
+  it('offers this path’s cells first, then another path of this scenario by its name, then another scenario’s by both', () => {
+    const facts = readAcross([OWN, DETOUR, ELSEWHERE])
+    expect(facts.dependencyCandidates.map((entry) => entry.label)).toEqual([
+      '1. Arrives · Tools',
+      '2. Chooses · Guest',
+      'The visit › Main route · 1. Arrives · Guest',
+      'Walk-in · 2. Chooses · Guest',
+    ])
+  })
+
+  it('names a recorded far end the canvas has not loaded, so its row can show what it points at', () => {
+    const own: BlueprintData = {
+      ...OWN,
+      dependencies: [
+        ...OWN.dependencies,
+        {
+          id: 'dependency-away',
+          source_cell_id: 'cell-guest-arrives',
+          target_cell_id: 'cell-far',
+          kind: 'leads_to',
+          note: null,
+        },
+      ],
+      remoteCells: [
+        {
+          id: 'cell-far',
+          content: 'Sends the receipt',
+          laneName: 'Guest',
+          stepName: 'Leaves',
+          pathId: 'path-far',
+          pathName: 'Main route',
+          scenarioId: 'scenario-after',
+          scenarioName: 'After the visit',
+          phaseName: 'After',
+        },
+      ],
+    }
+    const facts = readAcross([own])
+    const label = 'After the visit › Main route · Leaves · Guest'
+    expect(facts.dependencyCandidates.at(-1)).toEqual({ cellId: 'cell-far', label })
+    expect(
+      facts.existingDependencies.find((entry) => entry.id === 'dependency-away')
+        ?.targetLabel,
+    ).toBe(label)
+  })
+  it('scopes a far end by its scenario id, not by whether its scenario and path share a name', () => {
+    const own: BlueprintData = {
+      ...OWN,
+      dependencies: [
+        {
+          id: 'dependency-twin',
+          source_cell_id: 'cell-guest-arrives',
+          target_cell_id: 'cell-twin',
+          kind: 'leads_to',
+          note: null,
+        },
+      ],
+      remoteCells: [
+        {
+          id: 'cell-twin',
+          content: 'Picks up the report',
+          laneName: 'Guest',
+          stepName: 'Leaves',
+          pathId: 'path-twin',
+          // Another scenario, named exactly like its path.
+          pathName: 'Main route',
+          scenarioId: 'scenario-twin',
+          scenarioName: 'Main route',
+          phaseName: null,
+        },
+      ],
+    }
+    const facts = readAcross([own])
+    expect(
+      facts.existingDependencies.find((entry) => entry.id === 'dependency-twin')
+        ?.targetLabel,
+    ).toBe('Main route › Main route · Leaves · Guest')
+  })
+})

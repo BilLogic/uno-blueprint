@@ -22,7 +22,7 @@ import {
   tableColumns,
   vocabularySource,
 } from '../agent-account.mjs'
-import { credentials } from '../generate-agent-account.mjs'
+import { credentials, resolveSignedIn } from '../generate-agent-account.mjs'
 import { sweep } from '../sweep.mjs'
 
 const ROOT = new URL('../..', import.meta.url).pathname
@@ -378,4 +378,112 @@ test('an account that has gone stale against its own database fails', () => {
   })
   assert.match(stale.failures[0], /is not what its sources render/)
   assert.match(stale.failures[0], /toward the database/)
+})
+
+/* ------------------------------------------ what a signed-in reader reads */
+
+// A relation the anon key is refused and a signed-in session reads. The probe
+// can only say "sealed"; the columns come from whatever the running repository
+// hands in — in a deployment, its own migration series.
+const SIGNED_IN = new Map([['evidence', ['id', 'cell_id', 'excerpt']]])
+const SIGNED_IN_PROBED = new Map([
+  ['cells', { status: 'readable', columns: ['id', 'content'], order: 'table' }],
+  ['evidence', { status: 'sealed' }],
+  ['business_models', { status: 'sealed' }],
+])
+const SIGNED_IN_COMMENTS = [
+  { relation: 'cells', column_name: 'content', comment: 'The sentence of record.' },
+  { relation: 'evidence', column_name: null, comment: 'Provenance rows.' },
+  { relation: 'evidence', column_name: 'excerpt', comment: 'The quoted passage.' },
+  { relation: 'evidence', column_name: 'source_label', comment: 'Where the passage came from.' },
+  { relation: 'business_models', column_name: null, comment: 'Commercial framing.' },
+]
+
+test('a signed-in-only relation keeps its columns, in the order its source gave them', () => {
+  const { columns, readable, signedIn } = reconcile({
+    declared: new Map([['evidence', ['id', 'excerpt', 'retired_column']]]),
+    probed: SIGNED_IN_PROBED,
+    comments: SIGNED_IN_COMMENTS,
+    signedInColumns: SIGNED_IN,
+  })
+  assert.deepEqual(columns.get('evidence'), ['id', 'cell_id', 'excerpt', 'source_label'], 'a commented column is confirmed too')
+  assert.deepEqual([...signedIn], ['evidence'])
+  assert.equal(readable.has('evidence'), false, 'the anon key still cannot read it')
+  assert.deepEqual(columns.get('business_models'), [], 'a sealed relation no source describes stays a name')
+})
+
+test('the signed-in source does not outrank the database', () => {
+  const { columns, readable, signedIn, notes } = reconcile({
+    declared: new Map(),
+    probed: new Map([
+      ['evidence', { status: 'readable', columns: ['id', 'excerpt'], order: 'table' }],
+      ['trash', { status: 'absent' }],
+    ]),
+    comments: [],
+    signedInColumns: new Map([
+      ['evidence', ['id', 'excerpt']],
+      ['trash', ['id']],
+    ]),
+  })
+  assert.ok(readable.has('evidence'), 'an anon read is the truth, whatever the source said')
+  assert.equal(signedIn.size, 0)
+  assert.equal(columns.has('trash'), false, 'a relation this database lacks is not rendered')
+  assert.ok(notes.some((n) => /anon key reads/.test(n) && /evidence/.test(n)))
+  assert.ok(notes.some((n) => /^named signed-in only but not in this database/.test(n) && /trash/.test(n)))
+})
+
+test('a signed-in-only relation renders in full, marked, and counts toward coverage', () => {
+  const sources = { ...reconcile({ declared: new Map(), probed: SIGNED_IN_PROBED, comments: SIGNED_IN_COMMENTS, signedInColumns: SIGNED_IN }), comments: SIGNED_IN_COMMENTS }
+  const out = renderSchema(sources)
+  assert.match(out, /### `evidence`\nProvenance rows\.\n\nSigned-in only: a signed-in session reads it and the anon key is refused\.\n\n2 of 4 columns described\./)
+  assert.match(out, /\| `excerpt` \| The quoted passage\. \|/)
+  assert.match(out, /### Not readable with the anon key[\s\S]*- `business_models` — Commercial framing\./)
+  assert.doesNotMatch(out, /- `evidence` —/, 'a described relation is not also listed as a bare name')
+  assert.doesNotMatch(out, /### `cells`\n[^\n]*\n\nSigned-in only/, 'an anon-readable relation carries no mark')
+  assert.deepEqual(coverage(sources), { described: 3, of: 6 })
+})
+
+test('with no signed-in source the account is what it always was', () => {
+  const without = reconcile({ declared: new Map(), probed: SIGNED_IN_PROBED, comments: SIGNED_IN_COMMENTS })
+  assert.equal(without.signedIn.size, 0)
+  assert.deepEqual(without.columns.get('evidence'), [])
+})
+
+test('the signed-in source is the running repository\'s, and a malformed one refuses the run', async () => {
+  assert.deepEqual(await resolveSignedIn(null, new Map()), new Map())
+  const declared = new Map([['evidence', ['id']]])
+  const seen = []
+  const answer = await resolveSignedIn(
+    async (input) => {
+      seen.push(input)
+      return new Map([['evidence', ['id', 'excerpt']]])
+    },
+    declared,
+    '/repo',
+  )
+  assert.deepEqual(answer, new Map([['evidence', ['id', 'excerpt']]]))
+  assert.deepEqual(seen, [{ root: '/repo', declared }])
+  await assert.rejects(() => resolveSignedIn(['evidence'], declared), /neither null nor a function/)
+  await assert.rejects(() => resolveSignedIn(undefined, declared), /neither null nor a function/, 'the field is required')
+  await assert.rejects(() => resolveSignedIn(() => ({ evidence: ['id'] }), declared), /must answer a Map/)
+})
+
+test('the signed-in source is compared with the declaration in its own words, and an empty answer stays a name', () => {
+  const { columns, signedIn, notes } = reconcile({
+    declared: new Map([['evidence', ['id', 'retired_column']]]),
+    probed: new Map([
+      ['evidence', { status: 'sealed' }],
+      ['trash', { status: 'sealed' }],
+    ]),
+    comments: [],
+    signedInColumns: new Map([
+      ['evidence', ['id', 'excerpt']],
+      ['trash', []],
+    ]),
+  })
+  assert.ok(notes.some((n) => /^declared columns the signed-in source does not name: evidence\.retired_column$/.test(n)))
+  assert.ok(notes.some((n) => /^columns the signed-in source names that the declaration does not: evidence\.excerpt$/.test(n)))
+  assert.equal(notes.some((n) => /this database/.test(n)), false, 'the database was never asked about these columns')
+  assert.deepEqual(columns.get('trash'), [])
+  assert.deepEqual([...signedIn], ['evidence'])
 })

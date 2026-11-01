@@ -30,6 +30,14 @@
  * database, and running this on a red check cannot make the document less true
  * than it was.
  *
+ * A relation the anon key is refused but a signed-in session reads is the
+ * one answer a bare select cannot complete: it says "sealed" and no more. Its
+ * columns come from `signedIn` in `repo-config.mjs`, the running repository's
+ * own answer, from whatever it can read without a session — its migration
+ * series, say — so no key beyond the anon one is needed. Its comments come from `schema_comments()` like every
+ * other relation's. `signedIn: null` keeps such a relation a name in the
+ * sealed list, which is all this generator could say before.
+ *
  * The one-row select is how a column that carries no comment stays visible. It
  * returns real data; nothing but the key names is kept, and the key it uses is
  * the same one the browser holds.
@@ -65,7 +73,7 @@ import { unverified } from './sweep.mjs'
 
 /** The tree this script runs in: the working directory — never this file's location; `sweep.mjs` says why. */
 const REPO_ROOT = process.cwd()
-/** This repository's own two paths — see `repoConfig.agentAccount`. */
+/** This repository's own document and baseline paths, and its signed-in source — see `repoConfig.agentAccount`. */
 const PATHS = repoConfig.agentAccount
 const DOC = resolve(REPO_ROOT, PATHS.document)
 const BASELINE = resolve(REPO_ROOT, PATHS.baseline)
@@ -158,10 +166,11 @@ function readDotenv() {
  * @param {{ url: string, key: string }} target
  * @param {Map<string, string[]>} declared
  * @param {{ relation: string, column_name: string | null }[]} comments
+ * @param {Map<string, string[]>} signedInColumns
  * @returns {Promise<Map<string, { status: string, columns?: string[], order?: 'table' }>>}
  */
-async function probeRelations(target, declared, comments) {
-  const names = new Set([...declared.keys(), ...comments.map((row) => row.relation)])
+async function probeRelations(target, declared, comments, signedInColumns) {
+  const names = new Set([...declared.keys(), ...comments.map((row) => row.relation), ...signedInColumns.keys()])
   const probed = new Map()
   for (const name of [...names].sort()) {
     const probe = await rest(target.url, target.key, `${name}?select=*&limit=1`)
@@ -182,13 +191,37 @@ async function probeRelations(target, declared, comments) {
       continue
     }
     const columns = []
-    for (const column of declared.get(name) ?? []) {
+    for (const column of new Set([...(declared.get(name) ?? []), ...(signedInColumns.get(name) ?? [])])) {
       const held = await rest(target.url, target.key, `${name}?select=${column}&limit=0`)
       if (held.ok) columns.push(column)
     }
     probed.set(name, { status, columns })
   }
   return probed
+}
+
+/**
+ * The columns of each signed-in-only relation, from the running repository's
+ * own source, or an empty map when it names none.
+ *
+ * @param {null | ((input: { root: string, declared: Map<string, string[]> }) => Map<string, string[]> | Promise<Map<string, string[]>>)} source
+ * @param {Map<string, string[]>} declared
+ * @param {string} [root]
+ * @returns {Promise<Map<string, string[]>>}
+ */
+export async function resolveSignedIn(source, declared, root = REPO_ROOT) {
+  if (source === null) return new Map()
+  if (typeof source !== 'function') {
+    throw new Error(
+      'repo-config.mjs agentAccount.signedIn is neither null nor a function — it names this ' +
+        'repository\'s signed-in-only relations and their columns, or says it has none.',
+    )
+  }
+  const answer = await source({ root, declared })
+  if (!(answer instanceof Map) || [...answer.values()].some((columns) => !Array.isArray(columns))) {
+    throw new Error('repo-config.mjs agentAccount.signedIn must answer a Map of relation name to column names.')
+  }
+  return answer
 }
 
 async function main() {
@@ -223,15 +256,16 @@ async function main() {
     )
   }
 
-  const probed = await probeRelations(target, declared, comments.body)
-  const { columns, readable, notes } = reconcile({ declared, probed, comments: comments.body })
+  const signedInColumns = await resolveSignedIn(PATHS.signedIn, declared)
+  const probed = await probeRelations(target, declared, comments.body, signedInColumns)
+  const { columns, readable, signedIn, notes } = reconcile({ declared, probed, comments: comments.body, signedInColumns })
 
   const doc = readFileSync(DOC, 'utf8')
   const baseline = existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, 'utf8')) : null
   const { next, current, failures } = evaluate({
     doc,
     kinds,
-    sources: { columns, comments: comments.body, readable },
+    sources: { columns, comments: comments.body, readable, signedIn },
     baseline,
     check,
     record,
@@ -250,7 +284,8 @@ async function main() {
 
   console.log(
     `vocabulary: ${kinds.length} kinds from the ${vocabulary.owner}'s panelTerms.ts · ` +
-      `schema: ${readable.size} readable relation(s) of ${columns.size}, declared by the ` +
+      `schema: ${readable.size} readable relation(s) and ${signedIn.size} signed-in only, ` +
+      `of ${columns.size}, declared by the ` +
       `${declaration.owner} · column comments: ${current.columnComments.described} of ` +
       `${current.columnComments.of} · prohibitions: ${current.prohibitions}`,
   )

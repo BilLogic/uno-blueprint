@@ -72,7 +72,8 @@ export const repoConfig = {
   datedRecords: ['docs/adr'],
 
   /**
-   * The agent-account document and the ratchet baseline beside it
+   * The agent-account document, the ratchet baseline beside it, and where
+   * the columns of a signed-in-only relation come from
    * (`generate-agent-account.mjs`). The generator is one mechanism in every
    * repository that carries it; WHERE it writes is each repository's own, and
    * the two trees do not agree — this one keeps the baseline under
@@ -82,6 +83,16 @@ export const repoConfig = {
   agentAccount: {
     document: 'docs/agents/blueprint.md',
     baseline: 'docs/engineering/agent-account-baseline.json',
+    /**
+     * The relations the anon key is refused and a signed-in session reads,
+     * with their columns: `null`, or a function given `{ root, declared }`
+     * that answers a Map of relation name to column names. The anon key's
+     * bare select can only call such a relation sealed, so this is where its
+     * columns come from. `null` here: this repository renders no account
+     * against a database of its own, so it has nothing to supply. A
+     * deployment that does supplies its own answer.
+     */
+    signedIn: null,
   },
 
   /**

@@ -12,7 +12,9 @@
  *                reader, read off the source text
  *   schema       from `public.schema_comments()` (pg_description, live) laid
  *                over the declared column inventory, so an undescribed
- *                column shows as a gap rather than vanishing
+ *                column shows as a gap rather than vanishing — and over the
+ *                columns of each signed-in-only relation, which the running
+ *                repository supplies because the anon key cannot select them
  *
  * Two numbers ratchet against the baseline `repo-config.mjs` names:
  * column-comment coverage, which may only rise, and the count of
@@ -149,6 +151,16 @@ export function classifyRelation({ status, body }) {
  * keeps an undescribed column a visible gap rather than the only column
  * anybody can see.
  *
+ * SIGNED IN ONLY. A relation the anon key is refused can still be one a
+ * signed-in session reads, and an agent signed in as a person needs its
+ * columns as much as any other. The bare select can only answer "sealed", so
+ * the columns come from `signedInColumns`: whatever the running repository can say
+ * without a session — a deployment's own migration series, say — handed in
+ * by name. Such a relation is rendered in full and counted, and marked. The
+ * database still has the last word: a relation `signedInColumns` names that the anon
+ * key reads is rendered as readable, and one this database lacks is dropped,
+ * each with a note.
+ *
  * ORDER. `order: 'table'` means the probe read a row and its keys are the
  * relation's own column order, which is the order worth printing. Anything
  * else means the columns were assembled name by name, and the order they came
@@ -157,54 +169,85 @@ export function classifyRelation({ status, body }) {
  * asking the same database the same question in different orders render the
  * same table.
  *
+ * `signedInColumns` are in the order their source gave them, which is the
+ * source's own and not an asker's, so they are not sorted.
+ *
  * @param {{
  *   declared: Map<string, string[]>,
  *   probed: Map<string, { status: 'readable' | 'sealed' | 'absent', columns?: string[], order?: 'table' }>,
  *   comments: { relation: string, column_name: string | null }[],
+ *   signedInColumns?: Map<string, string[]>,
  * }} input
- * @returns {{ columns: Map<string, string[]>, readable: Set<string>, notes: string[] }}
+ * @returns {{ columns: Map<string, string[]>, readable: Set<string>, signedIn: Set<string>, notes: string[] }}
  */
-export function reconcile({ declared, probed, comments }) {
+export function reconcile({ declared, probed, comments, signedInColumns = new Map() }) {
   const commented = new Map()
   for (const row of comments) {
     if (!row.column_name) continue
     if (!commented.has(row.relation)) commented.set(row.relation, [])
     commented.get(row.relation).push(row.column_name)
   }
+  /** `source`, then any commented column it lacks — a comment hangs off an attribute that exists. */
+  const withCommented = (name, source) => {
+    const confirmed = []
+    for (const column of [...source, ...(commented.get(name) ?? [])]) {
+      if (!confirmed.includes(column)) confirmed.push(column)
+    }
+    return confirmed
+  }
+  /** What `source` says about `name`'s columns, against what the declaration says. */
+  const disagreements = (name, confirmed, intoDropped, intoUndeclared) => {
+    for (const column of declared.get(name) ?? []) {
+      if (!confirmed.includes(column)) intoDropped.push(`${name}.${column}`)
+    }
+    for (const column of confirmed) {
+      if (!(declared.get(name) ?? []).includes(column)) intoUndeclared.push(`${name}.${column}`)
+    }
+  }
 
   const columns = new Map()
   const readable = new Set()
+  const signedIn = new Set()
   const absent = []
+  const absentSignedIn = []
   const dropped = []
   const undeclared = []
+  const signedInDropped = []
+  const signedInUndeclared = []
+  const openToAnon = []
 
   for (const [name, probe] of probed) {
+    const source = signedInColumns.get(name) ?? []
     if (probe.status === 'absent') {
       if (declared.has(name)) absent.push(name)
+      else if (signedInColumns.has(name)) absentSignedIn.push(name)
       continue
     }
     if (probe.status === 'sealed') {
-      columns.set(name, [])
+      if (source.length === 0) {
+        columns.set(name, [])
+        continue
+      }
+      const confirmed = withCommented(name, source)
+      columns.set(name, confirmed)
+      signedIn.add(name)
+      disagreements(name, confirmed, signedInDropped, signedInUndeclared)
       continue
     }
-    const confirmed = []
-    for (const column of [...(probe.columns ?? []), ...(commented.get(name) ?? [])]) {
-      if (!confirmed.includes(column)) confirmed.push(column)
-    }
+    const confirmed = withCommented(name, probe.columns ?? [])
     if (probe.order !== 'table') confirmed.sort()
     columns.set(name, confirmed)
     readable.add(name)
-    for (const column of declared.get(name) ?? []) {
-      if (!confirmed.includes(column)) dropped.push(`${name}.${column}`)
-    }
-    for (const column of confirmed) {
-      if (!(declared.get(name) ?? []).includes(column)) undeclared.push(`${name}.${column}`)
-    }
+    if (signedInColumns.has(name)) openToAnon.push(name)
+    disagreements(name, confirmed, dropped, undeclared)
   }
 
   const notes = []
   if (absent.length > 0) {
     notes.push(`declared but not in this database, so not in the account: ${absent.join(', ')}`)
+  }
+  if (absentSignedIn.length > 0) {
+    notes.push(`named signed-in only but not in this database, so not in the account: ${absentSignedIn.join(', ')}`)
   }
   if (dropped.length > 0) {
     notes.push(`declared columns this database does not have: ${dropped.join(', ')}`)
@@ -212,7 +255,18 @@ export function reconcile({ declared, probed, comments }) {
   if (undeclared.length > 0) {
     notes.push(`columns this database has that the declaration does not: ${undeclared.join(', ')}`)
   }
-  return { columns, readable, notes }
+  if (signedInDropped.length > 0) {
+    notes.push(`declared columns the signed-in source does not name: ${signedInDropped.join(', ')}`)
+  }
+  if (signedInUndeclared.length > 0) {
+    notes.push(`columns the signed-in source names that the declaration does not: ${signedInUndeclared.join(', ')}`)
+  }
+  if (openToAnon.length > 0) {
+    notes.push(
+      `named signed-in only, but the anon key reads them, so the account calls them readable: ${openToAnon.join(', ')}`,
+    )
+  }
+  return { columns, readable, signedIn, notes }
 }
 
 /* ------------------------------------------------------------- sources */
@@ -261,6 +315,21 @@ export function tableColumns(databaseTs) {
 
 /* ------------------------------------------------------------ rendering */
 
+/**
+ * What the schema section is rendered from: the columns and the two sets
+ * `reconcile` returns, and the rows `schema_comments()` returned.
+ *
+ * @typedef {{
+ *   columns: Map<string, string[]>,
+ *   comments: { relation: string, column_name: string | null, comment: string }[],
+ *   readable: Set<string>,
+ *   signedIn?: Set<string>,
+ * }} SchemaSources
+ */
+
+/** The line under a relation only a signed-in session reads. */
+const SIGNED_IN_MARK = 'Signed-in only: a signed-in session reads it and the anon key is refused.'
+
 /** @param {unknown} text */
 const cell = (text) => String(text ?? '').replace(/\s+/g, ' ').replaceAll('|', '\\|').trim()
 
@@ -275,17 +344,17 @@ export function renderVocabulary(kinds) {
 
 /**
  * The schema section. One block per relation an agent can read: the table's
- * own comment, then every column with its comment or a dash. Relations the
- * anon key cannot select are listed after, comment only, so an agent knows
- * they exist and what key they need.
+ * own comment, then every column with its comment or a dash. A relation only
+ * a signed-in session reads gets the same block, marked as such. Relations
+ * the anon key cannot select and nothing describes are listed after, comment
+ * only, so an agent knows they exist and what key they need.
  *
- * `comments` is what `schema_comments()` returns; `columns` is
- * `tableColumns()`; `readable` is the set of relations a bare select
- * succeeded on.
+ * `comments` is what `schema_comments()` returns; `columns`, `readable` and
+ * `signedIn` are what `reconcile` returns.
  *
- * @param {{ columns: Map<string, string[]>, comments: { relation: string, column_name: string | null, comment: string }[], readable: Set<string> }} sources
+ * @param {SchemaSources} sources
  */
-export function renderSchema({ columns, comments, readable }) {
+export function renderSchema({ columns, comments, readable, signedIn = new Set() }) {
   const tableComment = new Map()
   const columnComment = new Map()
   for (const row of comments) {
@@ -293,8 +362,8 @@ export function renderSchema({ columns, comments, readable }) {
     else tableComment.set(row.relation, row.comment)
   }
   const names = [...columns.keys()].sort()
-  const open = names.filter((name) => readable.has(name))
-  const sealed = names.filter((name) => !readable.has(name))
+  const open = names.filter((name) => readable.has(name) || signedIn.has(name))
+  const sealed = names.filter((name) => !readable.has(name) && !signedIn.has(name))
   const parts = []
   for (const name of open) {
     const cols = columns.get(name)
@@ -306,6 +375,7 @@ export function renderSchema({ columns, comments, readable }) {
     parts.push(
       `### \`${name}\`\n` +
         `${cell(tableComment.get(name) ?? '—')}\n\n` +
+        (signedIn.has(name) ? `${SIGNED_IN_MARK}\n\n` : '') +
         `${described} of ${cols.length} columns described.\n\n` +
         '| Column | Meaning |\n|---|---|\n' +
         cols.map((c) => `| \`${c}\` | ${cell(columnComment.get(`${name}.${c}`) ?? '—')} |`).join('\n'),
@@ -322,17 +392,17 @@ export function renderSchema({ columns, comments, readable }) {
 }
 
 /**
- * Column-comment coverage over the relations an agent can read.
+ * Column-comment coverage over the relations an agent can read, signed in or not.
  *
- * @param {{ columns: Map<string, string[]>, comments: { relation: string, column_name: string | null }[], readable: Set<string> }} sources
+ * @param {SchemaSources} sources
  * @returns {{ described: number, of: number }}
  */
-export function coverage({ columns, comments, readable }) {
+export function coverage({ columns, comments, readable, signedIn = new Set() }) {
   const described = new Set(comments.filter((r) => r.column_name).map((r) => `${r.relation}.${r.column_name}`))
   let of = 0
   let done = 0
   for (const [name, cols] of columns) {
-    if (!readable.has(name)) continue
+    if (!readable.has(name) && !signedIn.has(name)) continue
     of += cols.length
     done += cols.filter((c) => described.has(`${name}.${c}`)).length
   }
@@ -453,7 +523,7 @@ export function ratchetFailures(current, baseline) {
  * @param {{
  *   doc: string,
  *   kinds: { kind: string, label: string, definition: string }[],
- *   sources: { columns: Map<string, string[]>, comments: { relation: string, column_name: string | null, comment: string }[], readable: Set<string> },
+ *   sources: SchemaSources,
  *   baseline: { columnComments: { described: number, of: number }, prohibitions: number } | null,
  *   check: boolean,
  *   record?: boolean,

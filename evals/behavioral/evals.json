@@ -1,6 +1,6 @@
 {
   "skill_name": "ub",
-  "notes": "Behavioral evals per the Agent Skills best-practices guide (three per skill). Fixtures live in scripts/tests/. Run each query in a fresh session with the plugin installed and judge against expected_behavior; there is no built-in runner — see evals/README.md.",
+  "notes": "Behavioral evals per the Agent Skills best-practices guide (three or more per skill). Fixtures live in scripts/tests/. Run each query in a fresh session with the plugin installed and judge against expected_behavior; there is no built-in runner — see evals/README.md.",
   "evals": [
     {
       "id": "map-1",
@@ -125,6 +125,17 @@
         "Emits a change request conforming to skills/whatif/references/change-request-schema.json",
         "Hands off to the map skill's update flow for the actual edit + re-sign-off + re-import",
         "Does not write blueprint tables directly from the whatif skill"
+      ]
+    },
+    {
+      "id": "whatif-4",
+      "skills": ["whatif"],
+      "query": "In onboarding, the kickoff call leads to the first quarterly review, which lives in the account-review scenario on its renewal path. What breaks if we drop the kickoff call?",
+      "expected_behavior": [
+        "Traces the base export of the whole service, not only the onboarding scenario",
+        "Follows the leads_to edge into the account-review scenario and keeps walking there, under the same visited set and depth cap",
+        "Names the quarterly review's scenario and path beside its cell key (the tracer's reached_in field)",
+        "Brings the account-review scenario into scope: its sign-off hash is embedded with onboarding's in every artifact"
       ]
     }
   ]

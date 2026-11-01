@@ -24,8 +24,10 @@ cell keys from both versions and quotes nothing.
 
 Record at analysis time: the base sign-off hashes, **per scenario**
 (workspace-state.md is canonical: sign-off binds per scenario, not per
-file). For every scenario in scope, embed its recorded `content_hash`
-(from the workspace's `scenarios` entry; recompute with
+file). A scenario is in scope when the change touches it or the trace
+reaches a cell in it: the first are captured at frame, the rest right
+after the trace. For every scenario in scope, embed its recorded
+`content_hash` (from the workspace's `scenarios` entry; recompute with
 `scripts/compute_signoff_hash.py <ir> --scenario <key>` when checking)
 keyed by scenario key in `base_signoff_hashes`. Legacy workspaces that
 predate per-scenario sign-off carry only a whole-file
@@ -47,10 +49,19 @@ on this route, and the findings exit condition is met by it.
 
 **replay** — "run scenario X as if CHANGE were true."
 1. Copy base IR → variant; apply the change.
-2. Dispatch `impact-tracer` (seed = changed cells) on the BASE export —
-   the trace tells you which claims need re-examination.
+2. Dispatch `impact-tracer` (seed = changed cells) on the BASE export of
+   the whole service, not the one scenario the change sits in (reach: the
+   CONTEXT.md **Dependency** entry). The trace tells you which claims
+   need re-examination.
 3. Walk the affected chain in the variant: which cells' content is now
-   wrong, which dependencies dangle, which lanes gain/lose work.
+   wrong, which dependencies dangle, which lanes gain/lose work. The
+   variant holds the changed scenario only, so an affected cell in another
+   scenario is judged against the base whole-service export, which the
+   hypothetical leaves as it was. An affected cell whose `reached_in`
+   names another scenario or path is reported with that scenario and path
+   beside its key, and its scenario joins the scope (§1): its sign-off
+   hash is embedded with the rest, so a promote refuses when that scenario
+   moved too.
 4. `blueprint-reviewer` (whatif-claim mode) verifies every replay claim
    cites cells that exist in base or variant — unverified claims are cut,
    not hedged.
@@ -74,8 +85,10 @@ per-signal reasoning:
 - proposition expression (does the cell carry the value the business_models
   claim — value_props where present);
 - backstage `enables` chain depth (impact-tracer with `direction:
-  upstream`: how much machinery makes this moment possible; when it
-  returns `enables_expressible: false`, report the depth as unknown).
+  upstream` on the base export of the whole service, as in replay: how
+  much machinery makes this moment possible, wherever in the service it
+  sits; when it returns `enables_expressible: false`, report the depth as
+  unknown).
 Quick-win warnings: cells that look cheap but sit on deep `enables` chains
 get a "load-bearing" caveat.
 

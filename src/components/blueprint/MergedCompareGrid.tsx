@@ -249,9 +249,10 @@ export function MergedCompareGrid({
     return blueprints.map((blueprint, index) => {
       const data = getComparePathArrowData(blueprint)
       // Kind + label ride the dedupe key: only dependencies that draw the SAME
-      // edge with the same meaning collapse — two distinct semantics between
-      // one remapped pair both survive. They live on the RAW blueprint
-      // dependencies, so look them up by id.
+      // edge with the same meaning collapse. Only `leads_to` reaches here, so
+      // it is the label that keeps two distinct edges between one remapped
+      // pair apart. Both live on the RAW blueprint dependencies, so look them
+      // up by id.
       const rawById = new Map(
         blueprint.dependencies.map((raw) => [raw.id, raw]),
       )

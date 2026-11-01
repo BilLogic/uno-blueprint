@@ -137,8 +137,9 @@ rule over the vendored command group, which ships them in mono capitals.
 
 A `leads_to` between two cells of one path is an arrow. One whose other end is
 on another path — of this scenario or another — is never an arrow, in Stacked
-or Merged, even when both paths are on screen: the arrow overlay is handed only
-the edges with both ends on its own path (`getComparePathArrowData`). The cell
+or Merged, even when both paths are on screen: the arrow overlay is handed
+only the `leads_to` edges with both ends on its own path
+(`getComparePathArrowData`). The cell
 at each end wears a small marker button on its lower edge instead —
 **Continues in …** where the link leaves, **Comes from …** where it arrives —
 naming the other path when it is this scenario's, the other scenario

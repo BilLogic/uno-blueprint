@@ -51,18 +51,23 @@ export type ComparePathArrowData = {
 /**
  * One path's arrow inputs (fold's dependency-drop retired 2026-08-17).
  *
- * Only the edges with BOTH ends on this path. The overlay finds its endpoints
- * by sweeping the DOM under the container it draws over, and in the merged
- * grid that container holds every path's cells — so an edge to another path
- * of the same scenario would find both ends and draw an arrow between two
- * paths. A link that leaves its path is never an arrow; the cell's marker
+ * Only the `leads_to` edges with BOTH ends on this path. `enables` is the
+ * recorded kind, never drawn: a precondition causes nothing, so an arrow
+ * would claim a handoff that never happens — the cell panel carries it.
+ *
+ * The overlay finds its endpoints by sweeping the DOM under the container it
+ * draws over, and in the merged grid that container holds every path's cells
+ * — so an edge to another path of the same scenario would find both ends and
+ * draw an arrow between two paths. A link that leaves its path is never an arrow; the cell's marker
  * carries it (`crossPathLinks.ts`).
  */
 export function getComparePathArrowData(
   blueprint: BlueprintData,
 ): ComparePathArrowData {
   const { path, cells, steps } = blueprint
-  const dependencies = inPathDependencies(blueprint)
+  const dependencies = inPathDependencies(blueprint).filter(
+    (dependency) => (dependency.kind ?? 'leads_to') === 'leads_to',
+  )
 
   return {
     steps: steps.map((step) => ({

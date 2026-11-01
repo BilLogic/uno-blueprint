@@ -13,7 +13,7 @@
 -- at project init, as a default privilege, so every table a later migration
 -- creates is reachable by the Data API roles without a per-table GRANT — and
 -- the recipe issues only the SURGICAL grants and revokes that DEPART from that
--- baseline (business_models, and evidence, the edit log, audit findings and
+-- baseline (business_models, and evidence, the edit history, audit findings and
 -- agent transcripts, are revoked from anon on top of it).
 --
 -- ⚠️ NOT part of the portable core, and not something an adopter installs — the

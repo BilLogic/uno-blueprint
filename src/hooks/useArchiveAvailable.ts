@@ -31,7 +31,7 @@ import { queryKeys } from '@/lib/queryKeys'
  * from and nowhere to put it back.
  *
  * A signed-out reader is not asked about at all. The recovery list is the
- * edit log's, which `anon` may not read, so the probe would be refused on
+ * edit history's, which `anon` may not read, so the probe would be refused on
  * every load — and that reader has nothing to delete. `canReadPrivate` gates
  * it the way it gates every other signed-in-only read.
  */

@@ -15,10 +15,10 @@ This is a template you deploy, not a hosted service, so most of the risk
 lives in *your* deployment rather than in this repo. Two properties are
 worth understanding before you put anything real in one.
 
-**The board carries a public `SELECT` policy.** A deployed blueprint is
+**The board and its slices carry a public `SELECT` policy.** A deployed blueprint is
 readable by anyone who has the URL and the anon key, which is shipped to
 the browser and is therefore public by construction. That is the intended
-design — the app is a reader. What is *not* the board is closed to that key:
+design — the app is a reader. What is neither is closed to that key:
 evidence and its counts, the edit history and its recovery list, audit
 findings and agent transcripts are readable only by a signed-in account.
 Even so:

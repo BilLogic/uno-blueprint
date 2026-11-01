@@ -2978,6 +2978,9 @@ drop policy if exists "audit_findings_select" on public.audit_findings;
 create policy "audit_findings_select" on public.audit_findings
   for select to authenticated using (true);
 
+comment on view public.evidence_counts is
+  'cell_id -> evidence row count, without content. For signed-in readers, like evidence itself: anon holds no SELECT on either.';
+
 revoke all on
   public.evidence,
   public.evidence_counts,
@@ -3024,7 +3027,7 @@ begin
     'resources', 'stakeholders', 'slices', 'slides', 'slide_images'
   ] loop
     if not has_table_privilege('anon', format('public.%I', relation), 'select') then
-      raise exception 'the public board lost anon select on public.%', relation;
+      raise exception 'the board or its slices lost anon select on public.%', relation;
     end if;
   end loop;
 end $closed$;

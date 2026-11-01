@@ -16796,7 +16796,7 @@ $cross_path_archive$;
 --
 --   * evidence (20260818000000's `evidence_select_anon`) and the
 --     `evidence_counts` view over it. An excerpt can hold interview content.
---   * the edit log, `authoring_changes` (21000215000000's
+--   * the edit history, `authoring_changes` (21000215000000's
 --     `authoring_changes_select`, role `public`, which includes anon), and the
 --     `trash` view over it — security-invoker, so readable wherever the log is.
 --   * audit findings, `audit_findings_select`, also role `public`.
@@ -16812,9 +16812,10 @@ $cross_path_archive$;
 -- untouched. A refusal rather than an empty answer, because only a refusal is
 -- something the client can gate on before it asks (`canReadPrivate`).
 --
--- The public board is unchanged: services, phases, scenarios, paths, steps,
--- path_steps, lanes, cells, cell_dependencies, touchpoints, cell_touchpoints,
--- resources, stakeholders, slices, slides and slide_images stay readable
--- signed-out. The post-conditions below prove both halves.
+-- The board and the slices cut from it are unchanged: services, phases,
+-- scenarios, paths, steps, path_steps, lanes, cells, cell_dependencies,
+-- touchpoints, cell_touchpoints, resources and stakeholders, and slices,
+-- slides and slide_images, stay readable signed-out. The post-conditions
+-- below prove both halves.
 --
 -- Nothing here changes a table's shape, so the database types are unchanged.

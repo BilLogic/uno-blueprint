@@ -70,9 +70,11 @@ type SupabaseContextValue = {
   canAgent: boolean
   /**
    * Would the database let this client read a table outside the public
-   * surface? Restricted tables — `business_models` is the one in this tree —
-   * revoke SELECT from `anon` and name `authenticated` in their policy, so a
-   * request for one is refused for every signed-out reader on every load.
+   * surface? Restricted tables — `business_models`, `evidence` and
+   * `evidence_counts`, `authoring_changes` and `trash`, `audit_findings`, and
+   * the agent transcripts — revoke SELECT from `anon` and name
+   * `authenticated` in their policy, so a request for one is refused for
+   * every signed-out reader on every load.
    *
    * A read gated on this is not sent when it cannot succeed. The alternative
    * is sending it and swallowing the refusal as ordinary, which swallows a

@@ -108,7 +108,7 @@ export const POPULATED = [
 /**
  * What a signed-out visitor may NOT read. Each relation is selected from as
  * `anon` and must be refused with a permission error, then as `authenticated`
- * and must answer. Evidence excerpts can carry interview content, the edit log
+ * and must answer. Evidence excerpts can carry interview content, the edit history
  * and the recovery list are the record of who changed what, audit findings are
  * the team's own triage, and an agent transcript belongs to its author — none
  * of it is the published board.
@@ -129,7 +129,8 @@ export const SIGNED_IN_ONLY = [
 ]
 
 /**
- * The public board: everything a signed-out visitor reads to see a blueprint.
+ * The board and the slices cut from it: everything a signed-out visitor reads
+ * to see a blueprint.
  * `POPULATED` already proves each of these that the seed fills comes back
  * non-empty; this is the wider promise that none of them is refused, the two
  * the sample seed leaves empty included.
@@ -162,7 +163,7 @@ export function evaluateRoleReads(outcomes) {
   for (const relation of PUBLIC_BOARD) {
     const anon = outcomes.get(`anon:${relation}`)
     if (anon !== undefined && anon !== 'ok') {
-      problems.push(`public.${relation} is refused as anon — the public board must stay readable signed-out: ${anon}`)
+      problems.push(`public.${relation} is refused as anon — the board and its slices must stay readable signed-out: ${anon}`)
     }
   }
   return problems
@@ -389,9 +390,9 @@ export function judge() {
         opening: 'The recipe applied, but who may read what is not what it should be:\n',
         findings: readProblems.map((problem) => `  ${problem}`),
         closing:
-          '\nEvidence, the edit log and its recovery list, audit findings and ' +
-          'agent transcripts are for signed-in readers; the board is for ' +
-          'everyone. Revoke the anon grant (and any policy naming anon or ' +
+          '\nEvidence, the edit history and its recovery list, audit findings and ' +
+          'agent transcripts are for signed-in readers; the board and its ' +
+          'slices are for everyone. Revoke the anon grant (and any policy naming anon or ' +
           'public) for the first kind; keep the anon grant on the second.',
       }
     }

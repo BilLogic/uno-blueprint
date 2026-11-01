@@ -2,11 +2,12 @@
 /**
  * A signed-out reader never asks for a table the database refuses them.
  *
- * Evidence, the edit log (and `trash`, the recovery list over it) and audit
+ * Evidence, the edit history (and `trash`, the recovery list over it) and audit
  * findings are for signed-in readers: `anon` holds no SELECT on any of them,
  * so a request for one fails for every visitor on every load, as a refused
- * request in the console. The fake client below ENFORCES that, the way the
- * database does, and records every relation it is asked for.
+ * request in the console. The fake client below refuses those four to a
+ * signed-out reader, as the database does, and records every relation it is
+ * asked for.
  *
  * Two surfaces read these while a board is open: the recovery-archive probe
  * behind the structure menus, and the cell panel's Evidence tab. Signed out,

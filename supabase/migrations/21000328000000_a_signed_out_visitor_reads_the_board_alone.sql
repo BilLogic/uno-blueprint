@@ -8,7 +8,7 @@
 --
 --   * evidence (20260818000000's `evidence_select_anon`) and the
 --     `evidence_counts` view over it. An excerpt can hold interview content.
---   * the edit log, `authoring_changes` (21000215000000's
+--   * the edit history, `authoring_changes` (21000215000000's
 --     `authoring_changes_select`, role `public`, which includes anon), and the
 --     `trash` view over it — security-invoker, so readable wherever the log is.
 --   * audit findings, `audit_findings_select`, also role `public`.
@@ -24,10 +24,11 @@
 -- untouched. A refusal rather than an empty answer, because only a refusal is
 -- something the client can gate on before it asks (`canReadPrivate`).
 --
--- The public board is unchanged: services, phases, scenarios, paths, steps,
--- path_steps, lanes, cells, cell_dependencies, touchpoints, cell_touchpoints,
--- resources, stakeholders, slices, slides and slide_images stay readable
--- signed-out. The post-conditions below prove both halves.
+-- The board and the slices cut from it are unchanged: services, phases,
+-- scenarios, paths, steps, path_steps, lanes, cells, cell_dependencies,
+-- touchpoints, cell_touchpoints, resources and stakeholders, and slices,
+-- slides and slide_images, stay readable signed-out. The post-conditions
+-- below prove both halves.
 --
 -- Nothing here changes a table's shape, so the database types are unchanged.
 
@@ -42,6 +43,9 @@ create policy "authoring_changes_select" on public.authoring_changes
 drop policy if exists "audit_findings_select" on public.audit_findings;
 create policy "audit_findings_select" on public.audit_findings
   for select to authenticated using (true);
+
+comment on view public.evidence_counts is
+  'cell_id -> evidence row count, without content. For signed-in readers, like evidence itself: anon holds no SELECT on either.';
 
 revoke all on
   public.evidence,
@@ -89,7 +93,7 @@ begin
     'resources', 'stakeholders', 'slices', 'slides', 'slide_images'
   ] loop
     if not has_table_privilege('anon', format('public.%I', relation), 'select') then
-      raise exception 'the public board lost anon select on public.%', relation;
+      raise exception 'the board or its slices lost anon select on public.%', relation;
     end if;
   end loop;
 end $closed$;

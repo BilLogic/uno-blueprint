@@ -114,7 +114,7 @@
           "path"
         ]
       },
-      "description": "Reference to a cell of this service by its (lane, step) key pair, on the path that lists the link unless `path` (and `scenario`) say otherwise — since 2026.09.12, when a link's reach became one service (ADR 0035). There is no `service` qualifier: the file is one service, and a link may not leave it."
+      "description": "Reference to a cell of this service by its (lane, step) key pair, on the path that lists the link unless `path` (and `scenario`) say otherwise — since 2026.09.12, when a link's reach became the one CONTEXT.md **Dependency** states (ADR 0035). There is no `service` qualifier: the file is one service."
     },
     "resource": {
       "type": "object",
@@ -567,7 +567,7 @@
           "description": "What kind of dependency this edge is. leads_to: the source makes the target HAPPEN, and the canvas draws an arrow. enables: the source makes the target POSSIBLE without causing it, and the canvas draws nothing — it reads in the cell panel only. Both read source-first and upstream-first, so an edge's direction can be read without checking its kind; the retired `needs` pointed the other way, which is why 2026.09.01 turned those edges around rather than renaming them where they lay. ABSENCE MEANS 'leads_to': that is the cell_dependencies.kind column default and the meaning every edge authored before 2026.08.26 already carried, so a file of bare edges migrates by its stamp alone. The pair alone is no longer an identity — a source->target pair may carry BOTH kinds as two rows, so the UUIDv5 derivation and the duplicate check both read the kind."
         }
       },
-      "description": "Directed dependency edge between two cells of this service — on one path, or on two paths in any scenarios (ADR 0035), never in two services. Identity is the two resolved ends plus the kind, whichever path lists it. source != target, whatever the kind. `kind: leads_to` (the default) is the drawn arrow, and the kind this array held alone when it was called `triggers`; `kind: enables` is the panel-only dependency the database has stored since cell_dependencies grew the column, and which the IR could not express — and therefore silently dropped on export — until 2026.08.26."
+      "description": "Directed dependency edge between two cells, with the reach CONTEXT.md **Dependency** states (ADR 0035). Identity is the two resolved ends plus the kind, whichever path lists it. source != target, whatever the kind. `kind: leads_to` (the default) is the drawn arrow, and the kind this array held alone when it was called `triggers`; `kind: enables` is the panel-only dependency the database has stored since cell_dependencies grew the column, and which the IR could not express — and therefore silently dropped on export — until 2026.08.26."
     },
     "registryTouchpoint": {
       "type": "object",

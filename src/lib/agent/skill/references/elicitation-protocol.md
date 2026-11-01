@@ -86,9 +86,9 @@ For designed-vs-reality comparisons: make it two labeled variants
 
 > "Are there hand-offs worth drawing an arrow for — where one cell kicks off
 > another?" Only where arrows add information. A hand-off may land on another
-> path or scenario of the same service (a review that leads to a weekly
-> report elsewhere): list it on the source's path and name the target's
-> `path` (and `scenario`). Never across services.
+> path or scenario — the reach is the one `CONTEXT.md` **Dependency** states.
+> List it on the source's path and qualify the target with `path` (and
+> `scenario`).
 
 ## Chunking checkpoint (after each scenario)
 

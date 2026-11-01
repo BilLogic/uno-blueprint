@@ -38,9 +38,8 @@ Per scenario, in this order (mirrors the elicitation protocol):
    workaround; variant/exception paths reuse scenario steps via
    `path_steps` and may add their own.
 5. Dependencies — "what kicks off what?" — only where arrows genuinely add
-   information. Either end may sit on another path or scenario of the same
-   service — qualify that end with `path` (and `scenario`); never another
-   service.
+   information. The reach is `CONTEXT.md` **Dependency**'s; an end on
+   another path is qualified with `path` (and `scenario`).
 
 Write every language Q1 settled into each cell as you go (locale maps);
 flag domain terms for review.

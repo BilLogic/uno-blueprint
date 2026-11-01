@@ -334,9 +334,9 @@ test.describe('the phone agent jump', () => {
     //
     // What is left is still worth a browser: that the destination the agent
     // was asked for is the board on screen, that a strip-full of it sits
-    // above the sheet rather than a sliver, and that a cell's words START
-    // inside the visible strip — a fact about layout and a compositor that
-    // jsdom cannot answer either way.
+    // above the sheet rather than a sliver, and that a cell's first line of
+    // words lands wholly inside the visible strip — a fact about layout and a
+    // compositor that jsdom cannot answer either way.
     const viewport = page.viewportSize()
     expect(viewport, 'the phone project sets a viewport').toBeTruthy()
     const board = page.locator(`[data-focus-slide-id="${destination}"]`)
@@ -395,8 +395,9 @@ test.describe('the phone agent jump', () => {
         }> = []
         for (let text = walker.nextNode(); text; text = walker.nextNode()) {
           range.selectNodeContents(text)
-          for (const rect of Array.from(range.getClientRects()))
+          for (const rect of Array.from(range.getClientRects())) {
             if (rect.width > 0 && rect.height > 0) rects.push(rect)
+          }
         }
         if (rects.length === 0) return null
         const first = rects.reduce((top, rect) =>

@@ -72,10 +72,10 @@ What it asserts: the sheet is still up with the conversation in it after the
 jump; the tool's own answer in the transcript is the settled sentence rather
 than its timeout one, which IS the deadline measured on a real clock; the
 destination artboard reaches into the strip above the sheet and a cell's first
-line of words is wholly inside it, however long the cell; and the wash over that strip carries
-no blur and is a minority of the colour. It screenshots the landed jump to
-`render-walk-output/views/mobile/agent-jump.png`, which is the half a person
-reads.
+line of words is wholly inside it, however long the cell; and the wash over
+that strip carries no blur and is a minority of the colour. It screenshots the
+landed jump to `render-walk-output/views/mobile/agent-jump.png`, which is the
+half a person reads.
 
 The console-error rule below covers this case too, self-test included.
 

@@ -6,7 +6,7 @@ import { TOOL_DEFINITIONS } from '@/lib/agent/tools/definitions'
 import { POSTGREST_URL, postgrestClientAs, postgrestFetch } from '@/test/postgrestDatabase'
 import { openMcpHttp } from '@/test/mcpHttp'
 
-it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('every database read has an MCP happy path and JWT refusal; resources and the server-only search key cross the same boundary', async () => {
+it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('every database read has an MCP happy path, its own refusal where it has a target or private rows, and a JWT refusal; resources and the server-only search key cross the same boundary', async () => {
   const secret = 'server-only-test-key'
   let embedded = 0
   const dbFetch = postgrestFetch(POSTGREST_URL)
@@ -68,6 +68,34 @@ it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('every database re
       if (name === 'list_sessions') expect(text).not.toContain('Second private session')
     }
     expect(embedded).toBe(1)
+    // A read's own refusal: an id it cannot serve, or another caller's private
+    // rows. Reads of business-wide rows with no target have none of their own;
+    // the unauthenticated refusal below covers every read.
+    const unknown = 'f0000000-0000-4000-8000-0000000fffff'
+    const other = new Client({ name: 'all-read-seam-other', version: '1' })
+    await other.connect(new StreamableHTTPClientTransport(new URL(http.url),
+      { requestInit: { headers: { Authorization: `Bearer ${process.env.MCP_TEST_OTHER_JWT}` } } }))
+    const refusals: [string, Record<string, unknown>, Client, string][] = [
+      ['get_profile', {}, other, 'Reader profile'],
+      ['validate_blueprint', { service_id: unknown }, client, '"service_id"'],
+      ['list_blueprint', { granularity: ['cell'], service: 'No such service', limit: 500 }, client, cellId],
+      ['get_blueprint', { scenario_id: unknown }, client, cellId],
+      ['get_cell', { cell_id: unknown }, client, cell.content.trim().split('\n')[0]],
+      ['get_slice', { slice_id: unknown }, client, slice.title],
+      ['list_cell_dependencies', { cell_id: unknown }, client, 'A persisted condition'],
+      ['list_evidence', { cell_id: unknown }, client, 'Reader seam interview'],
+      ['get_evidence', { evidence_ids: [unknown] }, client, 'A persisted source note'],
+      ['list_findings', { status: 'all', cell_id: unknown }, client, 'A persisted finding'],
+      ['list_sessions', {}, other, 'First private session'],
+      ['get_session', { session_id: 'd0000000-0000-4000-8000-000000000002' }, client, 'The second private fact.'],
+    ]
+    try {
+      for (const [name, args, caller, withheld] of refusals) {
+        const reply = await caller.callTool({ name, arguments: args })
+        const text = (reply.content as { text: string }[]).map(item => item.text).join('\n')
+        expect(reply.isError === true || !text.includes(withheld), `${name} served ${withheld}`).toBe(true)
+      }
+    } finally { await other.close() }
     const resources = await client.listResources()
     expect(resources.resources.some(row => row.uri === 'uno://references/lane-roles')).toBe(true)
     expect(JSON.stringify(await client.readResource({ uri: 'uno://references/lane-roles' }))).toContain('frontstage')

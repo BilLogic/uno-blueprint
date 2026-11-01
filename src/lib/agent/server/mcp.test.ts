@@ -38,12 +38,18 @@ it('an MCP client reads with its JWT on every call, and unauthenticated calls re
   await client.connect(new StreamableHTTPClientTransport(new URL(url), { requestInit: { headers } }))
   const listed = await client.listTools()
   expect(listed.tools.some(tool => tool.name === 'get_session')).toBe(true)
+  // Absent because this server has no search key, not because it is browser-only.
   expect(listed.tools.some(tool => tool.name === 'search_blueprint')).toBe(false)
-  const browserOnly = TOOL_DEFINITIONS.filter(tool => tool.surface === 'interface' || tool.resourceOnly ||
-    (tool.surface === 'read' && tool.browserBacked !== false)).map(tool => tool.name)
+  const isBrowserOnly = (tool: (typeof TOOL_DEFINITIONS)[number]) =>
+    tool.surface === 'interface' || Boolean(tool.resourceOnly) || (tool.surface === 'read' && tool.browserBacked !== false)
+  const browserOnly = TOOL_DEFINITIONS.filter(isBrowserOnly).map(tool => tool.name)
+  // Pins the set itself, so a tool that quietly changes surface fails here.
   for (const name of ['open_cell_panel', 'ui_command', 'get_ui_state', 'list_ui_commands', 'list_references', 'get_reference'])
     expect(browserOnly, name).toContain(name)
   expect(listed.tools.map(tool => tool.name).filter(name => browserOnly.includes(name))).toEqual([])
+  const fired = await client.callTool({ name: 'ui_command', arguments: { command: 'undo_last_change' } })
+    .then(reply => reply.isError === true, () => true)
+  expect(fired, 'ui_command is refused when called by name').toBe(true)
   const resources = await client.listResources()
   expect(resources.resources.some(resource => resource.uri === 'uno://references/canvas-adapter')).toBe(false)
   await expect(client.readResource({ uri: 'uno://references/canvas-adapter' })).rejects.toThrow()

@@ -203,7 +203,7 @@ export const updateCellTool = defineWriteTool({
 export const createCellDependencyTool = defineWriteTool({
   name: 'create_cell_dependency',
   description:
-    'Connect two cells on the SAME path. BOTH kinds read source-first. kind "leads_to" = the source makes the target happen (drawn as an arrow); "enables" = the source makes the target possible without causing it (panel-only, never drawn) — "B only makes sense once A is true" is A enables B, so the PRECONDITION is the source. They are NOT inverses: a precondition causes nothing, so do not record one as leads_to. State which kind you chose and why in your reply. Arrows only where they add information.',
+    'Connect two cells of the SAME service — any path or scenario of it; a cell of another service is refused. BOTH kinds read source-first. kind "leads_to" = the source makes the target happen (drawn as an arrow); "enables" = the source makes the target possible without causing it (panel-only, never drawn) — "B only makes sense once A is true" is A enables B, so the PRECONDITION is the source. They are NOT inverses: a precondition causes nothing, so do not record one as leads_to. State which kind you chose and why in your reply. Arrows only where they add information.',
   args: z.object({
     source_cell_id: arg.text('Source cell id'),
     target_cell_id: arg.text('Target cell id'),

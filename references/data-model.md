@@ -86,7 +86,7 @@ erDiagram
 | `stakeholders` | The deployment's cast list — the actors a lane picks from | One pool, unique by `name` across the whole deployment; no `service_id` — a service "has" an actor exactly when one of its lanes names it, so the cast is shared the way the tools are and the name is the identity. `kind` is `recipient` \| `staff` \| `partner` \| `provider` \| `team`. A lane names its actor by `stakeholder_id`, null on a structural lane, and a touchpoint names its owner the same way; both `on delete set null`, so removing an actor un-names rather than pins |
 | `cell_touchpoints` | One touchpoint, used at one cell | Owns the summary and role for THIS moment — the same tool describes a different screen at a different step. What it points at (its design link, its screenshots) are `resources` rows carrying `cell_touchpoint_id`; `21000119000000` moved the two URL columns there. Names its touchpoint one of two ways and exactly one (`cell_touchpoints_one_identity`): `touchpoint_id` into the registry, or `name` alone when the registry lacks it — a **name-only placement**, drawn dashed, offered "Link to registry" in the panel. `sync_cell_touchpoints` follows a cell's text: a new line mints a registry row, a line that left keeps its writing as a name-only row or goes |
 | `resources` | What a cell points at | Every row carries `cell_id`; a row a touchpoint placement owns carries `cell_touchpoint_id` as well, and the composite key `(cell_touchpoint_id, cell_id)` holds the two to one row. `kind` is `link` \| `attachment`; both carry a url. `featured` marks the one its owner leads with — one featured attachment per cell and per placement (a partial unique index), any number of featured links. The cell's list (`sync_cell_resources`) reconciles by id and refuses a placement's rows; the placement's list (`sync_placement_resources`) is theirs; `set_featured_resource` clears the previous preview in the same transaction |
-| `cell_dependencies` | Directed arrows cell → cell. `kind` is `leads_to` (this cell makes the other happen — drawn) or `enables` (this cell makes the other possible — recorded, never drawn). Not inverses: "follows" is `leads_to` read from the other end, and making something possible causes nothing | Unique pair, `source != target`, both cells must be on the same path |
+| `cell_dependencies` | Directed arrows cell → cell. `kind` is `leads_to` (this cell makes the other happen — drawn) or `enables` (this cell makes the other possible — recorded, never drawn). Not inverses: "follows" is `leads_to` read from the other end, and making something possible causes nothing | Unique pair, `source != target`, both cells must be in the same service — any path or scenario of it, never two services |
 
 ## Enums
 
@@ -169,6 +169,13 @@ dependencies), then insert fresh rows in the order above. Never
 `on conflict do update` — rows removed from the IR must not survive as
 orphans. IDs are UUIDv5 from IR keys + locale (NFC-normalized), so identical
 IR re-imports produce identical rows. See `references/adapter-contract.md`.
+
+A dependency whose ends sit in two scenarios is inserted once, after every
+scenario's delete-and-reinsert: inside its source's block its target may not
+exist yet, and the target scenario's own delete would cascade it away. In the
+IR such a link is listed on one end's path with the other end qualified by
+`path` and `scenario`; its id hashes both ends in full, so it is the same row
+whichever path lists it.
 
 ## Ordering fields
 

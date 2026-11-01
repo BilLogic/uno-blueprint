@@ -17,10 +17,30 @@ import {
   type RawCellTouchpoint,
 } from '@/lib/cellTouchpoints'
 
+/**
+ * A to-one embed: PostgREST answers with an object, a hand-built row may hand
+ * a one-row array; both read the same.
+ */
+export type ToOne<T> = T | T[] | null
+
+export function one<T>(value: ToOne<T> | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return value ?? null
+}
+
 type RawOutgoingDependency = {
   id: string
   target_cell_id: string
   /** Fallback data omits these — default kind 'leads_to', name/note null. */
+  kind?: string | null
+  name?: string | null
+  note?: string | null
+}
+
+/** An edge arriving at a cell of this path, embedded under its target. */
+type RawIncomingDependency = {
+  id: string
+  source_cell_id: string
   kind?: string | null
   name?: string | null
   note?: string | null
@@ -41,6 +61,7 @@ export type RawCell = RawCellColumns & {
   /** `cell_touchpoints` rows embedded by the board query. */
   cell_touchpoints?: RawCellTouchpoint[] | null
   outgoing?: RawOutgoingDependency[] | null
+  incoming?: RawIncomingDependency[] | null
 }
 
 type RawPathStep = {
@@ -66,6 +87,9 @@ export type RawPath = {
   kind: PathKind
   /** The `entity_status` column, as text; anything unknown reads as `live`. */
   status?: string | null
+  scenario_id?: string | null
+  /** The path's scenario and its phase, embedded by the board query. */
+  scenarios?: ToOne<{ name: string; phases?: ToOne<{ name: string }> }>
   lanes?: RawLane[] | null
   /** @deprecated Legacy shape; use path_steps */
   steps?: BlueprintStep[] | null
@@ -128,11 +152,37 @@ function toBlueprintDependency(
   }
 }
 
-function flattenDependenciesFromCells(cells: RawCell[]): BlueprintCellDependency[] {
+/**
+ * Every edge touching this path's cells, each once.
+ *
+ * Outgoing first, because an edge between two of this path's cells arrives
+ * twice — under its source and under its target — and the outgoing copy is
+ * the one the board has always read. An incoming copy adds an edge only when
+ * its source is on another path.
+ */
+function flattenDependenciesFromCells(
+  cells: RawCell[],
+): BlueprintCellDependency[] {
   const dependencies: BlueprintCellDependency[] = []
+  const seen = new Set<string>()
+
   for (const cell of cells) {
     for (const outgoing of cell.outgoing ?? []) {
+      if (seen.has(outgoing.id)) continue
+      seen.add(outgoing.id)
       dependencies.push(toBlueprintDependency(outgoing, cell.id))
+    }
+  }
+  for (const cell of cells) {
+    for (const incoming of cell.incoming ?? []) {
+      if (seen.has(incoming.id)) continue
+      seen.add(incoming.id)
+      dependencies.push(
+        toBlueprintDependency(
+          { ...incoming, target_cell_id: cell.id },
+          incoming.source_cell_id,
+        ),
+      )
     }
   }
   return dependencies
@@ -224,10 +274,16 @@ export function deduplicateBlueprintLanes(data: BlueprintData): BlueprintData {
 
   const cells = [...cellBySlot.values()]
   const cellIds = new Set(cells.map((cell) => cell.id))
+  // Drop the edges that touched a cell this collapse dropped — and only
+  // those. An edge whose other end was never on this board (a link to
+  // another path) has nothing to do with the collapse and stays.
+  const droppedIds = new Set(
+    data.cells.map((cell) => cell.id).filter((id) => !cellIds.has(id)),
+  )
   const dependencies = data.dependencies.filter(
     (dependency) =>
-      cellIds.has(dependency.source_cell_id) &&
-      cellIds.has(dependency.target_cell_id),
+      !droppedIds.has(dependency.source_cell_id) &&
+      !droppedIds.has(dependency.target_cell_id),
   )
 
   keptLanes.sort((a, b) => a.position - b.position)
@@ -271,6 +327,8 @@ export function normalizeBlueprint(raw: RawPath): BlueprintData {
         )
       : flattenDependenciesFromCells(rawCells)
 
+  const scenario = one(raw.scenarios)
+
   return sortBlueprintLanes({
     path: {
       id: raw.id,
@@ -279,6 +337,13 @@ export function normalizeBlueprint(raw: RawPath): BlueprintData {
       note: raw.note ?? null,
       kind: raw.kind,
       status: asEntityStatus(raw.status) ?? DEFAULT_ENTITY_STATUS,
+      ...(raw.scenario_id ? { scenarioId: raw.scenario_id } : {}),
+      ...(scenario
+        ? {
+            scenarioName: scenario.name,
+            phaseName: one(scenario.phases)?.name ?? null,
+          }
+        : {}),
     },
     lanes,
     steps,

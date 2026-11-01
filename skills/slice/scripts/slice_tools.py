@@ -47,6 +47,7 @@ sys.path.insert(0, str(SHARED_SCRIPTS))
 # copied: two definitions of this constant is exactly the bug that would make
 # slices point at nothing.
 from generate_seed_sql import entity_uuid, pick_text  # noqa: E402
+from validate_ir import LinkEnd, resolve_end  # noqa: E402
 
 SLICE_KINDS = ("journey", "step", "lane", "cell", "custom")
 ORIGINS = ("generated", "customized", "human")
@@ -90,6 +91,13 @@ def index_ir(doc: dict) -> dict:
     service = doc["service"]
     service_key = service["key"]
     scenarios: dict[str, dict] = {}
+    # A dependency end may name another scenario by its own key; slices key
+    # scenarios `<phase>/<scenario>`, so the end is resolved through this.
+    qualified = {
+        scenario["key"]: f"{phase['key']}/{scenario['key']}"
+        for phase in service.get("phases", [])
+        for scenario in phase.get("scenarios", [])
+    }
 
     for phase in service.get("phases", []):
         for scenario in phase.get("scenarios", []):
@@ -109,7 +117,19 @@ def index_ir(doc: dict) -> dict:
                     # registered has no column and cannot be selected.
                     "step_order": list(path["path_steps"]),
                     "cells": cells,
-                    "dependencies": path.get("dependencies", []),
+                    # Each edge's two ends as LinkEnds, read by the one
+                    # resolver the validator uses. A link may join two paths
+                    # of the service (ADR 0035), so an end's (lane, step)
+                    # alone does not say which cell it is.
+                    "dependencies": [
+                        tuple(
+                            _slice_end(
+                                resolve_end(edge[end], scenario["key"], path["key"]), qualified
+                            )
+                            for end in ("source", "target")
+                        )
+                        for edge in path.get("dependencies", [])
+                    ],
                 }
 
             scenarios[scenario_key] = {
@@ -121,6 +141,18 @@ def index_ir(doc: dict) -> dict:
             }
 
     return {"service_key": service_key, "scenarios": scenarios, "locales": doc["locales"]}
+
+
+def _slice_end(end: LinkEnd, qualified: dict) -> LinkEnd:
+    """The end with its scenario keyed `<phase>/<scenario>`, as slices key it.
+
+    An unknown scenario is an error, never a quiet fall-back to this one: the
+    validator refuses such a file, and a slice cut from an unvalidated one
+    must not match a cell it does not name.
+    """
+    if end.scenario not in qualified:
+        raise SliceError(f"a dependency end names unknown scenario '{end.scenario}'")
+    return end._replace(scenario=qualified[end.scenario])
 
 
 def cell_key(index: dict, scenario_key: str, path_key: str, lane_key: str, step_key: str) -> str:
@@ -196,7 +228,8 @@ def select_cell(index: dict, scenario_key: str, path_key: str, lane_key: str, st
     return [[cell_key(index, scenario_key, path_key, lane_key, step_key)]]
 
 
-def select_journey(index: dict, scenario_key: str, path_key: str, lane_key: str) -> list[list[str]]:
+def select_journey(index: dict, scenario_key: str, path_key: str, lane_key: str,
+                   notes: list[str] | None = None) -> list[list[str]]:
     """An actor's experience: their own cells plus what they touch.
 
     "What they touch" is taken from `cell_dependencies` — the arrows the blueprint
@@ -207,22 +240,39 @@ def select_journey(index: dict, scenario_key: str, path_key: str, lane_key: str)
 
     One slide per step: the actor's cell first (it is the spine), then the
     cells it exchanges with, ordered by lane row.
+
+    A slice reads one path. A companion on ANOTHER path — a link may cross
+    paths within the service — is outside the slice: it is left out, and a
+    line naming it goes to `notes`, so the author can say it in a caption or
+    cut a slice of that path. It is never matched to the cell with the same
+    (lane, step) on this path, which would be a different cell.
     """
     scenario = index["scenarios"][scenario_key]
     path = scenario["paths"][path_key]
     if lane_key not in path["lanes"]:
         raise SliceError(f"lane '{lane_key}' is not on path '{path_key}'")
 
-    # Adjacency over the path's dependency edges, undirected: an edge that
+    # Adjacency over the service's dependency edges, undirected: an edge that
     # arrives at the actor and one that leaves them are both contact, and so is
     # an `enables` edge either way — the canvas draws no arrow for one, but a
     # cell that this actor's work depends on is still a cell in contact with it.
+    # Every path's edges are read, because a link into this path may be listed
+    # on the path its other end sits on.
+    here = (scenario_key, path_key)
     touching: dict[tuple[str, str], set[tuple[str, str]]] = {}
-    for edge in path["dependencies"]:
-        source = (edge["source"]["lane"], edge["source"]["step"])
-        target = (edge["target"]["lane"], edge["target"]["step"])
-        touching.setdefault(source, set()).add(target)
-        touching.setdefault(target, set()).add(source)
+    for other_scenario in index["scenarios"].values():
+        for other_path in other_scenario["paths"].values():
+            for source, target in other_path["dependencies"]:
+                for near, far in ((source, target), (target, source)):
+                    if near.on != here:
+                        continue
+                    if far.on == here:
+                        touching.setdefault(near.cell, set()).add(far.cell)
+                    elif notes is not None and near.lane == lane_key:
+                        notes.append(
+                            f"({near.lane}, {near.step}) touches {far.scenario}/{far.path}:"
+                            f"({far.lane}, {far.step}) on another path — outside the slice"
+                        )
 
     rows = {lane["key"]: lane["row"] for lane in path["lanes"].values()}
     slides = []
@@ -454,7 +504,7 @@ def emit_doc(index: dict, doc: dict, locale: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def build_skeleton(args, index: dict) -> dict:
+def build_skeleton(args, index: dict, notes: list[str] | None = None) -> dict:
     scenario_key = args.scenario
     if scenario_key not in index["scenarios"]:
         raise SliceError(
@@ -474,7 +524,7 @@ def build_skeleton(args, index: dict) -> dict:
             index, scenario_key, path_key, _require(args.lane, "--lane"), _require(args.step, "--step")
         )
     elif args.kind == "journey":
-        slides = select_journey(index, scenario_key, path_key, _require(args.lane, "--lane"))
+        slides = select_journey(index, scenario_key, path_key, _require(args.lane, "--lane"), notes)
     else:
         slides = select_custom(index, scenario_key, path_key, args.cell or [])
 
@@ -547,7 +597,10 @@ def main() -> int:
         index = index_ir(load_json(args.ir))
 
         if args.command == "select":
-            print(json.dumps(build_skeleton(args, index), ensure_ascii=False, indent=2))
+            notes: list[str] = []
+            print(json.dumps(build_skeleton(args, index, notes), ensure_ascii=False, indent=2))
+            for note in dict.fromkeys(notes):
+                print(f"note: {note}", file=sys.stderr)
             return 0
 
         doc = load_json(args.slices)

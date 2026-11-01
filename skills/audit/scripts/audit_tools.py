@@ -70,6 +70,10 @@ import json
 import sys
 from pathlib import Path
 
+# The shared pipeline scripts, two levels up from this skill-owned directory.
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+from validate_ir import resolve_end  # noqa: E402
+
 SEVERITIES = ("info", "warn", "critical")
 RATINGS = ("low", "medium", "high")
 GROUPS = ("Do first", "Plan", "Quick wins", "Later")
@@ -230,7 +234,7 @@ def cmd_export(args: argparse.Namespace) -> int:
         phases = []
         for phase in service.get("phases", []):
             scenarios = [
-                scenario
+                _scoped_scenario(scenario, args.scenario)
                 for scenario in phase.get("scenarios", [])
                 if scenario.get("key") == args.scenario
             ]
@@ -239,16 +243,60 @@ def cmd_export(args: argparse.Namespace) -> int:
         if not phases:
             print(f"error: no scenario with key {args.scenario!r}", file=sys.stderr)
             return 1
+        for note in _links_left_out(service, args.scenario):
+            print(f"note: {note}", file=sys.stderr)
         service = {**service, "phases": phases}
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
+    # A blueprint file, so the export validates as one: `locales` too.
     out.write_text(
-        json.dumps({"schema_version": ir.get("schema_version"), "service": service},
+        json.dumps({"schema_version": ir.get("schema_version"), "locales": ir.get("locales"),
+                    "service": service},
                    ensure_ascii=False, indent=1),
         encoding="utf-8",
     )
     print(f"export written: {out}")
     return 0
+
+
+def _ends(edge: dict, scenario_key: str, path_key: str):
+    return (resolve_end(edge["source"], scenario_key, path_key),
+            resolve_end(edge["target"], scenario_key, path_key))
+
+
+def _scoped_scenario(scenario: dict, kept: str) -> dict:
+    """The scenario with only the links whose two ends it holds.
+
+    A link to another path of this scenario stays, qualified as authored. A
+    link into a scenario the export leaves out cannot: the validator refuses
+    an end the file does not hold, so it goes, and `_links_left_out` says so.
+    """
+    paths = []
+    for path in scenario.get("paths", []):
+        dependencies = [
+            edge for edge in path.get("dependencies", [])
+            if all(end.scenario == kept for end in _ends(edge, scenario["key"], path["key"]))
+        ]
+        paths.append({**path, "dependencies": dependencies})
+    return {**scenario, "paths": paths}
+
+
+def _links_left_out(service: dict, kept: str) -> list[str]:
+    """One line per link with exactly one end in the kept scenario."""
+    notes = []
+    for phase in service.get("phases", []):
+        for scenario in phase.get("scenarios", []):
+            for path in scenario.get("paths", []):
+                for edge in path.get("dependencies", []):
+                    source, target = _ends(edge, scenario["key"], path["key"])
+                    if (source.scenario == kept) == (target.scenario == kept):
+                        continue
+                    notes.append(
+                        f"{source.scenario}/{source.path}:({source.lane}, {source.step}) "
+                        f"{edge.get('kind', 'leads_to')} {target.scenario}/{target.path}:"
+                        f"({target.lane}, {target.step}) — one end is outside the export"
+                    )
+    return notes
 
 
 def _load_ledger(path: Path) -> dict:

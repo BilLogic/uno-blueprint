@@ -1,6 +1,7 @@
 import { structureDraftExtent } from './structureDraftMotion'
 import { normalizeCompareName } from '@/lib/compareSlots'
 import { ARROW_VIEWPORT_PAD } from '@/lib/blueprintArrowGeometry'
+import { inPathDependencies } from '@/lib/crossPathLinks'
 import {
   BLUEPRINT_ARTBOARD_HEIGHT_BUFFER,
   BLUEPRINT_DIVIDER_ROW_HEIGHT,
@@ -47,11 +48,21 @@ export type ComparePathArrowData = {
   steps: IntegratedBlueprintStep[]
 }
 
-/** One path's arrow inputs (fold's dependency-drop retired 2026-08-17). */
+/**
+ * One path's arrow inputs (fold's dependency-drop retired 2026-08-17).
+ *
+ * Only the edges with BOTH ends on this path. The overlay finds its endpoints
+ * by sweeping the DOM under the container it draws over, and in the merged
+ * grid that container holds every path's cells — so an edge to another path
+ * of the same scenario would find both ends and draw an arrow between two
+ * paths. A link that leaves its path is never an arrow; the cell's marker
+ * carries it (`crossPathLinks.ts`).
+ */
 export function getComparePathArrowData(
   blueprint: BlueprintData,
 ): ComparePathArrowData {
-  const { path, cells, dependencies, steps } = blueprint
+  const { path, cells, steps } = blueprint
+  const dependencies = inPathDependencies(blueprint)
 
   return {
     steps: steps.map((step) => ({

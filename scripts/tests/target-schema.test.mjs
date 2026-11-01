@@ -15,7 +15,7 @@ import { interpret, parseEnvFile, supportedVersions } from '../check-target-sche
 
 // The schema's own enum, newest first — the last test in this file is the
 // guard that it stays the same list.
-const SUPPORTED = ['2026.09.11', '2026.09.10', '2026.09.09', '2026.09.08', '2026.09.07', '2026.09.06', '2026.09.05', '2026.09.04', '2026.09.03', '2026.09.02', '2026.09.01', '2026.08.31', '2026.08.27', '2026.08.26', '2026.08.25', '2026.07.16']
+const SUPPORTED = ['2026.09.12', '2026.09.11', '2026.09.10', '2026.09.09', '2026.09.08', '2026.09.07', '2026.09.06', '2026.09.05', '2026.09.04', '2026.09.03', '2026.09.02', '2026.09.01', '2026.08.31', '2026.08.27', '2026.08.26', '2026.08.25', '2026.07.16']
 
 test('a compatible target passes and says which version it carries', () => {
   const result = interpret({ status: 200, body: [{ version: '2026.08.25' }] }, SUPPORTED)

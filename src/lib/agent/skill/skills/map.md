@@ -74,8 +74,9 @@ these, which are where the system actually breaks**:
 
 - ⚠ **REQUIRED — validate before import.** Run `scripts/validate_ir.py` and
   require exit 0 before any adapter runs. It catches what the DB trigger
-  would abort mid-import (cells without path_steps, cross-path dependencies,
-  duplicate columns, a lane role outside the closed eight).
+  would abort mid-import (cells without path_steps, a dependency end that
+  names no cell of this service, duplicate columns, a lane role outside the
+  closed eight).
 - ⚠ **REQUIRED — import only signed scenarios.** Import only scenarios whose
   recorded `content_hash` matches the current subtree, recorded after the
   user explicitly approves the preview — `skills/map/references/workspace-state.md`
@@ -108,6 +109,12 @@ long unattended runs ("all 6 scenarios signed off") verifiable:
 
 Pilot `document-reader` on a few docs before a whole corpus. Per-scenario
 locale translation fans out to generic subagents.
+
+Updating a deployed blueprint, a chain question ("what else does this edit
+touch?") goes to `impact-tracer`, seeded with the edited cells, on the
+export of the whole service (reach: CONTEXT.md **Dependency**). An
+affected cell it reports in another scenario puts that scenario's cells in
+the delta's review, named with their scenario and path.
 
 ## References
 

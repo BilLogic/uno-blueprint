@@ -38,7 +38,7 @@ irrelevant query tests nothing.
 
 ## behavioral/ — does the skill do the right thing once fired?
 
-`behavioral/evals.json`: three scenarios per skill in the
+`behavioral/evals.json`: three or more scenarios per skill in the
 `{skills, query, files, expected_behavior}` shape from the best-practices
 guide. There is no built-in runner; the working method:
 

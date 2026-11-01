@@ -415,6 +415,18 @@ def build_model(doc: dict, locale: str) -> dict:
         if listed_name:
             registry_entry(listed_name, listed)
 
+    # Which phase each scenario sits in, so a link naming a scenario by key
+    # alone can be given its other end's qualified key — and the cell id that
+    # key hashes to — before that scenario has been read.
+    scenario_prefixes = {
+        scenario["key"]: f"{lc_q}/{phase['key']}/{scenario['key']}"
+        for phase in lc["phases"]
+        for scenario in phase.get("scenarios", [])
+    }
+    # Every link of the service, gathered as the paths are read and placed on
+    # its SOURCE's path once all of them are: see place_links below.
+    links: list = []
+
     phase_ids = {}
     for phase in lc["phases"]:
         ph_q = f"{lc_q}/{phase['key']}"
@@ -470,11 +482,9 @@ def build_model(doc: dict, locale: str) -> dict:
                 ]
 
                 cells = []
-                cell_ids = {}
                 for cell in path["cells"]:
                     ce_q = f"{pa_q}/{cell['lane']}/{cell['step']}"
                     ce_id = entity_uuid(locale, "cell", ce_q)
-                    cell_ids[(cell["lane"], cell["step"])] = ce_id
                     cells.append(
                         {
                             "id": ce_id,
@@ -572,19 +582,29 @@ def build_model(doc: dict, locale: str) -> dict:
                         }
                     )
 
-                dependencies = []
                 for edge in path.get("dependencies", []):
-                    src = (edge["source"]["lane"], edge["source"]["step"])
-                    tgt = (edge["target"]["lane"], edge["target"]["step"])
                     # Absent kind means 'leads_to' — the column default, and
                     # what every edge authored before 2026.08.26 meant.
                     kind = edge.get("kind", "leads_to")
-                    # The kind is in the qualified key because it is in the
-                    # identity: cell_dependencies is unique on
-                    # (source, target, kind), so the same pair can hold an
-                    # arrow AND an enables edge and they need distinct ids.
-                    tr_q = f"{pa_q}/{src[0]}/{src[1]}->{tgt[0]}/{tgt[1]}#{kind}"
-                    dependencies.append(
+                    src = validate_ir.resolve_end(edge["source"], scenario["key"], path["key"])
+                    tgt = validate_ir.resolve_end(edge["target"], scenario["key"], path["key"])
+                    src_path_q = f"{scenario_prefixes[src.scenario]}/{src.path}"
+                    tgt_path_q = f"{scenario_prefixes[tgt.scenario]}/{tgt.path}"
+                    src_q = f"{src_path_q}/{src.lane}/{src.step}"
+                    tgt_q = f"{tgt_path_q}/{tgt.lane}/{tgt.step}"
+                    if src.on == tgt.on:
+                        # One path: the key this edge has always had, so a
+                        # re-import lands on the row it already wrote. The
+                        # kind is in it because it is in the identity:
+                        # cell_dependencies is unique on (source, target,
+                        # kind), so the same pair can hold an arrow AND an
+                        # enables edge and they need distinct ids.
+                        tr_q = f"{src_path_q}/{src.lane}/{src.step}->{tgt.lane}/{tgt.step}#{kind}"
+                    else:
+                        # Two paths: both ends in full, so the id is the same
+                        # whichever end's path lists the link.
+                        tr_q = f"{src_q}->{tgt_q}#{kind}"
+                    links.append(
                         {
                             # The namespace label stays "trigger" through the
                             # 2026.09.01 rename of the kinds and the 2026.09.09
@@ -594,9 +614,14 @@ def build_model(doc: dict, locale: str) -> dict:
                             # idempotent, which is the one property this
                             # derivation exists for.
                             "id": entity_uuid(locale, "trigger", tr_q),
-                            "source_cell_id": cell_ids[src],
-                            "target_cell_id": cell_ids[tgt],
+                            "source_cell_id": entity_uuid(locale, "cell", src_q),
+                            "target_cell_id": entity_uuid(locale, "cell", tgt_q),
                             "kind": kind,
+                            # Where the ends sit, as qualified keys, for placement and the
+                            # seed's statement order. Not columns: no field
+                            # function projects them.
+                            "source_path_key": src_path_q,
+                            "target_scenario_key": scenario_prefixes[tgt.scenario],
                         }
                     )
 
@@ -611,7 +636,8 @@ def build_model(doc: dict, locale: str) -> dict:
                         "lanes": lanes,
                         "path_steps": path_steps,
                         "cells": cells,
-                        "dependencies": dependencies,
+                        "qualified_key": pa_q,
+                        "dependencies": [],
                     }
                 )
 
@@ -633,9 +659,27 @@ def build_model(doc: dict, locale: str) -> dict:
                 }
             )
 
+    place_links(model, links)
     model["phase_ids"] = phase_ids
     model["touchpoints"] = list(registry.values())
     return model
+
+
+def place_links(model: dict, links: list) -> None:
+    """Put each link on its source's path, in the order the file gave them.
+
+    A link is listed on either end's path in the IR, so where it was listed
+    is not a fact about it. Placing it by its source makes the model — and so
+    both adapters and the read-back count — the same however the file spelled
+    it, and matches the database, which hangs a dependency off its source.
+    """
+    by_path = {
+        path["qualified_key"]: path
+        for scenario in model["scenarios"]
+        for path in scenario["paths"]
+    }
+    for link in links:
+        by_path[link["source_path_key"]]["dependencies"].append(link)
 
 
 # ---------------------------------------------------------------------------
@@ -857,7 +901,10 @@ insert into public.lanes ({', '.join(seed_lane_fields(scenario['paths'][0]['lane
             )
 
         dependency_fields = [
-            seed_dependency_fields(e) for p in scenario["paths"] for e in p["dependencies"]
+            seed_dependency_fields(e)
+            for p in scenario["paths"]
+            for e in p["dependencies"]
+            if e["target_scenario_key"] == scenario["qualified_key"]
         ]
         if dependency_fields:
             parts.append(
@@ -865,6 +912,25 @@ insert into public.lanes ({', '.join(seed_lane_fields(scenario['paths'][0]['lane
                 + values_rows([sql_row(fields) for fields in dependency_fields])
                 + ";\n"
             )
+
+    # A link into another scenario goes in last, once. Inside its source's
+    # block, its target would not exist yet when that scenario comes later in
+    # the file, and the target scenario's own replace would cascade it away
+    # when that scenario came earlier.
+    across_fields = [
+        seed_dependency_fields(e)
+        for scenario in model["scenarios"]
+        for p in scenario["paths"]
+        for e in p["dependencies"]
+        if e["target_scenario_key"] != scenario["qualified_key"]
+    ]
+    if across_fields:
+        parts.append(
+            "\n-- Links into another scenario, after every scenario's replace.\n"
+            f"insert into public.cell_dependencies ({', '.join(across_fields[0])}) values\n"
+            + values_rows([sql_row(fields) for fields in across_fields])
+            + ";\n"
+        )
 
     parts.append("\ncommit;\n")
     return "".join(parts)

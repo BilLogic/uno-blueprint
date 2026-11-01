@@ -463,7 +463,8 @@ readers remain refused. The private order helper is not exposed.
 
 Creation saves complete fields, memberships and validated path orders in one
 transaction. `undo_structure_add` verifies every new identity's complete path
-membership, matching current orders and non-negative contiguous before positions;
+membership, matching current orders and before positions that are non-negative
+integers strictly increasing in path order (since 323; 311 required 0, 1, 2, …);
 it refuses any later cell, preserving its evidence, resources and dependencies.
 Successful Undo removes only the new items and restores the stored order.
 
@@ -486,6 +487,28 @@ successful Undo consumes its receipt and cell deletion cascades it. Uploaded
 Storage objects are retained on Cancel and Undo, matching the existing
 attachment lifecycle. No deployment data backfill is required.
 
+| `21000323000000_undo_of_an_add_keeps_the_numbering_it_found.sql` | `undo_structure_add` accepts any `before` numbering that strictly increases in path order, so Undo of an Add works on paths numbered from 1 or with gaps; every other guard and the grant are unchanged |
+
+Apply 323 on its own; no app change and no database-type change. Before it, a
+path whose steps or lanes were not numbered 0, 1, 2, … refused Undo of every
+Add with `This change cannot be undone. Reload the canvas`, because the Add
+renumbers the path from 0 and its receipt keeps the numbering it found.
+`undo_structure_order` and `undo_step_path_change` already restored stored
+positions and are unchanged; the migration proves all three round trips on a
+path numbered from 1 and on one with gaps.
+
+
+| `21000324000000_a_link_may_cross_paths_within_one_service.sql` | `set_cell_dependency` and `update_cell_dependency` accept two cells on different paths or scenarios of one service, and refuse two services with `Both cells must be in the same service`; `delete_path` and `delete_scenario` archive every link with either end inside what they delete; signatures, grants, kinds, Undo and the delete cascade are unchanged |
+
+Apply 324 on its own; no database-type change. Before it, both functions refused
+any edge whose cells sat on different paths with `Both cells must be in the
+same path of the journey`. The migration proves both kinds across scenarios and
+across two paths of one scenario, the refusal across services, the self-edge
+refusal, an edit onto a cross-path target and its undo, and that clearing or
+deleting either end removes the edge. It also proves that deleting a path or a
+scenario archives the links coming into it, as many as `deletion_impact`
+counts, and that re-inserting the archive brings them back unless the other end
+has been deleted since, when the foreign key refuses it ([ADR 0035](../../adr/0035-a-link-may-cross-paths-within-one-service.md)).
 
 | `21000318000000_a_confirmer_can_start_a_service.sql` | Service structure can be created through the caller-scoped tool gateway |
 | `21000319000000_journey_structure_can_be_named.sql` | Existing services and their initial structure labels can be renamed |

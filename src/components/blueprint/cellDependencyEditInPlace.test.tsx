@@ -69,9 +69,9 @@ import { CellDependencyEditor } from '@/components/blueprint/CellDependencyEdito
 import { CellDependencySections } from '@/components/blueprint/CellDependencySections'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
-const SOURCE = { cellId: 'cell-source', pathId: 'path-1', label: 'Customer · Step 1' }
-const TARGET = { cellId: 'cell-target', pathId: 'path-1', label: 'Backstage · Step 2' }
-const OTHER = { cellId: 'cell-other', pathId: 'path-1', label: 'Backstage · Step 3' }
+const SOURCE = { cellId: 'cell-source', label: 'Customer · Step 1' }
+const TARGET = { cellId: 'cell-target', label: 'Backstage · Step 2' }
+const OTHER = { cellId: 'cell-other', label: 'Backstage · Step 3' }
 
 const NOTE = 'the sentence this edge arrived with'
 

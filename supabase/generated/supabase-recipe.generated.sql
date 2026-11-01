@@ -3003,6 +3003,14 @@ begin
     if has_table_privilege('anon', format('public.%I', relation), 'select') then
       raise exception 'anon can still select public.%', relation;
     end if;
+  end loop;
+
+  -- The signed-in half, for the five this recipe grants by name. The agent
+  -- transcripts' authenticated grant is the platform's default privilege, not
+  -- the recipe's, so a stack without that default has none to keep.
+  foreach relation in array array[
+    'evidence', 'evidence_counts', 'authoring_changes', 'trash', 'audit_findings'
+  ] loop
     if not has_table_privilege('authenticated', format('public.%I', relation), 'select') then
       raise exception 'authenticated lost select on public.%', relation;
     end if;
@@ -3021,13 +3029,8 @@ begin
     raise exception 'a select policy still admits signed-out readers: %', leak;
   end if;
 
-  foreach relation in array array[
-    'services', 'phases', 'scenarios', 'paths', 'steps', 'path_steps',
-    'lanes', 'cells', 'cell_dependencies', 'touchpoints', 'cell_touchpoints',
-    'resources', 'stakeholders', 'slices', 'slides', 'slide_images'
-  ] loop
-    if not has_table_privilege('anon', format('public.%I', relation), 'select') then
-      raise exception 'the board or its slices lost anon select on public.%', relation;
-    end if;
-  end loop;
+  -- The board's anon reads are not asserted here: they come from the
+  -- platform's default privileges, which a stack built without them does not
+  -- have, and nothing above touches a board table. `npm run check:seed-load`
+  -- proves them as anon, on a stack that carries those defaults.
 end $closed$;

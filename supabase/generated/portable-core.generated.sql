@@ -16816,6 +16816,6 @@ $cross_path_archive$;
 -- scenarios, paths, steps, path_steps, lanes, cells, cell_dependencies,
 -- touchpoints, cell_touchpoints, resources and stakeholders, and slices,
 -- slides and slide_images, stay readable signed-out. The post-conditions
--- below prove both halves.
+-- below prove the closed half; the seed-load check proves both as the roles.
 --
 -- Nothing here changes a table's shape, so the database types are unchanged.

@@ -395,7 +395,7 @@ export function CellDependencyEditor({
 
   const target =
     candidates.find((entry) => entry.cellId === draft.targetCellId) ?? null
-  const problems = validateDraftDependency(draft, source, target, existing)
+  const problems = validateDraftDependency(draft, target, existing)
 
   const handleAdd = async () => {
     if (!client || busy || problems.length > 0 || !draft.targetCellId) return

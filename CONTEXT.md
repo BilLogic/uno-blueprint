@@ -195,8 +195,10 @@ actions. The recipient's side is a band and can be several rows deep, so a line
 drawn once per such row would not be a boundary: a second actor row on the
 recipient's own side extends the band rather than dividing the board again.
 
-**Dependency** — a directed edge from one cell to another on the same path.
-Two kinds, and the difference between them is whether the edge draws.
+**Dependency** — a directed edge between two cells of one service: the same
+path, another path, or another scenario, never another service. Two kinds, and
+the difference between them is whether the edge draws. An edge that leaves its
+path is never an arrow, whatever its kind: one path's grid cannot draw it.
 
 **Leads to** — the drawn kind (`kind = 'leads_to'`): this cell makes that one
 happen. A handoff, rendered as an arrow.

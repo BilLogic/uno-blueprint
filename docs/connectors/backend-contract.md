@@ -109,7 +109,10 @@ client wrappers in `src/lib/authoringRpc.ts`). The roster:
 - **Renames**: `rename_phase`, `rename_scenario`, `update_path`,
   `rename_owner_tag`
 - **Reorders**: `reorder_steps`, `set_path_steps`, `reorder_lanes`
-- **Dependencies**: `create_cell_dependency`, `clear_cell_dependency`
+- **Dependencies**: `create_cell_dependency`, `clear_cell_dependency`.
+  Both cells must be in one service — any path or scenario of it — and
+  anything else is refused with `Both cells must be in the same service`
+  ([ADR 0035](../adr/0035-a-link-may-cross-paths-within-one-service.md))
 - **Deletes** (each archives to `authoring_changes` and returns the
   archive id): `delete_scenario`, `delete_path`, `remove_step`,
   `remove_lane`, `remove_lanes`, `delete_cell`
@@ -314,7 +317,10 @@ and the exact contracts used by `authoringRpc.ts`:
 
 Coordinates contain `path_id`, `lane_id`, `step_id` and `position`. Hosts
 reject stale expected values and occupied slots, preserve identities on
-rename/move, and atomically record each write with its inverse. Names are
+rename/move, and atomically record each write with its inverse. A moved cell
+keeps its dependencies: a move to another path of the same service leaves
+them valid, and a move that would leave one joining two services is refused
+with `Both cells must be in the same service`. Names are
 exact strings, including surrounding spaces. Insertion creates a new
 identity, never overwrites an existing cell, and requires content and an
 explicit status. Receipts require nonempty, nonzero row/change identities;

@@ -487,6 +487,18 @@ positions and are unchanged; the migration proves all three round trips on a
 path numbered from 1 and on one with gaps.
 
 
+| `21000324000000_a_link_may_cross_paths_within_one_service.sql` | `set_cell_dependency` and `update_cell_dependency` accept two cells on different paths or scenarios of one service, and refuse two services with `Both cells must be in the same service`; `delete_path` and `delete_scenario` archive every link with either end inside what they delete; signatures, grants, kinds, Undo and the delete cascade are unchanged |
+
+Apply 324 on its own; no database-type change. Before it, both functions refused
+any edge whose cells sat on different paths with `Both cells must be in the
+same path of the journey`. The migration proves both kinds across scenarios and
+across two paths of one scenario, the refusal across services, the self-edge
+refusal, an edit onto a cross-path target and its undo, and that clearing or
+deleting either end removes the edge. It also proves that deleting a path or a
+scenario archives the links coming into it, as many as `deletion_impact`
+counts, and that re-inserting the archive brings them back unless the other end
+has been deleted since, when the foreign key refuses it ([ADR 0035](../../adr/0035-a-link-may-cross-paths-within-one-service.md)).
+
 ## Reserved migration timestamp band
 
 **Upstream migrations are allocated from `21000101000000`–`21991231235959`.

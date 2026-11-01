@@ -58,10 +58,10 @@ afterEach(() => {
 function draw() {
   render(
     <CellDependencyEditor
-      source={{ cellId: 'cell-1', pathId: 'path-1', label: '1 · Apply — Customer' }}
+      source={{ cellId: 'cell-1', label: '1 · Apply — Customer' }}
       candidates={[
-        { cellId: 'cell-1', pathId: 'path-1', label: '1 · Apply — Customer' },
-        { cellId: 'cell-2', pathId: 'path-1', label: '2 · Review — Backstage' },
+        { cellId: 'cell-1', label: '1 · Apply — Customer' },
+        { cellId: 'cell-2', label: '2 · Review — Backstage' },
       ]}
       existing={[]}
       onDone={() => {}}

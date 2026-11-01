@@ -1,6 +1,6 @@
 {
   "name": "ub",
-  "version": "2.8.11",
+  "version": "2.9.0",
   "description": "Uno Blueprint skills for keeping a business's service blueprint through an authenticated tool server.",
   "author": { "name": "Uno Blueprint contributors" },
   "repository": "https://github.com/BilLogic/uno-blueprint",

@@ -8,7 +8,10 @@ where does the blueprint go silent while the service keeps happening?
 
 ## Read
 Per path, in step order: the step list vs each lane's cells. Then the
-dependency graph.
+dependency graph — the whole service's (reach: CONTEXT.md **Dependency**).
+An edge's receiving end on another path or scenario is a cell at the
+receiving end, and an edge coming in from another path or scenario is an
+incoming edge.
 
 ## Finding shape
 Emit one finding per contiguous silent stretch, not per empty cell:
@@ -36,5 +39,7 @@ itself that moment).
 
 ## Non-findings
 Empty cells are NORMAL — a lane legitimately idle at a step is not a gap.
+A follow-up or an inbound transition answered by an edge to or from another
+path or scenario is answered: the silence is only on this board.
 Only flag silence that the surrounding cells' content contradicts. Never
 propose invented content; the finding names the hole, the human decides.

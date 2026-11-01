@@ -1178,8 +1178,9 @@ begin
               from public.cells c where c.path_id = p.id),
     'dependencies', (select coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb)
                      from public.cell_dependencies t
-                     join public.cells c on c.id = t.source_cell_id
-                     where c.path_id = p.id)
+                     where exists (select 1 from public.cells c
+                                    where c.id in (t.source_cell_id, t.target_cell_id)
+                                      and c.path_id = p.id))
   ) into payload
   from public.paths p where p.id = path_id;
 
@@ -1232,9 +1233,10 @@ begin
               where p.scenario_id = sc.id),
     'dependencies', (select coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb)
                      from public.cell_dependencies t
-                     join public.cells c on c.id = t.source_cell_id
-                     join public.paths p on p.id = c.path_id
-                     where p.scenario_id = sc.id)
+                     where exists (select 1 from public.cells c
+                                    join public.paths p on p.id = c.path_id
+                                    where c.id in (t.source_cell_id, t.target_cell_id)
+                                      and p.scenario_id = sc.id))
   ) into payload
   from public.scenarios sc where sc.id = scenario_id;
 
@@ -3107,8 +3109,8 @@ declare
   previous public.cell_dependencies;
   dependency_id uuid;
   was_inserted boolean;
-  source_path uuid;
-  target_path uuid;
+  source_service uuid;
+  target_service uuid;
 begin
   if not public.is_service_account() then
     raise exception 'This account cannot edit the blueprint'
@@ -3122,17 +3124,26 @@ begin
     raise exception 'Unknown dependency kind %', set_cell_dependency.kind;
   end if;
 
-  select c.path_id into source_path from public.cells c
-    where c.id = set_cell_dependency.source_cell_id;
-  select c.path_id into target_path from public.cells c
-    where c.id = set_cell_dependency.target_cell_id;
-  if source_path is null or target_path is null then
+  -- cell → path → scenario → phase → service. Every hop is NOT NULL, so a
+  -- cell that exists always reaches a service and a null means no cell.
+  select ph.service_id into source_service
+    from public.cells c
+    join public.paths p on p.id = c.path_id
+    join public.scenarios s on s.id = p.scenario_id
+    join public.phases ph on ph.id = s.phase_id
+   where c.id = set_cell_dependency.source_cell_id;
+  select ph.service_id into target_service
+    from public.cells c
+    join public.paths p on p.id = c.path_id
+    join public.scenarios s on s.id = p.scenario_id
+    join public.phases ph on ph.id = s.phase_id
+   where c.id = set_cell_dependency.target_cell_id;
+  if source_service is null or target_service is null then
     raise exception 'Both cells must exist';
   end if;
-  -- Arrows are drawn within one path's grid; a cross-path arrow has nowhere
-  -- to render and is what validate_ir.py rejects on import.
-  if source_path <> target_path then
-    raise exception 'Both cells must be in the same path of the journey';
+  -- Any path or scenario of one service; never two services.
+  if source_service <> target_service then
+    raise exception 'Both cells must be in the same service';
   end if;
 
   -- BEFORE the write, and locked. The lock is what stops a concurrent edit of
@@ -3159,8 +3170,7 @@ begin
                   note = coalesce(excluded.note, public.cell_dependencies.note)
   -- `xmax` is zero on a row this statement inserted and the updating
   -- transaction's id on a row it updated. It is the write's own account of
-  -- which half it took, which is the one account nothing else can second-guess
-  -- after the fact.
+  -- which half it took.
   returning id, (xmax = 0) into dependency_id, was_inserted;
 
   return jsonb_build_object(
@@ -3951,9 +3961,14 @@ begin
   if n<>cardinality(ids) or memberships is distinct from named_paths then raise exception 'This change cannot be undone. Reload the canvas'; end if;
   for p,rows in select key::uuid,value from jsonb_each(snapshot->'after') order by key loop
     if jsonb_typeof(rows) is distinct from 'array' or jsonb_typeof(snapshot->'before'->p::text) is distinct from 'array'
-      or exists(select 1 from jsonb_array_elements(snapshot->'before'->p::text) with ordinality q(value,n)
-        where coalesce(q.value->>'position','') !~ '^(0|[1-9][0-9]*)$'
-           or (q.value->>'position')::numeric is distinct from q.n-1)
+      or exists(select 1 from jsonb_array_elements(snapshot->'before'->p::text) q(value)
+        where coalesce(q.value->>'position','') !~ '^(0|[1-9][0-9]*)$')
+      -- The array order is the path order: its numbering must strictly rise.
+      or exists(select 1 from (
+          select (q.value->>'position')::numeric as position,
+                 lag((q.value->>'position')::numeric) over (order by q.n) as previous
+          from jsonb_array_elements(snapshot->'before'->p::text) with ordinality q(value,n)) w
+        where w.position<=w.previous)
       or (select count(*) from jsonb_array_elements(snapshot->'before'->p::text)) <>
          (select count(distinct q->>'id') from jsonb_array_elements(snapshot->'before'->p::text) q)
       or (select array_agg(q->>'id' order by q->>'id') from jsonb_array_elements(snapshot->'before'->p::text) q) is distinct from
@@ -4023,8 +4038,8 @@ CREATE FUNCTION public.update_cell_dependency(dependency_id uuid, kind text, tar
     AS $$
 declare
   previous public.cell_dependencies;
-  source_path uuid;
-  target_path uuid;
+  source_service uuid;
+  target_service uuid;
 begin
   if not public.is_service_account() then
     raise exception 'This account cannot edit the blueprint'
@@ -4051,17 +4066,23 @@ begin
     raise exception 'A cell cannot depend on itself';
   end if;
 
-  select c.path_id into source_path from public.cells c
-    where c.id = previous.source_cell_id;
-  select c.path_id into target_path from public.cells c
-    where c.id = update_cell_dependency.target_cell_id;
-  if source_path is null or target_path is null then
+  select ph.service_id into source_service
+    from public.cells c
+    join public.paths p on p.id = c.path_id
+    join public.scenarios s on s.id = p.scenario_id
+    join public.phases ph on ph.id = s.phase_id
+   where c.id = previous.source_cell_id;
+  select ph.service_id into target_service
+    from public.cells c
+    join public.paths p on p.id = c.path_id
+    join public.scenarios s on s.id = p.scenario_id
+    join public.phases ph on ph.id = s.phase_id
+   where c.id = update_cell_dependency.target_cell_id;
+  if source_service is null or target_service is null then
     raise exception 'Both cells must exist';
   end if;
-  -- Arrows are drawn within one path's grid; a cross-path arrow has nowhere
-  -- to render and is what validate_ir.py rejects on import.
-  if source_path <> target_path then
-    raise exception 'Both cells must be in the same path of the journey';
+  if source_service <> target_service then
+    raise exception 'Both cells must be in the same service';
   end if;
 
   -- The one check the sibling does not need, because its upsert absorbs the

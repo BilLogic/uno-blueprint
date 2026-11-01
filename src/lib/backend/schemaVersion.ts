@@ -11,7 +11,9 @@
  * The list below is the whole compatibility rule: a version is supported or it
  * is not. Ranges were the alternative and are a promise nobody can keep —
  * "2026.07.16 and later" claims compatibility with shapes that do not exist
- * yet. Each entry earns its place by having a migration behind it.
+ * yet. Each entry earns its place by having a step in `scripts/migrate_ir.py`
+ * that carries a file to the next one. Some steps only move the stamp, and
+ * some versions are never stamped into a database at all.
  *
  * **Nothing at runtime asks this module.** The check against a live target is
  * `npm run check:target` (`scripts/check-target-schema.mjs`), which reads the
@@ -23,16 +25,23 @@
  * forget, so the copy carries the test that will not let it drift.
  */
 
-/** The shape this checkout builds. Bumped by the migration that changes it. */
-export const TEMPLATE_SCHEMA_VERSION = '2026.09.11'
+/** The shape this checkout builds. Bumped with the IR schema when that shape changes. */
+export const TEMPLATE_SCHEMA_VERSION = '2026.09.12'
 
 /**
  * Every version this checkout can read and write, newest first.
  *
- * A version leaves this list when the migration that would carry it forward
+ * A version leaves this list when the `migrate_ir.py` step that would carry it forward
  * stops existing — which is a deliberate act, not an omission.
  */
 export const SUPPORTED_SCHEMA_VERSIONS: readonly string[] = [
+  // A link may cross paths within one service. A dependency end gains
+  // optional `path` and `scenario` qualifiers naming a cell on another path;
+  // an end without them is on the listing path, which is what every earlier
+  // end meant, so the step is a stamp. The database took such links in
+  // 21000324000000 and nothing stamps this version there, so a target at an
+  // earlier version is still one this checkout speaks.
+  '2026.09.12',
   // A service carries its own examples. `21000123000000` gave
   // `public.services` an `entity_examples` map — one free-text example per
   // core kind, shown under that kind's definition — and granted it to a

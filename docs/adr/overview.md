@@ -69,6 +69,7 @@ that repository's 0013 is the import decision, which lives here as 0020.
 | [0032](0032-the-owner-agent-stays-in-the-template-for-v0.md) | The owner agent stays in the template for v0 |
 | [0033](0033-a-deployment-may-supply-optional-host-operations.md) | A deployment may supply optional host operations |
 | [0034](0034-the-server-validator-is-guarded-by-python-parity.md) | The server validator is guarded by Python parity |
+| [0035](0035-a-link-may-cross-paths-within-one-service.md) | A link may cross paths within one service |
 
 ## Moved here from BilLogic/plus-uno-blueprint (#551)
 

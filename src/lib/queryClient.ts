@@ -162,13 +162,19 @@ export function invalidateCanvasBlueprintsForPath(pathId: string): void {
 
 /**
  * The one scenario query whose cached rows hold this cell, for the writers
- * that know a cell and not its path. Same rule for an empty cache.
+ * that know a cell and not its path. Same rule for an empty cache. The canvas's
+ * far-end read sits under the same prefix with cells as its rows, so a write
+ * to a far cell refreshes the name its markers show.
  */
 export function invalidateCanvasBlueprintsForCell(cellId: string): void {
   invalidateCanvasWhere(
     (_key, rows) =>
       rows === undefined ||
-      rows.some((row) => (row.cells ?? []).some((cell) => cell.id === cellId)),
+      rows.some(
+        (row) =>
+          row.id === cellId ||
+          (row.cells ?? []).some((cell) => cell.id === cellId),
+      ),
   )
 }
 

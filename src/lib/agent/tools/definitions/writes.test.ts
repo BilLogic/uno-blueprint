@@ -320,6 +320,54 @@ describe('the cell writes', () => {
   })
 })
 
+describe('a link within one service', () => {
+  it('create_cell_dependency says the reach is one service, not one path', () => {
+    const { description } = toolSpec(createCellDependencyTool)
+    expect(description).toMatch(/SAME service/)
+    expect(description).not.toMatch(/same path/i)
+  })
+
+  it('create_cell_dependency passes a target on another path straight through', async () => {
+    // Nothing on this side knows which path either cell is on: the tool hands
+    // both ids to the database, which is the one place the service rule lives.
+    const { rpcs, text } = await write(
+      createCellDependencyTool,
+      { source_cell_id: 'goal-review', target_cell_id: 'weekly-report', kind: 'enables' },
+      {},
+      () => ({ id: 'd-9', inserted: true }),
+    )
+    expect(rpcs).toEqual([
+      {
+        fn: 'set_cell_dependency',
+        args: { source_cell_id: 'goal-review', target_cell_id: 'weekly-report', kind: 'enables', name: null, note: null },
+      },
+    ])
+    expect(text).toBe('Dependency created (d-9).')
+  })
+
+  it('create_cell_dependency refuses another service in the database\'s sentence', async () => {
+    const client = {
+      from: () => {
+        throw new Error('no table read expected')
+      },
+      rpc: () =>
+        Promise.resolve({
+          data: null,
+          error: { message: 'Both cells must be in the same service', code: 'P0001', details: null, hint: null },
+        }),
+    } as unknown as SupabaseClient<Database>
+    const { session } = recordingSession()
+    await expect(
+      runTool(
+        createCellDependencyTool,
+        { source_cell_id: 'goal-review', target_cell_id: 'elsewhere' },
+        fakeToolContext({ client, session }),
+      ),
+    ).rejects.toThrow('Both cells must be in the same service')
+    expect(sessionSnapshot()).toEqual([])
+  })
+})
+
 describe('the cast writes', () => {
   it('create_stakeholder inserts an actor and refuses a team', async () => {
     const { calls, text, ledger } = await write(createStakeholderTool, { name: 'Dispatcher', kind: 'staff', aliases: ['dispatch'] }, { stakeholders: { id: 'st-1' } })

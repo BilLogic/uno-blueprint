@@ -3114,3 +3114,39 @@ grant execute on function public.read_service_blueprint(uuid) to authenticated;
 -- ─────────────────────────────────────────────────────────────────────────
 
 revoke all on function public.agent_service_required_message() from anon, authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000323000000_undo_of_an_add_keeps_the_numbering_it_found.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- The replacement keeps its grant: authors only.
+do $grants$
+begin
+  if not has_function_privilege('authenticated','public.undo_structure_add(jsonb)','execute')
+    or has_function_privilege('anon','public.undo_structure_add(jsonb)','execute') then
+    raise exception 'undo_structure_add lost its author-only grant';
+  end if;
+end $grants$;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 21000324000000_a_link_may_cross_paths_within_one_service.sql
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- `create or replace` keeps every grant: authors only.
+do $grants$
+begin
+  if not has_function_privilege('authenticated',
+       'public.set_cell_dependency(uuid, uuid, text, text, text)', 'execute')
+    or has_function_privilege('anon',
+       'public.set_cell_dependency(uuid, uuid, text, text, text)', 'execute')
+    or not has_function_privilege('authenticated',
+       'public.update_cell_dependency(uuid, text, uuid, text)', 'execute')
+    or has_function_privilege('anon',
+       'public.update_cell_dependency(uuid, text, uuid, text)', 'execute')
+    or not has_function_privilege('authenticated', 'public.delete_path(uuid)', 'execute')
+    or has_function_privilege('anon', 'public.delete_path(uuid)', 'execute')
+    or not has_function_privilege('authenticated', 'public.delete_scenario(uuid)', 'execute')
+    or has_function_privilege('anon', 'public.delete_scenario(uuid)', 'execute') then
+    raise exception 'a rewritten write lost its author-only grant';
+  end if;
+end $grants$;

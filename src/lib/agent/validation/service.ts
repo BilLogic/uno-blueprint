@@ -30,7 +30,18 @@ export function serviceDocument(value: unknown) {
   function resource(row: Row) {
     return { name: text(row.name), url: row.url, ...optional(row, ['kind', 'featured']) }
   }
-  function path(row: Row, jp: string) {
+  // A lane belongs to one path, so a dependency end's lane names the path,
+  // and through it the scenario, its cell is on; a link may leave its path but never its service.
+  const laneHome = new Map<unknown, { scenario: unknown; path: unknown }>()
+  for (const phase of nestedRows(service, 'phases')) for (const scenario of nestedRows(phase, 'scenarios'))
+    for (const row of nestedRows(scenario, 'paths')) for (const lane of nestedRows(row, 'lanes'))
+      laneHome.set(lane.id, { scenario: scenario.id, path: row.id })
+  function end(laneId: unknown, stepId: unknown, listing: { scenario: unknown; path: unknown }) {
+    const home = laneHome.get(laneId)
+    if (!home || home.path === listing.path) return { lane: laneId, step: stepId }
+    return { lane: laneId, step: stepId, path: home.path, ...(home.scenario === listing.scenario ? {} : { scenario: home.scenario }) }
+  }
+  function path(row: Row, jp: string, scenarioId: unknown) {
     locate(row, 'path', jp)
     return {
       key: row.id, name: text(row.name), kind: row.kind,
@@ -56,7 +67,8 @@ export function serviceDocument(value: unknown) {
       dependencies: nestedRows(row, 'dependencies').map((edge, i) => {
         const source = nestedRows(row, 'cells').find(cell => cell.lane_id === edge.source_lane_id && cell.step_id === edge.source_step_id)
         if (source) locate(source, 'cell', `${jp}.dependencies[${i}]`)
-        return { source: { lane: edge.source_lane_id, step: edge.source_step_id }, target: { lane: edge.target_lane_id, step: edge.target_step_id }, kind: edge.kind }
+        const listing = { scenario: scenarioId, path: row.id }
+        return { source: end(edge.source_lane_id, edge.source_step_id, listing), target: end(edge.target_lane_id, edge.target_step_id, listing), kind: edge.kind }
       }),
     }
   }
@@ -76,7 +88,7 @@ export function serviceDocument(value: unknown) {
           return { key: scenario.id, name: text(scenario.name), order: scenario.position, layout: scenario.layout,
             ...optional(scenario, ['summary'], true),
             steps: nestedRows(scenario, 'steps').map((step, k) => { locate(step, 'step', `${sjp}.steps[${k}]`); return { key: step.id, name: text(step.name) } }),
-            paths: nestedRows(scenario, 'paths').map((row, k) => path(row, `${sjp}.paths[${k}]`)),
+            paths: nestedRows(scenario, 'paths').map((row, k) => path(row, `${sjp}.paths[${k}]`, scenario.id)),
           }
         }),
       }
@@ -100,6 +112,9 @@ for (const key of ['function', 'form', 'owner', 'perceived_owner', 'value_props'
 // The canonical Python validator still reads this historical spelling.
 delete cellShape.frame
 cellShape.picture = { type: 'string' }
+// zod cannot read `dependentRequired`; the integrity pass below states the
+// file validator's own refusal of a scenario named without its path.
+for (const definition of Object.values(definitions) as Row[]) delete definition.dependentRequired
 pythonSchema.properties.schema_version.enum = [schema.properties.schema_version.enum[0]]
 const shape = z.fromJSONSchema(pythonSchema as Parameters<typeof z.fromJSONSchema>[0])
 function roleCandidate(label: string): string | undefined {
@@ -122,6 +137,7 @@ function roleCandidate(label: string): string | undefined {
 }
 
 export type Diagnostic = { path: string; message: string }
+const cellCoordinateOf = (cell: Row) => JSON.stringify([cell.lane, cell.step])
 
 /** The parity test compares these verdicts with the file validator, including reference integrity. */
 export function validateDocument(document: unknown) {
@@ -185,6 +201,16 @@ export function validateDocument(document: unknown) {
     }
   }
   inspect(document, pythonSchema, '$')
+  const validKey = (key: unknown): key is string => typeof key === 'string' && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(key)
+  // A link may name a path declared later in the file, so its ends are judged
+  // once every path is read; a link may join any two cells of one service.
+  type Edge = { jp: string; listing: [string | null, string]; source: Row; target: Row; kind: unknown }
+  const linkCells = new Map<string, Set<string>>(), scenarioPaths = new Map<string, Set<string>>(), linkEdges: Edge[] = []
+  const wellFormed = (ref: unknown, jp: string): ref is Row => {
+    if (!isRow(ref)) return false
+    if ('scenario' in ref && !('path' in ref)) { error(jp, 'Add the path this cell is on; a scenario holds several paths.'); return false }
+    return validKey(ref.lane) && validKey(ref.step) && (!('path' in ref) || validKey(ref.path)) && (!('scenario' in ref) || validKey(ref.scenario))
+  }
   const phases = recordMembers(service, 'phases')
   unique(phases, '$.service.phases')
   const phaseKeys = new Set(phases.map(row => row.key)), scenarioKeys = new Set<unknown>()
@@ -196,12 +222,12 @@ export function validateDocument(document: unknown) {
       if (scenarioKeys.has(scenario.key)) error(`${sjp}.key`, 'Use a unique scenario key across this service.')
       scenarioKeys.add(scenario.key)
       const steps = recordMembers(scenario, 'steps'), stepKeys = new Set(steps.map(row => row.key)), paths = recordMembers(scenario, 'paths')
+      const scenarioKey = validKey(scenario.key) ? scenario.key : null
       unique(steps, `${sjp}.steps`); unique(paths, `${sjp}.paths`)
       for (const [k, path] of paths.entries()) {
         const jp = `${sjp}.paths[${k}]`, lanes = recordMembers(path, 'lanes'), cells = recordMembers(path, 'cells')
         const laneKeys = new Set(lanes.map(row => row.key)), selected = Array.isArray(path.path_steps) ? path.path_steps.filter((key): key is string => typeof key === 'string') : []
         unique(lanes, `${jp}.lanes`)
-        const validKey = (key: unknown): key is string => typeof key === 'string' && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(key)
         const seenSteps = new Set<string>()
         for (const [n, key] of selected.entries()) {
           if (!validKey(key)) continue
@@ -224,16 +250,13 @@ export function validateDocument(document: unknown) {
           const names = recordMembers(cell, 'touchpoints').filter(t => isRow(t.name)).map(t => JSON.stringify(Object.entries(object(t.name)).sort()))
           if (new Set(names).size !== names.length) error(`${cjp}.touchpoints`, 'Place the same touchpoint only once on a cell.')
         }
-        const edges = new Set<string>()
+        const pathKey = validKey(path.key) ? path.key : null
+        const listed = JSON.stringify([scenarioKey, pathKey])
+        if (pathKey !== null && !linkCells.has(listed)) linkCells.set(listed, new Set(cells.filter(cell => validKey(cell.lane) && validKey(cell.step)).map(cellCoordinate)))
         for (const [n, edge] of recordMembers(path, 'dependencies').entries()) {
-          if (!isRow(edge.source) || !isRow(edge.target)) continue
-          const ejp = `${jp}.dependencies[${n}]`, source = cellCoordinate(edge.source), target = cellCoordinate(edge.target)
-          if (source === target) { error(ejp, 'A dependency cannot point a cell to itself; connect two different cells on the same path.'); continue }
-          const key = JSON.stringify([source, target, edge.kind ?? 'leads_to'])
-          if (edges.has(key)) error(ejp, 'Keep one dependency of each kind between these cells.')
-          edges.add(key)
-          if ([edge.source.lane, edge.source.step].every(key => typeof key === 'string' && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(key)) && !pairs.has(source)) error(`${ejp}.source`, 'Choose a source cell that exists on this path; dependencies cannot cross paths.')
-          if ([edge.target.lane, edge.target.step].every(key => typeof key === 'string' && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(key)) && !pairs.has(target)) error(`${ejp}.target`, 'Choose a target cell that exists on this path; dependencies cannot cross paths.')
+          const ejp = `${jp}.dependencies[${n}]`
+          const source = wellFormed(edge.source, `${ejp}.source`), target = wellFormed(edge.target, `${ejp}.target`)
+          if (source && target && pathKey !== null) linkEdges.push({ jp: ejp, listing: [scenarioKey, pathKey], source: edge.source as Row, target: edge.target as Row, kind: ['leads_to', 'enables'].includes(edge.kind as string) ? edge.kind : 'leads_to' })
         }
         if (lanes.length > 20) warn(`${jp}.lanes`, 'More than 20 lanes: consider splitting this scenario. This is advice, not a cap.')
         if (selected.length > 30) warn(`${jp}.path_steps`, 'More than 30 steps: consider splitting this scenario. This is advice, not a cap.')
@@ -247,7 +270,35 @@ export function validateDocument(document: unknown) {
           }
         }
       }
+      if (scenarioKey !== null && !scenarioPaths.has(scenarioKey)) scenarioPaths.set(scenarioKey, new Set(paths.map(row => row.key).filter((key): key is string => typeof key === 'string')))
     }
+  }
+  const seenLinks = new Set<string>()
+  for (const edge of linkEdges) {
+    const ends = (['source', 'target'] as const).map(name => {
+      const ref = edge[name], scenario = 'path' in ref ? (ref.scenario as string | undefined) ?? edge.listing[0] : edge.listing[0]
+      return { name, ref, scenario, path: 'path' in ref ? ref.path as string : edge.listing[1], cell: cellCoordinateOf(ref) }
+    })
+    let resolved = true
+    for (const end of ends) {
+      const ejp = `${edge.jp}.${end.name}`
+      if (end.scenario === null || !scenarioPaths.has(end.scenario)) { error(`${ejp}.scenario`, 'Choose a scenario of this service for this dependency end.'); resolved = false }
+      else if (!scenarioPaths.get(end.scenario)!.has(end.path)) { error(`${ejp}.path`, 'Choose a path of that scenario for this dependency end.'); resolved = false }
+      else if (!linkCells.get(JSON.stringify([end.scenario, end.path]))?.has(end.cell)) {
+        error(ejp, 'path' in end.ref
+          ? 'Choose a cell that exists on the path this end names.'
+          : 'Choose a cell that exists on this path, or name the path (and scenario) of a cell elsewhere in this service.')
+        resolved = false
+      }
+    }
+    if (!resolved) continue
+    const [source, target] = ends.map(end => JSON.stringify([end.scenario, end.path, end.cell]))
+    const listing = JSON.stringify(edge.listing)
+    if (source === target) { error(edge.jp, 'A dependency cannot point a cell to itself; connect two different cells.'); continue }
+    if (![ends[0], ends[1]].some(end => JSON.stringify([end.scenario, end.path]) === listing)) { error(edge.jp, 'List this dependency on the path of one of its cells.'); continue }
+    const identity = JSON.stringify([source, target, edge.kind])
+    if (seenLinks.has(identity)) error(edge.jp, 'Keep one dependency of each kind between these cells.')
+    seenLinks.add(identity)
   }
   const registryNames = new Set<string>()
   for (const [i, entry] of recordMembers(service, 'touchpoints').entries()) for (const [locale, name] of Object.entries(isRow(entry.name) ? entry.name : {})) {

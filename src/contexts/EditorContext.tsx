@@ -131,6 +131,12 @@ export type OpenScenarioOptions = {
    * change is visible. No-op on desktop (no drawer is registered).
    */
   closeNav?: boolean
+  /**
+   * Also show this path of the scenario, beside the one it opens on — the far
+   * end of a link the reader followed. Added to the selection, never instead
+   * of it.
+   */
+  withPath?: string
 }
 
 /**
@@ -189,7 +195,7 @@ function useOpenScenarioAction(
       // leave the phase the reader had since collapsed shut.
       openPhaseForNavigation(scenarioId)
       selectScenario(scenarioId)
-      selectOpenScenarioDefaultPath(scenarioId)
+      selectOpenScenarioDefaultPath(scenarioId, opts?.withPath)
       if (opts?.closeNav) closeOpenScenarioNav()
     },
     [selectScenario, openPhaseForNavigation],
@@ -698,6 +704,27 @@ export function useEditor(): EditorHandle {
     () => ({ ...context, openScenario }),
     [context, openScenario],
   )
+}
+
+const NO_NAVIGATION = () => {}
+
+/**
+ * `openScenario`, or null outside an EditorProvider.
+ *
+ * For a control drawn on a board that can also mount with no editor above it
+ * — a cell's cross-path marker renders in tests and on surfaces that have no
+ * navigation to perform — so it can offer the jump where there is somewhere
+ * to jump, and stay inert where there is not.
+ */
+export function useOpenScenarioOptional():
+  | ((scenarioId: string, opts?: OpenScenarioOptions) => void)
+  | null {
+  const context = useContext(EditorContext)
+  const openScenario = useOpenScenarioAction(
+    context?.selectScenario ?? NO_NAVIGATION,
+    context?.openPhaseForNavigation ?? NO_NAVIGATION,
+  )
+  return context ? openScenario : null
 }
 
 /**

@@ -192,6 +192,21 @@ different cell points away from somewhere nobody is looking. The tab body
 reserves `min-h-56`, which is cheaper and steadier than easing a panel that
 otherwise jumped a couple of hundred pixels per switch.
 
+Every row of the Dependencies tab is one line: the direction, then the lane
+and step of the cell at the other end. The rest is read one row at a time, on
+hover or keyboard focus, from the app's tooltip — for a link to another path,
+where it lands first (`Path › Scenario · Phase`, less what this board already
+is), then what the far cell says, then the edge's note — and the same words are
+the row's `aria-describedby`. A link to another path differs at rest only by a
+muted "leaves this path" arrow at the end of the line, named "On another path".
+On touch nothing hovers: a tap goes to the other cell, whose own panel says it.
+That row goes to the far cell rather than selecting one this board does not
+hold; an owned one is removed from its own row, and an arriving one's pencil
+goes to the owner on its path. The pencil and the ✕ reveal on hover and focus
+and stay visible where the pointer is coarse (`rowReveal.ts`). The picker offers
+every loaded cell of the service: this path's first, then each other path's,
+prefixed with where that path is.
+
 Three rules the overview follows and new fields should too: the title yields to
 the touchpoint when they are identical; the description paragraph is suppressed
 when it repeats the title or the content; and the touchpoint is a labelled

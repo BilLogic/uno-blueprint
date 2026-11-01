@@ -1,22 +1,16 @@
 // @vitest-environment jsdom
 /**
- * The why-line on a dependency row: shown to the reader who asks for it, kept
- * for the reader who cannot ask, and no longer charged to the eight rows
- * nobody is reading it on.
+ * A dependency row is one line — the direction, the lane and the step — and
+ * everything else about the connection is read on request.
  *
- * A dependency row says what it points at — the lane and the step. `linkNote`
- * says WHY the edge exists. Read one at a time it earns its place; drawn down
- * a list of eight it doubles the height of every row that has one, and the
- * list's shape starts depending on how talkative its author was. Opacity did
- * not fix that: an invisible line is still a line.
- *
- * So the sentence reads from a tooltip — and the failure mode of "put it in a
- * tooltip" is the reason there is a test rather than a class. A tooltip is not
- * an accessible name, it is not read in place of one, and this Base UI
- * version's trigger opens on a mouse-like pointer only. Three readers have no
- * mouse: a keyboard, a touch screen, and a screen reader. Each is pinned
- * below, because each is a separate mechanism and any one of them can be lost
- * to a tidy-up that keeps the other two working.
+ * What the other cell says, and the note on the edge, used to print under
+ * the line, and a list of eight rows read as a wall. They read from a tooltip
+ * now, and the failure mode of "put it in a tooltip" is the reason there is a
+ * test rather than a class. A tooltip is not an accessible name and this Base
+ * UI version's trigger opens on a mouse-like pointer only, so the same words
+ * are the row's description (`aria-describedby`) for a screen reader, the
+ * popup opens on keyboard focus as well as on hover, and a touch reader —
+ * who can neither — taps through to the other cell, whose own panel says it.
  *
  * The row's own words are pinned from the other side too. The edge's `name`
  * column — specified as a badge and only ever written with sentences — is not
@@ -31,7 +25,6 @@ import {
   render,
   screen,
   waitFor,
-  within,
 } from '@testing-library/react'
 import { CellDependencySections } from '@/components/blueprint/CellDependencySections'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -84,8 +77,11 @@ function draw(patch: Partial<BlueprintCellConnection> = {}) {
 /** The row itself: one button, named for the cell it points at. */
 const row = () => screen.getByRole('button', { name: /Scripts/ })
 
-/** The sentence as it sits in the row — the copy no interaction can take away. */
-const noteInRow = () => within(row()).queryByText(NOTE)
+/** What the row's description says — the words a screen reader is handed. */
+const description = () => {
+  const id = row().getAttribute('aria-describedby')
+  return id ? (document.getElementById(id)?.textContent ?? '') : null
+}
 
 /** Popups, wherever the portal put them. */
 const popups = () => [
@@ -117,47 +113,35 @@ function hover(element: Element) {
 /** Room for the open, which is a state update and a portal rather than a paint. */
 const OPEN_BUDGET = { timeout: 3000 }
 
-describe('a dependency row s why-line', () => {
-  it('is in the document at rest, so a screen reader reads it with the row', () => {
+describe('a dependency row, at rest and on request', () => {
+  it('is one line at rest: the lane and the step, and nothing else', () => {
     draw()
-    // Not `display: none`, not mounted on a hover state, and not left to the
-    // popup — this Base UI tooltip wires no `aria-describedby` back to the
-    // trigger, so the popup is a picture and the DOM copy is the only text a
-    // screen reader will ever be handed.
-    expect(noteInRow()).not.toBeNull()
+    expect(row().textContent).toBe('Scripts · Step 4')
     expect(popups()).toHaveLength(0)
   })
 
-  it('costs the row no line where the pointer is fine', () => {
+  it('describes itself with the other cell s words and the edge s note', () => {
+    // This Base UI tooltip wires no `aria-describedby` back to its trigger,
+    // so the popup is a picture; the description is what a screen reader is
+    // handed.
     draw()
-    // The whole point of the move: hidden from layout, not merely transparent
-    // in it. Eight rows with a note draw eight lines, not sixteen.
-    expect(noteInRow()!.className).toContain('[@media(pointer:fine)]:sr-only')
-  })
-
-  it('stays printed where the pointer is not fine', () => {
-    // A touch screen cannot hover, and Base UI's trigger would refuse to open
-    // for it in any case. So the hiding is conditioned on a fine pointer
-    // rather than applied outright — which also leaves the line printed on a
-    // device reporting no pointer at all.
-    draw()
-    const classes = noteInRow()!.className.split(' ')
-    expect(classes).not.toContain('sr-only')
-    expect(classes).not.toContain('hidden')
+    expect(description()).toContain('Generates the sample module into the bundle')
+    expect(description()).toContain(NOTE)
   })
 
   it('opens under a pointer that comes to rest on the row', async () => {
     draw()
     hover(row())
     await waitFor(
-      () => expect(popupSaying(NOTE)).not.toBeNull(),
+      () => expect(popupSaying('Generates the sample module')).not.toBeNull(),
       OPEN_BUDGET,
     )
+    expect(popupSaying(NOTE)).not.toBeNull()
   })
 
   it('opens on keyboard focus, not on hover alone', async () => {
     // The reader who tabs to the row never hovers anything. A tooltip that
-    // only answers a mouse would hand this reader the row and keep the reason.
+    // only answers a mouse would hand this reader the row and keep the rest.
     draw()
     row().focus()
     await waitFor(
@@ -166,19 +150,9 @@ describe('a dependency row s why-line', () => {
     )
   })
 
-  it('leaves the row s own words alone', () => {
-    // What the row points at is not progressive disclosure — it is the row.
-    draw()
-    for (const text of [/Scripts/, /Generates the sample module/]) {
-      for (const node of screen.getAllByText(text)) {
-        expect(node.className).not.toContain('sr-only')
-      }
-    }
-  })
-
-  it('draws nothing, and opens nothing, when the edge has no note', async () => {
-    draw({ linkNote: null })
-    expect(noteInRow()).toBeNull()
+  it('opens nothing, and describes nothing, when there is nothing more to say', async () => {
+    draw({ linkNote: null, contentPreview: '' })
+    expect(row().getAttribute('aria-describedby')).toBeNull()
     hover(row())
     row().focus()
     await waitFor(() => expect(document.activeElement).toBe(row()))

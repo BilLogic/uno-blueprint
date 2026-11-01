@@ -85,7 +85,10 @@ For designed-vs-reality comparisons: make it two labeled variants
 ## Q9 — Dependencies
 
 > "Are there hand-offs worth drawing an arrow for — where one cell kicks off
-> another?" Only where arrows add information; same path only.
+> another?" Only where arrows add information. A hand-off may land on another
+> path or scenario — the reach is the one `CONTEXT.md` **Dependency** states.
+> List it on the source's path and qualify the target with `path` (and
+> `scenario`).
 
 ## Chunking checkpoint (after each scenario)
 

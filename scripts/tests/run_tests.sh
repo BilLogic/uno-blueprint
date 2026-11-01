@@ -25,7 +25,10 @@
 # migration (a superseded IR is refused by name, migrate_ir.py carries it
 # forward through every step, a signed scenario's sign-off hash is re-anchored
 # rather than dropped when a step moves the subtree, and left exactly alone
-# when a step does not).
+# when a step does not); a link across paths or scenarios of one service
+# validating, reaching both adapters with one identity whichever end lists it,
+# and staying outside a slice of one path — and the qualified spellings that
+# name no cell of the service being refused.
 #
 # Requires: python3 (stdlib only) and the repo's node_modules (for tsc).
 
@@ -110,8 +113,10 @@ bad = json.loads(json.dumps(base))
 scenario(bad)["paths"][0]["path_steps"].append("report")
 json.dump(bad, open(f"{tmp}/bad2.json", "w", encoding="utf-8"), ensure_ascii=False)
 
-# bad3: cross-path dependency — (field-tech, verify) is a cell on as-done
-# only, referenced from an edge on as-designed.
+# bad3: an unqualified end on the wrong path — (field-tech, verify) is a cell
+# on as-done only, named from an edge on as-designed without saying so. The
+# link is legal written with `path: as-done` (validator-cross-path below); the
+# unqualified spelling means "this path", where no such cell is.
 bad = json.loads(json.dumps(base))
 scenario(bad)["paths"][0]["dependencies"].append(
     {
@@ -143,7 +148,7 @@ expect_invalid() {
 
 expect_invalid "validator-bad1 (cell step missing from path_steps)" "$TMP/bad1.json" "cells_validate_path_match"
 expect_invalid "validator-bad2 (duplicate position in path_steps)" "$TMP/bad2.json" "duplicate step 'report' in path_steps"
-expect_invalid "validator-bad3 (cross-path dependency)" "$TMP/bad3.json" "cross-path edges are invalid"
+expect_invalid "validator-bad3 (unqualified end not on this path)" "$TMP/bad3.json" "does not exist on path 'as-designed'"
 expect_invalid "validator-bad4 (lane role outside the closed eight)" "$TMP/bad4.json" "is not one of the eight"
 
 # The message is the whole of what the author gets, so it is checked as such:
@@ -173,6 +178,146 @@ expect_invalid "validator-schema-version (unknown version rejected by name)" "$T
 python3 "$VALIDATE" "$TMP/bad-version.json" > "$TMP/bad-version.out" 2>&1 || true
 grep -q "migrate_ir.py" "$TMP/bad-version.out" \
   || fail "validator-schema-version: the message must say where the migration steps live"
+
+# A link may cross paths within one service. A cell reference names its own
+# path by saying nothing, another path of the same scenario with `path`, and a
+# path of another scenario with `scenario` and `path`. It cannot name a
+# service: the file is one service, so a link out of it has no spelling.
+python3 - "$SAMPLE" "$TMP" <<'PY'
+import json, sys
+sample_path, tmp = sys.argv[1], sys.argv[2]
+base = json.load(open(sample_path, encoding="utf-8"))
+phase = lambda d: d["service"]["phases"][0]
+scenario = lambda d: phase(d)["scenarios"][0]
+
+def write(name, doc):
+    json.dump(doc, open(f"{tmp}/{name}.json", "w", encoding="utf-8"), ensure_ascii=False)
+
+def with_audit(doc):
+    """A second scenario, a copy of the first under another key."""
+    copy = json.loads(json.dumps(scenario(doc)))
+    copy["key"] = "asset-audit"
+    copy["order"] = scenario(doc)["order"] + 1
+    phase(doc)["scenarios"].append(copy)
+    return doc
+
+def edge(source, target, kind=None):
+    out = {"source": source, "target": target}
+    if kind:
+        out["kind"] = kind
+    return out
+
+# Another path of the same scenario: (field-tech, verify) is on as-done only.
+doc = json.loads(json.dumps(base))
+scenario(doc)["paths"][0]["dependencies"].append(edge(
+    {"lane": "field-tech", "step": "dispatch"},
+    {"lane": "field-tech", "step": "verify", "path": "as-done"},
+))
+write("cross-path", doc)
+
+# A path of another scenario, both kinds of one pair.
+doc = with_audit(json.loads(json.dumps(base)))
+for kind in ("leads_to", "enables"):
+    scenario(doc)["paths"][0]["dependencies"].append(edge(
+        {"lane": "compliance", "step": "archive"},
+        {"lane": "citizen", "step": "report", "scenario": "asset-audit", "path": "as-designed"},
+        kind,
+    ))
+write("cross-scenario", doc)
+
+# The same link listed on its other end: the qualified end is the source.
+doc = with_audit(json.loads(json.dumps(base)))
+for kind in ("leads_to", "enables"):
+    phase(doc)["scenarios"][1]["paths"][0]["dependencies"].append(edge(
+        {"lane": "compliance", "step": "archive", "scenario": "asset-repair", "path": "as-designed"},
+        {"lane": "citizen", "step": "report"},
+        kind,
+    ))
+write("cross-scenario-hosted-on-target", doc)
+
+# Missing target: as-done has no (compliance, archive).
+doc = json.loads(json.dumps(base))
+scenario(doc)["paths"][0]["dependencies"].append(edge(
+    {"lane": "citizen", "step": "report"},
+    {"lane": "compliance", "step": "archive", "path": "as-done"},
+))
+write("bad-cross-missing-target", doc)
+
+# Unknown path.
+doc = json.loads(json.dumps(base))
+scenario(doc)["paths"][0]["dependencies"].append(edge(
+    {"lane": "citizen", "step": "report"},
+    {"lane": "citizen", "step": "report", "path": "as-imagined"},
+))
+write("bad-cross-unknown-path", doc)
+
+# Unknown scenario.
+doc = json.loads(json.dumps(base))
+scenario(doc)["paths"][0]["dependencies"].append(edge(
+    {"lane": "citizen", "step": "report"},
+    {"lane": "citizen", "step": "report", "scenario": "asset-audit", "path": "as-done"},
+))
+write("bad-cross-unknown-scenario", doc)
+
+# A scenario with no path: a scenario holds several paths, so it names none.
+doc = with_audit(json.loads(json.dumps(base)))
+scenario(doc)["paths"][0]["dependencies"].append(edge(
+    {"lane": "citizen", "step": "report"},
+    {"lane": "citizen", "step": "report", "scenario": "asset-audit"},
+))
+write("bad-cross-scenario-without-path", doc)
+
+# Another service: there is no field to say it in.
+doc = json.loads(json.dumps(base))
+scenario(doc)["paths"][0]["dependencies"].append(edge(
+    {"lane": "citizen", "step": "report"},
+    {"lane": "citizen", "step": "report", "service": "other-service", "path": "as-done"},
+))
+write("bad-cross-service", doc)
+
+# Neither end on the path that lists the link.
+doc = json.loads(json.dumps(base))
+scenario(doc)["paths"][0]["dependencies"].append(edge(
+    {"lane": "citizen", "step": "triage", "path": "as-done"},
+    {"lane": "field-tech", "step": "verify", "path": "as-done"},
+))
+write("bad-cross-neither-end-here", doc)
+
+# One link listed on both of its ends is one link twice.
+doc = json.loads(json.dumps(base))
+scenario(doc)["paths"][0]["dependencies"].append(edge(
+    {"lane": "field-tech", "step": "dispatch"},
+    {"lane": "field-tech", "step": "verify", "path": "as-done"},
+))
+scenario(doc)["paths"][1]["dependencies"].append(edge(
+    {"lane": "field-tech", "step": "dispatch", "path": "as-designed"},
+    {"lane": "field-tech", "step": "verify"},
+))
+write("bad-cross-listed-twice", doc)
+
+# A qualified self-edge is still a self-edge.
+doc = json.loads(json.dumps(base))
+scenario(doc)["paths"][0]["dependencies"].append(edge(
+    {"lane": "citizen", "step": "report"},
+    {"lane": "citizen", "step": "report", "path": "as-designed"},
+))
+write("bad-cross-self-edge", doc)
+PY
+
+for name in cross-path cross-scenario cross-scenario-hosted-on-target; do
+  python3 "$VALIDATE" "$TMP/$name.json" > "$TMP/$name.out" 2>&1 \
+    || fail "validator-$name: expected exit 0 — $(cat "$TMP/$name.out")"
+  pass "validator-$name (a link across paths of one service validates)"
+done
+
+expect_invalid "validator-bad-cross-missing-target" "$TMP/bad-cross-missing-target.json" "does not exist on path 'as-done'"
+expect_invalid "validator-bad-cross-unknown-path" "$TMP/bad-cross-unknown-path.json" "unknown path 'as-imagined'"
+expect_invalid "validator-bad-cross-unknown-scenario" "$TMP/bad-cross-unknown-scenario.json" "unknown scenario 'asset-audit'"
+expect_invalid "validator-bad-cross-scenario-without-path" "$TMP/bad-cross-scenario-without-path.json" "names a scenario but no path"
+expect_invalid "validator-bad-cross-service" "$TMP/bad-cross-service.json" "unknown field 'service'"
+expect_invalid "validator-bad-cross-neither-end-here" "$TMP/bad-cross-neither-end-here.json" "neither end"
+expect_invalid "validator-bad-cross-listed-twice" "$TMP/bad-cross-listed-twice.json" "duplicate leads_to edge"
+expect_invalid "validator-bad-cross-self-edge" "$TMP/bad-cross-self-edge.json" "self-edge is invalid"
 
 # ---------------------------------------------------------------------------
 # 3. YAML branch: native JSON always works; YAML needs PyYAML (clear message)
@@ -1272,6 +1417,124 @@ assert any(line.startswith(f"{sample} [en]: lane ") for line in problems), \
     "the complaint must name the aggregate that drifted"
 PY
 pass "adapter-parity-lanes (a lane field on one adapter only is reported)"
+
+# A cross-path link reaches both adapters. The fixtures are the ones section 2
+# validated: one link to another path of the scenario, one to another scenario
+# (in both kinds), and the second listed on its target's path instead.
+
+python3 "$SEED_GEN" "$TMP/cross-scenario.json" --locale en --out "$TMP/seed-cross.sql" --verify > /dev/null \
+  || fail "seed-cross: generation failed"
+python3 "$SEED_GEN" "$TMP/cross-scenario-hosted-on-target.json" --locale en --out "$TMP/seed-cross-hosted.sql" > /dev/null \
+  || fail "seed-cross: generation failed for the link listed on its target's path"
+python3 "$SEED_GEN" "$TMP/cross-path.json" --locale en --out "$TMP/seed-cross-path.sql" > /dev/null \
+  || fail "seed-cross: generation failed for the link to another path"
+# The header names the source file, which differs by construction.
+cmp -s <(grep -v '^-- Source IR:' "$TMP/seed-cross.sql") <(grep -v '^-- Source IR:' "$TMP/seed-cross-hosted.sql") \
+  || fail "seed-cross: where a link is listed changed the seed — its identity is its two ends and its kind"
+pass "seed-cross-identity (a link's seed row does not depend on which end lists it)"
+
+python3 - "$TMP" "$REPO_ROOT" <<'PY' || fail "seed-cross: the cross-path rows are wrong"
+import re, sys
+tmp, repo = sys.argv[1:3]
+sys.path.insert(0, f"{repo}/scripts")
+from generate_seed_sql import entity_uuid
+
+def cell(*parts):
+    return entity_uuid("en", "cell", "streetlight-service/operate/" + "/".join(parts))
+
+def dependency_rows(sql):
+    rows = []
+    for block in re.findall(r"insert into public\.cell_dependencies \([^)]*\) values\n(.*?);\n", sql, re.S):
+        rows += re.findall(r"\(([^)]*)\)", block)
+    return [[v.strip().strip("'") for v in row.split(",")] for row in rows]
+
+# Another scenario: inserted once, after every scenario has been replaced, or
+# a later scenario's delete would cascade it away and a forward target would
+# not exist yet.
+sql = open(f"{tmp}/seed-cross.sql", encoding="utf-8").read()
+source = cell("asset-repair", "as-designed", "compliance", "archive")
+target = cell("asset-audit", "as-designed", "citizen", "report")
+rows = [r for r in dependency_rows(sql) if r[1] == source and r[2] == target]
+assert sorted(r[3] for r in rows) == ["enables", "leads_to"], rows
+last_delete = sql.rindex("delete from public.scenarios")
+for r in rows:
+    assert sql.index(r[0]) > last_delete, f"cross-scenario row {r[0]} inserted before the last scenario replace"
+assert len({r[0] for r in rows}) == 2, "the two kinds of one pair need two ids"
+
+# Another path of the same scenario: inside the scenario's own block.
+sql = open(f"{tmp}/seed-cross-path.sql", encoding="utf-8").read()
+source = cell("asset-repair", "as-designed", "field-tech", "dispatch")
+target = cell("asset-repair", "as-done", "field-tech", "verify")
+assert [r for r in dependency_rows(sql) if r[1] == source and r[2] == target], "cross-path row missing"
+
+# Read-back counts a link with its source's scenario: 5 in-path + 2 across.
+verify = open(f"{tmp}/seed-cross.verify.sql", encoding="utf-8").read()
+assert "scenario asset-repair: cell_dependencies expected 7" in verify, "verify count misses the cross-scenario links"
+assert "scenario asset-audit: cell_dependencies expected 5" in verify, "verify counts a link on its target's scenario"
+PY
+pass "seed-cross (another path in-scenario, another scenario after every replace, read-back by source)"
+
+python3 "$REPO_ROOT/scripts/adapter_parity.py" "$TMP/cross-scenario.json" "$TMP/cross-path.json" > "$TMP/parity-cross.out" 2>&1 \
+  || fail "adapter-parity-cross: the adapters disagree on a cross-path link — $(cat "$TMP/parity-cross.out")"
+python3 "$FALLBACK_GEN" "$TMP/cross-scenario.json" --locale en --out "$TMP/generated-cross.ts" > /dev/null \
+  || fail "fallback-cross: generation failed"
+python3 - "$TMP/generated-cross.ts" "$REPO_ROOT" <<'PY' || fail "fallback-cross: the no-DB module lost the cross-scenario link"
+import sys
+module, repo = sys.argv[1:3]
+sys.path.insert(0, f"{repo}/scripts")
+from generate_seed_sql import entity_uuid
+text = open(module, encoding="utf-8").read()
+target = entity_uuid("en", "cell", "streetlight-service/operate/asset-audit/as-designed/citizen/report")
+assert text.count(f'"target_cell_id": "{target}"') == 2, "expected both kinds of the cross-scenario link"
+PY
+pass "adapter-parity-cross (both adapters carry a cross-path link)"
+
+# A slice reads one path. A journey's companion on another path is outside the
+# slice: it is left out and said, never matched to the same (lane, step) here.
+# asset-repair/as-designed has its own (citizen, report), which is exactly the
+# cell a qualifier-blind reader would have pulled in.
+python3 "$SLICE_TOOLS" select --ir "$TMP/cross-scenario.json" --scenario operate/asset-repair \
+  --path as-designed --kind journey --lane compliance --key compliance-cross \
+  > "$TMP/slice-cross.json" 2> "$TMP/slice-cross.err" \
+  || fail "slice-cross: journey selection failed — $(cat "$TMP/slice-cross.err")"
+python3 - "$TMP/slice-cross.json" <<'PY' || fail "slice-cross: a cross-path companion was matched on this path"
+import json, sys
+doc = json.load(open(sys.argv[1], encoding="utf-8"))
+keys = [k for slide in doc["slices"][0]["slides"] for k in slide["cells"]]
+assert "streetlight-service/operate/asset-repair/as-designed/citizen/report" not in keys, keys
+PY
+grep -q "outside the slice" "$TMP/slice-cross.err" \
+  || fail "slice-cross: the companion on another path was dropped in silence — $(cat "$TMP/slice-cross.err")"
+grep -q "asset-audit/as-designed" "$TMP/slice-cross.err" \
+  || fail "slice-cross: the note does not name the other end's scenario and path — $(cat "$TMP/slice-cross.err")"
+pass "slice-cross (a companion on another path is outside the slice, and said)"
+
+# The audit export is a blueprint file: it validates, cross-path links and all.
+# A scoped export keeps a link to another path of its scenario, qualified as
+# authored. A link whose other end is in a scenario the export leaves out
+# cannot be kept — the validator refuses an end the file does not hold — so
+# it is dropped and said, on either end.
+AUDIT_TOOLS="$REPO_ROOT/skills/audit/scripts/audit_tools.py"
+python3 "$AUDIT_TOOLS" export "$TMP/cross-scenario.json" --out "$TMP/export-cross.json" > /dev/null \
+  || fail "audit-export-cross: full export failed"
+python3 "$VALIDATE" "$TMP/export-cross.json" > "$TMP/export-cross.out" 2>&1 \
+  || fail "audit-export-cross: a full export does not validate — $(cat "$TMP/export-cross.out")"
+python3 "$AUDIT_TOOLS" export "$TMP/cross-path.json" --scenario asset-repair --out "$TMP/export-cross-path.json" > /dev/null \
+  || fail "audit-export-cross: scoped export failed"
+python3 "$VALIDATE" "$TMP/export-cross-path.json" > "$TMP/export-cross-path.out" 2>&1 \
+  || fail "audit-export-cross: a scoped export with a cross-path link does not validate — $(cat "$TMP/export-cross-path.out")"
+grep -q '"path": "as-done"' "$TMP/export-cross-path.json" \
+  || fail "audit-export-cross: the scoped export lost the qualified end of a link to another path"
+for fixture in cross-scenario cross-scenario-hosted-on-target; do
+  python3 "$AUDIT_TOOLS" export "$TMP/$fixture.json" --scenario asset-repair --out "$TMP/export-$fixture-scoped.json" \
+    > /dev/null 2> "$TMP/export-$fixture-scoped.err" \
+    || fail "audit-export-cross: scoped export of $fixture failed — $(cat "$TMP/export-$fixture-scoped.err")"
+  python3 "$VALIDATE" "$TMP/export-$fixture-scoped.json" > "$TMP/export-$fixture-scoped.out" 2>&1 \
+    || fail "audit-export-cross: scoped export of $fixture left a dangling end — $(cat "$TMP/export-$fixture-scoped.out")"
+  [ "$(grep -c 'outside the export' "$TMP/export-$fixture-scoped.err")" = 2 ] \
+    || fail "audit-export-cross: $fixture's two links into asset-audit were not both said — $(cat "$TMP/export-$fixture-scoped.err")"
+done
+pass "audit-export-cross (exports validate; a link to a scenario left out is dropped and said)"
 
 # ---------------------------------------------------------------------------
 # 8. Schema-version migration: an old IR is refused by name and carried

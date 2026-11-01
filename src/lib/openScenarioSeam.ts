@@ -7,7 +7,7 @@
  */
 
 type ActivateTab = (key: null) => void
-type SelectDefaultPath = (scenarioId: string) => void
+type SelectDefaultPath = (scenarioId: string, alsoPathId?: string) => void
 type CloseNav = () => void
 
 let activateTabImpl: ActivateTab | null = null
@@ -68,9 +68,13 @@ export function activateBaseView(): void {
  * the happy path). No-op when the path store is not mounted.
  *
  * @param scenarioId - Scenario whose default path should become the filter.
+ * @param alsoPathId - A path to show beside the default.
  */
-export function selectOpenScenarioDefaultPath(scenarioId: string): void {
-  selectDefaultPathImpl?.(scenarioId)
+export function selectOpenScenarioDefaultPath(
+  scenarioId: string,
+  alsoPathId?: string,
+): void {
+  selectDefaultPathImpl?.(scenarioId, alsoPathId)
 }
 
 /**

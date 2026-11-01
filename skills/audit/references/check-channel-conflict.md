@@ -9,15 +9,20 @@ Where do simultaneous cells compete for the same actor or the same channel
 ## Read
 Column by column (a step is simultaneity). Within each step: which cells
 name the same actor across lanes; which name the same tool/channel. Then
-dependencies that fan out from one cell to multiple same-step targets.
+dependencies that fan out from one cell to multiple same-step targets on
+one path. Simultaneity stays a step on one path, whatever a dependency
+reaches (CONTEXT.md **Dependency**): a journey walks one path at a time,
+so targets on two different paths, or in another scenario, never compete
+for one moment.
 
 ## Finding shape
 One finding per (step × contested resource). cell_keys = the competing
 cells. The summary names the actor/channel and the collision, by key. An actor
 required in N places at one step → warn; the spine actor blocked by it →
 critical. If the chain is unclear, walk it yourself by the Method in
-`agents/impact-tracer.md` (visited set, depth cap 8) and cite the
-downstream keys.
+`agents/impact-tracer.md` (visited set, depth cap 8, edges into other paths
+and scenarios followed like any other) and cite the downstream keys,
+naming the scenario and path of any that sit elsewhere.
 
 ## Impact and effort
 | Level | Impact — how much resolving the collision matters | Effort — how much work resolving it takes |

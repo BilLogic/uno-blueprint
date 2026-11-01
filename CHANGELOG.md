@@ -1,5 +1,77 @@
 # Changelog
 
+## 2.9.0
+
+**A link may cross paths within one service.** A `leads_to` or an `enables`
+can now join cells on different paths or scenarios of the same service, in the
+database, in the blueprint file and on the canvas. The cell at each end shows
+"Continues in …" or "Comes from …" and jumps to the far cell; the cell panel's
+dependency rows name the other end's path, scenario and phase. Impact tracing,
+`ub:whatif` and map's update mode follow these links, and the audit's gap sweep
+counts one as an answer.
+
+### Upgrading a deployment
+
+- **Bump the pin and apply one migration:**
+  `21000324000000_a_link_may_cross_paths_within_one_service.sql`. It relaxes
+  the same-path rule on dependencies to a same-service rule. No database-type
+  change and no data backfill are needed. A deployment that supplies its own
+  `move_cell` should refuse a move only when it would leave a dependency
+  joining two services.
+- **Migrate each IR to `2026.09.12`:**
+  `python3 scripts/migrate_ir.py <ir-file> --to 2026.09.12 --write` (add
+  `--workspace blueprint-workspace.json` to re-anchor sign-off hashes), as
+  `references/customization.md` § Template upgrade recipe describes. The step
+  only changes the stamp. Then regenerate any committed seed or fallback
+  module.
+- **The render walk gains `render-walk/cross-path-link.spec.ts`.** It skips
+  when a board has no cross-path link, so a deployment whose sample carries
+  none sees it skip.
+- **A deployment that parses the impact tracer's output** should accept the
+  optional `reached_in` field on each affected cell.
+
+### Minor Changes
+
+- 4a0ece1: A dependency may now join two cells on different paths or scenarios of the same service, as a `leads_to` or an `enables`. Before, the database refused any link between two paths with "Both cells must be in the same path of the journey"; now it refuses only a link between two services, with "Both cells must be in the same service". The agent's connect tool takes a cross-path target the same way, and editing, clearing, Undo and deleting either cell behave as for a link within one path. Deleting a path or a scenario now keeps, in its recovery record, the links that came into it from elsewhere as well as the ones that left it. The canvas does not draw a cross-path link yet, and a blueprint file that carries one does not yet validate.
+
+  Upgrading a deployment: apply migration 21000324000000. No database-type change and no data backfill are needed. A deployment that supplies its own `move_cell` should refuse a move only when it would leave a dependency joining two services, not when it leaves one crossing paths.
+
+- ca58c5b: A link to another path is marked on its cell. A `leads_to` whose other end is on another path or scenario no longer vanishes from the board: the cell at each end shows "Continues in …" or "Comes from …", naming the other path when it is in the same scenario and the other scenario otherwise, and clicking it (or Enter) adds the far cell's path to what its scenario shows, flies the camera there and opens the far cell. The marker shows on the open scenario's board; the overview and phase rows, where cells are inert, draw none. Such a link is never drawn as an arrow, in Stacked or Merged, even with both paths on screen. The cell panel's Follows, Leads to, Enabled by and Enables lists now show these links with the other end's path, scenario and phase, and remove them like any other; the Add dependency picker offers cells on the service's other paths.
+
+  The bundled sample now carries one such link, from Map your service to the audit roster, and with no database the canvas shows it on both boards the way a database read does. The render walk gains `render-walk/cross-path-link.spec.ts`, which follows a leaving marker by click and by Enter; a deployment whose sample has no cross-path link sees it skip.
+
+- 33e5521: A blueprint file can now carry a link to a cell on another path or scenario of the same service. Either end of a dependency takes an optional `path`, and `scenario` with it, to name a cell away from the path that lists the link; an end without them is on that path, as before. `scripts/validate_ir.py` checks that the named scenario, path and cell exist, that one end sits on the listing path, and that a link is not listed twice on its two paths, and it still refuses a link with no cell at an unqualified end. There is no way to name another service. The seed and the no-database fallback both carry such a link: one into another scenario is inserted after every scenario's replace, and its id is the same whichever path lists it. A journey slice leaves a companion cell on another path out and prints a note naming it. The IR schema version is now `2026.09.12`.
+
+  Upgrading a deployment: run `python3 scripts/migrate_ir.py <ir-file> --to 2026.09.12 --write` on each IR in the workspace (add `--workspace blueprint-workspace.json` to re-anchor sign-off hashes), as `references/customization.md` § Template upgrade recipe describes. The step only changes the stamp. Regenerate any committed seed or fallback module afterwards. No migration and no database-type change are needed.
+
+### Patch Changes
+
+- e1ad59c: The impact tracer, `ub:whatif` and map's update mode now follow a dependency into another path or scenario of the same service, with the same visited set and depth cap as before. A blueprint export carries cross-path links once the IR file accepts them; until then the file rejects them, so a trace over an export still meets only links within one path. When an affected cell sits in another scenario or on another path than the trace's seed, the tracer's result says which, in a new `reached_in` field on that cell, and the what-if report names that scenario and path beside the cell. A what-if whose trace reaches another scenario brings that scenario into its sign-off scope, so accepting the change is refused if that scenario has moved since the analysis. The audit's gap sweep counts a link to or from another path as an answer, not a gap, and its channel-conflict check still compares targets within one path only, since a journey walks one path at a time.
+
+  Upgrading a deployment: nothing to apply. A deployment that parses the tracer's output should accept the optional `reached_in` field on each affected cell.
+
+## 2.8.12
+
+**Undo of an Add works on paths numbered from one.** A deployment whose path
+steps or lanes were numbered 1, 2, 3 (or with gaps) could add a step or lane,
+but every Undo of that Add was refused with "This change cannot be undone.
+Reload the canvas". Undo now restores exactly the numbering the path had.
+
+### Upgrading a deployment
+
+- **Bump the pin and apply one migration:**
+  `21000323000000_undo_of_an_add_keeps_the_numbering_it_found.sql`. It replaces
+  `undo_structure_add` only; grants, signatures and database types are
+  unchanged, and no data moves.
+- **No app or type regeneration is needed.** Adds made before the upgrade keep
+  their receipts; their Undo works once the migration is applied.
+
+### Patch Changes
+
+- 45db919: Undo of an added step or lane works again on paths whose steps or lanes are numbered from 1, or have gaps. Before, the server refused it with "This change cannot be undone. Reload the canvas" on any path not numbered 0, 1, 2, …, and Undo now puts back exactly the numbering the path had.
+
+  Upgrading a deployment: apply migration 21000323000000. No app change, no database-type change and no data backfill are needed.
+
 ## 2.8.11
 
 **Reorder the board and edit its pictures directly.** Dragged lanes and steps
@@ -43,6 +115,7 @@ updated component tooling.
 
   Restore the listed memberships before upgrading. Migration 312 refuses
   with the orphan count and this query; it does not delete content to pass.
+
 - **Custom hosts must provide** the guarded `change_step_path` and
   `undo_step_path_change` operations, plus `read_cell_storyboard`,
   `update_cell_storyboard` and `restore_cell_storyboard`, as specified in
@@ -10946,8 +11019,8 @@ accent: BRAND.accent }, content: { workspaceTitle: coverContent.title } }`. The
   constraint violation rather than as anything the authoring tools had said
   (#204):
 
-                                                                                                                                                                                                                                                                      ERROR: new row for relation "lanes" violates check constraint
-                                                                                                                                                                                                                                                                      "lanes_lane_role_check" … compliance_review
+                                                                                                                                                                                                                                                                          ERROR: new row for relation "lanes" violates check constraint
+                                                                                                                                                                                                                                                                          "lanes_lane_role_check" … compliance_review
 
   That error at least names the value. Meeting it after validation has passed is
   the wrong moment.

@@ -1438,6 +1438,51 @@ function buildScenario(scenario) {
 const built = SCENARIOS.map(buildScenario)
 const scenarioById = new Map(built.map((entry) => [entry.scenario.key, entry]))
 
+/*
+  Links that leave their path (ADR 0035). A dependency may join any two cells
+  of one service, and the sample carries one so the board shows what a
+  cross-path link looks like — a marker on the cell at each end, never an
+  arrow — and the render walk has one to follow. It is a true statement about
+  the template: once a mapped scenario is deployed and shared, the next thing
+  it meets is the audit roster.
+
+  Each link is listed on its SOURCE path, as the seed places it, and given an
+  id in a band (900+) no in-path dependency reaches.
+*/
+const CROSS_PATH_LINKS = [
+  {
+    from: { scenario: 'MAP_SERVICE', path: 'DOCS', lane: 'owner', col: 10 },
+    to: { scenario: 'AUDIT', path: 'TRIAGED', lane: 'owner', col: 1 },
+    note: 'A deployed scenario is the next one the check roster is run against.',
+  },
+]
+
+for (const [index, link] of CROSS_PATH_LINKS.entries()) {
+  const resolveEnd = ({ scenario: scenarioKey, path: pathKey, lane, col }) => {
+    const entry = scenarioById.get(scenarioKey)
+    if (!entry) throw new Error(`cross-path link: unknown scenario ${scenarioKey}`)
+    const pathSpec = entry.scenario.paths.find((candidate) => candidate.key === pathKey)
+    if (!pathSpec) throw new Error(`cross-path link: unknown path ${scenarioKey}/${pathKey}`)
+    const S = entry.scenario.ordinal
+    const P = pathSpec.ordinal
+    const bp = entry.blueprints.find((candidate) => candidate.path.id === fid(S, P, KIND.path, 0, 0))
+    const cellId = fid(S, P, KIND.cell, laneByKey(entry.scenario, lane).row, col)
+    if (!bp || !bp.cells.some((cell) => cell.id === cellId)) {
+      throw new Error(`cross-path link: no cell at ${scenarioKey}/${pathKey} ${lane}:${col}`)
+    }
+    return { S, P, bp, cellId }
+  }
+  const from = resolveEnd(link.from)
+  const to = resolveEnd(link.to)
+  if (from.bp === to.bp) throw new Error('cross-path link: both ends are on one path')
+  from.bp.dependencies.push({
+    id: fid(from.S, from.P, KIND.dependency, 900 + index + 1, 0),
+    source_cell_id: from.cellId,
+    target_cell_id: to.cellId,
+    ...(link.note ? { note: link.note } : {}),
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Cell keys — the IMPORT key convention (6 segments: service/phase/
 // scenario/path/lane/step), matching scripts/generate_seed_sql.py and

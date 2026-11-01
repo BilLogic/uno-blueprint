@@ -769,6 +769,23 @@ def to_2026_09_11(doc: dict) -> None:
     return
 
 
+def to_2026_09_12(doc: dict) -> None:
+    """2026.09.11 → 2026.09.12 — a link may cross paths within one service.
+
+    A dependency end gains two optional qualifiers, `path` and `scenario`,
+    naming a cell on another path of the service (ADR 0035). An end without
+    them is on the path that lists the link, which is what every end authored
+    before this version meant, so nothing in an existing file moves and only
+    the stamp changes.
+
+    The stamp changes because a version names a shape: `2026.09.11` refuses
+    a qualified end and this one accepts it. No migration stamps this version
+    — the database took cross-path links in `21000324000000` — so a target at
+    an earlier version stays compatible.
+    """
+    return
+
+
 STEPS = (
     Step(
         "2026.07.16",
@@ -895,6 +912,14 @@ STEPS = (
         "per-kind examples 21000123000000 gave the database and the wire "
         "format never learned; nothing authored moves",
         to_2026_09_11,
+    ),
+    Step(
+        "2026.09.11",
+        "2026.09.12",
+        "a dependency end may name another path (and scenario) of the "
+        "service with `path` and `scenario`; an unqualified end is on the "
+        "listing path, as before, so nothing authored moves",
+        to_2026_09_12,
     ),
 )
 

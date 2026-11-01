@@ -94,6 +94,12 @@ not exist.
 `journey` is the default reading of an ambiguous ask. A **storyboard** is a
 journey slice with illustrations — not a sixth type.
 
+A slice reads one path. When an actor's cell has a link to a cell on another
+path or scenario, that cell is **outside the slice**: `select` leaves it out
+and prints a `note:` naming it. Say it in the slide's caption, or cut a
+second slice of that path — never stand in the cell with the same lane and
+step on this path, which is a different cell.
+
 ## Deterministic exit conditions
 
 Never "looks done":

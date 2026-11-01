@@ -4,7 +4,12 @@ summary: The impact tracer takes a `direction` — `downstream` by default, `ups
 
 # 30. The impact tracer walks either way
 
-**Status** Accepted — 2026-10-11.
+**Status** Accepted — 2026-10-11. Amended 2026-10-31 (#1256): the walk's
+reach is one service, not one path. "Same-path edges" in the Decision below
+was the data model's contract when this was written;
+[0035](0035-a-link-may-cross-paths-within-one-service.md) lifted it, and the
+tracer now follows an edge into another path or scenario in either direction,
+under the same visited set and depth cap. Everything else here holds.
 **Context** `agents/impact-tracer.md`,
 `skills/whatif/references/whatif-playbook.md` § 2 (prioritize), the
 `Enables` entry in [`CONTEXT.md`](../../CONTEXT.md)

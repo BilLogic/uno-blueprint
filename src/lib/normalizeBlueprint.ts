@@ -7,6 +7,7 @@ import type {
   BlueprintCellDependency,
   BlueprintData,
   BlueprintLane,
+  BlueprintRemoteCell,
   BlueprintStep,
 } from '@/types/blueprint'
 import type { PathKind } from '@/types/database'
@@ -17,6 +18,36 @@ import {
   type RawCellTouchpoint,
 } from '@/lib/cellTouchpoints'
 
+/**
+ * One end of an edge as the board query embeds it — the cell, and the path,
+ * scenario and phase it sits in. PostgREST answers a to-one embed with an
+ * object, but a hand-built row may hand an array; both are read.
+ */
+type RawDependencyEnd = {
+  id: string
+  content?: string | null
+  path_id?: string | null
+  lanes?: ToOne<{ name: string | null }>
+  steps?: ToOne<{ name: string | null }>
+  paths?: ToOne<{
+    id: string
+    name: string
+    scenario_id: string
+    scenarios?: ToOne<{
+      id: string
+      name: string
+      phases?: ToOne<{ id: string; name: string }>
+    }>
+  }>
+}
+
+type ToOne<T> = T | T[] | null
+
+function one<T>(value: ToOne<T> | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return value ?? null
+}
+
 type RawOutgoingDependency = {
   id: string
   target_cell_id: string
@@ -24,6 +55,18 @@ type RawOutgoingDependency = {
   kind?: string | null
   name?: string | null
   note?: string | null
+  /** The far end, embedded by the board query; fallback data omits it. */
+  target?: ToOne<RawDependencyEnd>
+}
+
+/** An edge arriving at a cell of this path, embedded under its target. */
+type RawIncomingDependency = {
+  id: string
+  source_cell_id: string
+  kind?: string | null
+  name?: string | null
+  note?: string | null
+  source?: ToOne<RawDependencyEnd>
 }
 
 /** Normalize a raw kind column value; anything unknown is a plain dependency. */
@@ -41,6 +84,7 @@ export type RawCell = RawCellColumns & {
   /** `cell_touchpoints` rows embedded by the board query. */
   cell_touchpoints?: RawCellTouchpoint[] | null
   outgoing?: RawOutgoingDependency[] | null
+  incoming?: RawIncomingDependency[] | null
 }
 
 type RawPathStep = {
@@ -66,6 +110,9 @@ export type RawPath = {
   kind: PathKind
   /** The `entity_status` column, as text; anything unknown reads as `live`. */
   status?: string | null
+  scenario_id?: string | null
+  /** The path's scenario and its phase, embedded by the board query. */
+  scenarios?: ToOne<{ name: string; phases?: ToOne<{ name: string }> }>
   lanes?: RawLane[] | null
   /** @deprecated Legacy shape; use path_steps */
   steps?: BlueprintStep[] | null
@@ -115,7 +162,7 @@ function resolveSteps(raw: RawPath): BlueprintStep[] {
  * context: the row under a cell does not name its own source.
  */
 function toBlueprintDependency(
-  raw: RawOutgoingDependency,
+  raw: Omit<RawOutgoingDependency, 'target'>,
   sourceCellId: string,
 ): BlueprintCellDependency {
   return {
@@ -128,14 +175,78 @@ function toBlueprintDependency(
   }
 }
 
-function flattenDependenciesFromCells(cells: RawCell[]): BlueprintCellDependency[] {
+/**
+ * The far end of an edge, when it is on another path — or null when it is on
+ * this one, or when the read did not embed enough of it to name it. A
+ * half-named far end would put a marker on the board that cannot say where
+ * it goes, which is worse than no marker.
+ */
+function toRemoteCell(
+  raw: ToOne<RawDependencyEnd> | undefined,
+  pathId: string,
+): BlueprintRemoteCell | null {
+  const end = one(raw)
+  if (!end) return null
+  const path = one(end.paths)
+  const scenario = one(path?.scenarios)
+  if (!path || !scenario) return null
+  if ((end.path_id ?? path.id) === pathId) return null
+  const phase = one(scenario.phases)
+  return {
+    id: end.id,
+    content: end.content ?? '',
+    laneName: one(end.lanes)?.name ?? null,
+    stepName: one(end.steps)?.name ?? null,
+    pathId: path.id,
+    pathName: path.name,
+    scenarioId: scenario.id,
+    scenarioName: scenario.name,
+    phaseName: phase?.name ?? null,
+  }
+}
+
+/**
+ * Every edge touching this path's cells, each once, and the far ends of the
+ * ones that leave it.
+ *
+ * Outgoing first, because an edge between two of this path's cells arrives
+ * twice — under its source and under its target — and the outgoing copy is
+ * the one the board has always read. An incoming copy adds an edge only when
+ * its source is on another path.
+ */
+function flattenDependenciesFromCells(
+  cells: RawCell[],
+  pathId: string,
+): { dependencies: BlueprintCellDependency[]; remoteCells: BlueprintRemoteCell[] } {
   const dependencies: BlueprintCellDependency[] = []
+  const seen = new Set<string>()
+  const remoteById = new Map<string, BlueprintRemoteCell>()
+  const keepRemote = (remote: BlueprintRemoteCell | null) => {
+    if (remote && !remoteById.has(remote.id)) remoteById.set(remote.id, remote)
+  }
+
   for (const cell of cells) {
     for (const outgoing of cell.outgoing ?? []) {
+      if (seen.has(outgoing.id)) continue
+      seen.add(outgoing.id)
       dependencies.push(toBlueprintDependency(outgoing, cell.id))
+      keepRemote(toRemoteCell(outgoing.target, pathId))
     }
   }
-  return dependencies
+  for (const cell of cells) {
+    for (const incoming of cell.incoming ?? []) {
+      if (seen.has(incoming.id)) continue
+      seen.add(incoming.id)
+      dependencies.push(
+        toBlueprintDependency(
+          { ...incoming, target_cell_id: cell.id },
+          incoming.source_cell_id,
+        ),
+      )
+      keepRemote(toRemoteCell(incoming.source, pathId))
+    }
+  }
+  return { dependencies, remoteCells: [...remoteById.values()] }
 }
 
 /** Collapse duplicate swim lanes that share a name (e.g. legacy + fallback lane IDs). */
@@ -224,10 +335,16 @@ export function deduplicateBlueprintLanes(data: BlueprintData): BlueprintData {
 
   const cells = [...cellBySlot.values()]
   const cellIds = new Set(cells.map((cell) => cell.id))
+  // Drop the edges that touched a cell this collapse dropped — and only
+  // those. An edge whose other end was never on this board (a link to
+  // another path) has nothing to do with the collapse and stays.
+  const droppedIds = new Set(
+    data.cells.map((cell) => cell.id).filter((id) => !cellIds.has(id)),
+  )
   const dependencies = data.dependencies.filter(
     (dependency) =>
-      cellIds.has(dependency.source_cell_id) &&
-      cellIds.has(dependency.target_cell_id),
+      !droppedIds.has(dependency.source_cell_id) &&
+      !droppedIds.has(dependency.target_cell_id),
   )
 
   keptLanes.sort((a, b) => a.position - b.position)
@@ -264,12 +381,17 @@ export function normalizeBlueprint(raw: RawPath): BlueprintData {
     resources: cellResourcesFromRows(cell.resources),
     touchpoints: cellTouchpointsFromRows(cell.cell_touchpoints),
   }))
-  const dependencies =
+  const { dependencies, remoteCells } =
     raw.cell_dependencies && raw.cell_dependencies.length > 0
-      ? raw.cell_dependencies.map((dependency) =>
-          toBlueprintDependency(dependency, dependency.source_cell_id),
-        )
-      : flattenDependenciesFromCells(rawCells)
+      ? {
+          dependencies: raw.cell_dependencies.map((dependency) =>
+            toBlueprintDependency(dependency, dependency.source_cell_id),
+          ),
+          remoteCells: [],
+        }
+      : flattenDependenciesFromCells(rawCells, raw.id)
+
+  const scenario = one(raw.scenarios)
 
   return sortBlueprintLanes({
     path: {
@@ -279,11 +401,19 @@ export function normalizeBlueprint(raw: RawPath): BlueprintData {
       note: raw.note ?? null,
       kind: raw.kind,
       status: asEntityStatus(raw.status) ?? DEFAULT_ENTITY_STATUS,
+      ...(raw.scenario_id ? { scenarioId: raw.scenario_id } : {}),
+      ...(scenario
+        ? {
+            scenarioName: scenario.name,
+            phaseName: one(scenario.phases)?.name ?? null,
+          }
+        : {}),
     },
     lanes,
     steps,
     cells,
     dependencies,
+    ...(remoteCells.length > 0 ? { remoteCells } : {}),
   })
 }
 

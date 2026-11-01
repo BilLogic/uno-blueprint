@@ -1,6 +1,8 @@
 import { BlueprintCellButton } from '@/components/blueprint/BlueprintCellButton'
 import { BlueprintStepStoryboard } from '@/components/blueprint/BlueprintStepStoryboard'
 import { BlueprintTouchpointCell } from '@/components/blueprint/BlueprintTouchpointCell'
+import { CrossPathLinkMarkers } from '@/components/blueprint/CrossPathLinkMarker'
+import type { CrossPathLink } from '@/lib/crossPathLinks'
 import {
   Tooltip,
   TooltipContent,
@@ -79,6 +81,7 @@ export function CompareCellBlock({
   slotCells,
   status,
   pathMembership,
+  crossPathLinks,
 }: {
   cellId?: string
   stepIndex: number
@@ -94,6 +97,11 @@ export function CompareCellBlock({
   status?: BlueprintCell['status']
   /** Member paths of this rendered cell — one outline segment each. */
   pathMembership?: readonly CompareCellPathMembership[]
+  /**
+   * Links from this cell to cells on other paths, which no arrow draws; each
+   * is a marker on the cell's lower edge that goes to the other end.
+   */
+  crossPathLinks?: readonly CrossPathLink[]
 }) {
   const membershipDescriptionId = useId()
   const [membershipTooltipOpen, setMembershipTooltipOpen] = useState(false)
@@ -300,6 +308,9 @@ export function CompareCellBlock({
         </span>
       ) : null}
       {innerContent}
+      {crossPathLinks && crossPathLinks.length > 0 && !isStoryboard ? (
+        <CrossPathLinkMarkers links={crossPathLinks} insetY={insetY} />
+      ) : null}
     </div>
   )
 

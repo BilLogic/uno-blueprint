@@ -14,6 +14,7 @@ import {
 } from '@/components/blueprint/BlueprintLabelRail'
 import { ComparePathSectionFrame } from '@/components/blueprint/ComparePathSectionFrame'
 import { IntegratedDependencyArrows } from '@/components/blueprint/IntegratedDependencyArrows'
+import { crossPathLinksFor } from '@/lib/crossPathLinks'
 import { BlueprintStoryboardPlayButton } from '@/components/blueprint/BlueprintStoryboardPlayButton'
 import {
   BLUEPRINT_LANE_ROW_GAP,
@@ -402,6 +403,10 @@ function CompareLaneRow({
         compact={compact}
         storyboardPictures={storyboardPictures}
         slotCells={slotCells}
+        crossPathLinks={crossPathLinksFor(
+          blueprint,
+          slotCells ? slotCells.map((entry) => entry.id) : [cell?.id],
+        )}
         selectionContext={
           scenarioName && (cell?.id || isStoryboardLane)
             ? {

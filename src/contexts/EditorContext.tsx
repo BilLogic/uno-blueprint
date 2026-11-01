@@ -700,6 +700,27 @@ export function useEditor(): EditorHandle {
   )
 }
 
+const NO_NAVIGATION = () => {}
+
+/**
+ * `openScenario`, or null outside an EditorProvider.
+ *
+ * For a control drawn on a board that can also mount with no editor above it
+ * — a cell's cross-path marker renders in tests and on surfaces that have no
+ * navigation to perform — so it can offer the jump where there is somewhere
+ * to jump, and stay inert where there is not.
+ */
+export function useOpenScenarioOptional():
+  | ((scenarioId: string, opts?: OpenScenarioOptions) => void)
+  | null {
+  const context = useContext(EditorContext)
+  const openScenario = useOpenScenarioAction(
+    context?.selectScenario ?? NO_NAVIGATION,
+    context?.openPhaseForNavigation ?? NO_NAVIGATION,
+  )
+  return context ? openScenario : null
+}
+
 /**
  * The base view's selected scenario, or null outside an EditorProvider.
  *

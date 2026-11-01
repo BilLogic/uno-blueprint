@@ -1,6 +1,7 @@
 ---
 summary: The board and the chrome around it — click grammar, canvas modes, panel-as-selection, the motion vocabulary, camera behaviour, the phase-row height contract and the touch contract.
 claims:
+  - src/components/blueprint/CrossPathLinkMarker.tsx
   - src/components/blueprint/StructureDragGrip.tsx
   - src/components/blueprint/canvasStructureReorder.ts
   - src/components/blueprint/laneInsertSection.ts
@@ -131,6 +132,22 @@ Every small label on the board follows the sentence-case rule in
 
 The **Jump to…** dialog's group headings (Scenarios, Cells, Actions) restate the
 rule over the vendored command group, which ships them in mono capitals.
+
+## A link that leaves its path
+
+A `leads_to` between two cells of one path is an arrow. One whose other end is
+on another path — of this scenario or another — is never an arrow, in Stacked
+or Merged, even when both paths are on screen: the arrow overlay is handed only
+the edges with both ends on its own path (`getComparePathArrowData`). The cell
+at each end wears a small marker button on its lower edge instead —
+**Continues in …** where the link leaves, **Comes from …** where it arrives —
+naming the other path when it is this scenario's, the other scenario
+otherwise. It sits over the shell's bottom inset, so it moves no row, and it is
+a sibling of the cell's button, so it takes its own Tab stop and ring. Click or
+Enter goes where a **Jump to…** cell result goes: the scenario opens on the far
+cell's path unless that path is already on the board, the camera flies and the
+far cell's panel opens (`useJumpToCell`). `enables` draws no marker, as it
+draws no arrow; the panel lists both kinds.
 
 ## The click grammar
 

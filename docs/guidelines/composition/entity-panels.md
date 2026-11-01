@@ -192,6 +192,14 @@ different cell points away from somewhere nobody is looking. The tab body
 reserves `min-h-56`, which is cheaper and steadier than easing a panel that
 otherwise jumped a couple of hundred pixels per switch.
 
+The Dependencies tab lists a link to another path in the group its kind and
+end put it in, naming the far end's lane and step and, on a second line, its
+path, scenario and phase. Its row goes there rather than selecting a cell this
+board does not hold; an owned one is removed from its own row, and an arriving
+one's pencil goes to the owner on its path. The picker offers every loaded cell
+of the service: this path's first, then each other path's, prefixed with where
+that path is.
+
 Three rules the overview follows and new fields should too: the title yields to
 the touchpoint when they are identical; the description paragraph is suppressed
 when it repeats the title or the content; and the touchpoint is a labelled

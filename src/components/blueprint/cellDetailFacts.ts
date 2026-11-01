@@ -56,6 +56,61 @@ function cellPositionLabel(
 }
 
 /**
+ * Where another board is, said from this one: the path's name when it is
+ * another path of the same scenario, else the scenario's name and the path's.
+ */
+function boardPlaceLabel(from: BlueprintData, board: BlueprintData): string {
+  const sameScenario =
+    from.path.scenarioId !== undefined &&
+    from.path.scenarioId === board.path.scenarioId
+  if (sameScenario || !board.path.scenarioName) return board.path.name
+  return `${board.path.scenarioName} › ${board.path.name}`
+}
+
+/**
+ * One board's cells as picker entries, in its grid's reading order, each
+ * prefixed with `place` when the board is not the one open.
+ */
+function boardCandidates(
+  board: BlueprintData,
+  place: string | null,
+): DependencyEndpoint[] {
+  const laneNames = new Map(board.lanes.map((entry) => [entry.id, entry.name]))
+  const stepOrder = new Map(
+    board.steps.map((step, index) => [step.id, { index, name: step.name }]),
+  )
+  return board.cells
+    .map((cell) => {
+      const step = stepOrder.get(cell.step_id)
+      const position = cellPositionLabel(
+        step?.index ?? -1,
+        step?.name ?? 'Unknown step',
+        laneNames.get(cell.lane_id) ?? 'Unknown lane',
+      )
+      return {
+        cellId: cell.id,
+        stepIndex: step?.index ?? Number.MAX_SAFE_INTEGER,
+        label: place ? `${place} · ${position}` : position,
+      }
+    })
+    .sort((a, b) => a.stepIndex - b.stepIndex || a.label.localeCompare(b.label))
+    .map(({ cellId, label }) => ({ cellId, label }))
+}
+
+/** A far end on a board the canvas did not load, named from the edge's embed. */
+function elsewhereEndpointLabel(connection: BlueprintCellConnection): string {
+  const position = `${connection.stepName} · ${connection.laneName}`
+  const elsewhere = connection.elsewhere
+  if (!elsewhere) return position
+  // The same place words a loaded board gets from `boardPlaceLabel`.
+  const place =
+    elsewhere.placeName === elsewhere.pathName
+      ? elsewhere.pathName
+      : `${elsewhere.scenarioName} › ${elsewhere.pathName}`
+  return `${place} · ${position}`
+}
+
+/**
  * The cell as this panel needs it, from either source.
  *
  * `touchpoints` and `resources` are resolved once at the top rather than
@@ -116,6 +171,12 @@ type SelectedCell = {
   cellId: string | null
   /** The board the selected path belongs to — found once, read from. */
   blueprint: BlueprintData | null
+  /**
+   * Every OTHER board the canvas has loaded — the service's other paths, in
+   * this scenario and the rest. Read only by the dependency picker: a link
+   * may land on any cell of the service.
+   */
+  otherBoards: readonly BlueprintData[]
   cell: PanelCell | null
   lane: SelectedLaneResolution | null
   connections: BlueprintCellConnections
@@ -170,6 +231,14 @@ export function useSelectedCell({
     if (!pathId) return null
     return getBlueprintForPath(blueprints, pathId) ?? null
   }, [blueprints, draft?.pathId, pathEntry?.pathId])
+
+  const otherBoards = useMemo(
+    () =>
+      blueprint
+        ? blueprints.filter((entry) => entry.path.id !== blueprint.path.id)
+        : [],
+    [blueprint, blueprints],
+  )
 
   const connections = useMemo(() => {
     const rawCellId = pathEntry?.cellId
@@ -257,6 +326,7 @@ export function useSelectedCell({
     pathEntry,
     cellId,
     blueprint,
+    otherBoards,
     cell,
     lane,
     connections,
@@ -282,7 +352,7 @@ type CellPanelFacts = {
   cellId: string | null
   blueprint: BlueprintData | null
   lane: SelectedLaneResolution | null
-  /** Every other cell on this path, as somewhere a dependency could point. */
+  /** Every other cell of the service, as somewhere a dependency could point. */
   dependencyCandidates: DependencyEndpoint[]
   existingDependencies: ExistingDependency[]
   dependencySource: DependencyEndpoint | null
@@ -293,54 +363,57 @@ export function useCellPanelFacts({
   pathEntry,
   cellId,
   blueprint,
+  otherBoards,
   lane,
   connections,
   stepId,
   positionLabel,
 }: SelectedCell): CellPanelFacts {
   /**
-   * The cells of the path open. The database accepts a link to any cell of
-   * the same service, so another path's cells are a wider list, not a
-   * refused one; until the board can show where a cross-path link lands,
-   * the picker offers the cells it can show.
+   * Every cell of the service the canvas has loaded: this path's first, in
+   * the grid's reading order, then each other path's. The database accepts a
+   * link to any cell of the same service and refuses one to another service,
+   * and every board the canvas loads is one of this service's.
    *
    * Labels lead with the column number because step *names* repeat: Discovery
    * holds several columns all named the same thing, so name-and-lane alone
    * names three different cells and the picker becomes a guess. The column
    * number is the only part of a cell's position that is always unique, and
-   * ordering by it puts the list in the reading order of the grid.
+   * ordering by it puts the list in the reading order of the grid. A cell on
+   * another path is prefixed with where that path is — its name alone when it
+   * is another path of this scenario, else its scenario's name with it —
+   * because "1. Arrive · Frontstage" is on every path.
+   *
+   * The far end of a link already recorded is offered even when its board is
+   * not loaded, so the row's own target select can show what it points at.
    */
   const dependencyCandidates = useMemo<DependencyEndpoint[]>(() => {
     const pathId = pathEntry?.pathId
     if (!cellId || !pathId || !blueprint) return []
 
-    const laneNames = new Map(
-      blueprint.lanes.map((entry) => [entry.id, entry.name]),
+    const own = boardCandidates(blueprint, null).filter(
+      (entry) => entry.cellId !== cellId,
     )
-    const stepOrder = new Map(
-      blueprint.steps.map((step, index) => [step.id, { index, name: step.name }]),
-    )
-
-    return blueprint.cells
-      .filter((cell) => cell.id !== cellId)
-      .map((cell) => {
-        const step = stepOrder.get(cell.step_id)
-        return {
-          cellId: cell.id,
-          stepIndex: step?.index ?? Number.MAX_SAFE_INTEGER,
-          label: cellPositionLabel(
-            step?.index ?? -1,
-            step?.name ?? 'Unknown step',
-            laneNames.get(cell.lane_id) ?? 'Unknown lane',
-          ),
-        }
-      })
-      .sort(
-        (a, b) =>
-          a.stepIndex - b.stepIndex || a.label.localeCompare(b.label),
+    const others = [...otherBoards]
+      .sort((a, b) => boardPlaceLabel(blueprint, a).localeCompare(boardPlaceLabel(blueprint, b)))
+      .flatMap((board) => boardCandidates(board, boardPlaceLabel(blueprint, board)))
+    const offered = new Set([...own, ...others].map((entry) => entry.cellId))
+    const recorded = [...connections.outgoing, ...connections.incoming]
+      .filter(
+        (connection) =>
+          connection.elsewhere && !offered.has(connection.cellId),
       )
-      .map(({ cellId: id, label }) => ({ cellId: id, label }))
-  }, [blueprint, cellId, pathEntry?.pathId])
+      .map((connection) => ({
+        cellId: connection.cellId,
+        label: elsewhereEndpointLabel(connection),
+      }))
+    const seen = new Set<string>()
+    return [...own, ...others, ...recorded].filter((entry) => {
+      if (seen.has(entry.cellId)) return false
+      seen.add(entry.cellId)
+      return true
+    })
+  }, [blueprint, cellId, connections, otherBoards, pathEntry?.pathId])
 
   // Only outgoing dependencies: this cell owns the ones it is the source of,
   // and those are the ones it may change or remove. An incoming one belongs to
@@ -350,11 +423,13 @@ export function useCellPanelFacts({
       connections.outgoing.map((connection) => ({
         id: connection.dependencyId,
         targetCellId: connection.cellId,
-        targetLabel: cellPositionLabel(
-          connection.stepIndex,
-          connection.stepName,
-          connection.laneName,
-        ),
+        targetLabel: connection.elsewhere
+          ? elsewhereEndpointLabel(connection)
+          : cellPositionLabel(
+              connection.stepIndex,
+              connection.stepName,
+              connection.laneName,
+            ),
         kind: connection.linkKind,
         note: connection.linkNote,
       })),

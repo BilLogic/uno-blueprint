@@ -10,6 +10,15 @@ export type BlueprintPath = {
   kind: PathKind
   /** How far along this route is. `live` unless somebody said otherwise. */
   status: EntityStatus
+  /**
+   * The scenario this path belongs to, where the read knew it. A database
+   * read always does; a hand-written fixture may not, and nothing that reads
+   * it may assume it is there.
+   */
+  scenarioId?: string
+  /** The scenario's name, and its phase's, where the read embedded them. */
+  scenarioName?: string
+  phaseName?: string | null
 }
 
 export type BlueprintLane = {
@@ -204,10 +213,42 @@ export type BlueprintCellDependency = {
   note?: string | null
 }
 
+/**
+ * A cell on ANOTHER path that a dependency of this path reaches — the far end
+ * of a link that leaves the path, in either direction.
+ *
+ * A board is read one path at a time, so the far end is not one of its cells
+ * and the board cannot draw it. It carries what the cell's marker and the
+ * panel need instead: what the cell says, where it sits, and the path,
+ * scenario and phase to go to. Never one of this board's own cells.
+ */
+export type BlueprintRemoteCell = {
+  id: string
+  content: string
+  laneName: string | null
+  stepName: string | null
+  pathId: string
+  pathName: string
+  scenarioId: string
+  scenarioName: string
+  phaseName: string | null
+}
+
 export type BlueprintData = {
   path: BlueprintPath
   lanes: BlueprintLane[]
   steps: BlueprintStep[]
   cells: BlueprintCell[]
+  /**
+   * Every edge with at least one end on this path. An edge whose other end is
+   * on another path is here too, with that end in `remoteCells`; an edge that
+   * stays on the path has both ends in `cells`.
+   */
   dependencies: BlueprintCellDependency[]
+  /**
+   * The far ends of the edges that leave this path. Optional because a
+   * hand-written fixture and the bundled sample carry none; absent reads as
+   * empty.
+   */
+  remoteCells?: BlueprintRemoteCell[]
 }

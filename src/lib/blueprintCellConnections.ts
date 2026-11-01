@@ -2,9 +2,15 @@ import { buildBlueprintCellSelection, getTouchpointNames } from '@/lib/blueprint
 import { resolveBlueprintCellId } from '@/lib/resolveBlueprintCellId'
 import { shouldUseTouchpointCellContent } from '@/lib/blueprintLayout'
 import type { BlueprintCellSelection } from '@/types/blueprintCellDetail'
-import type { BlueprintCell, BlueprintCellDependency, BlueprintData } from '@/types/blueprint'
+import type {
+  BlueprintCell,
+  BlueprintCellDependency,
+  BlueprintData,
+  BlueprintRemoteCell,
+} from '@/types/blueprint'
 import { cellResources } from '@/lib/cellResources'
 import { cellTouchpoints } from '@/lib/cellTouchpoints'
+import { crossPathPlaceName } from '@/lib/crossPathLinks'
 
 export type BlueprintCellConnectionKind = 'interaction' | 'connection'
 
@@ -34,6 +40,24 @@ export type BlueprintCellConnection = {
   isTech: boolean
   techItems: string[]
   contentPreview: string
+  /**
+   * Set when the other end is on ANOTHER path: where it is, so the row can
+   * name it and go there. Absent for an end on this board. `stepIndex` is -1
+   * for such an end — its column is a fact about a board this one did not
+   * read — and `stepName` carries the step instead.
+   */
+  elsewhere?: ConnectionElsewhere
+}
+
+/** Where a connection's other end sits when it is not on this board. */
+export type ConnectionElsewhere = {
+  pathId: string
+  pathName: string
+  scenarioId: string
+  scenarioName: string
+  phaseName: string | null
+  /** The path's name when it is this scenario's, else the scenario's. */
+  placeName: string
 }
 
 export type BlueprintCellConnections = {
@@ -64,6 +88,40 @@ function resolveStepIndex(blueprint: BlueprintData, stepId: string): number {
   return blueprint.steps.findIndex((step) => step.id === stepId)
 }
 
+/**
+ * A connection whose other end is on another path, read from the far end the
+ * board query embedded. Never an interaction: that word means the same step
+ * of the same board.
+ */
+function toRemoteConnection(
+  blueprint: BlueprintData,
+  dependency: BlueprintCellDependency,
+  remote: BlueprintRemoteCell,
+): BlueprintCellConnection {
+  return {
+    dependencyId: dependency.id,
+    cellId: remote.id,
+    laneName: remote.laneName ?? 'Unknown lane',
+    laneRowPosition: -1,
+    stepName: remote.stepName ?? 'Unknown step',
+    stepIndex: -1,
+    kind: 'connection',
+    linkKind: dependency.kind === 'enables' ? 'enables' : 'leads_to',
+    linkNote: dependency.note ?? null,
+    isTech: false,
+    techItems: [],
+    contentPreview: contentPreview(remote.content),
+    elsewhere: {
+      pathId: remote.pathId,
+      pathName: remote.pathName,
+      scenarioId: remote.scenarioId,
+      scenarioName: remote.scenarioName,
+      phaseName: remote.phaseName,
+      placeName: crossPathPlaceName(blueprint, remote),
+    },
+  }
+}
+
 function toConnection(
   blueprint: BlueprintData,
   dependency: BlueprintCellDependency,
@@ -71,7 +129,10 @@ function toConnection(
   selectedStepIndex: number,
 ): BlueprintCellConnection | null {
   const cell = findCell(blueprint, cellId)
-  if (!cell) return null
+  if (!cell) {
+    const remote = blueprint.remoteCells?.find((entry) => entry.id === cellId)
+    return remote ? toRemoteConnection(blueprint, dependency, remote) : null
+  }
 
   const stepIndex = resolveStepIndex(blueprint, cell.step_id)
   if (stepIndex < 0) return null

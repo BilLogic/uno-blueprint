@@ -443,6 +443,11 @@ export function usePathSelectionContext() {
   return context
 }
 
+/** The path store, or null where none is mounted (a test, a bare board). */
+export function usePathSelectionContextOptional() {
+  return useContext(PathSelectionContext)
+}
+
 /** Shared per-scenario selections — same store for overview, phase, and scenario. */
 export function usePathSelectionsByScenario(
   pathsByScenario: Map<string, PathListItem[]>,

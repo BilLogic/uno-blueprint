@@ -17,6 +17,7 @@ import {
 import { CompareLaneRowShell } from '@/components/blueprint/CompareLaneRowShell'
 import { CompareStepHeaderRow } from '@/components/blueprint/CompareTrackDecorations'
 import { IntegratedDependencyArrows } from '@/components/blueprint/IntegratedDependencyArrows'
+import { crossPathLinksFor } from '@/lib/crossPathLinks'
 import { PathLabelBadge } from '@/components/blueprint/PathLabelBadge'
 import { useCompareGridAxis } from '@/hooks/useCompareGridAxis'
 import {
@@ -687,6 +688,10 @@ function MergedSubCellBlock({
       storyboardPictures={storyboardPictures}
       slotCells={variant === 'touchpoints' ? cells : undefined}
       pathMembership={pathMembership}
+      crossPathLinks={crossPathLinksFor(
+        blueprint,
+        cells.map((entry) => entry.id),
+      )}
       selectionContext={
         scenarioName && cellId
           ? {

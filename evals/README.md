@@ -5,8 +5,8 @@ evaluations first") and the skill-creator's description-optimization flow.
 
 ## trigger/ — does the right skill fire?
 
-One JSON per skill, 16 queries each: 8 should-trigger (varied phrasings,
-casual and formal, some that never name the skill) and 8 should-not
+One JSON per skill, 16 or more queries each, half should-trigger (varied
+phrasings, casual and formal, some that never name the skill) and half should-not
 (near-misses that share keywords — the audit/whatif/slice confusions are
 the valuable cases). Format is the skill-creator's eval-set schema:
 

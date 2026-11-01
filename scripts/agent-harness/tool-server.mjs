@@ -1,5 +1,5 @@
 /**
- * The tool server the owner-agent cases run against (Seam 2).
+ * The tool server the owner-agent cases run against.
  *
  * An agent host that ran `/ub:init` reaches the business through one remote
  * MCP server, signed in as a person. This opens that connection the way a
@@ -11,7 +11,8 @@
  * The OFFER is the server's own `tools/list`, not the app's roster: what the
  * model sees is what a host would see. Reads cross the boundary for real.
  * Writes stay rehearsals, as everywhere in this harness, and the runner does
- * that half — the server answers only the calls this module is handed.
+ * that half: it sends a write to no server, and refuses one it cannot
+ * rehearse, which is why `readOnly` is carried through.
  */
 import { createClient } from '@supabase/supabase-js'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
@@ -33,7 +34,7 @@ export const TOOL_SERVER_ENV = [
 export async function connectToolServer(env) {
   const missing = TOOL_SERVER_ENV.filter((name) => !env[name])
   if (missing.length)
-    throw new Error(`a tool-server run needs ${missing.join(', ')} (env or .env); see .env.example`)
+    throw new Error(`a tool-server run needs ${missing.join(', ')} (env, .env or .env.local); see .env.example`)
   const endpoint = new URL(`${env.SUPABASE_URL}/functions/v1/uno-tools`)
   const db = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },

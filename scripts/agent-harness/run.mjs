@@ -85,7 +85,7 @@
  *   node scripts/agent-harness/run.mjs --repeat 3  # majority-vote per line
  *   node scripts/agent-harness/run.mjs --tool-server
  *                     # the owner-agent cases, against the deployed tool
- *                     # server (Seam 2) — see "The tool-server host" below
+ *                     # server — see "The tool-server host" below
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -817,7 +817,7 @@ async function dispatch(caseDef, name, args, trace, turn = 0) {
 }
 
 // ---------------------------------------------------------------------------
-// The tool-server host (Seam 2): the owner-agent cases.
+// The tool-server host: the owner-agent cases.
 //
 // An agent tool after `/ub:init` holds the skill and Uno's identity, and
 // reaches the business through the remote tool server alone. So the system
@@ -852,10 +852,16 @@ async function dispatchToServer(name, args, trace, turn = 0) {
   trace.push(record)
   try {
     if (WRITE_TOOL_NAMES.has(name)) return await rehearseWrite(record, name, args)
-    if (!server.tools.some((tool) => tool.name === name)) {
+    const offered = server.tools.find((tool) => tool.name === name)
+    if (!offered) {
       record.result = noSuchToolRefusal(name)
       return record.result
     }
+    // A write the server offers and this checkout has no definition for (a
+    // server deployed ahead of the tree) has no rehearsal, so it is refused
+    // here rather than sent: a tool-server case never writes for real.
+    if (!offered.readOnly)
+      throw new Error(`${name} is a write this checkout cannot rehearse; the harness sends no write to the server`)
     record.result = await server.call(name, args)
     return record.result
   } catch (error) {

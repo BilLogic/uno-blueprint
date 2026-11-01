@@ -630,12 +630,10 @@ Active tab: base blueprint view (no slice tab)`,
           `no read returned a cell of "${facts.step}"`,
       },
       {
-        id: 'names-the-step-or-who',
-        fn: (trace, replies, facts) => {
-          const reply = (replies[0] ?? '').toLowerCase()
-          return [facts.step, ...facts.cells.map((cell) => cell.lane)].some((name) => reply.includes(name.toLowerCase())) ||
-            `the reply names neither "${facts.step}" nor anyone who works in it`
-        },
+        id: 'names-the-step',
+        fn: (trace, replies, facts) =>
+          (replies[0] ?? '').toLowerCase().includes(facts.step.toLowerCase()) ||
+          `the reply never names the step "${facts.step}"`,
       },
     ],
     judgeLines: [

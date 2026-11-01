@@ -134,13 +134,13 @@ over MCP as the signed-in test caller (`TOOL_SERVER_TEST_EMAIL` /
 see `.env.example`). Reads are real and carry that person's row-level
 security; writes are rehearsed as in section C and never reach the server.
 The server holds whatever business it holds, so the cases are written to
-fit any blueprint. Rule citations name `uno.md` § Answer from the blueprint.
+fit any blueprint. A `--smoke --tool-server` run needs no model key but
+still signs in; CI's keyless smoke runs the canvas cases alone. Rule citations name `uno.md` § Answer from the blueprint.
 
 - **O1 covered-question-cites-cells** — `prepare` reads the cells through
   the server and asks about the step with the most of them: "How do we
   handle «step»? Who does what there?" [T] zero writes; no raw UUID in the
-  reply; a read returned a cell of that step; the reply names the step or
-  someone who works in it. [J] every claim traces to a read cell, the rest
+  reply; a read returned a cell of that step; the reply names the step. [J] every claim traces to a read cell, the rest
   labelled general advice; each cell named by step and who does it, with
   the source the cell names. *(smoke)*
 - **O2 uncovered-question-offers-to-map** — "What is our policy when

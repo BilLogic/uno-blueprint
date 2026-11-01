@@ -1,6 +1,6 @@
 {
   "name": "ub",
-  "version": "2.9.0",
+  "version": "2.9.1",
   "description": "Uno Blueprint (ub): an open-source context-engineering toolkit that turns a team's scattered context into service blueprints that people and AI agents work from. Four skills: ub:map drafts, translates and imports a blueprint with sign-off; ub:slice cuts a view for one audience; ub:audit finds gaps, conflicts and stale sources; ub:whatif traces a change before anyone makes it.",
   "author": {
     "name": "BilLogic (Bill & Meryem)",

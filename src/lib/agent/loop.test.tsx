@@ -121,6 +121,7 @@ import {
   repeatReadRefusal,
 } from '@/lib/agent/tools/refusals'
 import { configureAgentTools } from '@/lib/agent/tools/roster'
+import { WRITE_CELL_LIMIT } from '@/lib/agent/tools/admission'
 import { NO_UI_STATE } from '@/lib/agent/tools/definitions/ui'
 
 /** The live UI note, and the block the prompt carries it in. */
@@ -780,7 +781,7 @@ describe('a write over the cell cap', () => {
 
     expect(phasesCreated).toEqual([])
     expect(answerTo('c1')).toMatchObject({
-      result: 'This call touches more than 50 cells. Split it into calls touching at most 50 cells each.',
+      result: `This call touches more than ${WRITE_CELL_LIMIT} cells. Split it into calls touching at most ${WRITE_CELL_LIMIT} cells each.`,
       isError: true,
     })
     // The sentence is the whole consequence: no pause, no suppressed-call row.

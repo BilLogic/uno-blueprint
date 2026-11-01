@@ -116,7 +116,8 @@ it.runIf(live)('every write works over MCP; contributions are proposals, approva
     await write('approve_suggested_change', { suggested_change_id: proposed.suggested_change_id })
     expect((await db.from('cells').select('form').eq('id', cell).single()).data?.form).toBe('Written request')
     const log = await db.from('authoring_changes').select('author, agent_session_id, author_id, proposed_by, approved_by').eq('proposed_by', 'b0000000-0000-4000-8000-000000000002')
-    // The approver's own agent session, not one the database minted for the write.
+    // An agent row with a session. The tool server mints that session per
+    // request, so equality with the approver's is proved in scripts/tests/tool-writes.sql.
     expect(log.data).toEqual([{ author: 'agent', agent_session_id: expect.any(String), author_id: 'c0000000-0000-4000-8000-000000000001', proposed_by: 'b0000000-0000-4000-8000-000000000002', approved_by: 'b0000000-0000-4000-8000-000000000001' }])
     const structural = await call(contributor, 'create_phase', { name: 'Suggested phase' })
     expect((await db.from('phases').select('id').eq('name', 'Suggested phase')).data).toEqual([])

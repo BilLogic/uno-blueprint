@@ -1442,6 +1442,7 @@ export type Database = {
         Returns: boolean
       }
       agent_state_noun: { Args: { p_key: string }; Returns: string }
+      agent_state_subject: { Args: { p_key: string }; Returns: string }
       agent_tool_state: { Args: { p_args: Json }; Returns: Json }
       agent_tool_transaction: {
         Args: {

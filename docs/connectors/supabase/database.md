@@ -1139,7 +1139,9 @@ proposal names with its proposal-time value, and runs the same transaction as
 a direct call under the approver's identity. The named rows are the top-level
 targets, the path a new path copies its lanes from, each cell a slice cites or
 a slide holds, and a named step's place on its paths; a slice's other slides
-and a cell beside a cited one are not named, so they may change freely. A
+and a cell beside a cited one are not named, so they may change freely, and
+neither are the rows a duplication copies. A step's place is the set of paths
+holding it: a step inserted before it changes its column, not its place. A
 missing, changed or moved row is refused with a sentence naming it; the
 proposal stays pending and nothing is written. A proposal recorded before a
 row kind was snapshotted is checked against the rows its state holds. List and
@@ -1148,8 +1150,10 @@ proposals.
 
 The durable `authoring_changes` row carries the authenticated caller and, on
 approval, `proposed_by` and `approved_by`. An approval through the tool gateway
-is logged as the approver's agent write in their session; a direct
-`approve_suggested_change` call is logged as a person's, with no session. This is the minimum attribution
+is logged as the approver's agent write in that call's session, which the
+tool server mints per request and the canvas agent takes from its
+conversation; a direct `approve_suggested_change` call, or any gateway call
+without a session, is logged as a person's. This is the minimum attribution
 needed for server writes. Each tool transaction also captures the actual
 changed rows under `revert: {kind: "captured_rows", rows: [...]}`: every row
 names its table and holds `before` and `after` values, with null on the absent

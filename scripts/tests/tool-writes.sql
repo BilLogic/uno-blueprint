@@ -136,7 +136,7 @@ declare service uuid:='f0000000-0000-4000-8000-000000000010'; session uuid:=gen_
   reviewer text:='{"sub":"c0000000-0000-4000-8000-000000000001","role":"authenticated"}';
   contributor text:='{"sub":"c0000000-0000-4000-8000-000000000002","role":"authenticated"}';
   result jsonb; phase uuid; scenario uuid; path uuid; lane uuid; first_step uuid; second_step uuid; third_step uuid;
-  cell uuid; second uuid; slice uuid; proposal uuid; records int; logged public.authoring_changes; seen uuid[];
+  cell uuid; second uuid; slice uuid; other_path uuid; proposal uuid; records int; logged public.authoring_changes; seen uuid[];
 begin
   result:=public.run_agent_tool('create_phase','{"name":"Recheck phase"}',session,service,true); phase:=(result->>'result')::uuid;
   result:=public.run_agent_tool('create_scenario',jsonb_build_object('phase_id',phase,'name','Recheck scenario','step_count',3),session,service,true);
@@ -164,15 +164,13 @@ begin
   if exists(select 1 from public.slices where title='Proposed brief') or (select status from public.suggested_changes where id=proposal)<>'pending'
     or (select count(*) from public.authoring_changes)<>records then raise exception 'a refused approval wrote'; end if;
 
-  -- The step a proposal names moved along its path.
+  -- A step inserted before the named one changes its column, not its place.
   perform set_config('request.jwt.claims',contributor,true);
-  proposal:=(public.run_agent_tool('upsert_cell',jsonb_build_object('path_id',path,'lane_id',lane,'step_id',third_step,'content','Proposed action'),session,service,true)->>'suggested_change_id')::uuid;
+  proposal:=(public.run_agent_tool('update_step',jsonb_build_object('step_id',third_step,'name','Proposed step name'),session,service,true)->>'suggested_change_id')::uuid;
   perform set_config('request.jwt.claims',reviewer,true);
   perform public.run_agent_tool('create_step',jsonb_build_object('path_id',path,'name','Earlier step','at_position',0),session,service,true);
-  select count(*) into records from public.authoring_changes;
-  begin perform public.approve_suggested_change(proposal); raise exception 'approval ignored a step that moved';
-  exception when others then if sqlerrm<>'The proposed step moved since this proposal. Read it and propose again; nothing was written.' then raise; end if; end;
-  if exists(select 1 from public.cells where content='Proposed action') or (select count(*) from public.authoring_changes)<>records then raise exception 'a refused step approval wrote'; end if;
+  perform public.approve_suggested_change(proposal);
+  if (select name from public.steps where id=third_step)<>'Proposed step name' then raise exception 'an earlier step refused a rename'; end if;
 
   -- A cell inside a slide moved.
   perform set_config('request.jwt.claims',contributor,true);
@@ -186,14 +184,28 @@ begin
   exception when others then if sqlerrm<>'A cell this proposal cites moved since this proposal. Read it and propose again; nothing was written.' then raise; end if; end;
   if (select count(*) from public.authoring_changes)<>records then raise exception 'a refused slide approval wrote'; end if;
 
+  -- The step a proposal names moved: a path that held it no longer does.
+  other_path:=(public.run_agent_tool('create_path',jsonb_build_object('scenario_id',scenario,'name','Other path'),session,service,true)->>'result')::uuid;
+  perform set_config('request.jwt.claims',contributor,true);
+  proposal:=(public.run_agent_tool('update_step',jsonb_build_object('step_id',third_step,'name','Moved step name'),session,service,true)->>'suggested_change_id')::uuid;
+  perform set_config('request.jwt.claims',reviewer,true);
+  execute 'reset role';
+  delete from public.path_steps where path_id=other_path and step_id=third_step;
+  execute 'set local role authenticated';
+  select count(*) into records from public.authoring_changes;
+  begin perform public.approve_suggested_change(proposal); raise exception 'approval ignored a step that moved';
+  exception when others then if sqlerrm<>'The proposed step moved since this proposal. Read it and propose again; nothing was written.' then raise; end if; end;
+  if (select name from public.steps where id=third_step)<>'Proposed step name' or (select count(*) from public.authoring_changes)<>records then raise exception 'a refused step approval wrote'; end if;
+
   -- The path a new path copies its lanes from changed.
   perform set_config('request.jwt.claims',contributor,true);
   proposal:=(public.run_agent_tool('create_path',jsonb_build_object('scenario_id',scenario,'name','Proposed path','lane_source_path_id',path),session,service,true)->>'suggested_change_id')::uuid;
   perform set_config('request.jwt.claims',reviewer,true);
   perform public.run_agent_tool('update_path',jsonb_build_object('path_id',path,'name','Renamed path'),session,service,true);
+  select count(*) into records from public.authoring_changes;
   begin perform public.approve_suggested_change(proposal); raise exception 'approval ignored a lane source that changed';
-  exception when others then if sqlerrm<>'The proposed path changed since this proposal. Read it and propose again; nothing was written.' then raise; end if; end;
-  if exists(select 1 from public.paths where name='Proposed path') then raise exception 'a refused path approval wrote'; end if;
+  exception when others then if sqlerrm<>'The path this proposal copies lanes from changed since this proposal. Read it and propose again; nothing was written.' then raise; end if; end;
+  if exists(select 1 from public.paths where name='Proposed path') or (select count(*) from public.authoring_changes)<>records then raise exception 'a refused path approval wrote'; end if;
 
   -- An approval through the tool server is the approver's agent session.
   perform set_config('request.jwt.claims',contributor,true);

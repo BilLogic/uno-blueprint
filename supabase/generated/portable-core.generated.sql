@@ -17825,9 +17825,9 @@ $cross_path_archive$;
 --
 -- The policy is the rows the proposal NAMES, never every member of what it
 -- touches: a slice's other slides, or a cell beside the cited one, can change
--- without invalidating the proposal. A step's place is its path membership,
--- so a step inserted before it moves it, as a lane inserted above a lane
--- already does.
+-- without invalidating the proposal. A step's place is the paths that hold
+-- it: taken off a path or added to another, it moved; a step inserted before
+-- it changes its column, not its meaning.
 --
 -- A proposal recorded before this migration has no state for the new keys.
 -- Approval checks the keys its base state holds, so that queue keeps the
@@ -17849,6 +17849,10 @@ as $message$ select 'Choose service_id from list_services. If none exists, propo
 revoke all on function public.agent_service_required_message() from public;
 -- END DERIVED SERVICE REFUSAL
 
+-- Capture the rows a proposal names. Lock them at approval, so a concurrent
+-- edit cannot slip between the comparison and the normal write path. The body
+-- is restated whole rather than patched, because each branch it gains reads
+-- more plainly in place than as three replacements.
 create or replace function public.agent_tool_state(p_args jsonb) returns jsonb
 language plpgsql volatile set search_path = pg_catalog, pg_temp as $$
 declare state jsonb:='{}'; k text; v jsonb; tab text; row_data jsonb; v_id uuid; top_cells uuid[]:='{}'; cited jsonb:='{}'; places jsonb;
@@ -17865,9 +17869,11 @@ begin
       if row_data is null then raise exception 'The % no longer exists; read the blueprint and propose again.',public.agent_state_noun(k); end if;
       state:=state||jsonb_build_object(k,row_data);
       if tab='cells' then top_cells:=array_append(top_cells,v_id); end if;
+      -- A step's place is the paths that hold it. Its column moves whenever a
+      -- step is inserted before it, which changes nothing a step id means.
       if k='step_id' then
-        select coalesce(jsonb_agg(to_jsonb(ps) order by ps.path_id),'[]') into places
-          from (select * from public.path_steps where path_steps.step_id=v_id for update) ps;
+        select coalesce(jsonb_agg(ps.path_id order by ps.path_id),'[]') into places
+          from (select path_id from public.path_steps where path_steps.step_id=v_id for update) ps;
         state:=state||jsonb_build_object('step_places',places);
       end if;
     end if;
@@ -17886,6 +17892,17 @@ end $$;
 create function public.agent_state_noun(p_key text) returns text
 language sql immutable set search_path = pg_catalog, pg_temp as $$
   select replace(regexp_replace(p_key,'^(lane_source_|source_|target_)',''),'_id','')
+$$;
+
+-- The subject of a drift sentence: a row the proposal copies from is not the
+-- row it proposes.
+create function public.agent_state_subject(p_key text) returns text
+language sql immutable set search_path = pg_catalog, pg_temp as $$
+  select case p_key
+    when 'lane_source_path_id' then 'The path this proposal copies lanes from'
+    when 'source_path_id' then 'The path this proposal copies'
+    when 'source_scenario_id' then 'The scenario this proposal copies'
+    else 'The proposed '||public.agent_state_noun(p_key) end
 $$;
 
 -- The sentence for the first named row that changed or moved since the
@@ -17908,9 +17925,9 @@ begin
     elsif k='step_places' then
       return 'The proposed step moved since this proposal.'||tail;
     elsif public.agent_state_moved(was,now_row) then
-      return format('The proposed %s moved since this proposal.',public.agent_state_noun(k))||tail;
+      return public.agent_state_subject(k)||' moved since this proposal.'||tail;
     else
-      return format('The proposed %s changed since this proposal.',public.agent_state_noun(k))||tail;
+      return public.agent_state_subject(k)||' changed since this proposal.'||tail;
     end if;
   end loop;
   return null;
@@ -17985,10 +18002,12 @@ do $$ declare body text; previous text; begin
   if body=previous then raise exception 'The content approval author did not match'; end if;
   execute body;
 end $$;
+-- Kept, not dropped: earlier recipe statements revoke it by this signature,
+-- and the generated recipe runs after the whole core.
 create or replace function public.approve_cell_content_suggestion(p_id uuid) returns jsonb
 language sql security definer set search_path = pg_catalog, pg_temp as $$
   select public.approve_cell_content_in_session(p_id,null)
 $$;
 
-revoke all on function public.agent_state_noun(text),public.agent_state_drift(jsonb,jsonb),public.agent_state_moved(jsonb,jsonb),
+revoke all on function public.agent_state_noun(text),public.agent_state_subject(text),public.agent_state_drift(jsonb,jsonb),public.agent_state_moved(jsonb,jsonb),
   public.approve_cell_content_in_session(uuid,uuid),public.approve_proposal_in_session(uuid,uuid) from public;

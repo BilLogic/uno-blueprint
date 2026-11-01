@@ -318,9 +318,9 @@ begin
     elsif k='step_places' then
       return 'The proposed step moved since this proposal.'||tail;
     elsif public.agent_state_moved(was,now_row) then
-      return format('The proposed %s moved since this proposal.',public.agent_state_noun(k))||tail;
+      return public.agent_state_subject(k)||' moved since this proposal.'||tail;
     else
-      return format('The proposed %s changed since this proposal.',public.agent_state_noun(k))||tail;
+      return public.agent_state_subject(k)||' changed since this proposal.'||tail;
     end if;
   end loop;
   return null;
@@ -350,6 +350,21 @@ CREATE FUNCTION public.agent_state_noun(p_key text) RETURNS text
 $$;
 
 --
+-- Name: agent_state_subject(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.agent_state_subject(p_key text) RETURNS text
+    LANGUAGE sql IMMUTABLE
+    SET search_path TO 'pg_catalog', 'pg_temp'
+    AS $$
+  select case p_key
+    when 'lane_source_path_id' then 'The path this proposal copies lanes from'
+    when 'source_path_id' then 'The path this proposal copies'
+    when 'source_scenario_id' then 'The scenario this proposal copies'
+    else 'The proposed '||public.agent_state_noun(p_key) end
+$$;
+
+--
 -- Name: agent_tool_state(jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -371,9 +386,11 @@ begin
       if row_data is null then raise exception 'The % no longer exists; read the blueprint and propose again.',public.agent_state_noun(k); end if;
       state:=state||jsonb_build_object(k,row_data);
       if tab='cells' then top_cells:=array_append(top_cells,v_id); end if;
+      -- A step's place is the paths that hold it. Its column moves whenever a
+      -- step is inserted before it, which changes nothing a step id means.
       if k='step_id' then
-        select coalesce(jsonb_agg(to_jsonb(ps) order by ps.path_id),'[]') into places
-          from (select * from public.path_steps where path_steps.step_id=v_id for update) ps;
+        select coalesce(jsonb_agg(ps.path_id order by ps.path_id),'[]') into places
+          from (select path_id from public.path_steps where path_steps.step_id=v_id for update) ps;
         state:=state||jsonb_build_object('step_places',places);
       end if;
     end if;

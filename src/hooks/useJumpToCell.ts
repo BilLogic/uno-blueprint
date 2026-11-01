@@ -47,6 +47,11 @@ export function useJumpToCell(): ((target: CellJumpTarget) => void) | null {
 
   const jump = useCallback(
     (target: CellJumpTarget) => {
+      const focus = () =>
+        requestScenarioCellFocus(target.scenarioId, target.cellId, {
+          openDetail: true,
+        })
+      let navigated = false
       if (selectedScenarioId === target.scenarioId) {
         // A slice or presentation tab may be in front of the board.
         activateBaseView()
@@ -56,16 +61,26 @@ export function useJumpToCell(): ((target: CellJumpTarget) => void) | null {
             ...shown,
             target.pathId,
           ])
+          navigated = true
         }
       } else {
         openScenario?.(target.scenarioId, {
           closeNav: true,
           withPath: target.pathId,
         })
+        navigated = true
       }
-      requestScenarioCellFocus(target.scenarioId, target.cellId, {
-        openDetail: true,
-      })
+      if (!navigated) {
+        focus()
+        return
+      }
+      // After the navigation has rendered, not inside the same click. Every
+      // scenario's board stays mounted, so the far one's viewport is already
+      // registered and a request made now flies at once — before that
+      // scenario is the one cells open panels on, and before its new path is
+      // drawn — and the panel it asked for never opens. Two frames is the
+      // navigation committed and painted; a miss then waits for the fit.
+      requestAnimationFrame(() => requestAnimationFrame(focus))
     },
     [openScenario, pathSelection, selectedScenarioId],
   )

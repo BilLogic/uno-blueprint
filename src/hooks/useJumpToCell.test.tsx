@@ -8,7 +8,7 @@
  * reader's click turns into, which is the whole of the hook.
  */
 import { renderHook } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const seams = vi.hoisted(() => ({
   calls: [] as string[],
@@ -49,7 +49,17 @@ vi.mock('@/lib/canvasFocusCells', () => ({
 import { useJumpToCell } from '@/hooks/useJumpToCell'
 import { storageKey } from '@/lib/storageNamespace'
 
+// The focus waits two frames after a navigation; frames run at once here.
+beforeEach(() => {
+  vi.stubGlobal('requestAnimationFrame', (run: FrameRequestCallback) => {
+    seams.calls.push('frame')
+    run(0)
+    return 0
+  })
+})
+
 afterEach(() => {
+  vi.unstubAllGlobals()
   seams.calls.length = 0
   seams.selectedScenarioId = 'scenario-goals'
   seams.selectedPaths = ['path-main']
@@ -68,6 +78,8 @@ describe('going to a cell on another path', () => {
     })
     expect(seams.calls).toEqual([
       'open scenario-report with path-report',
+      'frame',
+      'frame',
       'focus scenario-report cell-report +panel',
     ])
   })
@@ -82,6 +94,8 @@ describe('going to a cell on another path', () => {
     expect(seams.calls).toEqual([
       'base view',
       'show scenario-goals path-main+path-late+path-detour',
+      'frame',
+      'frame',
       'focus scenario-goals cell-detour +panel',
     ])
   })

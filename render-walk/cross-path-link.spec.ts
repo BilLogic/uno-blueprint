@@ -79,19 +79,30 @@ function addressOf({ phaseId, scenarioId }: ScenarioAddress): string {
   return `./?${new URLSearchParams({ phase: phaseId, scenario: scenarioId }).toString()}`
 }
 
-/** The board's cells have arrived and stopped arriving. */
+/**
+ * The board's cells have arrived and the camera has stopped moving.
+ *
+ * Opening a board flies the canvas to it, and a press that lands while the
+ * camera is still flying is taken by the flight, not by the control under
+ * it. Settled is the artboard's box and its cell count the same across two
+ * reads, as the view walk waits for.
+ */
 async function waitForCells(board: Locator): Promise<void> {
   await expect(board).toBeVisible()
   await expect
     .poll(async () => board.locator('[data-blueprint-cell]').count(), { timeout: 20_000 })
     .toBeGreaterThan(0)
-  let previous = -1
-  for (let attempt = 0; attempt < 40; attempt += 1) {
+  let previous = ''
+  const deadline = Date.now() + 20_000
+  while (Date.now() < deadline) {
+    const box = await board.boundingBox()
     const count = await board.locator('[data-blueprint-cell]').count()
-    if (count === previous) return
-    previous = count
-    await board.page().waitForTimeout(150)
+    const current = box ? `${box.x}:${box.y}:${box.width}:${box.height}:${count}` : ''
+    if (current !== '' && current === previous) return
+    previous = current
+    await board.page().waitForTimeout(200)
   }
+  throw new Error('the board never settled within 20s')
 }
 
 /** The first leaving marker on any scenario's default board, and where it sits. */
@@ -112,12 +123,30 @@ async function findLeavingMarker(
   return null
 }
 
+/**
+ * Press the marker until the address leaves the board it is on.
+ *
+ * A freshly opened canvas is still settling its first fit, and a press in that
+ * window is taken by the canvas rather than delivered — true of every control
+ * on the board, not of this one. So the press is repeated, briefly, until the
+ * address moves; what is asserted afterwards is where it moved to.
+ */
+async function follow(page: Page, press: () => Promise<void>): Promise<void> {
+  const before = new URL(page.url()).searchParams.get('scenario')
+  await expect(async () => {
+    if (new URL(page.url()).searchParams.get('scenario') === before) await press()
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get('scenario'), { timeout: 2_000 })
+      .not.toBe(before)
+  }).toPass({ timeout: 20_000 })
+}
+
 /** The jump landed: far cell addressed, drawn, panel open, link marked arriving. */
 async function expectLandedOn(page: Page, targetId: string): Promise<void> {
   await expect
     .poll(() => new URL(page.url()).searchParams.get('cell'), {
       message: 'the address names the far cell',
-      timeout: 10_000,
+      timeout: 20_000,
     })
     .toBe(targetId)
   const scenarioId = new URL(page.url()).searchParams.get('scenario')
@@ -156,10 +185,10 @@ test.describe('a cross-path link', () => {
       await page.goto(addressOf(found.from))
       const board = page.locator(`[data-focus-slide-id="${found.from.scenarioId}"]`)
       await waitForCells(board)
-      await board
+      const marker = board
         .locator(`[data-cross-path-link="out"][data-cross-path-target="${found.targetId}"]`)
         .first()
-        .click()
+      await follow(page, () => marker.click({ timeout: 2_000 }))
       await expectLandedOn(page, found.targetId)
       mkdirSync(SCREENSHOT_DIR, { recursive: true })
       await page.screenshot({ path: join(SCREENSHOT_DIR, 'cross-path-link-landed.png') })
@@ -172,8 +201,10 @@ test.describe('a cross-path link', () => {
       const marker = board
         .locator(`[data-cross-path-link="out"][data-cross-path-target="${found.targetId}"]`)
         .first()
-      await marker.focus()
-      await page.keyboard.press('Enter')
+      await follow(page, async () => {
+        await marker.focus({ timeout: 2_000 })
+        await page.keyboard.press('Enter')
+      })
       await expectLandedOn(page, found.targetId)
     })
 

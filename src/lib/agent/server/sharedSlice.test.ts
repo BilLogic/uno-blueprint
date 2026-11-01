@@ -80,9 +80,9 @@ describe('a shared slice', () => {
     expect(asked[0].body).toEqual({ p_token: '%E0' })
   })
 
-  it('the link is answered at the path the platform hands the function, without its public prefix', async () => {
+  it('a link opens at the path the platform hands the function', async () => {
     const { asked, fetcher } = project({ status: 200, body: SLICE })
-    const response = await serveSharedSlice(new Request(`http://example.test/uno-tools/shared/${TOKEN}`),
+    const response = await serveSharedSlice(new Request(`https://example.test/uno-tools/shared/${TOKEN}`),
       { url: 'https://example.test', publishableKey: 'k', resourceUrl: 'https://example.test/functions/v1/uno-tools', fetch: fetcher })
     expect(response!.status).toBe(200)
     expect(asked[0].body).toEqual({ p_token: TOKEN })
@@ -93,6 +93,7 @@ describe('a shared slice', () => {
     for (const request of [new Request('https://example.test/functions/v1/uno-tools'),
       new Request(`https://example.test/elsewhere/shared/${TOKEN}`),
       new Request(`https://example.test/tools/shared/${TOKEN}`),
+      new Request(`https://example.test/shared/${TOKEN}`),
       new Request(`https://example.test/functions/v1/uno-tools/shared/${TOKEN}/more`),
       new Request(`https://example.test/functions/v1/uno-tools/shared/${TOKEN}`, { method: 'POST', body: '{}' })]) {
       expect(await serveSharedSlice(request, { url: 'https://example.test', publishableKey: 'k', resourceUrl: 'https://example.test/functions/v1/uno-tools', fetch: fetcher })).toBeNull()

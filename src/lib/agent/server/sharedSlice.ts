@@ -83,10 +83,12 @@ export async function serveSharedSlice(request: Request, options: {
 }): Promise<Response | null> {
   if (request.method !== 'GET') return null
   const requestUrl = new URL(request.url)
-  const match = SHARED_PATH.exec(requestUrl.pathname)
   // The platform hands a function its request without the `/functions/v1`
-  // prefix the public URL carries, so the path is matched as a tail of it.
-  if (!match || !new URL(options.resourceUrl).pathname.replace(/\/+$/, '').endsWith(match[1])) return null
+  // prefix the public URL carries, so the path before `/shared/` must be a
+  // whole-segment tail of the public path, and empty only when that is too.
+  const publicPath = new URL(options.resourceUrl).pathname.replace(/\/+$/, '')
+  const match = SHARED_PATH.exec(requestUrl.pathname)
+  if (!match || !publicPath.endsWith(match[1]) || (match[1] === '' && publicPath !== '')) return null
   const token = match[2]
   const client = createClient<Database>(options.url, options.publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },

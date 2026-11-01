@@ -170,6 +170,13 @@ dependencies), then insert fresh rows in the order above. Never
 orphans. IDs are UUIDv5 from IR keys + locale (NFC-normalized), so identical
 IR re-imports produce identical rows. See `references/adapter-contract.md`.
 
+A dependency whose ends sit in two scenarios is inserted once, after every
+scenario's delete-and-reinsert: inside its source's block its target may not
+exist yet, and the target scenario's own delete would cascade it away. In the
+IR such a link is listed on one end's path with the other end qualified by
+`path` and `scenario`; its id hashes both ends in full, so it is the same row
+whichever path lists it.
+
 ## Ordering fields
 
 All sibling order is explicit integers: `phases.position`,

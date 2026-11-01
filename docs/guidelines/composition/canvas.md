@@ -10,7 +10,6 @@ claims:
   - src/components/blueprint/BlueprintArrowMarkerDefs.tsx
   - src/components/blueprint/BlueprintCellButton.tsx
   - src/components/blueprint/BlueprintColumnHandles.tsx
-  - src/components/blueprint/BlueprintDependencyArrows.tsx
   - src/components/blueprint/BlueprintDividerBadge.tsx
   - src/components/blueprint/BlueprintEmptyCellSlot.tsx
   - src/components/blueprint/BlueprintLabelRail.tsx

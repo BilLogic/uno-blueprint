@@ -21,6 +21,8 @@ export type SharedSlice = {
   }[]
 }
 
+/** `<what the function sees of its own path>/shared/<token>`, the token one segment. */
+const SHARED_PATH = /^((?:\/[^/]+)*)\/shared\/([^/]+)\/?$/
 const REFUSED = 'This link does not open a slice. Ask the person who sent it for a new one.'
 const UNAVAILABLE = 'This slice cannot be opened right now. Try the link again in a minute.'
 
@@ -81,10 +83,11 @@ export async function serveSharedSlice(request: Request, options: {
 }): Promise<Response | null> {
   if (request.method !== 'GET') return null
   const requestUrl = new URL(request.url)
-  const prefix = `${new URL(options.resourceUrl).pathname.replace(/\/+$/, '')}/shared/`
-  if (!requestUrl.pathname.startsWith(prefix)) return null
-  const token = requestUrl.pathname.slice(prefix.length).replace(/\/$/, '')
-  if (token.includes('/')) return null
+  const match = SHARED_PATH.exec(requestUrl.pathname)
+  // The platform hands a function its request without the `/functions/v1`
+  // prefix the public URL carries, so the path is matched as a tail of it.
+  if (!match || !new URL(options.resourceUrl).pathname.replace(/\/+$/, '').endsWith(match[1])) return null
+  const token = match[2]
   const client = createClient<Database>(options.url, options.publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     global: { fetch: options.fetch },

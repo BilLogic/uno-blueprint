@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.10.1
+
+**The agent account keeps what a signed-in reader reads.** Since v2.10.0
+refused the anon key evidence, the edit history, audit findings and agent
+transcripts, a regenerated agent account dropped their columns, although a
+signed-in agent still reads them. The account now renders each such relation
+in full, marked signed-in only, and counts it toward column-comment coverage.
+The template's own account is unchanged.
+
+### Upgrading a deployment
+
+- **Bump the pin; no migration.** Then add `agentAccount.signedIn` to
+  `scripts/repo-config.mjs`. The field is required: `null` keeps the account
+  as it was; a function given `{ root, declared }` that answers a `Map` of
+  relation name to column names renders those relations. A deployment can
+  resolve the columns against its replayed migration series, which needs only
+  the anon key in CI.
+- **Re-record the account baseline:**
+  `node scripts/generate-agent-account.mjs --record`.
+
+### Patch Changes
+
+- 529dbb4: The agent account keeps what a signed-in reader reads. The generator asks the database as the anon key. Once that key was refused evidence, the edit history, audit findings and agent transcripts, their columns dropped out of the account, although a signed-in agent still reads them. A repository now names those relations and their columns in `repo-config.mjs` as `agentAccount.signedIn`, and the account renders each one in full, marked signed-in only, and counts it toward column-comment coverage. The field is required: set it to `null` to keep the account as it was, or to a function answering a Map of relation name to column names.
+
 ## 2.10.0
 
 **A signed-out visitor reads the board alone.** Evidence and its counts, the
@@ -11062,8 +11086,8 @@ accent: BRAND.accent }, content: { workspaceTitle: coverContent.title } }`. The
   constraint violation rather than as anything the authoring tools had said
   (#204):
 
-                                                                                                                                                                                                                                                                              ERROR: new row for relation "lanes" violates check constraint
-                                                                                                                                                                                                                                                                              "lanes_lane_role_check" … compliance_review
+                                                                                                                                                                                                                                                                                ERROR: new row for relation "lanes" violates check constraint
+                                                                                                                                                                                                                                                                                "lanes_lane_role_check" … compliance_review
 
   That error at least names the value. Meeting it after validation has passed is
   the wrong moment.

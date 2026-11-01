@@ -72,7 +72,7 @@ export async function judge() {
       && item.text.includes('list_services') && item.text.includes('create_service')), 'Refusal reaches the database gateway.')
     step = 'reading the caller profile through MCP'
     const profile = await clients[0].callTool({ name: 'get_profile', arguments: {} })
-    assert(!profile.isError && JSON.stringify(profile).includes('may_confirm'), 'Caller profile read completes.')
+    assert(!profile.isError && JSON.stringify(profile).includes('may_approve'), 'Caller profile read completes.')
     step = 'reading the reference resource through MCP'
     const resources = await clients[0].listResources()
     assert(resources.resources.some(resource => resource.uri === 'uno://references/lane-roles'))

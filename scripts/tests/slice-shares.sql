@@ -58,7 +58,7 @@ begin
     raise exception 'a slice was shared under another service';
   exception when others then if sqlerrm not like 'That slice is filed under another service%' then raise; end if; end;
 
-  -- Someone who may not confirm records a proposal; no link is made until it is approved.
+  -- Someone who may not approve records a proposal; no link is made until it is approved.
   perform set_config('request.jwt.claims','{"sub":"c0000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
   result:=public.run_agent_tool('share_slice',jsonb_build_object('slice_id',slice),session,service,true);
   if result->>'outcome'<>'proposed' or result::text like '%token%' then raise exception 'a contributor made a link: %',result; end if;

@@ -10,7 +10,7 @@ it.each(['create_service', 'create_scenario', 'update_phase', 'update_scenario',
     const rows: unknown[] = []
     const client = { rpc: async (_fn: string, args: Record<string, unknown>) => {
       if (args.p_confirmed === true) rows.push(args.p_args)
-      return { data: { outcome: args.p_confirmed === true ? 'applied' : 'proposed', message: 'A person who may confirm must review and approve it.' }, error: null }
+      return { data: { outcome: args.p_confirmed === true ? 'applied' : 'proposed', message: 'A person who may approve must review and approve it.' }, error: null }
     } } as unknown as SupabaseClient<Database>
     const tool = findToolDefinition(name)!
     const args = { name: 'Arrival', phase_id: 'phase', scenario_id: 'scenario', step_id: 'step', lane_id: 'lane' }

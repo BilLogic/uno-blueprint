@@ -20,7 +20,7 @@ state off that database first: no blueprint starts onboarding through
 `ub:map`; a blueprint starts a daily session, where Uno catches the person up
 on what changed and reaches for the four skills itself. It asks who is
 talking, offering the profiles the business has, and changes the blueprint
-only on a yes from someone who may confirm. The canvas agent carries the
+only on a yes from someone who may approve. The canvas agent carries the
 same identity, `skills/init/references/uno.md`.
 
 ### `ub:map`

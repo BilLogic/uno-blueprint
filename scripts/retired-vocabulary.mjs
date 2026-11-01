@@ -847,6 +847,26 @@ export const RENAME_MAP = Object.freeze(
       retired: [],
       copy: ['column', 'columns'],
     },
+    // One plain word for what a person may change (`21000327000000`). The
+    // right was "may confirm" and the cell it stood behind "owner-confirmed";
+    // Uno keeps any business's blueprint, and the person holding the right is
+    // often not its owner, so both take the word the tools already used for
+    // the act: someone who may approve makes a cell approved. `confirm` alone
+    // is not retired — a person's yes on one tool call (`p_confirmed`,
+    // `confirmed: true`) and a delete dialog's confirm are other ideas — so the
+    // fragments are the compound names, and the one copy phrase is the right's.
+    {
+      renames: [
+        { from: 'profiles.may_confirm', to: 'profiles.may_approve' },
+        { from: 'cells.confirmed_by', to: 'cells.approved_by' },
+        { from: 'cells.confirmed_at', to: 'cells.approved_at' },
+        { from: 'confirming_profile_id', to: 'approving_profile_id' },
+        { from: 'confirm_cell', to: 'approve_cell' },
+      ],
+      migrations: ['21000327000000'],
+      retired: ['may_confirm', 'confirmed_by', 'confirmed_at', 'confirming_profile_id', 'confirm_cell'],
+      copy: ['may confirm'],
+    },
   ].map((row) => {
     const renames = Object.freeze(row.renames.map((pair) => Object.freeze({ ...pair })))
     return Object.freeze({

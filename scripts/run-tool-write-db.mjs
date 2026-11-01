@@ -24,7 +24,7 @@ try {
   }
   run('psql', psql, original)
   console.log('Deployment tier choices survive the agent gate.')
-  console.log('All write kinds and a non-confirmer proposal/approval passed on the scratch database.')
+  console.log('All write kinds and a non-approver proposal/approval passed on the scratch database.')
 } catch (error) {
   console.error(error.stderr?.toString() || error.message); process.exitCode = 1
 } finally { if (created) run('dropdb', ['--if-exists', '--force', database]) }

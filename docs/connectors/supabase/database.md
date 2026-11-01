@@ -314,13 +314,13 @@ Writes are layered on top for signed-in sessions (`authenticated`):
   nobody is enrolled through that list: the founding account becomes an editor
   and later accounts are viewers. Empty configuration does not disable the
   guard or give every signed-in person editing rights.
-- **Profile confirmation is an intentional exception to the service-account tier.**
-  `approve_suggested_change` and `confirm_cell` allow a caller whose profile
-  holds `may_confirm`, including an ordinary account without the service
+- **Profile approval is an intentional exception to the service-account tier.**
+  `approve_suggested_change` and `approve_cell` allow a caller whose profile
+  holds `may_approve`, including an ordinary account without the service
   claim. Their own guard checks that right before writing; approval records
   the approving login in `authoring_changes`. `record_contribution` requires
   a profile and records evidence and a suggestion, leaving the cell alone.
-  `decline_suggested_change` requires may-confirm and leaves the cell alone.
+  `decline_suggested_change` requires may-approve and leaves the cell alone.
 - **A write policy is a PAIR, and this is the one shape.** Per table and per
   verb, a surface table carries a permissive `<table>_<verb>_auth` with
   `using (true)` — *the panels reach this table directly rather than through
@@ -513,6 +513,7 @@ has been deleted since, when the foreign key refuses it ([ADR 0035](../../adr/00
 | `21000318000000_a_confirmer_can_start_a_service.sql` | Service structure can be created through the caller-scoped tool gateway |
 | `21000319000000_journey_structure_can_be_named.sql` | Existing services and their initial structure labels can be renamed |
 | `21000320000000_a_service_can_be_read_for_validation.sql` | A caller can read a complete service snapshot for read-only validation |
+| `21000327000000_a_person_who_may_approve_makes_a_cell_approved.sql` | One plain word for the right and the cell it stands behind: `profiles.may_approve`, `cells.approved_by`/`approved_at`, `approving_profile_id()` and `approve_cell(uuid)` replace the `confirm` names; every core function body that named them is rewritten from its live definition, grants restated and proved. A deployment with `scripts/recipes/cell-search.sql` re-applies it |
 
 ## Reserved migration timestamp band
 
@@ -733,7 +734,7 @@ Unsupported search levels explicitly report that this recipe searches cells only
 `index:tool-search` is an operator action that writes embedding rows, not a check.
 Run `npm run index:tool-search`
 with the existing synthetic test login in ignored `.env`, linked to a profile
-that may confirm. The handler validates the caller and checks their own
+that may approve. The handler validates the caller and checks their own
 profile before sending document text to the provider. The storage function
 independently checks confirmation rights and writes only embedding rows.
 
@@ -1062,16 +1063,16 @@ to `--print` too. Copy `supabase/pilot/profiles.example.json` into the ignored
 people file. Its optional `stakeholder` overrides the default cast-list name:
 use an existing actor's exact name to link them. Reused kinds must fit the role
 (consultant: partner; owner: staff or team; expert: staff). Re-running updates
-links and names but preserves an operator's may-confirm decision.
+links and names but preserves an operator's may-approve decision.
 
 ## Starting a service through Uno
 
 `list_services` reads the business's service rows directly, including services
 with no cells, and returns each id, name, summary and slug. `create_service`
 uses the existing checked write transaction and proposal queue. With a linked
-profile that may confirm and the person's explicit yes (`confirmed: true`),
+profile that may approve and the person's explicit yes (`confirmed: true`),
 it creates the service and returns its id. Otherwise it records a proposal;
-a confirmer can approve it through `approve_suggested_change`. Each new service
+an approver can approve it through `approve_suggested_change`. Each new service
 gets a unique route slug derived from its id. The agent can then pass the
 returned id as `service_id` to `create_phase`.
 
@@ -1133,7 +1134,7 @@ RPCs and applies direct-table edits in the same transaction as their durable
 log. Preview runs the same operation in a rolled-back subtransaction.
 
 A write needs a linked profile. Findings and evidence can be recorded freely;
-a blueprint change needs a person who may confirm and `confirmed:true` after
+a blueprint change needs a person who may approve and `confirmed:true` after
 that person's explicit yes. Otherwise it becomes a pending row in the existing
 `suggested_changes` table. Cell-content contributions keep the Profiles
 `record_contribution` path, including evidence in their giver's name; cell-spec

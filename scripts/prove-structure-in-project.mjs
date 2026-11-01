@@ -34,9 +34,9 @@ export async function judge() {
       assert.equal(result.outcome, 'applied')
       return result.result
     }
-    step = 'checking the synthetic caller may confirm'
-    const profile = await db.from('profiles').select('may_confirm').eq('user_id', data.user.id).single()
-    assert(!profile.error && profile.data.may_confirm)
+    step = 'checking the synthetic caller may approve'
+    const profile = await db.from('profiles').select('may_approve').eq('user_id', data.user.id).single()
+    assert(!profile.error && profile.data.may_approve)
     service = await call('create_service', { name: `Tool structure test only ${crypto.randomUUID()}` })
     const phase = await call('create_phase', { service_id: service, name: 'Initial phase' })
     const created = await call('create_scenario', { phase_id: phase, name: 'Initial scenario', step_names: ['Choose support', 'Describe request'] })

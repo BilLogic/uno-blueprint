@@ -24,7 +24,7 @@ export async function judge() {
       output = run('psql', ['-X', '-q', '-v', 'ON_ERROR_STOP=1', '-d', database, '-f', file])
     const count = Number(output.match(/validation_checked=(\d+)/)?.[1] ?? 0)
     if (count !== 2) throw new Error('The validation export proof did not examine both fixtures.')
-    return { what, count, line: `PASS: ${count} services read as a non-confirmer without changing authoring rows.` }
+    return { what, count, line: `PASS: ${count} services read as a non-approver without changing authoring rows.` }
   } catch (error) {
     return { what, findings: [`${error.stderr?.toString().trim() || error.message} ${rerun}`] }
   } finally { if (created) run('dropdb', ['--if-exists', '--force', database]) }

@@ -200,7 +200,7 @@ export const replaceSlidesTool = defineWriteTool({
 export const shareSliceTool = defineWriteTool({
   name: 'share_slice',
   description:
-    'Make a link that opens this slice, and only the cells it cites, for someone without an account. Changes to those cells show through the link. Say who the link is for when you ask for a yes from someone who may confirm; other callers record a proposal. Returns the link once: hand it over as given.',
+    'Make a link that opens this slice, and only the cells it cites, for someone without an account. Changes to those cells show through the link. Say who the link is for when you ask for a yes from someone who may approve; other callers record a proposal. Returns the link once: hand it over as given.',
   args: z.object({
     slice_id: arg.text('Slice id from list_slices'),
   }),
@@ -216,7 +216,7 @@ export const shareSliceTool = defineWriteTool({
 export const unshareSliceTool = defineWriteTool({
   name: 'unshare_slice',
   description:
-    'Stop every link to this slice from working. The slice itself stays. Get a yes from someone who may confirm first; other callers record a proposal.',
+    'Stop every link to this slice from working. The slice itself stays. Get a yes from someone who may approve first; other callers record a proposal.',
   args: z.object({
     slice_id: arg.text('Slice id from list_slices'),
   }),

@@ -164,28 +164,28 @@ export const updatePathTool = defineWriteTool({
 
 export const updatePhaseTool = structureWrite({
   name: 'update_phase',
-  description: 'Rename a phase. Ask someone who may confirm for a yes; other callers record a proposal.',
+  description: 'Rename a phase. Ask someone who may approve for a yes; other callers record a proposal.',
   args: z.object({ phase_id: arg.text('Phase id'), name: arg.name('Short label; put the explanation in summary'), summary: z.string().describe('Explanation; an empty string clears it; omit to keep').optional() }),
   confirmation: true,
 })
 
 export const updateScenarioTool = structureWrite({
   name: 'update_scenario',
-  description: 'Rename a scenario. Ask someone who may confirm for a yes; other callers record a proposal.',
+  description: 'Rename a scenario. Ask someone who may approve for a yes; other callers record a proposal.',
   args: z.object({ scenario_id: arg.text('Scenario id'), name: arg.name('Short label; put the explanation in summary'), summary: z.string().describe('Explanation; an empty string clears it; omit to keep').optional() }),
   confirmation: true,
 })
 
 export const updateStepTool = structureWrite({
   name: 'update_step',
-  description: 'Rename a step. Ask someone who may confirm for a yes; other callers record a proposal.',
+  description: 'Rename a step. Ask someone who may approve for a yes; other callers record a proposal.',
   args: z.object({ step_id: arg.text('Step id'), name: arg.name('Short label; put the explanation in summary'), summary: z.string().describe('Explanation; an empty string clears it; omit to keep').optional() }),
   confirmation: true,
 })
 
 export const updateLaneTool = structureWrite({
   name: 'update_lane',
-  description: 'Rename a lane. Ask someone who may confirm for a yes; other callers record a proposal.',
+  description: 'Rename a lane. Ask someone who may approve for a yes; other callers record a proposal.',
   args: z.object({ lane_id: arg.text('Lane id'), name: arg.name('New name') }),
   confirmation: true,
 })

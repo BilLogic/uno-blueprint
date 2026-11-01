@@ -521,7 +521,7 @@ jobs:
           npm run test:structure:db
           POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:structure:postgrest
       - run: npm run test:services:db
-      - name: A confirmer starts a service and contributors propose over MCP
+      - name: An approver starts a service and contributors propose over MCP
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:services:postgrest
       - name: A shared slice's link opens its cited cells and refuses every other
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:shares:postgrest
@@ -536,7 +536,7 @@ jobs:
         run: |
           npm run test:authoring:db
           POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:authoring:postgrest
-      - name: Profiles are private, and only someone who may confirm approves, over PostgREST
+      - name: Profiles are private, and only someone who may approve can approve, over PostgREST
         run: POSTGREST_BIN="$HOME/.cache/postgrest/postgrest" npm run test:profiles:postgrest
 
       # The one class of defect a dump cannot show and a catalogue sweep only

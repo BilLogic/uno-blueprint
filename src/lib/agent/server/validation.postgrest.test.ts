@@ -7,7 +7,7 @@ import { pythonVerdicts } from '@/test/blueprintValidatorParity'
 import { serviceDocument, validateDocument } from '@/lib/agent/validation/service'
 import { openMcpHttp } from '@/test/mcpHttp'
 
-it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('a clean service passes and an incomplete path is located for both a confirmer and a contributor, without writing', async () => {
+it.runIf(Boolean(POSTGREST_URL && process.env.MCP_TEST_JWKS))('a clean service passes and an incomplete path is located for both an approver and a contributor, without writing', async () => {
   const http = await openMcpHttp(request => handler(request))
   const handler = createToolServer({ url: POSTGREST_URL, publishableKey: 'sb_publishable_test', resourceUrl: http.url,
     jwks: JSON.parse(process.env.MCP_TEST_JWKS!), fetch: postgrestFetch(POSTGREST_URL) })

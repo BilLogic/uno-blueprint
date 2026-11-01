@@ -74,6 +74,24 @@ test('the renames a core fragment performs are read out of it in order', () => {
   ])
 })
 
+test('a function rename follows into an earlier recipe grant', () => {
+  // A recipe fragment that granted a function by its old name would refuse to
+  // apply on top of a core that renamed it.
+  const { recipe } = generate([
+    {
+      name: '001_fn.sql',
+      sql: [
+        'create function public.confirm_cell(p uuid) returns void language sql as $$ select $$;',
+        '-- @recipe',
+        'grant execute on function public.confirm_cell(uuid) to authenticated;',
+      ].join('\n'),
+    },
+    { name: '002_rename.sql', sql: 'alter function public.confirm_cell(uuid) rename to approve_cell;' },
+  ])
+  assert.match(recipe, /grant execute on function public\.approve_cell\(uuid\) to authenticated;/)
+  assert.doesNotMatch(recipe, /confirm_cell/)
+})
+
 test('a column rename stops at the table it happened on', () => {
   // 21000116000000 renamed `findings.note` to `summary`. `paths.note` is a
   // different column that happens to share the spelling, and the grant list

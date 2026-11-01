@@ -49,10 +49,11 @@
  * So the renames the core performs are followed through into every recipe
  * fragment that predates them. The map is not hand-written — a second
  * hand-maintained artifact is the thing this script exists to delete. It is
- * read out of the core stream itself, from the two statements that do the
+ * read out of the core stream itself, from the statements that do the
  * renaming:
  *
  *   alter table public.X rename to Y            identifier X → Y
+ *   alter function public.f(…) rename to g      identifier f → g
  *   alter table public.T rename column A to B   identifier A → B
  *   select public.__rename_schema_objects(a, b) substring a → b, in the names
  *                                               of dependent objects only
@@ -140,6 +141,9 @@ export function renamesIn(sql) {
   const table = /^\s*alter table (?:if exists )?(?:public\.)?(\w+)\s+rename to (\w+);/gim
   const column = /^\s*alter table (?:if exists )?(?:public\.)?(\w+)\s+rename column\s+(\w+)\s+to\s+(\w+);/gim
   const objects = /^\s*select public\.__rename_schema_objects\(\s*'([^']+)'\s*,\s*'([^']+)'\s*\);/gim
+  // A function rename is global, as a table rename is: no two functions here
+  // share a name, so every mention of the old one is a mention of that one.
+  const fn = /^\s*alter function (?:public\.)?(\w+)\s*\([^)]*\)\s+rename to (\w+);/gim
   // One `alter table` may drop several columns in one statement.
   const alter = /^\s*alter table (?:if exists )?(?:public\.)?(\w+)\b([^;]*);/gim
   const dropped = /\bdrop column (?:if exists )?(\w+)/gi
@@ -150,6 +154,9 @@ export function renamesIn(sql) {
   }
   for (const [match, table_, from, to] of sql.matchAll(column)) {
     found.push([sql.indexOf(match), { kind: 'column', table: table_, from, to }])
+  }
+  for (const [match, from, to] of sql.matchAll(fn)) {
+    found.push([sql.indexOf(match), { kind: 'identifier', from, to }])
   }
   for (const [match, from, to] of sql.matchAll(objects)) {
     found.push([sql.indexOf(match), { kind: 'object-name', from, to }])

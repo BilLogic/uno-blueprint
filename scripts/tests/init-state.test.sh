@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # What init proves against a real database:
 #   1. an empty database starts onboarding; a seeded one starts daily work;
-#   2. all three profiles are offered, with their separate may-confirm rights;
-#   3. a contribution is attributed, and only a confirmer approves it;
+#   2. all three profiles are offered, with their separate may-approve rights;
+#   3. a contribution is attributed, and only an approver approves it;
 #   4. approval writes the cell once and records the approving login;
 #   5. catch-up reads human edits, and mark-run advances its cursor;
 #   6. findings, queued questions and service proposals need no cell, dedupe,
@@ -69,7 +69,7 @@ CELL=f0000000-0000-4000-8000-110300010001
 state=$(python3 "$INIT" state --db-url "$URL" --profile "$EXPERT")
 [ "$(field entry <<<"$state")" = daily ] || fail "a seeded blueprint did not start daily work"
 [ "$(field profiles.count <<<"$state")" = 3 ] || fail "the three profiles were not offered"
-[ "$(owner 'select count(*) from public.profiles where may_confirm')" = 2 ] || fail "may-confirm changed"
+[ "$(owner 'select count(*) from public.profiles where may_approve')" = 2 ] || fail "may-approve changed"
 suggestion=$(python3 "$INIT" contribute --db-url "$URL" --profile "$EXPERT" --cell "$CELL" \
   --title "Told to Uno in a session" --note "Intake starts with a call." \
   --proposed "Intake starts with a call" | field suggested_change_id)
@@ -79,11 +79,11 @@ suggestion=$(python3 "$INIT" contribute --db-url "$URL" --profile "$EXPERT" --ce
 if output=$(trap - ERR; python3 "$INIT" approve --db-url "$URL" --profile "$EXPERT" --suggestion "$suggestion" 2>&1); then
   fail "a contributor approved a change"
 fi
-[[ "$output" == *"only someone who may confirm"* ]] || fail "approval refused for the wrong reason"
+[[ "$output" == *"only someone who may approve"* ]] || fail "approval refused for the wrong reason"
 python3 "$INIT" approve --db-url "$URL" --profile "$CONSULTANT" --suggestion "$suggestion" >/dev/null
-[ "$(owner "select confirmed_by from public.cells where id = '$CELL'")" = "$CONSULTANT" ] || fail "approval did not confirm"
+[ "$(owner "select approved_by from public.cells where id = '$CELL'")" = "$CONSULTANT" ] || fail "approval did not approve the cell"
 [ "$(owner "select content from public.cells where id = '$CELL'")" = 'Intake starts with a call' ] || fail "approval did not write the cell"
-[ "$(owner "select count(*) from public.authoring_changes where fn = 'approve_suggested_change' and args ? 'update' and (revert->'args'->'update') ? 'confirmed_by' and revert->'args'->'update'->'confirmed_by' = 'null'::jsonb and author_id = (select user_id from public.profiles where id = '$CONSULTANT')")" = 1 ] || fail "approval did not log the approving login once"
+[ "$(owner "select count(*) from public.authoring_changes where fn = 'approve_suggested_change' and args ? 'update' and (revert->'args'->'update') ? 'approved_by' and revert->'args'->'update'->'approved_by' = 'null'::jsonb and author_id = (select user_id from public.profiles where id = '$CONSULTANT')")" = 1 ] || fail "approval did not log the approving login once"
 owner "insert into public.authoring_changes (fn, label) values ('update_cell_content', 'A canvas edit')" >/dev/null
 edits=$(python3 "$INIT" state --db-url "$URL" --profile "$EXPERT" | field changes_since_last_run)
 [[ "$edits" == *"A canvas edit"* ]] || fail "the canvas edit was not reported"

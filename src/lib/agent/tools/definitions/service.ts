@@ -37,7 +37,7 @@ export const listServicesTool = defineTool({
 
 export const createServiceTool = structureWrite({
   name: 'create_service',
-  description: 'Start a new service when a topic fits none of this business’s services. Propose its name and get a yes from someone who may confirm first. Other callers record a proposal. Returns the service id for creating its first phase.',
+  description: 'Start a new service when a topic fits none of this business’s services. Propose its name and get a yes from someone who may approve first. Other callers record a proposal. Returns the service id for creating its first phase.',
   args: z.object({ name: arg.text('Service name'), summary: arg.optionalText('What this service offers; omit for none') }),
   confirmation: true,
 })

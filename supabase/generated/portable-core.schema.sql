@@ -292,7 +292,7 @@ end $$;
 CREATE FUNCTION public.agent_service_required_message() RETURNS text
     LANGUAGE sql IMMUTABLE
     SET search_path TO 'pg_catalog', 'pg_temp'
-    AS $$ select 'Choose service_id from list_services. If none exists, propose create_service and ask someone who may confirm for a yes.'::text $$;
+    AS $$ select 'Choose service_id from list_services. If none exists, propose create_service and ask someone who may approve for a yes.'::text $$;
 
 --
 -- Name: agent_state_drift(jsonb, jsonb); Type: FUNCTION; Schema: public; Owner: -
@@ -433,7 +433,7 @@ begin
   state:=public.agent_tool_state(a);
   free:=p_tool in ('create_finding','create_evidence') or (p_tool='update_evidence' and exists(
     select 1 from public.evidence e where e.id=(a->>'evidence_id')::uuid and e.contributed_by=profile));
-  if not p_preview and not free then perform public.confirming_profile_id(); end if;
+  if not p_preview and not free then perform public.approving_profile_id(); end if;
   ids:=public.agent_named_cells(a);
   n:=cardinality(ids);
   if p_tool='duplicate_path' and coalesce((a->>'copy_cells')::boolean,true) then select count(*) into n from public.cells where path_id=(a->>'source_path_id')::uuid;
@@ -508,7 +508,7 @@ begin
         if not (a ?| array['content','summary','owner','perceived_owner','function','form','value_props']) then raise exception 'Name at least one cell field to change.'; end if;
         update public.cells set content=coalesce(a->>'content',content),summary=coalesce(a->>'summary',summary),
           owner=coalesce(a->>'owner',owner),perceived_owner=coalesce(a->>'perceived_owner',perceived_owner),
-          function=coalesce(a->>'function',function),form=coalesce(a->>'form',form),value_props=coalesce(a->'value_props',value_props),confirmed_by=profile,confirmed_at=now(),updated_at=now()
+          function=coalesce(a->>'function',function),form=coalesce(a->>'form',form),value_props=coalesce(a->'value_props',value_props),approved_by=profile,approved_at=now(),updated_at=now()
           where cells.id=before_cell.id;
         if a ? 'content' then perform public.sync_cell_touchpoints(before_cell.id,regexp_split_to_array(a->>'content',E'[\\r\\n,]+')); end if;
         result:=jsonb_build_object('cell_id',before_cell.id);
@@ -565,13 +565,13 @@ begin
           return jsonb_build_object('outcome','suppressed','message','A person dismissed this finding; nothing was recorded.');
         elsif existing.status='open' then
           if existing.recorded_by is distinct from profile and not exists(
-            select 1 from public.profiles p where p.id=profile and p.may_confirm
+            select 1 from public.profiles p where p.id=profile and p.may_approve
           ) then
             perform set_config('ub.capture_agent_prior',coalesce(old_capture,''),true);
     perform set_config('ub.agent_prior_rows',coalesce(old_rows,''),true);
     perform set_config('ub.agent_transaction',coalesce(old_gate,''),true);
             return jsonb_build_object('outcome','unchanged','result',existing.id,
-              'message','An open finding already records this check. Only its original recorder or someone who may confirm can revise it; nothing was changed.');
+              'message','An open finding already records this check. Only its original recorder or someone who may approve can revise it; nothing was changed.');
           end if;
           update public.audit_findings set run_id=coalesce((a->>'run_id')::uuid,gen_random_uuid()),source=a->>'source',severity=a->>'severity',impact=a->>'impact',effort=a->>'effort',summary=a->>'summary',cell_ids=ids,cell_keys=array(select x::text from unnest(ids) x),updated_at=now() where audit_findings.id=existing.id;
           id:=existing.id;
@@ -644,6 +644,33 @@ begin
 end $$;
 
 --
+-- Name: approve_cell(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.approve_cell(p_cell_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'pg_temp'
+    AS $$
+declare
+  v_profile uuid := public.approving_profile_id();
+begin
+  update public.cells
+     set approved_by = v_profile, approved_at = now(), updated_at = now()
+   where id = p_cell_id;
+  if not found then
+    raise exception 'no cell %', p_cell_id;
+  end if;
+  return jsonb_build_object('cell_id', p_cell_id, 'approved_by', v_profile);
+end
+$$;
+
+--
+-- Name: FUNCTION approve_cell(p_cell_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.approve_cell(p_cell_id uuid) IS 'Approve a cell as it stands, in the caller''s name. Refused unless the caller''s profile may approve.';
+
+--
 -- Name: approve_cell_content_in_session(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -652,7 +679,7 @@ CREATE FUNCTION public.approve_cell_content_in_session(p_id uuid, p_session_id u
     SET search_path TO 'pg_catalog', 'pg_temp'
     AS $$
 declare
-  v_profile uuid := public.confirming_profile_id();
+  v_profile uuid := public.approving_profile_id();
   v_change public.suggested_changes;
   v_previous public.cells;
 begin
@@ -666,8 +693,8 @@ begin
   select * into strict v_previous from public.cells where id = v_change.cell_id for update;
   update public.cells
      set content = v_change.proposed_content,
-         confirmed_by = v_profile,
-         confirmed_at = now(),
+         approved_by = v_profile,
+         approved_at = now(),
          updated_at = now()
    where id = v_change.cell_id;
   update public.suggested_changes
@@ -676,14 +703,14 @@ begin
   insert into public.authoring_changes (author, agent_session_id, author_id, proposed_by, approved_by, fn, args, revert)
   values (case when p_session_id is null then 'human' else 'agent' end, p_session_id, (select user_id from public.profiles where id = v_profile), v_change.suggested_by, v_profile,
     'approve_suggested_change', jsonb_build_object('cell_id', v_change.cell_id, 'update',
-      jsonb_build_object('content', v_change.proposed_content, 'confirmed_by', v_profile, 'confirmed_at', now())),
+      jsonb_build_object('content', v_change.proposed_content, 'approved_by', v_profile, 'approved_at', now())),
     jsonb_build_object('fn', 'update_cell_content', 'args',
       jsonb_build_object('cell_id', v_previous.id, 'update',
         jsonb_build_object('content', v_previous.content, 'summary', coalesce(v_previous.summary, ''),
           'owner', coalesce(v_previous.owner, ''), 'perceivedOwner', coalesce(v_previous.perceived_owner, ''),
-          'status', v_previous.status, 'confirmed_by', v_previous.confirmed_by,
-          'confirmed_at', v_previous.confirmed_at))));
-  return jsonb_build_object('cell_id', v_change.cell_id, 'confirmed_by', v_profile);
+          'status', v_previous.status, 'approved_by', v_previous.approved_by,
+          'approved_at', v_previous.approved_at))));
+  return jsonb_build_object('cell_id', v_change.cell_id, 'approved_by', v_profile);
 end
 $$;
 
@@ -702,7 +729,7 @@ $$;
 -- Name: FUNCTION approve_cell_content_suggestion(p_id uuid); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.approve_cell_content_suggestion(p_id uuid) IS 'Apply a pending suggested change to its cell and owner-confirm the cell in the caller''s name. Refused unless the caller''s profile may confirm.';
+COMMENT ON FUNCTION public.approve_cell_content_suggestion(p_id uuid) IS 'Apply a pending suggested change to its cell and approve the cell in the caller''s name. Refused unless the caller''s profile may approve.';
 
 --
 -- Name: approve_proposal_in_session(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -712,7 +739,7 @@ CREATE FUNCTION public.approve_proposal_in_session(p_id uuid, p_session_id uuid)
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'pg_catalog', 'pg_temp'
     AS $$
-declare proposal public.suggested_changes; approver uuid:=public.confirming_profile_id(); result jsonb; drift text;
+declare proposal public.suggested_changes; approver uuid:=public.approving_profile_id(); result jsonb; drift text;
 begin
   select * into proposal from public.suggested_changes where id=p_id for update;
   if proposal.id is null then raise exception 'That proposal no longer exists.'; end if;
@@ -742,6 +769,32 @@ CREATE FUNCTION public.approve_suggested_change(p_id uuid) RETURNS jsonb
     AS $$
   select public.approve_proposal_in_session(p_id,null)
 $$;
+
+--
+-- Name: approving_profile_id(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.approving_profile_id() RETURNS uuid
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'pg_temp'
+    AS $$
+declare
+  v_profile public.profiles;
+begin
+  select * into v_profile from public.profiles where id = public.caller_profile_id();
+  if v_profile.id is null or not v_profile.may_approve then
+    raise exception 'only someone who may approve can approve a change or a cell'
+      using errcode = '42501';
+  end if;
+  return v_profile.id;
+end
+$$;
+
+--
+-- Name: FUNCTION approving_profile_id(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.approving_profile_id() IS 'Guard: the caller''s profile id, refused unless that profile may approve.';
 
 --
 -- Name: authoring_changes_are_append_only(); Type: FUNCTION; Schema: public; Owner: -
@@ -944,53 +997,6 @@ begin
 
   delete from public.cell_dependencies where id = dependency_id;
 end;
-$$;
-
---
--- Name: confirm_cell(uuid); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.confirm_cell(p_cell_id uuid) RETURNS jsonb
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'pg_catalog', 'pg_temp'
-    AS $$
-declare
-  v_profile uuid := public.confirming_profile_id();
-begin
-  update public.cells
-     set confirmed_by = v_profile, confirmed_at = now(), updated_at = now()
-   where id = p_cell_id;
-  if not found then
-    raise exception 'no cell %', p_cell_id;
-  end if;
-  return jsonb_build_object('cell_id', p_cell_id, 'confirmed_by', v_profile);
-end
-$$;
-
---
--- Name: FUNCTION confirm_cell(p_cell_id uuid); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.confirm_cell(p_cell_id uuid) IS 'Owner-confirm a cell as it stands, in the caller''s name. Refused unless the caller''s profile may confirm.';
-
---
--- Name: confirming_profile_id(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.confirming_profile_id() RETURNS uuid
-    LANGUAGE plpgsql STABLE SECURITY DEFINER
-    SET search_path TO 'pg_catalog', 'pg_temp'
-    AS $$
-declare
-  v_profile public.profiles;
-begin
-  select * into v_profile from public.profiles where id = public.caller_profile_id();
-  if v_profile.id is null or not v_profile.may_confirm then
-    raise exception 'only someone who may confirm can approve a change or confirm a cell'
-      using errcode = '42501';
-  end if;
-  return v_profile.id;
-end
 $$;
 
 --
@@ -1214,7 +1220,7 @@ CREATE FUNCTION public.decline_suggested_change(p_id uuid) RETURNS jsonb
     SET search_path TO 'pg_catalog', 'pg_temp'
     AS $$
 declare
-  v_profile uuid := public.confirming_profile_id();
+  v_profile uuid := public.approving_profile_id();
 begin
   update public.suggested_changes
      set status = 'declined', decided_by = v_profile, decided_at = now()
@@ -1230,7 +1236,7 @@ $$;
 -- Name: FUNCTION decline_suggested_change(p_id uuid); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.decline_suggested_change(p_id uuid) IS 'Guard: the caller''s profile must hold may_confirm. Declines a pending suggestion without changing its cell.';
+COMMENT ON FUNCTION public.decline_suggested_change(p_id uuid) IS 'Guard: the caller''s profile must hold may_approve. Declines a pending suggestion without changing its cell.';
 
 --
 -- Name: delete_cell(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -3219,7 +3225,7 @@ begin
   if profile.id is null then raise exception 'Sign in with a linked profile before writing.' using errcode='42501'; end if;
   free:=p_tool in ('create_finding','create_evidence') or (p_tool='update_evidence' and exists(
     select 1 from public.evidence e where e.id=(p_args->>'evidence_id')::uuid and e.contributed_by=profile.id));
-  if (profile.may_confirm and p_confirmed) or free then
+  if (profile.may_approve and p_confirmed) or free then
     return public.agent_tool_transaction(p_tool,p_args,p_service_id,p_session_id,false);
   end if;
   preview:=public.agent_tool_transaction(p_tool,p_args,p_service_id,p_session_id,true);
@@ -3229,7 +3235,7 @@ begin
   end if;
   insert into public.suggested_changes(tool_name,tool_args,service_id,base_state,suggested_by)
     values(p_tool,p_args,p_service_id,preview->'base_state',profile.id) returning id into proposal;
-  return jsonb_build_object('outcome','proposed','suggested_change_id',proposal,'message','Recorded a proposal; the blueprint is unchanged. A person who may confirm must review and approve it.');
+  return jsonb_build_object('outcome','proposed','suggested_change_id',proposal,'message','Recorded a proposal; the blueprint is unchanged. A person who may approve must review and approve it.');
 end $$;
 
 --
@@ -4944,9 +4950,9 @@ CREATE TABLE public.cells (
     cell_key text,
     "position" integer DEFAULT 0 NOT NULL,
     status public.entity_status DEFAULT 'live'::text NOT NULL,
-    confirmed_by uuid,
-    confirmed_at timestamp with time zone,
-    CONSTRAINT cells_confirmed_paired CHECK (((confirmed_by IS NULL) = (confirmed_at IS NULL))),
+    approved_by uuid,
+    approved_at timestamp with time zone,
+    CONSTRAINT cells_approved_paired CHECK (((approved_by IS NULL) = (approved_at IS NULL))),
     CONSTRAINT cells_origin_check CHECK ((origin = ANY (ARRAY['import'::text, 'app'::text]))),
     CONSTRAINT cells_value_props_is_array CHECK ((jsonb_typeof(value_props) = 'array'::text))
 );
@@ -5024,16 +5030,16 @@ COMMENT ON COLUMN public.cells."position" IS 'Ordering within one (lane, step) s
 COMMENT ON COLUMN public.cells.status IS 'How far along the thing this cell describes is. Defaults to live — a current-state blueprint documents what is in use.';
 
 --
--- Name: COLUMN cells.confirmed_by; Type: COMMENT; Schema: public; Owner: -
+-- Name: COLUMN cells.approved_by; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.cells.confirmed_by IS 'The profile that confirmed this cell''s value: set when someone who may confirm approves a change to it or vouches for it. Null when nobody has. Owner-confirmed outranks anything Uno inferred.';
+COMMENT ON COLUMN public.cells.approved_by IS 'The profile that approved this cell''s value: set when someone who may approve approves a change to it or approves it as it stands. Null when nobody has. An approved cell outranks anything Uno inferred.';
 
 --
--- Name: COLUMN cells.confirmed_at; Type: COMMENT; Schema: public; Owner: -
+-- Name: COLUMN cells.approved_at; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.cells.confirmed_at IS 'When confirmed_by confirmed this cell''s value. Set with it, cleared with it.';
+COMMENT ON COLUMN public.cells.approved_at IS 'When approved_by approved this cell''s value. Set with it, cleared with it.';
 
 --
 -- Name: evidence; Type: TABLE; Schema: public; Owner: -
@@ -5291,7 +5297,7 @@ CREATE TABLE public.profiles (
     stakeholder_id uuid NOT NULL,
     user_id uuid,
     display_name text NOT NULL,
-    may_confirm boolean DEFAULT false NOT NULL,
+    may_approve boolean DEFAULT false NOT NULL,
     register text DEFAULT 'everyday'::text NOT NULL,
     dismissed_nudges text[] DEFAULT '{}'::text[] NOT NULL,
     last_run_at timestamp with time zone,
@@ -5305,7 +5311,7 @@ CREATE TABLE public.profiles (
 -- Name: TABLE profiles; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.profiles IS 'One person who talks to Uno: the stakeholder they are in the business, how Uno works with them, and whether they may confirm. Not a stakeholder: the stakeholder says who someone is, the profile says how Uno works with them. A person reads and edits only their own; list_profile_stakeholders shows everyone''s stakeholder link.';
+COMMENT ON TABLE public.profiles IS 'One person who talks to Uno: the stakeholder they are in the business, how Uno works with them, and whether they may approve. Not a stakeholder: the stakeholder says who someone is, the profile says how Uno works with them. A person reads and edits only their own; list_profile_stakeholders shows everyone''s stakeholder link.';
 
 --
 -- Name: COLUMN profiles.stakeholder_id; Type: COMMENT; Schema: public; Owner: -
@@ -5326,10 +5332,10 @@ COMMENT ON COLUMN public.profiles.user_id IS 'The login account this person sign
 COMMENT ON COLUMN public.profiles.display_name IS 'What Uno calls this person.';
 
 --
--- Name: COLUMN profiles.may_confirm; Type: COMMENT; Schema: public; Owner: -
+-- Name: COLUMN profiles.may_approve; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.profiles.may_confirm IS 'Whether this person approves changes to the blueprint and makes a cell owner-confirmed. Set by an operator, never by the person.';
+COMMENT ON COLUMN public.profiles.may_approve IS 'Whether this person approves changes to the blueprint and makes a cell approved. Set by an operator, never by the person.';
 
 --
 -- Name: COLUMN profiles.register; Type: COMMENT; Schema: public; Owner: -
@@ -5826,7 +5832,7 @@ CREATE TABLE public.suggested_changes (
 -- Name: TABLE suggested_changes; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.suggested_changes IS 'A change to a cell''s content that someone who may not confirm suggested, waiting for someone who may. Written and decided through record_contribution and approve_suggested_change only.';
+COMMENT ON TABLE public.suggested_changes IS 'A change to a cell''s content that someone who may not approve suggested, waiting for someone who may. Written and decided through record_contribution and approve_suggested_change only.';
 
 --
 -- Name: COLUMN suggested_changes.proposed_content; Type: COMMENT; Schema: public; Owner: -
@@ -6864,11 +6870,11 @@ ALTER TABLE ONLY public.cell_touchpoints
     ADD CONSTRAINT cell_touchpoints_touchpoint_id_fkey FOREIGN KEY (touchpoint_id) REFERENCES public.touchpoints(id) ON DELETE RESTRICT;
 
 --
--- Name: cells cells_confirmed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: cells cells_approved_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.cells
-    ADD CONSTRAINT cells_confirmed_by_fkey FOREIGN KEY (confirmed_by) REFERENCES public.profiles(id) ON DELETE SET NULL;
+    ADD CONSTRAINT cells_approved_by_fkey FOREIGN KEY (approved_by) REFERENCES public.profiles(id) ON DELETE SET NULL;
 
 --
 -- Name: cells cells_lane_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -

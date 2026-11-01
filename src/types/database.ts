@@ -397,9 +397,9 @@ export type Database = {
       }
       cells: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           cell_key: string | null
-          confirmed_at: string | null
-          confirmed_by: string | null
           content: string
           created_at: string
           form: string | null
@@ -419,9 +419,9 @@ export type Database = {
           value_props: NonNullable<Json>
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           cell_key?: string | null
-          confirmed_at?: string | null
-          confirmed_by?: string | null
           content?: string
           created_at?: string
           form?: string | null
@@ -441,9 +441,9 @@ export type Database = {
           value_props?: NonNullable<Json>
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           cell_key?: string | null
-          confirmed_at?: string | null
-          confirmed_by?: string | null
           content?: string
           created_at?: string
           form?: string | null
@@ -464,8 +464,8 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "cells_confirmed_by_fkey"
-            columns: ["confirmed_by"]
+            foreignKeyName: "cells_approved_by_fkey"
+            columns: ["approved_by"]
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -762,7 +762,7 @@ export type Database = {
           display_name: string
           id: string
           last_run_at: string | null
-          may_confirm: boolean
+          may_approve: boolean
           register: string
           stakeholder_id: string
           updated_at: string
@@ -774,7 +774,7 @@ export type Database = {
           display_name: string
           id?: string
           last_run_at?: string | null
-          may_confirm?: boolean
+          may_approve?: boolean
           register?: string
           stakeholder_id: string
           updated_at?: string
@@ -786,7 +786,7 @@ export type Database = {
           display_name?: string
           id?: string
           last_run_at?: string | null
-          may_confirm?: boolean
+          may_approve?: boolean
           register?: string
           stakeholder_id?: string
           updated_at?: string
@@ -1505,6 +1505,7 @@ export type Database = {
         }
         Returns: Json
       }
+      approve_cell: { Args: { p_cell_id: string }; Returns: Json }
       approve_cell_content_in_session: {
         Args: { p_id: string; p_session_id: string }
         Returns: Json
@@ -1515,6 +1516,10 @@ export type Database = {
         Returns: Json
       }
       approve_suggested_change: { Args: { p_id: string }; Returns: Json }
+      approving_profile_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       caller_profile_id: { Args: Record<PropertyKey, never>; Returns: string }
       cell_natural_key: { Args: { cell_id: string }; Returns: string }
       change_step_path: {
@@ -1536,11 +1541,6 @@ export type Database = {
       clear_cell_dependency: {
         Args: { dependency_id: string }
         Returns: undefined
-      }
-      confirm_cell: { Args: { p_cell_id: string }; Returns: Json }
-      confirming_profile_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
       }
       create_path: {
         Args: {

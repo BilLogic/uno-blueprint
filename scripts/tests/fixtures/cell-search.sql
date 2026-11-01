@@ -7,7 +7,7 @@ insert into public.stakeholders(id,name,kind) values
  ('e0000000-0000-4000-8000-000000000001','Reviewing partner','partner'),
  ('e0000000-0000-4000-8000-000000000002','Contributing colleague','staff'),
  ('e0000000-0000-4000-8000-000000000003','Another contributing colleague','staff') on conflict(id) do nothing;
-insert into public.profiles(id,stakeholder_id,user_id,display_name,may_confirm) values
+insert into public.profiles(id,stakeholder_id,user_id,display_name,may_approve) values
  ('b0000000-0000-4000-8000-000000000001','e0000000-0000-4000-8000-000000000001','c0000000-0000-4000-8000-000000000001','Reviewer',true),
  ('b0000000-0000-4000-8000-000000000002','e0000000-0000-4000-8000-000000000002','c0000000-0000-4000-8000-000000000002','Contributor',false),
  ('b0000000-0000-4000-8000-000000000003','e0000000-0000-4000-8000-000000000003','c0000000-0000-4000-8000-000000000003','Peer',false);

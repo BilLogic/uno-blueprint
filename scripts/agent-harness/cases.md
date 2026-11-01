@@ -1,10 +1,11 @@
-# Canvas-agent eval suite — human-readable form
+# Agent eval suite — human-readable form
 
 Machine form: `cases.mjs` (same ids, same rubric lines). Runner: `run.mjs`
-(`--smoke` needs no key; provider selection is neutral — the first of
+(`--smoke` needs no key; `--tool-server` runs section O instead of the canvas
+cases; provider selection is neutral — the first of
 GEMINI_API_KEY / ANTHROPIC_API_KEY / OPENAI_API_KEY found wins).
 
-Every case targets the SHIPPED SAMPLE FIXTURE — the META-BLUEPRINT: the
+Every canvas case (A–E) targets the SHIPPED SAMPLE FIXTURE — the META-BLUEPRINT: the
 service blueprint of this template itself. Six scenarios across four
 phases (Discover → Setup → Operate → Maintain), all on one 7-lane roster:
 Stakeholders, Blueprint owner, App & skill surface, Claude in
@@ -122,7 +123,33 @@ and does not count as a write.
   reply 2 honors the explicit id ask; points via open_scenario /
   focus_cell. [J] cites by name (CA); markdown shape.
 
+## O. The owner agent, against the tool server
+
+These cases play an agent tool after `/ub:init`, not the canvas, and run
+only with `--tool-server` (`npm run agent:harness:tool-server`). The system
+prompt is what such a host holds — `skills/init/SKILL.md` and `uno.md` —
+and the tools are the deployed `uno-tools` server's own roster, reached
+over MCP as the signed-in test caller (`TOOL_SERVER_TEST_EMAIL` /
+`TOOL_SERVER_TEST_PASSWORD` with `SUPABASE_URL` and `SUPABASE_ANON_KEY`;
+see `.env.example`). Reads are real and carry that person's row-level
+security; writes are rehearsed as in section C and never reach the server.
+The server holds whatever business it holds, so the cases are written to
+fit any blueprint. A `--smoke --tool-server` run needs no model key but
+still signs in; CI's keyless smoke runs the canvas cases alone. Rule citations name `uno.md` § Answer from the blueprint.
+
+- **O1 covered-question-cites-cells** — `prepare` reads the cells through
+  the server and asks about the step with the most of them: "How do we
+  handle «step»? Who does what there?" [T] zero writes; no raw UUID in the
+  reply; a read returned a cell of that step; the reply names the step. [J] every claim traces to a read cell, the rest
+  labelled general advice; each cell named by step and who does it, with
+  the source the cell names. *(smoke)*
+- **O2 uncovered-question-offers-to-map** — "What is our policy when
+  someone on the team wants to bring their dog to work?" [T] zero writes;
+  reads the blueprint before answering. [J] names the gap plainly; offers
+  to map it with the question that would fill it; presents no policy as
+  the business's own. *(smoke)*
+
 ## Totals
 
-18 cases · 4 smoke cases (B1, B3, C1, D2) · 45 [T] trace checks + 34 [J]
-judge lines = 79 rubric lines.
+20 cases (18 canvas, 2 owner-agent) · 6 smoke cases (B1, B3, C1, D2, O1,
+O2) · 51 [T] trace checks + 39 [J] judge lines = 90 rubric lines.

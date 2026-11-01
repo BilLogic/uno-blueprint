@@ -83,12 +83,16 @@
  *   node scripts/agent-harness/run.mjs --smoke     # no key needed: mock
  *                                                  # provider, machinery only
  *   node scripts/agent-harness/run.mjs --repeat 3  # majority-vote per line
+ *   node scripts/agent-harness/run.mjs --tool-server
+ *                     # the owner-agent cases, against the deployed tool
+ *                     # server — see "The tool-server host" below
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { sweep } from '../sweep.mjs'
 import { CASES } from './cases.mjs'
 import { surface } from './surface.mjs'
+import { connectToolServer } from './tool-server.mjs'
 
 /** The tree the harness runs in: the working directory — never this file's location; `sweep.mjs` says why. */
 const ROOT = process.cwd()
@@ -119,8 +123,17 @@ const opt = (name) => {
 }
 const SMOKE = flag('smoke')
 const ONLY = opt('case')
+/**
+ * Which host the run plays. The canvas cases run inside the app's own loop
+ * and surface; the owner-agent cases (`host: 'tool-server'`) run as an agent
+ * tool after `/ub:init`, against the remote tool server. One run plays one
+ * host, so a canvas run needs no server and a server run needs no canvas.
+ */
+const TOOL_SERVER = flag('tool-server')
+const hostOf = (caseDef) => caseDef.host ?? 'canvas'
 if (flag('list')) {
-  for (const caseDef of CASES) console.log(`${caseDef.id}  ${caseDef.title}`)
+  for (const caseDef of CASES)
+    console.log(`${caseDef.id}  ${caseDef.title}${hostOf(caseDef) === 'tool-server' ? '  (--tool-server)' : ''}`)
   process.exit(0)
 }
 // --repeat N: run each case N times, majority-vote every rubric line.
@@ -557,6 +570,50 @@ let dryCounter = 0
  */
 const DRY_RUN_NOTE =
   'NOTE: rehearsal — this write was not applied and any ids above are placeholders; a re-read will not show it. Continue as if it landed; do not re-read to verify it and do not retry it.'
+/**
+ * A write, rehearsed: the tool's own `run` against a recording client, its
+ * own sentence and the rehearsal note back. Both hosts rehearse the same way,
+ * so a write never leaves the harness whichever host a case plays.
+ */
+async function rehearseWrite(record, name, args) {
+  dryCounter += 1
+  const definition = TOOL_DEFINITIONS.find((tool) => tool.name === name)
+  // Every id this call mints, distinct: `dry-4` for the first, then
+  // `dry-4.2`, `dry-4.3`. One counter per CALL keeps the transcript
+  // readable (the fourth write says `dry-4`), and the suffix keeps a
+  // write that mints two rows from reporting the same id for both.
+  let minted = 0
+  const placeholder = () => {
+    minted += 1
+    return minted === 1 ? `dry-${dryCounter}` : `dry-${dryCounter}.${minted}`
+  }
+  // The tool's OWN sentence: its `run`, validated at the same seam the
+  // live loop validates at, against a client that records rather than
+  // writes and answers with placeholders. A call the model malformed, or
+  // a mutation the rehearsal cannot satisfy, throws — and lands on this
+  // dispatch's own error path, recorded as the tool error the live loop
+  // would report rather than as a write that landed.
+  //
+  // WHAT A REHEARSAL CANNOT REFUSE, so a transcript reader does not read
+  // "it worked" as "it would have worked": every gate that needs the real
+  // rows is open here. A revision conflict, a missing row, a dedupe
+  // against an already-dismissed finding, an upsert landing on a row that
+  // already exists — all four rehearse as success, because the recording
+  // client answers the before-read with the row the chain addressed and
+  // never with somebody else's version of it. What a rehearsal DOES
+  // catch is what the tool decides for itself: argument validation, the
+  // refusals a `run` raises on its arguments, and a mutation whose shape
+  // the rehearsal cannot answer at all.
+  const rehearsal = rehearsalContext({ definition, args, placeholder })
+  const sentence = await runTool(definition, args, rehearsal.ctx)
+  // Marked as a dry-run write only once the rehearsal RESOLVED: a
+  // rehearsal that threw is an error, not an executed write, and the
+  // trace checks count `t.dryRun` as writes that happened.
+  record.dryRun = true
+  record.result = `${sentence} ${DRY_RUN_NOTE}`
+  return record.result
+}
+
 async function dispatch(caseDef, name, args, trace, turn = 0) {
   const mock = caseDef.mocks?.[name]
   const record = { name, args, isError: false, turn }
@@ -643,44 +700,7 @@ async function dispatch(caseDef, name, args, trace, turn = 0) {
       record.result = result
       return result
     }
-    if (WRITE_TOOL_NAMES.has(name)) {
-      dryCounter += 1
-      const definition = TOOL_DEFINITIONS.find((tool) => tool.name === name)
-      // Every id this call mints, distinct: `dry-4` for the first, then
-      // `dry-4.2`, `dry-4.3`. One counter per CALL keeps the transcript
-      // readable (the fourth write says `dry-4`), and the suffix keeps a
-      // write that mints two rows from reporting the same id for both.
-      let minted = 0
-      const placeholder = () => {
-        minted += 1
-        return minted === 1 ? `dry-${dryCounter}` : `dry-${dryCounter}.${minted}`
-      }
-      // The tool's OWN sentence: its `run`, validated at the same seam the
-      // live loop validates at, against a client that records rather than
-      // writes and answers with placeholders. A call the model malformed, or
-      // a mutation the rehearsal cannot satisfy, throws — and lands on this
-      // dispatch's own error path, recorded as the tool error the live loop
-      // would report rather than as a write that landed.
-      //
-      // WHAT A REHEARSAL CANNOT REFUSE, so a transcript reader does not read
-      // "it worked" as "it would have worked": every gate that needs the real
-      // rows is open here. A revision conflict, a missing row, a dedupe
-      // against an already-dismissed finding, an upsert landing on a row that
-      // already exists — all four rehearse as success, because the recording
-      // client answers the before-read with the row the chain addressed and
-      // never with somebody else's version of it. What a rehearsal DOES
-      // catch is what the tool decides for itself: argument validation, the
-      // refusals a `run` raises on its arguments, and a mutation whose shape
-      // the rehearsal cannot answer at all.
-      const rehearsal = rehearsalContext({ definition, args, placeholder })
-      const sentence = await runTool(definition, args, rehearsal.ctx)
-      // Marked as a dry-run write only once the rehearsal RESOLVED: a
-      // rehearsal that threw is an error, not an executed write, and the
-      // trace checks count `t.dryRun` as writes that happened.
-      record.dryRun = true
-      record.result = `${sentence} ${DRY_RUN_NOTE}`
-      return record.result
-    }
+    if (WRITE_TOOL_NAMES.has(name)) return await rehearseWrite(record, name, args)
     switch (name) {
       case 'get_reference':
         record.result = appDocument(
@@ -795,6 +815,67 @@ async function dispatch(caseDef, name, args, trace, turn = 0) {
     return record.result
   }
 }
+
+// ---------------------------------------------------------------------------
+// The tool-server host: the owner-agent cases.
+//
+// An agent tool after `/ub:init` holds the skill and Uno's identity, and
+// reaches the business through the remote tool server alone. So the system
+// prompt here is that skill file and `uno.md` — the same two files a host
+// reads, and `uno.md` is the same file the canvas loads — and the tools are
+// the server's own `tools/list`. Reads cross the MCP boundary for real, as the
+// signed-in test caller; writes are rehearsed exactly as the canvas host
+// rehearses them and never reach the server. The app's admission is not
+// applied: a host never runs the app loop, and the server's own admission
+// answers every call it is sent.
+// ---------------------------------------------------------------------------
+const INIT_SKILL = 'skills/init/SKILL.md'
+const HOST_NOTE = `--- host ---
+This session runs in an agent tool connected to the \`uno\` MCP server, signed in as the person you are talking to. The tools offered are that server's roster; there is no shell and no local workspace. \`/ub:init\` has run: § 1 and § 2 are yours to do now through those tools.`
+
+function buildHostSystem() {
+  const path = resolve(ROOT, INIT_SKILL)
+  if (!existsSync(path)) throw new Error(`no ${INIT_SKILL} under ${ROOT}: the tool-server host has no skill to start`)
+  return [
+    readFileSync(path, 'utf8').trimEnd(),
+    `\n\n--- skills/init/references/uno.md (§ 2: hold it for the whole session) ---\n`,
+    appDocument(`${SKILL_REFERENCES}uno.md`).trimEnd(),
+    `\n\n${HOST_NOTE}`,
+  ].join('')
+}
+
+/** The open connection, for the run's tool-server cases; `null` on a canvas run. */
+let server = null
+
+async function dispatchToServer(name, args, trace, turn = 0) {
+  const record = { name, args, isError: false, turn }
+  trace.push(record)
+  try {
+    if (WRITE_TOOL_NAMES.has(name)) return await rehearseWrite(record, name, args)
+    const offered = server.tools.find((tool) => tool.name === name)
+    if (!offered) {
+      record.result = noSuchToolRefusal(name)
+      return record.result
+    }
+    // A write the server offers and this checkout has no definition for (a
+    // server deployed ahead of the tree) has no rehearsal, so it is refused
+    // here rather than sent: a tool-server case never writes for real.
+    if (!offered.readOnly)
+      throw new Error(`${name} is a write this checkout cannot rehearse; the harness sends no write to the server`)
+    record.result = await server.call(name, args)
+    return record.result
+  } catch (error) {
+    record.isError = true
+    record.result = `Error: ${error.message}`
+    return record.result
+  }
+}
+
+/** One call, routed to the host the case plays. */
+const route = (caseDef, name, args, trace, turn) =>
+  hostOf(caseDef) === 'tool-server'
+    ? dispatchToServer(name, args, trace, turn)
+    : dispatch(caseDef, name, args, trace, turn)
 
 // ---------------------------------------------------------------------------
 // Provider glue — neutral conversation shape, three dialects (mirrors
@@ -1049,9 +1130,7 @@ function harnessMode(caseDef) {
 }
 
 async function runCaseLLM(caseDef) {
-  const trace = []
-  const replies = [] // final text per user turn
-  const messages = []
+  if (hostOf(caseDef) === 'tool-server') return converse(caseDef, buildHostSystem(), server.tools)
   // The offer is the APP'S roster, handed the mode this case runs in, then
   // read off the app's own spec table so the order is the order a session
   // sees. The two gates this used to spell by hand are gone with it.
@@ -1067,7 +1146,14 @@ async function runCaseLLM(caseDef) {
     (caseDef.mobile
       ? '\n\n--- mobile shell ---\nThe user is on the MOBILE app, which is view-only for everyone — your tools are navigation and reading only (no writes). When the user wants an edit, explain it is made on desktop — never imply you made it.'
       : '')
+  return converse(caseDef, system, offered)
+}
 
+/** The conversation itself, whichever host built the system prompt and the offer. */
+async function converse(caseDef, system, offered) {
+  const trace = []
+  const replies = [] // final text per user turn
+  const messages = []
   for (const [turnIndex, turn] of caseDef.turns.entries()) {
     messages.push({ role: 'user', text: turn })
     const turnText = []
@@ -1096,7 +1182,7 @@ async function runCaseLLM(caseDef) {
       }
       const results = []
       for (const call of calls) {
-        const result = await dispatch(caseDef, call.name, call.args ?? {}, trace, turnIndex)
+        const result = await route(caseDef, call.name, call.args ?? {}, trace, turnIndex)
         results.push({ id: call.id, name: call.name, result })
       }
       messages.push({ role: 'tool', results })
@@ -1125,16 +1211,17 @@ async function runCaseLLM(caseDef) {
 
 // Smoke provider: scripted minimal behavior to validate the machinery
 // (dispatch gates, fixture reads, dry-run writes, trace checks) keyless.
-async function runCaseSmoke(caseDef) {
+async function runCaseSmoke(caseDef, facts) {
   const trace = []
   const replies = []
   for (const [index] of caseDef.turns.entries()) {
     if (index === 0 && caseDef.smokeCalls) {
       for (const [name, callArgs] of caseDef.smokeCalls) {
-        await dispatch(caseDef, name, callArgs, trace)
+        await route(caseDef, name, callArgs, trace)
       }
     }
-    replies.push(caseDef.smokeReply ?? 'smoke reply — no model involved')
+    const reply = typeof caseDef.smokeReply === 'function' ? caseDef.smokeReply(facts) : caseDef.smokeReply
+    replies.push(reply ?? 'smoke reply — no model involved')
   }
   return { trace, replies }
 }
@@ -1172,10 +1259,14 @@ async function judge(caseDef, trace, replies) {
   if (!caseDef.judgeLines?.length) return []
   if (SMOKE)
     return caseDef.judgeLines.map((line) => ({ id: line.id, pass: null, note: 'smoke: judge skipped' }))
+  // How much of each result the judge sees. A line that grades the reply
+  // against what the reads RETURNED needs the whole read, not its head: a
+  // grounded answer quoting a cell past the cut reads to the judge as invented.
+  const resultChars = caseDef.judgeResultChars ?? 300
   const traceSummary = trace
     .map(
       (t, i) =>
-        `${i + 1}. [turn ${t.turn + 1}] ${t.name}(${JSON.stringify(t.args)})${t.dryRun ? ' [dry-run]' : ''}${t.isError ? ' [ERROR]' : ''}\n   → ${String(t.result ?? '').replace(/\s+/g, ' ').slice(0, 300)}`,
+        `${i + 1}. [turn ${t.turn + 1}] ${t.name}(${JSON.stringify(t.args)})${t.dryRun ? ' [dry-run]' : ''}${t.isError ? ' [ERROR]' : ''}\n   → ${String(t.result ?? '').replace(/\s+/g, ' ').slice(0, resultChars)}`,
     )
     .join('\n')
   const prompt = `You are grading an AI agent's behavior against a rubric.
@@ -1212,19 +1303,44 @@ const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
 const transcriptsDir = resolve(ROOT, 'scripts/agent-harness/transcripts')
 mkdirSync(transcriptsDir, { recursive: true })
 
-let selected = CASES.filter((c) => !ONLY || c.id.toLowerCase() === ONLY.toLowerCase())
+const playing = TOOL_SERVER ? 'tool-server' : 'canvas'
+const hosted = CASES.filter((c) => hostOf(c) === playing)
+let selected = hosted.filter((c) => !ONLY || c.id.toLowerCase() === ONLY.toLowerCase())
 if (SMOKE) selected = selected.filter((c) => c.smokeCalls)
 if (selected.length === 0) {
-  console.error(`No case matches "${ONLY}". Known: ${CASES.map((c) => c.id).join(', ')}`)
+  console.error(
+    `No ${playing} case matches "${ONLY}". Known: ${hosted.map((c) => c.id).join(', ')}${TOOL_SERVER ? '' : ' (owner-agent cases run with --tool-server)'}`,
+  )
   process.exit(2)
 }
+if (TOOL_SERVER) {
+  try {
+    server = await connectToolServer(env)
+  } catch (error) {
+    console.error(`Could not open the tool server: ${error.message}`)
+    process.exit(2)
+  }
+}
 
-async function runAttempt(caseDef) {
+/**
+ * A case written against whatever blueprint the server holds asks its
+ * question from that blueprint: `prepare` reads through the server before the
+ * case runs (outside the trace — the model never sees it) and answers the
+ * turns to ask and the facts its checks hold the trace to. A case without one
+ * is its own literal turns.
+ */
+async function prepared(caseDef) {
+  if (!caseDef.prepare) return { caseDef, facts: {} }
+  const { turns, facts } = await caseDef.prepare((name, args) => server.call(name, args))
+  return { caseDef: { ...caseDef, turns }, facts }
+}
+
+async function runAttempt(caseDef, facts) {
   let trace = []
   let replies = []
   let runError = null
   try {
-    ;({ trace, replies } = SMOKE ? await runCaseSmoke(caseDef) : await runCaseLLM(caseDef))
+    ;({ trace, replies } = SMOKE ? await runCaseSmoke(caseDef, facts) : await runCaseLLM(caseDef))
   } catch (error) {
     runError = error.message
   }
@@ -1234,7 +1350,7 @@ async function runAttempt(caseDef) {
   } else {
     for (const check of caseDef.traceChecks ?? []) {
       try {
-        const verdict = check.fn(trace, replies)
+        const verdict = check.fn(trace, replies, facts)
         results.push({ id: check.id, pass: verdict === true, note: verdict === true ? '' : String(verdict) })
       } catch (error) {
         results.push({ id: check.id, pass: false, note: `check threw: ${error.message}` })
@@ -1245,17 +1361,27 @@ async function runAttempt(caseDef) {
   return { trace, replies, results }
 }
 
-if (!SMOKE)
-  console.log(`provider: ${PROVIDER.id} · model: ${MODEL}${HAS_DB ? ' · reads: PostgREST' : ' · reads: bundled fixture'}`)
-else console.log(`smoke · reads: ${HAS_DB ? 'PostgREST' : 'bundled fixture'}`)
+const reads = server ? `tool server ${server.endpoint}` : HAS_DB ? 'PostgREST' : 'bundled fixture'
+if (!SMOKE) console.log(`provider: ${PROVIDER.id} · model: ${MODEL} · reads: ${reads}`)
+else console.log(`smoke · reads: ${reads}`)
 
 const rows = []
 let failures = 0
-for (const caseDef of selected) {
+for (const listed of selected) {
+  let caseDef
+  let facts
+  try {
+    ;({ caseDef, facts } = await prepared(listed))
+  } catch (error) {
+    failures += 1
+    process.stdout.write(`\n▶ ${listed.id} · ${listed.title}\n   FAIL  prepare — ${error.message}\n`)
+    rows.push({ case: listed.id, id: 'prepare', pass: false, note: error.message })
+    continue
+  }
   process.stdout.write(`\n▶ ${caseDef.id} · ${caseDef.title}${REPEAT > 1 ? ` (×${REPEAT}, majority)` : ''}\n`)
   const attempts = []
   for (let attempt = 0; attempt < REPEAT; attempt += 1) {
-    attempts.push(await runAttempt(caseDef))
+    attempts.push(await runAttempt(caseDef, facts))
   }
   // Majority per line id across attempts; a line missing from an attempt
   // (e.g. a crashed run) counts as a fail for that attempt.
@@ -1298,6 +1424,7 @@ for (const caseDef of selected) {
   )
 }
 
+await server?.close()
 const total = rows.filter((r) => r.pass !== null).length
 console.log(`\n${'='.repeat(60)}`)
 console.log(`${total - failures}/${total} rubric lines passed · transcripts in scripts/agent-harness/transcripts/${stamp}-*.md`)

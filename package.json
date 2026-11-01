@@ -94,6 +94,7 @@
     "check:skills": "node scripts/sync-canvas-skills.mjs --check && node scripts/sync-agent-skills.mjs --check",
     "agent:harness": "node scripts/agent-harness/run.mjs",
     "agent:harness:smoke": "node scripts/agent-harness/run.mjs --smoke",
+    "agent:harness:tool-server": "node scripts/agent-harness/run.mjs --tool-server",
     "generate:portable-core": "node scripts/generate-portable-core.mjs",
     "generate:portable-schema": "node scripts/generate-portable-schema.mjs",
     "check:rpc-arguments": "node scripts/check-rpc-arguments.mjs",
